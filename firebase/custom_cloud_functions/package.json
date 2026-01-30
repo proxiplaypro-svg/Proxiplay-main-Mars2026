@@ -1,0 +1,14 @@
+{
+  "name": "functions",
+  "description": "Firebase Custom Cloud Functions",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "^4.3.1",
+    "nodemailer": "^6.9.3"
+  },
+  "private": true
+}

@@ -1,0 +1,100 @@
+import 'package:collection/collection.dart';
+
+enum Roles {
+  commercant,
+  joueur,
+  admin,
+}
+
+enum AccountStatus {
+  approved,
+  rejected,
+  pendingInfo,
+  pendingValidation,
+  pendingIdentityCard,
+  pendingIdentityPhoto,
+}
+
+enum ClaimStatus {
+  attente,
+  recuperer,
+}
+
+enum PrizeType {
+  principal,
+  secondaire,
+}
+
+enum ResultGame {
+  gagner,
+  perdu,
+}
+
+enum Category {
+  Alimentation,
+  Boissons,
+  Mode,
+  Accessoires,
+  Technologie,
+  Loisirs,
+  Sante,
+  Beaute,
+  Culture,
+  Sport,
+  Maison,
+  Jardin,
+  Services,
+  Automobile,
+  Enfants,
+  Bar_restaurant,
+  Artisan,
+  Batiment,
+  Restaurant,
+}
+
+enum GameType {
+  scratcher,
+  quiz,
+}
+
+enum DayOfTheWeek {
+  Lundi,
+  Mardi,
+  Mercredi,
+  Jeudi,
+  Vendredi,
+  Samedi,
+  Dimanche,
+}
+
+extension FFEnumExtensions<T extends Enum> on T {
+  String serialize() => name;
+}
+
+extension FFEnumListExtensions<T extends Enum> on Iterable<T> {
+  T? deserialize(String? value) =>
+      firstWhereOrNull((e) => e.serialize() == value);
+}
+
+T? deserializeEnum<T>(String? value) {
+  switch (T) {
+    case (Roles):
+      return Roles.values.deserialize(value) as T?;
+    case (AccountStatus):
+      return AccountStatus.values.deserialize(value) as T?;
+    case (ClaimStatus):
+      return ClaimStatus.values.deserialize(value) as T?;
+    case (PrizeType):
+      return PrizeType.values.deserialize(value) as T?;
+    case (ResultGame):
+      return ResultGame.values.deserialize(value) as T?;
+    case (Category):
+      return Category.values.deserialize(value) as T?;
+    case (GameType):
+      return GameType.values.deserialize(value) as T?;
+    case (DayOfTheWeek):
+      return DayOfTheWeek.values.deserialize(value) as T?;
+    default:
+      return null;
+  }
+}

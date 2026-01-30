@@ -1,0 +1,122 @@
+# -----------------------
+# Fichiers Core Flutter
+# -----------------------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.pub-cache/
+.pub/
+
+# -----------------------
+# Configuration Android
+# -----------------------
+# Le fichier local.properties contient le chemin de votre SDK sur VOTRE machine.
+# Il ne doit jamais aller sur GitHub car il est propre à chaque développeur.
+android/local.properties
+android/**/*.b
+android/app/build
+android/.gradle
+android/key.properties
+android/app/key.properties
+
+# -----------------------
+# Configuration iOS
+# -----------------------
+ios/.generated/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Pods/
+ios/Runner.xcworkspace/xcuserdata/
+ios/Flutter/ephemeral/
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+
+# -----------------------
+# Configuration Web
+# -----------------------
+web/build/
+
+# -----------------------
+# Fichiers Système (Mac/Windows)
+# -----------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# -----------------------
+# IDE (VS Code / Android Studio)
+# -----------------------
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# -----------------------
+# Firebase & FlutterFlow (Spécifique)
+# -----------------------
+# Cache Firebase
+.firebase/
+firebase-debug.log
+
+# Firebase Admin & Service Account Keys (CRITICAL - Never commit!)
+firebase/custom_cloud_functions/node_modules/*
+admin-key.json
+firebase/custom_cloud_functions/admin-key.json
+firebase/**/*-key.json
+firebase/**/service-account.json
+firebase/**/serviceAccountKey.json
+
+# Android signing keys and configuration (CRITICAL - Never commit!)
+android/key.properties
+android/app/key.properties
+android/app/*.jks
+android/app/*.keystore
+android/**/*.keystore
+android/**/*-keystore*
+
+# Google Services Configuration (Firebase)
+android/app/google-services.json
+android/**/google-services.json
+ios/**/GoogleService-Info.plist
+ios/**/*-GoogleService-Info.plist
+
+# Firebase Cloud Functions (environment variables, config)
+firebase/functions/.env*
+firebase/functions/.env
+firebase/custom_cloud_functions/.env*
+firebase/custom_cloud_functions/.env
+
+# Node modules in Firebase
+firebase/functions/node_modules/
+firebase/custom_cloud_functions/node_modules/
+
+# Firebase & Node Modules (CRITIQUE : Vu dans ton arborescence source 1206)
+**/node_modules/
+firebase/**/node_modules/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Mac OS (Si toi ou un futur collaborateur est sur Mac)
+.DS_Store
+
+# Android Generated (Pour éviter les conflits de build)
+android/app/debug/
+android/app/release/
+android/app/profile/
+
+firebase/custom_cloud_functions/*.txt
+
+tree.txt
+
+
+# Si vos "datas" non nécessaires sont des assets lourds (vidéos, images raw)
+# Décommentez la ligne ci-dessous et adaptez le chemin si nécessaire :
+# assets/raw_data/
