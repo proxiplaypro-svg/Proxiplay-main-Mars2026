@@ -1,25 +1,14 @@
-import 'package:flutter/material.dart';
-import 'flutter_flow/flutter_flow_util.dart';
-
 abstract class FFAppConstants {
   static const List<String> Category = [
     'Alimentation',
-    'Boissons',
+    'Restaurants & bars',
+    'Beauté & bien-être',
     'Mode',
-    'Accessoires',
-    'Technologie',
-    'Loisirs',
-    'Santé',
-    'Beauté',
-    'Culture',
-    'Sport',
-    'Maison',
-    'Jardin',
-    'Services',
-    'Automobile',
-    'Enfants',
-    'Artisan',
-    'Bâtiment',
-    'Restaurant'
+    'Maison, jardin & bricolage',
+    'Véhicules & mobilité',
+    'Services & artisans',
+    'Loisirs, sport & culture',
+    'Tourisme & événements',
+    'Autre activité de proximité'
   ];
 }

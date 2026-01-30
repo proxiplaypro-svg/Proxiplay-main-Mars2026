@@ -1468,7 +1468,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                 ),
                                                 chipSpacing: 8.0,
                                                 rowSpacing: 8.0,
-                                                multiselect: true,
+                                                multiselect: false,
                                                 initialized:
                                                     _model.choiceChipsValues !=
                                                         null,

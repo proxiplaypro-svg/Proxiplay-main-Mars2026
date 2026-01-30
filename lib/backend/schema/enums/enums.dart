@@ -32,24 +32,15 @@ enum ResultGame {
 
 enum Category {
   Alimentation,
-  Boissons,
+  Restaurants_bars,
+  Beaute_bien_etre,
   Mode,
-  Accessoires,
-  Technologie,
-  Loisirs,
-  Sante,
-  Beaute,
-  Culture,
-  Sport,
-  Maison,
-  Jardin,
-  Services,
-  Automobile,
-  Enfants,
-  Bar_restaurant,
-  Artisan,
-  Batiment,
-  Restaurant,
+  Maison_jardin_bricolage,
+  Vehicules_mobilite,
+  Services_artisans,
+  Loisirs_sport_culture,
+  Tourisme_evenements,
+  Autre_activite_proximite,
 }
 
 enum GameType {

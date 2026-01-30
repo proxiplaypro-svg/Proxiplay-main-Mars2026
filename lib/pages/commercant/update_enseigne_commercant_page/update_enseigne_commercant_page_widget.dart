@@ -1315,7 +1315,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                           ),
                                           chipSpacing: 8.0,
                                           rowSpacing: 8.0,
-                                          multiselect: true,
+                                          multiselect: false,
                                           initialized:
                                               _model.choiceChipsValues != null,
                                           alignment: WrapAlignment.start,
