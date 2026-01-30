@@ -145,6 +145,8 @@ class InscriptionPageModel extends FlutterFlowModel<InscriptionPageWidget> {
 
   // State field(s) for CheckboxCommercant widget.
   bool? checkboxCommercantValue;
+  // State field(s) for professionalCategory widget.
+  String? professionalCategoryValue;
 
   @override
   void initState(BuildContext context) {

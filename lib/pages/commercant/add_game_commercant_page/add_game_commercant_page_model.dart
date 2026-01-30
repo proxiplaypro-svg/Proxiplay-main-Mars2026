@@ -1,24 +1,9 @@
-import '/auth/firebase_auth/auth_util.dart';
+import 'dart:typed_data';
+
 import '/backend/backend.dart';
-import '/backend/firebase_storage/storage.dart';
-import '/backend/schema/enums/enums.dart';
-import '/components/validation_card_widget.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import '/flutter_flow/upload_data.dart';
-import 'dart:ui';
-import '/custom_code/actions/index.dart' as actions;
-import '/flutter_flow/custom_functions.dart' as functions;
-import '/index.dart';
 import 'add_game_commercant_page_widget.dart' show AddGameCommercantPageWidget;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
-import 'package:webviewx_plus/webviewx_plus.dart';
 
 class AddGameCommercantPageModel
     extends FlutterFlowModel<AddGameCommercantPageWidget> {
@@ -30,10 +15,6 @@ class AddGameCommercantPageModel
   TextEditingController? textController1;
   String? Function(BuildContext, String?)? textController1Validator;
   String? _textController1Validator(BuildContext context, String? val) {
-    if (val == null || val.isEmpty) {
-      return 'Nom du lot principal requis';
-    }
-
     return null;
   }
 
@@ -42,10 +23,6 @@ class AddGameCommercantPageModel
   TextEditingController? textController2;
   String? Function(BuildContext, String?)? textController2Validator;
   String? _textController2Validator(BuildContext context, String? val) {
-    if (val == null || val.isEmpty) {
-      return 'Description du lot principal requis';
-    }
-
     return null;
   }
 
@@ -58,39 +35,15 @@ class AddGameCommercantPageModel
   TextEditingController? textController3;
   String? Function(BuildContext, String?)? textController3Validator;
   String? _textController3Validator(BuildContext context, String? val) {
-    if (val == null || val.isEmpty) {
-      return 'Valeur estimée du lot principal requis';
-    }
-
-    return null;
-  }
-
-  // State field(s) for TextField widget.
-  FocusNode? textFieldFocusNode4;
-  TextEditingController? textController4;
-  String? Function(BuildContext, String?)? textController4Validator;
-  String? _textController4Validator(BuildContext context, String? val) {
-    if (val == null || val.isEmpty) {
-      return 'Nom du lot secondaire requis';
-    }
-
-    return null;
-  }
-
-  // State field(s) for TextField widget.
-  FocusNode? textFieldFocusNode5;
-  TextEditingController? textController5;
-  String? Function(BuildContext, String?)? textController5Validator;
-  String? _textController5Validator(BuildContext context, String? val) {
-    if (val == null || val.isEmpty) {
-      return 'Nombre de lot secondaire requis';
-    }
-
+    if (val == null || val.isEmpty) return null;
     if (!RegExp('^\\d+\$').hasMatch(val)) {
       return 'Il faut un nombre';
     }
     return null;
   }
+
+  // Secondary prizes (optional, repeatable)
+  final List<SecondaryPrizeEntry> secondaryPrizes = [];
 
   DateTime? datePicked;
   // State field(s) for Switch widget.
@@ -109,8 +62,8 @@ class AddGameCommercantPageModel
     textController1Validator = _textController1Validator;
     textController2Validator = _textController2Validator;
     textController3Validator = _textController3Validator;
-    textController4Validator = _textController4Validator;
-    textController5Validator = _textController5Validator;
+    // Start with one empty secondary prize row for convenience.
+    secondaryPrizes.add(SecondaryPrizeEntry());
   }
 
   @override
@@ -123,11 +76,26 @@ class AddGameCommercantPageModel
 
     textFieldFocusNode3?.dispose();
     textController3?.dispose();
+    for (final entry in secondaryPrizes) {
+      entry.dispose();
+    }
+  }
+}
 
-    textFieldFocusNode4?.dispose();
-    textController4?.dispose();
+class SecondaryPrizeEntry {
+  final FocusNode nameFocusNode = FocusNode();
+  final TextEditingController nameController = TextEditingController();
+  final FocusNode presentationFocusNode = FocusNode();
+  final TextEditingController presentationController = TextEditingController();
+  final FocusNode countFocusNode = FocusNode();
+  final TextEditingController countController = TextEditingController();
 
-    textFieldFocusNode5?.dispose();
-    textController5?.dispose();
+  void dispose() {
+    nameFocusNode.dispose();
+    nameController.dispose();
+    presentationFocusNode.dispose();
+    presentationController.dispose();
+    countFocusNode.dispose();
+    countController.dispose();
   }
 }

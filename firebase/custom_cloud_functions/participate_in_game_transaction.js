@@ -94,6 +94,11 @@ exports.participateInGameTransaction = functions.https.onCall(
         const currentParticipation = gameData.participations || 0;
         const newPosition = currentParticipation + 1;
         const remainingPart = userData.remaining_part || 0;
+        const hasMainPrize =
+          !!gameData.name ||
+          !!gameData.description ||
+          gameData.prize_value !== null &&
+            typeof gameData.prize_value !== "undefined";
 
         const endOfDay = new Date();
         endOfDay.setHours(21, 59, 59, 999);
@@ -212,7 +217,9 @@ exports.participateInGameTransaction = functions.https.onCall(
         responseData = {
           message: lotGagne
             ? lotDetails
-            : "Vous êtes sélectionné pour le grand tirage au sort.",
+            : hasMainPrize
+              ? "Vous êtes sélectionné pour le grand tirage au sort."
+              : "Merci pour votre participation. Aucun tirage final pour ce jeu.",
           messageBonus: messageBonus,
           isWin: lotGagne,
           prize_id: prizeRef ? prizeRef.path : null, // ✅ Corrigé ici

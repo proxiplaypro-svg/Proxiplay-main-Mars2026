@@ -1,6 +1,7 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
+import '/app_constants.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_button_tabbar.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -1579,6 +1580,123 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                               padding: EdgeInsetsDirectional
                                                   .fromSTEB(
                                                       0.0, 0.0, 0.0, 16.0),
+                                              child: DropdownButtonFormField<
+                                                  String>(
+                                                value: _model
+                                                    .professionalCategoryValue,
+                                                items: FFAppConstants.Category.map(
+                                                  (label) => DropdownMenuItem(
+                                                    value: label,
+                                                    child: Text(label),
+                                                  ),
+                                                ).toList(),
+                                                onChanged: (val) => safeSetState(
+                                                    () => _model
+                                                            .professionalCategoryValue =
+                                                        val),
+                                                decoration: InputDecoration(
+                                                  labelText:
+                                                      'Catégorie professionnelle',
+                                                  labelStyle:
+                                                      FlutterFlowTheme.of(context)
+                                                          .labelMedium
+                                                          .override(
+                                                            font:
+                                                                GoogleFonts.inter(
+                                                              fontWeight:
+                                                                  FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .labelMedium
+                                                                      .fontWeight,
+                                                              fontStyle:
+                                                                  FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .labelMedium
+                                                                      .fontStyle,
+                                                            ),
+                                                            color:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .fieldText,
+                                                            letterSpacing: 0.0,
+                                                            fontWeight:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .labelMedium
+                                                                    .fontWeight,
+                                                            fontStyle:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .labelMedium
+                                                                    .fontStyle,
+                                                          ),
+                                                  enabledBorder:
+                                                      OutlineInputBorder(
+                                                    borderSide: BorderSide(
+                                                      color: Color(0x00000000),
+                                                      width: 2.0,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(12.0),
+                                                  ),
+                                                  focusedBorder:
+                                                      OutlineInputBorder(
+                                                    borderSide: BorderSide(
+                                                      color:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .primary,
+                                                      width: 2.0,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(12.0),
+                                                  ),
+                                                  errorBorder:
+                                                      OutlineInputBorder(
+                                                    borderSide: BorderSide(
+                                                      color:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .error,
+                                                      width: 2.0,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(12.0),
+                                                  ),
+                                                  focusedErrorBorder:
+                                                      OutlineInputBorder(
+                                                    borderSide: BorderSide(
+                                                      color:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .error,
+                                                      width: 2.0,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(12.0),
+                                                  ),
+                                                  filled: true,
+                                                  fillColor:
+                                                      FlutterFlowTheme.of(context)
+                                                          .fieldBg,
+                                                  contentPadding:
+                                                      EdgeInsets.all(24.0),
+                                                ),
+                                                validator: (val) {
+                                                  if (_model.userType ==
+                                                          Roles.commercant &&
+                                                      (val == null ||
+                                                          val.isEmpty)) {
+                                                    return 'Veuillez sélectionner une catégorie';
+                                                  }
+                                                  return null;
+                                                },
+                                              ),
+                                            ),
+                                            Padding(
+                                              padding: EdgeInsetsDirectional
+                                                  .fromSTEB(
+                                                      0.0, 0.0, 0.0, 16.0),
                                               child: Container(
                                                 width: double.infinity,
                                                 child: TextFormField(
@@ -2206,6 +2324,9 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                   createUsersRecordData(
                                                                 userRole: _model
                                                                     .userType,
+                                                                professionalCategory:
+                                                                    _model
+                                                                        .professionalCategoryValue,
                                                                 remainingPart:
                                                                     3,
                                                                 accountStatus:

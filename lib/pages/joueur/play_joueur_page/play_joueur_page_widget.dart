@@ -1,7 +1,6 @@
 import '/backend/backend.dart';
 import '/backend/schema/structs/index.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
-import '/flutter_flow/flutter_flow_rive_controller.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
@@ -13,7 +12,6 @@ import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:provider/provider.dart';
 import 'play_joueur_page_model.dart';
 export 'play_joueur_page_model.dart';
 
@@ -60,6 +58,10 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final hasMainPrize = (widget!.game?.hasName() ?? false) ||
+        (widget!.game?.hasDescription() ?? false) ||
+        (widget!.game?.hasPrizeValue() ?? false);
+
     return GestureDetector(
       onTap: () {
         FocusScope.of(context).unfocus();
@@ -447,7 +449,8 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                       Column(
                                         mainAxisSize: MainAxisSize.max,
                                         children: [
-                                          Row(
+                                          if (hasMainPrize)
+                                            Row(
                                             mainAxisSize: MainAxisSize.max,
                                             children: [
                                               Icon(
@@ -806,17 +809,100 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                                     .fontStyle,
                                                           ),
                                                     ),
-                                                    AutoSizeText(
-                                                      widget!.game!
-                                                          .secondaryPrizeDescription,
-                                                      style:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .override(
-                                                                font:
-                                                                    GoogleFonts
-                                                                        .inter(
+                                                    Builder(
+                                                      builder: (context) {
+                                                        final secondaryPrizes =
+                                                            widget!.game!
+                                                                .secondaryPrizes;
+                                                        if (secondaryPrizes
+                                                            .isNotEmpty) {
+                                                          return Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children:
+                                                                secondaryPrizes
+                                                                    .map(
+                                                                      (p) {
+                                                                        final name =
+                                                                            (p['name'] ??
+                                                                                    '')
+                                                                                .toString();
+                                                                        final presentation =
+                                                                            (p['presentation'] ??
+                                                                                    '')
+                                                                                .toString();
+                                                                        final count =
+                                                                            p['count'];
+                                                                        final countText =
+                                                                            count !=
+                                                                                    null
+                                                                                ? ' x$count'
+                                                                                : '';
+                                                                        return Padding(
+                                                                          padding:
+                                                                              const EdgeInsets
+                                                                                  .only(
+                                                                            bottom:
+                                                                                8.0,
+                                                                          ),
+                                                                          child:
+                                                                              Column(
+                                                                            crossAxisAlignment:
+                                                                                CrossAxisAlignment.start,
+                                                                            children: [
+                                                                              Text(
+                                                                                '$name$countText',
+                                                                                style: FlutterFlowTheme.of(context).bodyMedium,
+                                                                              ),
+                                                                              if (presentation.isNotEmpty)
+                                                                                Text(
+                                                                                  presentation,
+                                                                                  style: FlutterFlowTheme.of(context).bodySmall.override(
+                                                                                        font: GoogleFonts.inter(
+                                                                                          fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                                                                                          fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                                                                                        ),
+                                                                                        color: FlutterFlowTheme.of(context).secondaryText,
+                                                                                        letterSpacing: 0.0,
+                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                                                                                      ),
+                                                                                ),
+                                                                            ],
+                                                                          ),
+                                                                        );
+                                                                      },
+                                                                    )
+                                                                    .toList(),
+                                                          );
+                                                        }
+                                                        if (widget!.game!
+                                                            .secondaryPrizeDescription
+                                                            .isNotEmpty) {
+                                                          return AutoSizeText(
+                                                            widget!.game!
+                                                                .secondaryPrizeDescription,
+                                                            style: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .bodyMedium
+                                                                .override(
+                                                                  font: GoogleFonts
+                                                                      .inter(
+                                                                    fontWeight: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodyMedium
+                                                                        .fontWeight,
+                                                                    fontStyle: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodyMedium
+                                                                        .fontStyle,
+                                                                  ),
+                                                                  color: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .secondaryText,
+                                                                  letterSpacing:
+                                                                      0.0,
                                                                   fontWeight: FlutterFlowTheme.of(
                                                                           context)
                                                                       .bodyMedium
@@ -826,20 +912,40 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                                       .bodyMedium
                                                                       .fontStyle,
                                                                 ),
+                                                          );
+                                                        }
+                                                        return Text(
+                                                          'Aucun lot secondaire',
+                                                          style: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .bodySmall
+                                                              .override(
+                                                                font: GoogleFonts
+                                                                    .inter(
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodySmall
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodySmall
+                                                                      .fontStyle,
+                                                                ),
                                                                 color: FlutterFlowTheme.of(
                                                                         context)
                                                                     .secondaryText,
-                                                                letterSpacing:
-                                                                    0.0,
+                                                                letterSpacing: 0.0,
                                                                 fontWeight: FlutterFlowTheme.of(
                                                                         context)
-                                                                    .bodyMedium
+                                                                    .bodySmall
                                                                     .fontWeight,
                                                                 fontStyle: FlutterFlowTheme.of(
                                                                         context)
-                                                                    .bodyMedium
+                                                                    .bodySmall
                                                                     .fontStyle,
                                                               ),
+                                                        );
+                                                      },
                                                     ),
                                                   ],
                                                 ),

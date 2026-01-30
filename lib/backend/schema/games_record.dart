@@ -77,6 +77,12 @@ class GamesRecord extends FirestoreRecord {
   String get secondaryPrizeDescription => _secondaryPrizeDescription ?? '';
   bool hasSecondaryPrizeDescription() => _secondaryPrizeDescription != null;
 
+  // "secondary_prizes" field.
+  List<Map<String, dynamic>>? _secondaryPrizes;
+  List<Map<String, dynamic>> get secondaryPrizes =>
+      _secondaryPrizes ?? const [];
+  bool hasSecondaryPrizes() => _secondaryPrizes != null;
+
   // "views" field.
   int? _views;
   int get views => _views ?? 0;
@@ -128,6 +134,8 @@ class GamesRecord extends FirestoreRecord {
     _photo = snapshotData['photo'] as String?;
     _secondaryPrizeDescription =
         snapshotData['secondary_prize_description'] as String?;
+    _secondaryPrizes =
+        getDataList<Map<String, dynamic>>(snapshotData['secondary_prizes']);
     _views = castToType<int>(snapshotData['views']);
     _favorites = castToType<int>(snapshotData['favorites']);
     _participations = castToType<int>(snapshotData['participations']);
@@ -183,6 +191,7 @@ Map<String, dynamic> createGamesRecordData({
   GameType? gameType,
   String? photo,
   String? secondaryPrizeDescription,
+  List<Map<String, dynamic>>? secondaryPrizes,
   int? views,
   int? favorites,
   int? participations,
@@ -205,6 +214,7 @@ Map<String, dynamic> createGamesRecordData({
       'game_type': gameType,
       'photo': photo,
       'secondary_prize_description': secondaryPrizeDescription,
+      'secondary_prizes': secondaryPrizes,
       'views': views,
       'favorites': favorites,
       'participations': participations,
@@ -235,6 +245,7 @@ class GamesRecordDocumentEquality implements Equality<GamesRecord> {
         e1?.gameType == e2?.gameType &&
         e1?.photo == e2?.photo &&
         e1?.secondaryPrizeDescription == e2?.secondaryPrizeDescription &&
+        const ListEquality().equals(e1?.secondaryPrizes, e2?.secondaryPrizes) &&
         e1?.views == e2?.views &&
         e1?.favorites == e2?.favorites &&
         e1?.participations == e2?.participations &&
@@ -258,6 +269,7 @@ class GamesRecordDocumentEquality implements Equality<GamesRecord> {
         e?.gameType,
         e?.photo,
         e?.secondaryPrizeDescription,
+        e?.secondaryPrizes,
         e?.views,
         e?.favorites,
         e?.participations,

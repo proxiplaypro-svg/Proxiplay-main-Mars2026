@@ -244,12 +244,15 @@ async function sendPushNotifications(snapshot) {
         }
 
         const isAdmin = role === "admin";
+        const isProfessional = role === "commercant";
         const roleMatches =
           targetUserGroup === "Admins"
             ? isAdmin
-            : targetUserGroup === "NormalUsers"
-              ? !isAdmin
-              : true;
+            : targetUserGroup === "Professionals"
+              ? isProfessional
+              : targetUserGroup === "NormalUsers"
+                ? !isAdmin
+                : true;
         if (roleMatches) tokens.add(data.fcm_token);
       }),
     );

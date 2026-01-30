@@ -17,7 +17,7 @@ import '/flutter_flow/upload_data.dart';
 
 import 'admin_push_notifications_page_model.dart';
 
-enum _AudienceMode { allUsers, normalUsers, adminsOnly, selectedUsers }
+enum _AudienceMode { allUsers, normalUsers, professionals, adminsOnly, selectedUsers }
 
 class AdminPushNotificationsPageWidget extends StatefulWidget {
   const AdminPushNotificationsPageWidget({super.key});
@@ -177,6 +177,8 @@ class _AdminPushNotificationsPageWidgetState
     switch (_audienceMode) {
       case _AudienceMode.adminsOnly:
         return u.userRole == Roles.admin;
+      case _AudienceMode.professionals:
+        return u.userRole == Roles.commercant;
       case _AudienceMode.normalUsers:
         return u.userRole != Roles.admin;
       case _AudienceMode.selectedUsers:
@@ -251,6 +253,7 @@ class _AdminPushNotificationsPageWidgetState
     final targetUserGroup = switch (_audienceMode) {
       _AudienceMode.allUsers => 'All',
       _AudienceMode.adminsOnly => 'Admins',
+      _AudienceMode.professionals => 'Professionals',
       _AudienceMode.normalUsers => 'NormalUsers',
       _AudienceMode.selectedUsers => 'All',
     };
@@ -284,15 +287,22 @@ class _AdminPushNotificationsPageWidgetState
 
   Widget _userBadge(UsersRecord u) {
     final isAdmin = u.userRole == Roles.admin;
-    if (!isAdmin) return const SizedBox.shrink();
+    final isPro = u.userRole == Roles.commercant;
+    if (!isAdmin && !isPro) return const SizedBox.shrink();
+
+    final label = isAdmin ? 'ADMIN' : 'PRO';
+    final color = isAdmin
+        ? FlutterFlowTheme.of(context).primary
+        : FlutterFlowTheme.of(context).secondary;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: FlutterFlowTheme.of(context).primary,
+        color: color,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        'ADMIN',
+        label,
         style: FlutterFlowTheme.of(context).labelSmall.override(
               fontSize: 10,
               color: Colors.white,
@@ -473,6 +483,10 @@ class _AdminPushNotificationsPageWidgetState
                           DropdownMenuItem(
                             value: _AudienceMode.allUsers,
                             child: Text('All users'),
+                          ),
+                          DropdownMenuItem(
+                            value: _AudienceMode.professionals,
+                            child: Text('Professionals'),
                           ),
                           DropdownMenuItem(
                             value: _AudienceMode.normalUsers,

@@ -92,6 +92,11 @@ class UsersRecord extends FirestoreRecord {
   DateTime? get birthday => _birthday;
   bool hasBirthday() => _birthday != null;
 
+  // "professional_category" field.
+  String? _professionalCategory;
+  String get professionalCategory => _professionalCategory ?? '';
+  bool hasProfessionalCategory() => _professionalCategory != null;
+
   void _initializeFields() {
     _email = snapshotData['email'] as String?;
     _uid = snapshotData['uid'] as String?;
@@ -112,6 +117,7 @@ class UsersRecord extends FirestoreRecord {
     _city = snapshotData['city'] as String?;
     _partLastUpdate = snapshotData['part_last_update'] as DateTime?;
     _birthday = snapshotData['birthday'] as DateTime?;
+    _professionalCategory = snapshotData['professional_category'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -163,6 +169,7 @@ Map<String, dynamic> createUsersRecordData({
   String? city,
   DateTime? partLastUpdate,
   DateTime? birthday,
+  String? professionalCategory,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -181,6 +188,7 @@ Map<String, dynamic> createUsersRecordData({
       'city': city,
       'part_last_update': partLastUpdate,
       'birthday': birthday,
+      'professional_category': professionalCategory,
     }.withoutNulls,
   );
 
@@ -206,7 +214,8 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e1?.remainingPart == e2?.remainingPart &&
         e1?.city == e2?.city &&
         e1?.partLastUpdate == e2?.partLastUpdate &&
-        e1?.birthday == e2?.birthday;
+        e1?.birthday == e2?.birthday &&
+        e1?.professionalCategory == e2?.professionalCategory;
   }
 
   @override
@@ -225,7 +234,8 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e?.remainingPart,
         e?.city,
         e?.partLastUpdate,
-        e?.birthday
+        e?.birthday,
+        e?.professionalCategory
       ]);
 
   @override

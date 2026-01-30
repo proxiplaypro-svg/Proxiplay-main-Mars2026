@@ -80,10 +80,11 @@ android {
 
     buildTypes {
         release {
-            // CORRECTION ICI : On utilise la config "release" définie plus haut
-            signingConfig signingConfigs.release
-            
-            // Le reste ne change pas
+            // Use release keystore if present; fall back to debug for local builds.
+            signingConfig keystorePropertiesFile.exists()
+                    ? signingConfigs.release
+                    : signingConfigs.debug
+
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
