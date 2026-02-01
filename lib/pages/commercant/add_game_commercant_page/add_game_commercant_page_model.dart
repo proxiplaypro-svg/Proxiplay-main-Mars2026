@@ -10,6 +10,7 @@ class AddGameCommercantPageModel
   ///  State fields for stateful widgets in this page.
 
   final formKey = GlobalKey<FormState>();
+  bool mainPrizeEnabled = true;
   // State field(s) for TextField widget.
   FocusNode? textFieldFocusNode1;
   TextEditingController? textController1;
@@ -45,6 +46,7 @@ class AddGameCommercantPageModel
   // Secondary prizes (optional, repeatable)
   final List<SecondaryPrizeEntry> secondaryPrizes = [];
 
+  DateTime? startDatePicked;
   DateTime? datePicked;
   // State field(s) for Switch widget.
   bool? switchValue;
@@ -64,6 +66,7 @@ class AddGameCommercantPageModel
     textController3Validator = _textController3Validator;
     // Start with one empty secondary prize row for convenience.
     secondaryPrizes.add(SecondaryPrizeEntry());
+    startDatePicked = getCurrentTimestamp;
   }
 
   @override

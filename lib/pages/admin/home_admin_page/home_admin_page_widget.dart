@@ -111,12 +111,11 @@ class _HomeAdminPageWidgetState extends State<HomeAdminPageWidget> {
                             hoverColor: Colors.transparent,
                             highlightColor: Colors.transparent,
                             onTap: () async {
-                              GoRouter.of(context).prepareAuthEvent();
-                              await authManager.signOut();
+                              FFAppState().update(() => FFAppState().isLoggingOut = true);
                               GoRouter.of(context).clearRedirectLocation();
-
-                              context.goNamedAuth(
-                                  LoginPageWidget.routeName, context.mounted);
+                              context.go('/loginPage');
+                              await authManager.signOut();
+                              FFAppState().update(() => FFAppState().isLoggingOut = false);
                             },
                             child: Icon(
                               Icons.logout_sharp,

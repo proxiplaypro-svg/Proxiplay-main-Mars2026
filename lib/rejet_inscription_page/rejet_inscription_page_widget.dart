@@ -3,10 +3,9 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import 'dart:ui';
-import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import '/app_state.dart';
 import 'rejet_inscription_page_model.dart';
 export 'rejet_inscription_page_model.dart';
 
@@ -435,12 +434,14 @@ class _RejetInscriptionPageWidgetState
                         children: [
                           FFButtonWidget(
                             onPressed: () async {
-                              GoRouter.of(context).prepareAuthEvent();
-                              await authManager.signOut();
                               GoRouter.of(context).clearRedirectLocation();
 
-                              context.goNamedAuth(
-                                  LoginPageWidget.routeName, context.mounted);
+                              FFAppState().update(
+                                  () => FFAppState().isLoggingOut = true);
+                              context.go('/loginPage');
+                              await authManager.signOut();
+                              FFAppState().update(
+                                  () => FFAppState().isLoggingOut = false);
                             },
                             text: 'Retour à l\'Accueil',
                             options: FFButtonOptions(

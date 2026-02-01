@@ -2,12 +2,11 @@ import '/auth/firebase_auth/auth_util.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import 'dart:ui';
 import '/index.dart';
+import '/app_state.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'profil_joueur_page_model.dart';
 export 'profil_joueur_page_model.dart';
@@ -340,12 +339,13 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                 hoverColor: Colors.transparent,
                                 highlightColor: Colors.transparent,
                                 onTap: () async {
-                                  GoRouter.of(context).prepareAuthEvent();
-                                  await authManager.signOut();
                                   GoRouter.of(context).clearRedirectLocation();
-
-                                  context.goNamedAuth(LoginPageWidget.routeName,
-                                      context.mounted);
+                                  FFAppState().update(
+                                      () => FFAppState().isLoggingOut = true);
+                                  context.go('/loginPage');
+                                  await authManager.signOut();
+                                  FFAppState().update(
+                                      () => FFAppState().isLoggingOut = false);
                                 },
                                 child: Container(
                                   width: double.infinity,

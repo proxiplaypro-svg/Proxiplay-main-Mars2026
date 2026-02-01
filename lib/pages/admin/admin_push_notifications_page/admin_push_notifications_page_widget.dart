@@ -277,12 +277,50 @@ class _AdminPushNotificationsPageWidgetState
 
     print('Cloud call result: $res');
     final ok = res['ok'] == true;
+    final id = res['id']?.toString();
     if (!mounted) return;
+    if (!ok || id == null || id.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to send message.')),
+      );
+      return;
+    }
+
+    // If scheduled/repeating: it is expected to be queued.
+    if (scheduledMs > 0 || repeatEveryMinutes > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Message scheduled.')),
+      );
+      return;
+    }
+
+    // Immediate send: show queued → succeeded/failed once the trigger updates the doc.
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'Notification queued.' : 'Failed to queue notification.'),
-      ),
+      const SnackBar(content: Text('Message queued...')),
     );
+    try {
+      final docRef =
+          FirebaseFirestore.instance.collection('ff_push_notifications').doc(id);
+      final status = await docRef
+          .snapshots()
+          .map((s) => s.data()?['status']?.toString())
+          .where((s) => s == 'succeeded' || s == 'failed')
+          .first
+          .timeout(const Duration(seconds: 20));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 'succeeded' ? 'Message sent.' : 'Failed to send message.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Message queued (delivery pending).')),
+      );
+    }
   }
 
   Widget _userBadge(UsersRecord u) {
@@ -763,10 +801,6 @@ class _AdminPushNotificationsPageWidgetState
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Note: schedule/repeat require Firebase Functions deployment (included in repo).',
-            style: FlutterFlowTheme.of(context).labelSmall,
-          ),
         ],
       ),
     );

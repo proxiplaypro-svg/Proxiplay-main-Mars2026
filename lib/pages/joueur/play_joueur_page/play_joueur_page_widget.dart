@@ -449,6 +449,59 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                       Column(
                                         mainAxisSize: MainAxisSize.max,
                                         children: [
+                                          if (widget!.game?.startDate != null)
+                                            Row(
+                                              mainAxisSize: MainAxisSize.max,
+                                              children: [
+                                                Icon(
+                                                  Icons.play_circle_outline,
+                                                  color:
+                                                      FlutterFlowTheme.of(context)
+                                                          .primary,
+                                                  size: 24.0,
+                                                ),
+                                                Expanded(
+                                                  child: Text(
+                                                    'Début du jeu le ${dateTimeFormat(
+                                                      "d/M/y",
+                                                      widget!.game?.startDate,
+                                                      locale: FFLocalizations.of(
+                                                              context)
+                                                          .languageCode,
+                                                    )}',
+                                                    style: FlutterFlowTheme.of(
+                                                            context)
+                                                        .bodyMedium
+                                                        .override(
+                                                          font:
+                                                              GoogleFonts.inter(
+                                                            fontWeight:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontWeight,
+                                                            fontStyle:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontStyle,
+                                                          ),
+                                                          letterSpacing: 0.0,
+                                                          fontWeight:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .bodyMedium
+                                                                  .fontWeight,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .bodyMedium
+                                                                  .fontStyle,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           if (hasMainPrize)
                                             Row(
                                             mainAxisSize: MainAxisSize.max,

@@ -648,6 +648,22 @@ class FFRoute {
         name: name,
         path: path,
         redirect: (context, state) {
+          // Global auth guard: after logout, always send the user to login
+          // (except for the public auth/legal pages).
+          if (!appStateNotifier.loggedIn) {
+            final p = state.uri.path;
+            const publicPaths = <String>{
+              '/',
+              '/loginPage',
+              '/inscriptionPage',
+              '/resetPassword',
+              '/legalPage',
+            };
+            if (!publicPaths.contains(p)) {
+              return '/loginPage';
+            }
+          }
+
           if (appStateNotifier.shouldRedirect) {
             final redirectLocation = appStateNotifier.getRedirectLocation();
             appStateNotifier.clearRedirectLocation();

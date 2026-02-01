@@ -7,12 +7,12 @@ import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:math';
 import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/flutter_flow/permissions_util.dart';
 import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '/app_state.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -50,6 +50,21 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
     // On page load action.
     SchedulerBinding.instance.addPostFrameCallback((_) async {
       await requestPermission(cameraPermission);
+      // If a logout is in progress, don't auto-redirect (prevents a brief flash
+      // to home pages before landing on login).
+      if (FFAppState().isLoggingOut) {
+        return;
+      }
+      // Only auto-redirect when Firebase still has a signed-in user.
+      if (FirebaseAuth.instance.currentUser == null) {
+        return;
+      }
+      // Only auto-redirect if we are on the initial route or login page.
+      final currentRoute =
+          GoRouter.of(context).routerDelegate.currentConfiguration.uri.toString();
+      if (currentRoute != '/' && currentRoute != '/loginPage') {
+        return;
+      }
       if (loggedIn == true) {
         if (currentUserDocument?.userRole == Roles.joueur) {
           if (currentUserDocument?.accountStatus == AccountStatus.pendingInfo) {
@@ -574,8 +589,6 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                 },
                                               );
 
-                                              if (_shouldSetState)
-                                                safeSetState(() {});
                                               return;
                                             }
 
@@ -589,8 +602,6 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                 ignoreRedirect: true,
                                               );
 
-                                              if (_shouldSetState)
-                                                safeSetState(() {});
                                               return;
                                             } else if (currentUserDocument
                                                     ?.accountStatus ==
@@ -603,8 +614,6 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                 ignoreRedirect: true,
                                               );
 
-                                              if (_shouldSetState)
-                                                safeSetState(() {});
                                               return;
                                             } else if (currentUserDocument
                                                     ?.accountStatus ==
@@ -617,8 +626,6 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                 ignoreRedirect: true,
                                               );
 
-                                              if (_shouldSetState)
-                                                safeSetState(() {});
                                               return;
                                             } else if (currentUserDocument
                                                     ?.accountStatus ==
@@ -631,8 +638,6 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                 ignoreRedirect: true,
                                               );
 
-                                              if (_shouldSetState)
-                                                safeSetState(() {});
                                               return;
                                             } else if (currentUserDocument
                                                     ?.accountStatus ==
@@ -644,8 +649,6 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                 ignoreRedirect: true,
                                               );
 
-                                              if (_shouldSetState)
-                                                safeSetState(() {});
                                               return;
                                             } else {
                                               if (currentUserDocument
@@ -723,9 +726,6 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                 safeSetState(() {});
                                               return;
                                             }
-
-                                            if (_shouldSetState)
-                                              safeSetState(() {});
                                           },
                                           text: 'Connexion',
                                           options: FFButtonOptions(

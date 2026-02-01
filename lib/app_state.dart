@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import '/backend/backend.dart';
-import '/backend/schema/structs/index.dart';
-import '/backend/schema/enums/enums.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'flutter_flow/flutter_flow_util.dart';
 import 'dart:convert';
@@ -74,16 +71,17 @@ class FFAppState extends ChangeNotifier {
     _isMineur = value;
     prefs.setBool('ff_isMineur', value);
   }
+
+  // Non-persisted: used to avoid UI "flash" during logout navigation.
+  bool _isLoggingOut = false;
+  bool get isLoggingOut => _isLoggingOut;
+  set isLoggingOut(bool value) {
+    _isLoggingOut = value;
+  }
 }
 
 void _safeInit(Function() initializeField) {
   try {
     initializeField();
-  } catch (_) {}
-}
-
-Future _safeInitAsync(Function() initializeField) async {
-  try {
-    await initializeField();
   } catch (_) {}
 }
