@@ -348,7 +348,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                                       },
                                     );
                                   },
-                                    child: Material(
+                                  child: Material(
                                     color: Colors.transparent,
                                     elevation: 0.0,
                                     shape: RoundedRectangleBorder(
@@ -356,345 +356,341 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                                     ),
                                     child: Container(
                                       width: MediaQuery.sizeOf(context).width *
-                                        1.0,
+                                          1.0,
                                       decoration: BoxDecoration(
-                                      color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                      borderRadius:
-                                        BorderRadius.circular(16.0),
+                                        color: FlutterFlowTheme.of(context)
+                                            .secondaryBackground,
+                                        borderRadius:
+                                            BorderRadius.circular(16.0),
                                       ),
                                       child: Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                        16.0, 16.0, 16.0, 16.0),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.max,
-                                        children: [
-                                        Expanded(
-                                          child: Column(
+                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                            16.0, 16.0, 16.0, 16.0),
+                                        child: Row(
                                           mainAxisSize: MainAxisSize.max,
-                                          mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                          crossAxisAlignment:
-                                            CrossAxisAlignment.start,
                                           children: [
-                                            Text(
-                                            listViewPrizesRecord.name,
-                                            style: FlutterFlowTheme.of(
-                                                context)
-                                              .bodyLarge
-                                              .override(
-                                                font:
-                                                  GoogleFonts.inter(
-                                                fontWeight:
-                                                  FontWeight.w600,
-                                                fontStyle:
-                                                  FlutterFlowTheme.of(
-                                                      context)
-                                                    .bodyLarge
-                                                    .fontStyle,
-                                                ),
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                  FontWeight.w600,
-                                                fontStyle:
-                                                  FlutterFlowTheme.of(
-                                                      context)
-                                                    .bodyLarge
-                                                    .fontStyle,
-                                              ),
-                                            ),
-                                              if (listViewPrizesRecord
-                                                .enseigneName
-                                                .isNotEmpty)
-                                            Text(
-                                              listViewPrizesRecord
-                                                .enseigneName,
-                                              style: FlutterFlowTheme
-                                                  .of(context)
-                                                .bodyLarge
-                                                .override(
-                                                font: GoogleFonts
-                                                  .inter(
-                                                  fontWeight:
-                                                    FontWeight
-                                                      .w600,
-                                                  fontStyle:
-                                                    FlutterFlowTheme.of(
-                                                        context)
-                                                      .bodyLarge
-                                                      .fontStyle,
-                                                ),
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                  FontWeight.w600,
-                                                fontStyle:
-                                                  FlutterFlowTheme.of(
-                                                      context)
-                                                    .bodyLarge
-                                                    .fontStyle,
-                                                ),
-                                            ),
-                                            if (listViewPrizesRecord
-                                                .enseigneId !=
-                                              null)
-                                            FutureBuilder<EnseignesRecord>(
-                                              future: EnseignesRecord
-                                                .getDocumentOnce(
-                                                  listViewPrizesRecord
-                                                    .enseigneId!),
-                                              builder: (context,
-                                                snapshot) {
-                                              if (!snapshot
-                                                .hasData) {
-                                                return SizedBox(
-                                                  height: 0.0);
-                                              }
-                                              final enseigneRecord =
-                                                snapshot.data!;
-                                              return FFButtonWidget(
-                                                onPressed: () async {
-                                                context.pushNamed(
-                                                  EnseigneDetailJoueurPageWidget
-                                                    .routeName,
-                                                  queryParameters: {
-                                                  'enseigneDoc':
-                                                    serializeParam(
-                                                    enseigneRecord,
-                                                    ParamType
-                                                      .Document,
+                                            Expanded(
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.max,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    listViewPrizesRecord.name,
+                                                    style: FlutterFlowTheme.of(
+                                                            context)
+                                                        .bodyLarge
+                                                        .override(
+                                                          font:
+                                                              GoogleFonts.inter(
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            fontStyle:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyLarge
+                                                                    .fontStyle,
+                                                          ),
+                                                          letterSpacing: 0.0,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .bodyLarge
+                                                                  .fontStyle,
+                                                        ),
                                                   ),
-                                                  }.withoutNulls,
-                                                  extra: <String,
-                                                    dynamic>{
-                                                  'enseigneDoc':
-                                                    enseigneRecord,
-                                                  },
-                                                );
-                                                },
-                                                text: enseigneRecord
-                                                    .name
-                                                    .isNotEmpty
-                                                  ? enseigneRecord
-                                                    .name
-                                                  : listViewPrizesRecord
-                                                    .enseigneName,
-                                                options:
-                                                  FFButtonOptions(
-                                                width:
-                                                  double.infinity,
-                                                height: 36.0,
-                                                padding:
-                                                  EdgeInsetsDirectional
-                                                    .fromSTEB(
-                                                      12.0,
-                                                      0.0,
-                                                      12.0,
-                                                      0.0),
-                                                iconPadding:
-                                                  EdgeInsetsDirectional
-                                                    .fromSTEB(
-                                                      0.0,
-                                                      0.0,
-                                                      0.0,
-                                                      0.0),
-                                                color:
-                                                  FlutterFlowTheme.of(
-                                                      context)
-                                                    .secondaryBackground,
-                                                textStyle:
-                                                  FlutterFlowTheme.of(
-                                                      context)
-                                                    .titleSmall
-                                                    .override(
-                                                      font: GoogleFonts
-                                                        .interTight(
-                                                      fontWeight: FlutterFlowTheme.of(
-                                                          context)
-                                                        .titleSmall
-                                                        .fontWeight,
-                                                      fontStyle: FlutterFlowTheme.of(
-                                                          context)
-                                                        .titleSmall
-                                                        .fontStyle,
+                                                  if (listViewPrizesRecord
+                                                      .enseigneName.isNotEmpty)
+                                                    Text(
+                                                      listViewPrizesRecord
+                                                          .enseigneName,
+                                                      style: FlutterFlowTheme
+                                                              .of(context)
+                                                          .bodyLarge
+                                                          .override(
+                                                            font: GoogleFonts
+                                                                .inter(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              fontStyle:
+                                                                  FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyLarge
+                                                                      .fontStyle,
+                                                            ),
+                                                            letterSpacing: 0.0,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            fontStyle:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyLarge
+                                                                    .fontStyle,
+                                                          ),
+                                                    ),
+                                                  if (listViewPrizesRecord
+                                                          .enseigneId !=
+                                                      null)
+                                                    FutureBuilder<
+                                                        EnseignesRecord>(
+                                                      future: EnseignesRecord
+                                                          .getDocumentOnce(
+                                                              listViewPrizesRecord
+                                                                  .enseigneId!),
+                                                      builder:
+                                                          (context, snapshot) {
+                                                        if (!snapshot.hasData) {
+                                                          return SizedBox(
+                                                              height: 0.0);
+                                                        }
+                                                        final enseigneRecord =
+                                                            snapshot.data!;
+                                                        return FFButtonWidget(
+                                                          onPressed: () async {
+                                                            context.pushNamed(
+                                                              EnseigneDetailJoueurPageWidget
+                                                                  .routeName,
+                                                              queryParameters: {
+                                                                'enseigneDoc':
+                                                                    serializeParam(
+                                                                  enseigneRecord,
+                                                                  ParamType
+                                                                      .Document,
+                                                                ),
+                                                              }.withoutNulls,
+                                                              extra: <String,
+                                                                  dynamic>{
+                                                                'enseigneDoc':
+                                                                    enseigneRecord,
+                                                              },
+                                                            );
+                                                          },
+                                                          text: enseigneRecord
+                                                                  .name
+                                                                  .isNotEmpty
+                                                              ? enseigneRecord
+                                                                  .name
+                                                              : listViewPrizesRecord
+                                                                  .enseigneName,
+                                                          options:
+                                                              FFButtonOptions(
+                                                            width:
+                                                                double.infinity,
+                                                            height: 36.0,
+                                                            padding:
+                                                                EdgeInsetsDirectional
+                                                                    .fromSTEB(
+                                                                        12.0,
+                                                                        0.0,
+                                                                        12.0,
+                                                                        0.0),
+                                                            iconPadding:
+                                                                EdgeInsetsDirectional
+                                                                    .fromSTEB(
+                                                                        0.0,
+                                                                        0.0,
+                                                                        0.0,
+                                                                        0.0),
+                                                            color: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .secondaryBackground,
+                                                            textStyle:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .titleSmall
+                                                                    .override(
+                                                                      font: GoogleFonts
+                                                                          .interTight(
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                      color: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .primary,
+                                                                      letterSpacing:
+                                                                          0.0,
+                                                                      fontWeight: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .titleSmall
+                                                                          .fontWeight,
+                                                                      fontStyle: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .titleSmall
+                                                                          .fontStyle,
+                                                                    ),
+                                                            elevation: 0.0,
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        30.0),
+                                                            borderSide:
+                                                                BorderSide(
+                                                              color: FlutterFlowTheme
+                                                                      .of(context)
+                                                                  .primary,
+                                                              width: 1.0,
+                                                            ),
+                                                          ),
+                                                        );
+                                                      },
+                                                    ),
+                                                  Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.max,
+                                                    children: [
+                                                      Container(
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .accent2,
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      12.0),
+                                                        ),
+                                                        child: Padding(
+                                                          padding:
+                                                              EdgeInsetsDirectional
+                                                                  .fromSTEB(
+                                                                      4.0,
+                                                                      8.0,
+                                                                      4.0,
+                                                                      8.0),
+                                                          child: Text(
+                                                            'Gagné le ${dateTimeFormat(
+                                                              "d/M/y",
+                                                              listViewPrizesRecord
+                                                                  .winDate,
+                                                              locale: FFLocalizations
+                                                                      .of(context)
+                                                                  .languageCode,
+                                                            )}',
+                                                            style: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .bodySmall
+                                                                .override(
+                                                                  font:
+                                                                      GoogleFonts
+                                                                          .inter(
+                                                                    fontWeight: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodySmall
+                                                                        .fontWeight,
+                                                                    fontStyle: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodySmall
+                                                                        .fontStyle,
+                                                                  ),
+                                                                  color: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .secondary,
+                                                                  letterSpacing:
+                                                                      0.0,
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodySmall
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodySmall
+                                                                      .fontStyle,
+                                                                ),
+                                                          ),
+                                                        ),
                                                       ),
-                                                      color: FlutterFlowTheme.of(
-                                                          context)
-                                                        .primary,
-                                                      letterSpacing:
-                                                        0.0,
-                                                      fontWeight: FlutterFlowTheme.of(
-                                                          context)
-                                                        .titleSmall
-                                                        .fontWeight,
-                                                      fontStyle: FlutterFlowTheme.of(
-                                                          context)
-                                                        .titleSmall
-                                                        .fontStyle,
-                                                    ),
-                                                elevation: 0.0,
-                                                borderRadius:
-                                                  BorderRadius
-                                                    .circular(
-                                                      30.0),
-                                                borderSide:
-                                                  BorderSide(
-                                                  color: FlutterFlowTheme
-                                                      .of(context)
-                                                    .primary,
-                                                  width: 1.0,
-                                                ),
-                                                ),
-                                              );
-                                              },
-                                            ),
-                                            Row(
-                                            mainAxisSize:
-                                              MainAxisSize.max,
-                                            children: [
-                                              Container(
-                                              decoration:
-                                                BoxDecoration(
-                                                color: FlutterFlowTheme
-                                                    .of(context)
-                                                  .accent2,
-                                                borderRadius:
-                                                  BorderRadius
-                                                    .circular(
-                                                      12.0),
-                                              ),
-                                              child: Padding(
-                                                padding:
-                                                  EdgeInsetsDirectional
-                                                    .fromSTEB(
-                                                      4.0,
-                                                      8.0,
-                                                      4.0,
-                                                      8.0),
-                                                child: Text(
-                                                'Gagné le ${dateTimeFormat(
-                                                  "d/M/y",
-                                                  listViewPrizesRecord
-                                                    .winDate,
-                                                  locale: FFLocalizations
-                                                      .of(context)
-                                                    .languageCode,
-                                                )}',
-                                                style: FlutterFlowTheme
-                                                    .of(context)
-                                                  .bodySmall
-                                                  .override(
-                                                    font:
-                                                      GoogleFonts
-                                                        .inter(
-                                                    fontWeight: FlutterFlowTheme.of(
-                                                        context)
-                                                      .bodySmall
-                                                      .fontWeight,
-                                                    fontStyle: FlutterFlowTheme.of(
-                                                        context)
-                                                      .bodySmall
-                                                      .fontStyle,
-                                                    ),
-                                                    color: FlutterFlowTheme.of(
-                                                        context)
-                                                      .secondary,
-                                                    letterSpacing:
-                                                      0.0,
-                                                    fontWeight: FlutterFlowTheme.of(
-                                                        context)
-                                                      .bodySmall
-                                                      .fontWeight,
-                                                    fontStyle: FlutterFlowTheme.of(
-                                                        context)
-                                                      .bodySmall
-                                                      .fontStyle,
+                                                      Container(
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: listViewPrizesRecord
+                                                                      .claimed ==
+                                                                  true
+                                                              ? FlutterFlowTheme
+                                                                      .of(
+                                                                          context)
+                                                                  .accent2
+                                                              : FlutterFlowTheme
+                                                                      .of(context)
+                                                                  .accent3,
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      12.0),
+                                                        ),
+                                                        child: Padding(
+                                                          padding:
+                                                              EdgeInsetsDirectional
+                                                                  .fromSTEB(
+                                                                      4.0,
+                                                                      8.0,
+                                                                      4.0,
+                                                                      8.0),
+                                                          child: Text(
+                                                            listViewPrizesRecord
+                                                                        .claimed ==
+                                                                    true
+                                                                ? 'Obtenu'
+                                                                : 'Non réclamé',
+                                                            style: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .bodySmall
+                                                                .override(
+                                                                  font:
+                                                                      GoogleFonts
+                                                                          .inter(
+                                                                    fontWeight: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodySmall
+                                                                        .fontWeight,
+                                                                    fontStyle: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodySmall
+                                                                        .fontStyle,
+                                                                  ),
+                                                                  color: listViewPrizesRecord
+                                                                              .claimed ==
+                                                                          true
+                                                                      ? FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .secondary
+                                                                      : FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .tertiary,
+                                                                  letterSpacing:
+                                                                      0.0,
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodySmall
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodySmall
+                                                                      .fontStyle,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ].divide(
+                                                        SizedBox(width: 8.0)),
                                                   ),
-                                                ),
+                                                ].divide(
+                                                    SizedBox(height: 10.0)),
                                               ),
-                                              ),
-                                              Container(
-                                              decoration:
-                                                BoxDecoration(
-                                                color: listViewPrizesRecord
-                                                      .claimed ==
-                                                    true
-                                                  ? FlutterFlowTheme
-                                                      .of(
-                                                        context)
-                                                    .accent2
-                                                  : FlutterFlowTheme
-                                                      .of(context)
-                                                    .accent3,
-                                                borderRadius:
-                                                  BorderRadius
-                                                    .circular(
-                                                      12.0),
-                                              ),
-                                              child: Padding(
-                                                padding:
-                                                  EdgeInsetsDirectional
-                                                    .fromSTEB(
-                                                      4.0,
-                                                      8.0,
-                                                      4.0,
-                                                      8.0),
-                                                child: Text(
-                                                listViewPrizesRecord
-                                                      .claimed ==
-                                                    true
-                                                  ? 'Obtenu'
-                                                  : 'Non réclamé',
-                                                style: FlutterFlowTheme
-                                                    .of(context)
-                                                  .bodySmall
-                                                  .override(
-                                                    font:
-                                                      GoogleFonts
-                                                        .inter(
-                                                    fontWeight: FlutterFlowTheme.of(
-                                                        context)
-                                                      .bodySmall
-                                                      .fontWeight,
-                                                    fontStyle: FlutterFlowTheme.of(
-                                                        context)
-                                                      .bodySmall
-                                                      .fontStyle,
-                                                    ),
-                                                    color: listViewPrizesRecord
-                                                          .claimed ==
-                                                        true
-                                                      ? FlutterFlowTheme.of(
-                                                          context)
-                                                        .secondary
-                                                      : FlutterFlowTheme.of(
-                                                          context)
-                                                        .tertiary,
-                                                    letterSpacing:
-                                                      0.0,
-                                                    fontWeight: FlutterFlowTheme.of(
-                                                        context)
-                                                      .bodySmall
-                                                      .fontWeight,
-                                                    fontStyle: FlutterFlowTheme.of(
-                                                        context)
-                                                      .bodySmall
-                                                      .fontStyle,
-                                                  ),
-                                                ),
-                                              ),
-                                              ),
-                                            ].divide(
-                                              SizedBox(width: 8.0)),
                                             ),
-                                          ].divide(
-                                            SizedBox(height: 10.0)),
-                                          ),
+                                          ].divide(SizedBox(width: 16.0)),
                                         ),
-                                        ].divide(SizedBox(width: 16.0)),
-                                      ),
                                       ),
                                     ),
-                                    ),
+                                  ),
                                 );
                               },
                             ),

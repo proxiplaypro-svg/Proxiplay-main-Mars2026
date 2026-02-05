@@ -102,11 +102,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final endDate = widget!.gameDoc?.endDate;
         final endWindowEnd = endDate?.add(const Duration(hours: 48));
         final isWithinEndWindow = endDate != null &&
-          getCurrentTimestamp.isAfter(endDate) &&
-          (endWindowEnd != null && getCurrentTimestamp.isBefore(endWindowEnd));
+            getCurrentTimestamp.isAfter(endDate) &&
+            (endWindowEnd != null &&
+                getCurrentTimestamp.isBefore(endWindowEnd));
         final hasWinnerAnnouncement = isWithinEndWindow &&
-          (widget!.gameDoc?.hasWinner ?? false) &&
-          (widget!.gameDoc?.mainPrizeWinner != null);
+            (widget!.gameDoc?.hasWinner ?? false) &&
+            (widget!.gameDoc?.mainPrizeWinner != null);
 
         return GestureDetector(
           onTap: () {
@@ -388,88 +389,95 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                           borderRadius:
                                               BorderRadius.circular(20.0),
                                           border: Border.all(
-                                            color:
-                                                FlutterFlowTheme.of(context)
-                                                    .primary,
+                                            color: FlutterFlowTheme.of(context)
+                                                .primary,
                                             width: 1.0,
                                           ),
                                         ),
                                         child: Padding(
-                                          padding: EdgeInsetsDirectional.fromSTEB(
-                                              16.0, 16.0, 16.0, 16.0),
+                                          padding:
+                                              EdgeInsetsDirectional.fromSTEB(
+                                                  16.0, 16.0, 16.0, 16.0),
                                           child: FutureBuilder<UsersRecord>(
                                             future: UsersRecord.getDocumentOnce(
-                                                widget!.gameDoc!
-                                                    .mainPrizeWinner!),
+                                                widget!
+                                                    .gameDoc!.mainPrizeWinner!),
                                             builder: (context, snapshot) {
-                                              final winnerName = snapshot.hasData
-                                                ? snapshot.data!.pseudo
-                                                : '';
+                                              final winnerName =
+                                                  snapshot.hasData
+                                                      ? snapshot.data!.pseudo
+                                                      : '';
                                               return Column(
                                                 mainAxisSize: MainAxisSize.max,
                                                 children: [
                                                   Text(
                                                     'Félicitations !',
-                                                    style:
-                                                        FlutterFlowTheme.of(context)
-                                                            .titleMedium
-                                                            .override(
-                                                              font: GoogleFonts
-                                                                  .interTight(
-                                                                fontWeight: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .titleMedium
-                                                                    .fontWeight,
-                                                                fontStyle: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .titleMedium
-                                                                    .fontStyle,
-                                                              ),
-                                                              letterSpacing: 0.0,
-                                                              fontWeight: FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .titleMedium
-                                                                  .fontWeight,
-                                                              fontStyle: FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .titleMedium
-                                                                  .fontStyle,
-                                                            ),
-                                                  ),
-                                                  if (winnerName.isNotEmpty)
-                                                    Text(
-                                                      'Félicitations à $winnerName !',
-                                                      textAlign: TextAlign.center,
-                                                      style: FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .override(
-                                                            font: GoogleFonts
-                                                                .inter(
-                                                              fontWeight: FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                              fontStyle: FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                            ),
-                                                            color: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .secondaryText,
-                                                            letterSpacing: 0.0,
+                                                    style: FlutterFlowTheme.of(
+                                                            context)
+                                                        .titleMedium
+                                                        .override(
+                                                          font: GoogleFonts
+                                                              .interTight(
                                                             fontWeight:
                                                                 FlutterFlowTheme.of(
                                                                         context)
-                                                                    .bodyMedium
+                                                                    .titleMedium
                                                                     .fontWeight,
                                                             fontStyle:
                                                                 FlutterFlowTheme.of(
                                                                         context)
-                                                                    .bodyMedium
+                                                                    .titleMedium
                                                                     .fontStyle,
                                                           ),
+                                                          letterSpacing: 0.0,
+                                                          fontWeight:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .titleMedium
+                                                                  .fontWeight,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .titleMedium
+                                                                  .fontStyle,
+                                                        ),
+                                                  ),
+                                                  if (winnerName.isNotEmpty)
+                                                    Text(
+                                                      'Félicitations à $winnerName !',
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodyMedium
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .fontStyle,
+                                                                ),
+                                                                color: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .secondaryText,
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontWeight,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontStyle,
+                                                              ),
                                                     ),
                                                   Text(
                                                     'Le jeu est terminé pour le moment. Revenez bientôt pour découvrir les prochains jeux !',
@@ -478,7 +486,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                             context)
                                                         .bodySmall
                                                         .override(
-                                                          font: GoogleFonts.inter(
+                                                          font:
+                                                              GoogleFonts.inter(
                                                             fontWeight:
                                                                 FlutterFlowTheme.of(
                                                                         context)
@@ -490,8 +499,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     .bodySmall
                                                                     .fontStyle,
                                                           ),
-                                                          color: FlutterFlowTheme.of(
-                                                                  context)
+                                                          color: FlutterFlowTheme
+                                                                  .of(context)
                                                               .secondaryText,
                                                           letterSpacing: 0.0,
                                                           fontWeight:
@@ -506,8 +515,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   .fontStyle,
                                                         ),
                                                   ),
-                                                ].divide(
-                                                    SizedBox(height: 8.0)),
+                                                ].divide(SizedBox(height: 8.0)),
                                               );
                                             },
                                           ),
@@ -1100,8 +1108,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                       ),
                                     ),
                                     if ((widget!.gameDoc?.description ?? '')
-                                      .trim()
-                                      .isNotEmpty)
+                                        .trim()
+                                        .isNotEmpty)
                                       Container(
                                         width: double.infinity,
                                         decoration: BoxDecoration(

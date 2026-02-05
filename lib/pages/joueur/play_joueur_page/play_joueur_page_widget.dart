@@ -63,19 +63,19 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
         (widget!.game?.hasPrizeValue() ?? false);
     final isWin = widget!.resultParticipation?.isWin == true;
     final rewardText = isWin
-      ? (widget!.resultParticipation?.message ?? '')
-      : (hasMainPrize
         ? (widget!.resultParticipation?.message ?? '')
-        : 'Perdu ! Retentez votre chance demain !');
+        : (hasMainPrize
+            ? (widget!.resultParticipation?.message ?? '')
+            : 'Perdu ! Retentez votre chance demain !');
     final now = DateTime.now();
     final endDate = widget!.game?.endDate;
     final endWindowEnd = endDate?.add(const Duration(hours: 48));
     final isWithinEndWindow = endDate != null &&
-      now.isAfter(endDate) &&
-      (endWindowEnd != null && now.isBefore(endWindowEnd));
+        now.isAfter(endDate) &&
+        (endWindowEnd != null && now.isBefore(endWindowEnd));
     final hasWinnerAnnouncement = isWithinEndWindow &&
-      (widget!.game?.hasWinner ?? false) &&
-      (widget!.game?.mainPrizeWinner != null);
+        (widget!.game?.hasWinner ?? false) &&
+        (widget!.game?.mainPrizeWinner != null);
 
     return GestureDetector(
       onTap: () {
@@ -238,9 +238,9 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                       ),
                                       if (hasWinnerAnnouncement)
                                         Container(
-                                          width: MediaQuery.sizeOf(context)
-                                                  .width *
-                                              1.0,
+                                          width:
+                                              MediaQuery.sizeOf(context).width *
+                                                  1.0,
                                           decoration: BoxDecoration(
                                             color: FlutterFlowTheme.of(context)
                                                 .secondaryBackground,
@@ -254,8 +254,8 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                             ),
                                           ),
                                           child: Padding(
-                                            padding: EdgeInsetsDirectional
-                                                .fromSTEB(
+                                            padding:
+                                                EdgeInsetsDirectional.fromSTEB(
                                                     16.0, 20.0, 16.0, 20.0),
                                             child: FutureBuilder<UsersRecord>(
                                               future:
@@ -263,10 +263,10 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                       widget!.game!
                                                           .mainPrizeWinner!),
                                               builder: (context, snapshot) {
-                                                final winnerName = snapshot
-                                                    .hasData
-                                                  ? snapshot.data!.pseudo
-                                                  : '';
+                                                final winnerName =
+                                                    snapshot.hasData
+                                                        ? snapshot.data!.pseudo
+                                                        : '';
                                                 return Column(
                                                   mainAxisSize:
                                                       MainAxisSize.max,
@@ -311,8 +311,9 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                                     context)
                                                                 .bodyMedium
                                                                 .override(
-                                                                  font: GoogleFonts
-                                                                      .inter(
+                                                                  font:
+                                                                      GoogleFonts
+                                                                          .inter(
                                                                     fontWeight: FlutterFlowTheme.of(
                                                                             context)
                                                                         .bodyMedium
@@ -346,8 +347,9 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                                   context)
                                                               .bodySmall
                                                               .override(
-                                                                font: GoogleFonts
-                                                                    .inter(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
                                                                   fontWeight: FlutterFlowTheme.of(
                                                                           context)
                                                                       .bodySmall
@@ -381,9 +383,9 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                         )
                                       else
                                         Container(
-                                          width: MediaQuery.sizeOf(context)
-                                                  .width *
-                                              1.0,
+                                          width:
+                                              MediaQuery.sizeOf(context).width *
+                                                  1.0,
                                           height: 200.0,
                                           decoration: BoxDecoration(
                                             color: Color(0xFFF5F5F5),
@@ -398,7 +400,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                               width: 300.0,
                                               height: 300.0,
                                               hiddenContent: ' ',
-                                                rewardText: rewardText,
+                                              rewardText: rewardText,
                                               rewardImageUrl:
                                                   widget!.game!.photo,
                                               rewardTextBonus: widget!
@@ -449,12 +451,11 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                       return SizedBox(height: 0.0);
                                     }
                                     final enseigneRecord = snapshot.data!;
-                                    final enseigneName =
-                                        (widget!.game?.enseigneName
-                                                    .isNotEmpty ??
-                                                false)
-                                            ? widget!.game!.enseigneName
-                                            : enseigneRecord.name;
+                                    final enseigneName = (widget!.game
+                                                ?.enseigneName.isNotEmpty ??
+                                            false)
+                                        ? widget!.game!.enseigneName
+                                        : enseigneRecord.name;
                                     return Container(
                                       width: MediaQuery.sizeOf(context).width *
                                           0.9,
@@ -478,14 +479,16 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                         options: FFButtonOptions(
                                           width: double.infinity,
                                           height: 40.0,
-                                          padding: EdgeInsetsDirectional
-                                              .fromSTEB(
+                                          padding:
+                                              EdgeInsetsDirectional.fromSTEB(
                                                   16.0, 0.0, 16.0, 0.0),
-                                          iconPadding: EdgeInsetsDirectional
-                                              .fromSTEB(0.0, 0.0, 0.0, 0.0),
+                                          iconPadding:
+                                              EdgeInsetsDirectional.fromSTEB(
+                                                  0.0, 0.0, 0.0, 0.0),
                                           color: FlutterFlowTheme.of(context)
                                               .secondaryBackground,
-                                          textStyle: FlutterFlowTheme.of(context)
+                                          textStyle: FlutterFlowTheme.of(
+                                                  context)
                                               .titleSmall
                                               .override(
                                                 font: GoogleFonts.interTight(

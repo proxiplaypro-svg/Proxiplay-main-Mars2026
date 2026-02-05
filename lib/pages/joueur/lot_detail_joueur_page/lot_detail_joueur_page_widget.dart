@@ -359,88 +359,87 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                     ),
                                                     FFButtonWidget(
                                                       onPressed: () async {
-                                                      context.pushNamed(
-                                                        EnseigneDetailJoueurPageWidget
-                                                          .routeName,
-                                                        queryParameters: {
-                                                        'enseigneDoc':
-                                                          serializeParam(
-                                                          containerEnseignesRecord,
-                                                          ParamType
-                                                            .Document,
-                                                        ),
-                                                        }.withoutNulls,
-                                                        extra: <String,
-                                                          dynamic>{
-                                                        'enseigneDoc':
-                                                          containerEnseignesRecord,
-                                                        },
-                                                      );
+                                                        context.pushNamed(
+                                                          EnseigneDetailJoueurPageWidget
+                                                              .routeName,
+                                                          queryParameters: {
+                                                            'enseigneDoc':
+                                                                serializeParam(
+                                                              containerEnseignesRecord,
+                                                              ParamType
+                                                                  .Document,
+                                                            ),
+                                                          }.withoutNulls,
+                                                          extra: <String,
+                                                              dynamic>{
+                                                            'enseigneDoc':
+                                                                containerEnseignesRecord,
+                                                          },
+                                                        );
                                                       },
                                                       text:
-                                                        containerEnseignesRecord
-                                                          .name,
+                                                          containerEnseignesRecord
+                                                              .name,
                                                       options: FFButtonOptions(
-                                                      width: double.infinity,
-                                                      height: 40.0,
-                                                      padding:
-                                                        EdgeInsetsDirectional
-                                                          .fromSTEB(
-                                                            16.0,
-                                                            0.0,
-                                                            16.0,
-                                                            0.0),
-                                                      iconPadding:
-                                                        EdgeInsetsDirectional
-                                                          .fromSTEB(
-                                                            0.0,
-                                                            0.0,
-                                                            0.0,
-                                                            0.0),
-                                                      color:
-                                                        FlutterFlowTheme.of(
-                                                            context)
-                                                          .secondaryBackground,
-                                                      textStyle:
-                                                        FlutterFlowTheme.of(
-                                                            context)
-                                                          .titleSmall
-                                                          .override(
-                                                            font: GoogleFonts
-                                                              .interTight(
-                                                            fontWeight: FlutterFlowTheme.of(
-                                                                context)
-                                                              .titleSmall
-                                                              .fontWeight,
-                                                            fontStyle: FlutterFlowTheme.of(
-                                                                context)
-                                                              .titleSmall
-                                                              .fontStyle,
-                                                            ),
-                                                            color: FlutterFlowTheme.of(
-                                                                context)
-                                                              .primary,
-                                                            letterSpacing:
-                                                              0.0,
-                                                            fontWeight: FlutterFlowTheme.of(
-                                                                context)
-                                                              .titleSmall
-                                                              .fontWeight,
-                                                            fontStyle: FlutterFlowTheme.of(
-                                                                context)
-                                                              .titleSmall
-                                                              .fontStyle,
-                                                          ),
-                                                      elevation: 0.0,
-                                                      borderRadius:
-                                                        BorderRadius
-                                                          .circular(30.0),
-                                                      borderSide: BorderSide(
+                                                        width: double.infinity,
+                                                        height: 40.0,
+                                                        padding:
+                                                            EdgeInsetsDirectional
+                                                                .fromSTEB(
+                                                                    16.0,
+                                                                    0.0,
+                                                                    16.0,
+                                                                    0.0),
+                                                        iconPadding:
+                                                            EdgeInsetsDirectional
+                                                                .fromSTEB(
+                                                                    0.0,
+                                                                    0.0,
+                                                                    0.0,
+                                                                    0.0),
                                                         color: FlutterFlowTheme
-                                                            .of(context)
-                                                          .primary,
-                                                        width: 1.0,
-                                                      ),
+                                                                .of(context)
+                                                            .secondaryBackground,
+                                                        textStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .titleSmall
+                                                                .override(
+                                                                  font: GoogleFonts
+                                                                      .interTight(
+                                                                    fontWeight: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .titleSmall
+                                                                        .fontWeight,
+                                                                    fontStyle: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .titleSmall
+                                                                        .fontStyle,
+                                                                  ),
+                                                                  color: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .primary,
+                                                                  letterSpacing:
+                                                                      0.0,
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .fontStyle,
+                                                                ),
+                                                        elevation: 0.0,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(30.0),
+                                                        borderSide: BorderSide(
+                                                          color: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .primary,
+                                                          width: 1.0,
+                                                        ),
                                                       ),
                                                     ),
                                                     Container(
