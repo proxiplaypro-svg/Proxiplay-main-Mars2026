@@ -378,6 +378,106 @@ exports.processScheduledPushNotifications = functions
     );
   });
 
+// Automatically select a main prize winner after game end.
+// Runs hourly to avoid load; only processes games with no winner yet.
+exports.pickMainPrizeWinners = functions.pubsub
+  .schedule("every 60 minutes")
+  .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    const gamesSnap = await firestore
+      .collection("games")
+      .where("hasWinner", "==", false)
+      .where("end_date", "<=", now)
+      .limit(20)
+      .get();
+
+    if (gamesSnap.empty) {
+      return null;
+    }
+
+    await Promise.all(
+      gamesSnap.docs.map(async (gameDoc) => {
+        const gameData = gameDoc.data();
+        const hasMainPrize =
+          !!gameData.name ||
+          !!gameData.description ||
+          (gameData.prize_value !== null &&
+            typeof gameData.prize_value !== "undefined");
+
+        if (!hasMainPrize || gameData.main_prize_winner) {
+          return null;
+        }
+
+        const participantsSnap = await gameDoc.ref
+          .collection("participants")
+          .get();
+
+        if (participantsSnap.empty) {
+          return null;
+        }
+
+        const participants = participantsSnap.docs;
+        const winnerDoc =
+          participants[Math.floor(Math.random() * participants.length)];
+        const winnerRef = winnerDoc.data().user_id;
+
+        if (!winnerRef) {
+          return null;
+        }
+
+        const prizeRef = firestore.collection("prizes").doc();
+        const claimCode = `${Date.now().toString(36).toUpperCase()}`;
+        const ownerRef = gameData.create_by
+          ? firestore.doc(gameData.create_by.path)
+          : null;
+        const enseigneRef = gameData.enseigne_id
+          ? firestore.doc(gameData.enseigne_id.path)
+          : null;
+
+        await firestore.runTransaction(async (transaction) => {
+          const freshGameDoc = await transaction.get(gameDoc.ref);
+          if (!freshGameDoc.exists) {
+            return;
+          }
+          const freshGameData = freshGameDoc.data();
+          if (freshGameData.hasWinner || freshGameData.main_prize_winner) {
+            return;
+          }
+
+          transaction.update(gameDoc.ref, {
+            hasWinner: true,
+            main_prize_winner: winnerRef,
+          });
+
+          transaction.set(prizeRef, {
+            prize_type: "principal",
+            name: gameData.name || "Lot principal",
+            description: gameData.description || "",
+            winner_id: winnerRef,
+            game_id: gameDoc.ref,
+            enseigne_id: enseigneRef,
+            enseigne_name: gameData.enseigne_name || "",
+            owner_id: ownerRef,
+            claim_code: claimCode,
+            claimed: false,
+            win_date: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+          const userLotRef = winnerRef
+            .collection("my_lots")
+            .doc(prizeRef.id);
+          transaction.set(userLotRef, {
+            prize_id: prizeRef,
+          });
+        });
+
+        return null;
+      }),
+    );
+
+    return null;
+  });
+
 function getUserFcmTokensCollection(userDocPath) {
   return firestore.doc(userDocPath).collection(kFcmTokensCollection);
 }
