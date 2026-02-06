@@ -13,6 +13,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'auth/firebase_auth/firebase_user_provider.dart';
 import 'auth/firebase_auth/auth_util.dart';
+import 'auth/firebase_auth/firebase_persistence.dart';
 
 import 'backend/push_notifications/push_notifications_util.dart';
 import 'backend/firebase/firebase_config.dart';
@@ -27,6 +28,7 @@ import 'pages/status_screens/update_required_screen.dart';
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await initFirebase();
+  await FirebasePersistenceManager().initializePersistence();
   debugPrint('FCM: background message id=${message.messageId}');
 }
 
