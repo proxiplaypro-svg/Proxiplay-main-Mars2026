@@ -98,6 +98,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
             FFRoute(
               name: HomeJoueurPageWidget.routeName,
               path: HomeJoueurPageWidget.routePath,
+              requireAuth: true,
               builder: (context, params) => HomeJoueurPageWidget(),
             ),
             FFRoute(
@@ -210,6 +211,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
             FFRoute(
               name: EnseigneJoueurPageWidget.routeName,
               path: EnseigneJoueurPageWidget.routePath,
+              requireAuth: true,
               builder: (context, params) => EnseigneJoueurPageWidget(),
             ),
             FFRoute(
@@ -318,6 +320,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
             FFRoute(
               name: JeuDetailJoueurPageWidget.routeName,
               path: JeuDetailJoueurPageWidget.routePath,
+              requireAuth: true,
               asyncParams: {
                 'gameDoc': getDoc(['games'], GamesRecord.fromSnapshot),
                 'enseigneDoc':
@@ -337,6 +340,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
             FFRoute(
               name: EnseigneDetailJoueurPageWidget.routeName,
               path: EnseigneDetailJoueurPageWidget.routePath,
+              requireAuth: true,
               asyncParams: {
                 'enseigneDoc':
                     getDoc(['enseignes'], EnseignesRecord.fromSnapshot),

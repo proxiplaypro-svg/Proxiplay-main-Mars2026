@@ -2,13 +2,13 @@ import '/custom_code/actions/index.dart' as actions;
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 // --- AJOUT : Import pour savoir si on est sur le Web (kIsWeb) ---
-import 'package:flutter/foundation.dart' show kIsWeb; 
+import 'package:flutter/foundation.dart' show kIsWeb;
 // ----------------------------------------------------------------
 
 import 'dart:async';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
-import 'package:firebase_remote_config/firebase_remote_config.dart'; 
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'auth/firebase_auth/firebase_user_provider.dart';
@@ -116,10 +116,10 @@ class _MyAppState extends State<MyApp> {
     if (!kIsWeb) {
       FirebaseRemoteConfig.instance.onConfigUpdated.listen((event) async {
         await FirebaseRemoteConfig.instance.activate();
-        
+
         if (mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _checkRemoteConfig(); 
+            _checkRemoteConfig();
           });
         }
         debugPrint("Mise à jour Remote Config appliquée en temps réel.");
@@ -135,7 +135,7 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _checkRemoteConfig() async {
     final remoteService = RemoteConfigService();
-    
+
     // Initialisation
     await remoteService.initialize();
 
@@ -176,12 +176,10 @@ class _MyAppState extends State<MyApp> {
     // 1. Chargement
     if (_isLoadingConfig) {
       return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: const Scaffold(
-          backgroundColor: Colors.white, 
-          body: const Center(child: CircularProgressIndicator())
-        )
-      );
+          debugShowCheckedModeBanner: false,
+          home: const Scaffold(
+              backgroundColor: Colors.white,
+              body: const Center(child: CircularProgressIndicator())));
     }
 
     // 2. Blocage Maintenance
@@ -223,7 +221,9 @@ class _MyAppState extends State<MyApp> {
         // Always fallback to French if device locale isn't supported.
         if (deviceLocale == null) return const Locale('fr');
         final isSupported = supportedLocales.any(
-          (l) => l.languageCode.toLowerCase() == deviceLocale.languageCode.toLowerCase(),
+          (l) =>
+              l.languageCode.toLowerCase() ==
+              deviceLocale.languageCode.toLowerCase(),
         );
         return isSupported ? deviceLocale : const Locale('fr');
       },

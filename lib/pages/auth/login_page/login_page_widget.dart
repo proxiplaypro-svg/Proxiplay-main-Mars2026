@@ -66,6 +66,21 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
         return;
       }
       if (loggedIn == true) {
+        if (currentUserDocument == null) {
+          // User document hasn't loaded from Firestore yet – wait for it
+          // instead of blindly routing to the player home page.
+          await Future.delayed(const Duration(milliseconds: 300));
+          // Re-check after the delay; if still null, wait a bit more.
+          for (int i = 0; i < 10 && currentUserDocument == null; i++) {
+            await Future.delayed(const Duration(milliseconds: 300));
+          }
+          // If the document never loaded (e.g. anonymous user with no
+          // Firestore doc), fall through to the joueur home as a default.
+          if (currentUserDocument == null) {
+            context.goNamed(HomeJoueurPageWidget.routeName);
+            return;
+          }
+        }
         if (currentUserDocument?.userRole == Roles.joueur) {
           if (currentUserDocument?.accountStatus == AccountStatus.pendingInfo) {
             if (Navigator.of(context).canPop()) {
@@ -93,10 +108,14 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                 partLastUpdate: _model.refreshDate,
               ));
             }
-            _model.isMineur = await actions.isMineur(
-              currentUserDocument!.birthday!,
-            );
-            FFAppState().isMineur = _model.isMineur2!;
+            if (currentUserDocument?.birthday != null) {
+              _model.isMineur = await actions.isMineur(
+                currentUserDocument!.birthday!,
+              );
+              FFAppState().isMineur = _model.isMineur2 ?? false;
+            } else {
+              FFAppState().isMineur = false;
+            }
 
             context.goNamed(HomeJoueurPageWidget.routeName);
           }
@@ -794,6 +813,12 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                     0.0, 16.0, 0.0, 16.0),
                                 child: FFButtonWidget(
                                   onPressed: () async {
+                                    final user =
+                                        await authManager.signInAnonymously(
+                                            context);
+                                    if (user == null) {
+                                      return;
+                                    }
                                     context.goNamed(
                                         HomeJoueurPageWidget.routeName);
                                   },
