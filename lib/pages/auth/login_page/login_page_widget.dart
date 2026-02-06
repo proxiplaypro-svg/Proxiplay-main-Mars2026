@@ -60,8 +60,11 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
         return;
       }
       // Only auto-redirect if we are on the initial route or login page.
-      final currentRoute =
-          GoRouter.of(context).routerDelegate.currentConfiguration.uri.toString();
+      final currentRoute = GoRouter.of(context)
+          .routerDelegate
+          .currentConfiguration
+          .uri
+          .toString();
       if (currentRoute != '/' && currentRoute != '/loginPage') {
         return;
       }
@@ -813,9 +816,8 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                     0.0, 16.0, 0.0, 16.0),
                                 child: FFButtonWidget(
                                   onPressed: () async {
-                                    final user =
-                                        await authManager.signInAnonymously(
-                                            context);
+                                    final user = await authManager
+                                        .signInAnonymously(context);
                                     if (user == null) {
                                       return;
                                     }
