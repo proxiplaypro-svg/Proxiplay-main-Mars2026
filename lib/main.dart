@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 // --- AJOUT : Import pour savoir si on est sur le Web (kIsWeb) ---
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 // ----------------------------------------------------------------
 
 import 'dart:async';
@@ -20,6 +21,7 @@ import 'backend/firebase/firebase_config.dart';
 import 'flutter_flow/flutter_flow_util.dart';
 import 'flutter_flow/internationalization.dart';
 import 'flutter_flow/nav/nav.dart';
+import 'flutter_flow/permissions_util.dart';
 
 import 'services/remote_config_service.dart';
 import 'pages/status_screens/maintenance_screen.dart';
@@ -110,6 +112,13 @@ class _MyAppState extends State<MyApp> {
 
     // Vérification au démarrage (Fonctionne sur Web et Mobile)
     _checkRemoteConfig();
+
+    // Request notification permission on Android 13+ at startup.
+    Future.delayed(Duration.zero, () async {
+      if (!kIsWeb && Platform.isAndroid) {
+        await requestPermission(notificationsPermission);
+      }
+    });
 
     // --- CORRECTION WEB ---
     // On n'active l'écouteur temps réel QUE si nous ne sommes PAS sur le Web.
