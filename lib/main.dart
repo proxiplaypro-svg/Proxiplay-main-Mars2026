@@ -22,6 +22,7 @@ import 'flutter_flow/flutter_flow_util.dart';
 import 'flutter_flow/internationalization.dart';
 import 'flutter_flow/nav/nav.dart';
 import 'flutter_flow/permissions_util.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'services/remote_config_service.dart';
 import 'pages/status_screens/maintenance_screen.dart';
@@ -114,9 +115,14 @@ class _MyAppState extends State<MyApp> {
     _checkRemoteConfig();
 
     // Request notification permission on Android 13+ at startup.
-    Future.delayed(Duration.zero, () async {
+    Future.delayed(const Duration(milliseconds: 1500), () async {
       if (!kIsWeb && Platform.isAndroid) {
-        await requestPermission(notificationsPermission);
+        final status = await notificationsPermission.status;
+        debugPrint('Android notification permission status: $status');
+        if (status.isDenied || status.isRestricted) {
+          final result = await notificationsPermission.request();
+          debugPrint('Android notification permission result: $result');
+        }
       }
     });
 

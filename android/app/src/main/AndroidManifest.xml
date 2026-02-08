@@ -29,6 +29,10 @@
       </intent-filter>
       <!-- Deep linking -->
       <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
+      <!-- Default FCM notification channel -->
+      <meta-data
+        android:name="com.google.firebase.messaging.default_notification_channel_id"
+        android:value="default_notification_channel" />
       <intent-filter android:autoVerify="true">
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
