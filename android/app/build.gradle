@@ -47,6 +47,9 @@ android {
         }
     }
 
+    // Enable 16 KB page size support (required for Android 15+)
+    experimentalProperties["android.experimental.enablePageSizeSupport"] = true
+
     kotlinOptions {
         jvmTarget = '17'
     }
