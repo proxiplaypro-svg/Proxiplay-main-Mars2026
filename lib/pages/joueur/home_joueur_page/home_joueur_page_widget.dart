@@ -570,7 +570,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                           ),
                                                                     ),
                                                                     Text(
-                                                                      '${searchItem.prizeValue.toString()} €',
+                                                                      searchItem.prizeValue == 0 ? 'Gains instantanés à gagner' : '${searchItem.prizeValue.toString()} €',
                                                                       style: FlutterFlowTheme.of(
                                                                               context)
                                                                           .bodySmall
@@ -1114,19 +1114,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                       size: 18.0,
                                                                                                     ),
                                                                                                     Text(
-                                                                                                      ' Valeur de ',
-                                                                                                      style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                            font: GoogleFonts.inter(
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
-                                                                                                            letterSpacing: 0.0,
-                                                                                                            fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                            fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                          ),
-                                                                                                    ),
-                                                                                                    Text(
-                                                                                                      '${listViewGamesRecord.prizeValue.toString()} €',
+                                                                                                      listViewGamesRecord.prizeValue == 0 ? 'Gains instantanés à gagner' : '${listViewGamesRecord.prizeValue.toString()} €',
                                                                                                       style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                                             font: GoogleFonts.inter(
                                                                                                               fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -1503,18 +1491,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                         color: FlutterFlowTheme.of(context).primaryText,
                                                                                                         size: 18.0,
                                                                                                       ),
-                                                                                                      Text(
-                                                                                                        'Commerce : ',
-                                                                                                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                              font: GoogleFonts.inter(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                              ),
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
-                                                                                                      ),
                                                                                                       FutureBuilder<EnseignesRecord>(
                                                                                                         future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
                                                                                                         builder: (context, snapshot) {
@@ -1560,18 +1536,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                         Icons.place_sharp,
                                                                                                         color: FlutterFlowTheme.of(context).primaryText,
                                                                                                         size: 18.0,
-                                                                                                      ),
-                                                                                                      Text(
-                                                                                                        'Ville : ',
-                                                                                                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                              font: GoogleFonts.inter(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                              ),
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
                                                                                                       ),
                                                                                                       FutureBuilder<EnseignesRecord>(
                                                                                                         future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
@@ -1620,19 +1584,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                         size: 18.0,
                                                                                                       ),
                                                                                                       Text(
-                                                                                                        'Valeur: ',
-                                                                                                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                              font: GoogleFonts.inter(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                              ),
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
-                                                                                                      ),
-                                                                                                      Text(
-                                                                                                        '${listViewGamesRecord.prizeValue.toString()} €',
+                                                                                                        listViewGamesRecord.prizeValue == 0 ? 'Gains instantanés à gagner' : '${listViewGamesRecord.prizeValue.toString()} €',
                                                                                                         style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                                               font: GoogleFonts.inter(
                                                                                                                 fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -2007,18 +1959,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                         color: FlutterFlowTheme.of(context).primaryText,
                                                                                                         size: 18.0,
                                                                                                       ),
-                                                                                                      Text(
-                                                                                                        'Commerce : ',
-                                                                                                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                              font: GoogleFonts.inter(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                              ),
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
-                                                                                                      ),
                                                                                                       FutureBuilder<EnseignesRecord>(
                                                                                                         future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
                                                                                                         builder: (context, snapshot) {
@@ -2064,18 +2004,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                         Icons.place_sharp,
                                                                                                         color: FlutterFlowTheme.of(context).primaryText,
                                                                                                         size: 18.0,
-                                                                                                      ),
-                                                                                                      Text(
-                                                                                                        'Ville : ',
-                                                                                                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                              font: GoogleFonts.inter(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                              ),
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
                                                                                                       ),
                                                                                                       FutureBuilder<EnseignesRecord>(
                                                                                                         future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
@@ -2124,19 +2052,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                         size: 18.0,
                                                                                                       ),
                                                                                                       Text(
-                                                                                                        'Valeur: ',
-                                                                                                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                              font: GoogleFonts.inter(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                              ),
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
-                                                                                                      ),
-                                                                                                      Text(
-                                                                                                        '${listViewGamesRecord.prizeValue.toString()} €',
+                                                                                                        listViewGamesRecord.prizeValue == 0 ? 'Gains instantanés à gagner' : '${listViewGamesRecord.prizeValue.toString()} €',
                                                                                                         style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                                               font: GoogleFonts.inter(
                                                                                                                 fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -2533,18 +2449,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                       color: FlutterFlowTheme.of(context).primaryText,
                                                                                                       size: 18.0,
                                                                                                     ),
-                                                                                                    Text(
-                                                                                                      'Commerce : ',
-                                                                                                      style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                            font: GoogleFonts.inter(
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
-                                                                                                            letterSpacing: 0.0,
-                                                                                                            fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                            fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                          ),
-                                                                                                    ),
                                                                                                     FutureBuilder<EnseignesRecord>(
                                                                                                       future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
                                                                                                       builder: (context, snapshot) {
@@ -2590,18 +2494,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                       Icons.place_sharp,
                                                                                                       color: FlutterFlowTheme.of(context).primaryText,
                                                                                                       size: 18.0,
-                                                                                                    ),
-                                                                                                    Text(
-                                                                                                      'Ville : ',
-                                                                                                      style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                            font: GoogleFonts.inter(
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
-                                                                                                            letterSpacing: 0.0,
-                                                                                                            fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                            fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                          ),
                                                                                                     ),
                                                                                                     FutureBuilder<EnseignesRecord>(
                                                                                                       future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
@@ -2650,19 +2542,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                       size: 18.0,
                                                                                                     ),
                                                                                                     Text(
-                                                                                                      'Valeur: ',
-                                                                                                      style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                            font: GoogleFonts.inter(
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
-                                                                                                            letterSpacing: 0.0,
-                                                                                                            fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                            fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                          ),
-                                                                                                    ),
-                                                                                                    Text(
-                                                                                                      listViewGamesRecord.prizeValue.toString(),
+                                                                                                      listViewGamesRecord.prizeValue == 0 ? 'Gains instantanés à gagner' : '${listViewGamesRecord.prizeValue.toString()} €',
                                                                                                       style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                                             font: GoogleFonts.inter(
                                                                                                               fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -3047,18 +2927,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                         color: FlutterFlowTheme.of(context).primaryText,
                                                                                                         size: 18.0,
                                                                                                       ),
-                                                                                                      Text(
-                                                                                                        'Commerce : ',
-                                                                                                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                              font: GoogleFonts.inter(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                              ),
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
-                                                                                                      ),
                                                                                                       FutureBuilder<EnseignesRecord>(
                                                                                                         future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
                                                                                                         builder: (context, snapshot) {
@@ -3105,18 +2973,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                         color: FlutterFlowTheme.of(context).primaryText,
                                                                                                         size: 18.0,
                                                                                                       ),
-                                                                                                      Text(
-                                                                                                        'Ville : ',
-                                                                                                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                              font: GoogleFonts.inter(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                              ),
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
-                                                                                                      ),
                                                                                                       FutureBuilder<EnseignesRecord>(
                                                                                                         future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
                                                                                                         builder: (context, snapshot) {
@@ -3162,18 +3018,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                         Icons.euro,
                                                                                                         color: FlutterFlowTheme.of(context).primaryText,
                                                                                                         size: 18.0,
-                                                                                                      ),
-                                                                                                      Text(
-                                                                                                        'Valeur: ',
-                                                                                                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                              font: GoogleFonts.inter(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                              ),
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
                                                                                                       ),
                                                                                                       Text(
                                                                                                         listViewGamesRecord.prizeValue.toString(),
@@ -3559,18 +3403,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                         color: FlutterFlowTheme.of(context).primaryText,
                                                                                                         size: 18.0,
                                                                                                       ),
-                                                                                                      Text(
-                                                                                                        'Commerce : ',
-                                                                                                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                              font: GoogleFonts.inter(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                              ),
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
-                                                                                                      ),
                                                                                                       FutureBuilder<EnseignesRecord>(
                                                                                                         future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
                                                                                                         builder: (context, snapshot) {
@@ -3617,18 +3449,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                         color: FlutterFlowTheme.of(context).primaryText,
                                                                                                         size: 18.0,
                                                                                                       ),
-                                                                                                      Text(
-                                                                                                        'Ville : ',
-                                                                                                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                              font: GoogleFonts.inter(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                              ),
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
-                                                                                                      ),
                                                                                                       FutureBuilder<EnseignesRecord>(
                                                                                                         future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
                                                                                                         builder: (context, snapshot) {
@@ -3674,18 +3494,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                         Icons.euro,
                                                                                                         color: FlutterFlowTheme.of(context).primaryText,
                                                                                                         size: 18.0,
-                                                                                                      ),
-                                                                                                      Text(
-                                                                                                        'Valeur: ',
-                                                                                                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                              font: GoogleFonts.inter(
-                                                                                                                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                              ),
-                                                                                                              letterSpacing: 0.0,
-                                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                            ),
                                                                                                       ),
                                                                                                       Text(
                                                                                                         listViewGamesRecord.prizeValue.toString(),
@@ -4093,18 +3901,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                 color: FlutterFlowTheme.of(context).primaryText,
                                                                                                 size: 18.0,
                                                                                               ),
-                                                                                              Text(
-                                                                                                'Commerce : ',
-                                                                                                style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                      font: GoogleFonts.inter(
-                                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                      ),
-                                                                                                      letterSpacing: 0.0,
-                                                                                                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                    ),
-                                                                                              ),
                                                                                               FutureBuilder<EnseignesRecord>(
                                                                                                 future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
                                                                                                 builder: (context, snapshot) {
@@ -4151,18 +3947,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                 color: FlutterFlowTheme.of(context).primaryText,
                                                                                                 size: 18.0,
                                                                                               ),
-                                                                                              Text(
-                                                                                                'Ville : ',
-                                                                                                style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                      font: GoogleFonts.inter(
-                                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                      ),
-                                                                                                      letterSpacing: 0.0,
-                                                                                                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                    ),
-                                                                                              ),
                                                                                               FutureBuilder<EnseignesRecord>(
                                                                                                 future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
                                                                                                 builder: (context, snapshot) {
@@ -4208,18 +3992,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                 Icons.euro,
                                                                                                 color: FlutterFlowTheme.of(context).primaryText,
                                                                                                 size: 18.0,
-                                                                                              ),
-                                                                                              Text(
-                                                                                                'Valeur: ',
-                                                                                                style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                      font: GoogleFonts.inter(
-                                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                      ),
-                                                                                                      letterSpacing: 0.0,
-                                                                                                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                    ),
                                                                                               ),
                                                                                               Text(
                                                                                                 '${listViewGamesRecord.prizeValue.toString()} €',
@@ -4609,18 +4381,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                   color: FlutterFlowTheme.of(context).primaryText,
                                                                                                   size: 18.0,
                                                                                                 ),
-                                                                                                Text(
-                                                                                                  'Commerce : ',
-                                                                                                  style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                        font: GoogleFonts.inter(
-                                                                                                          fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                        ),
-                                                                                                        letterSpacing: 0.0,
-                                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                      ),
-                                                                                                ),
                                                                                                 FutureBuilder<EnseignesRecord>(
                                                                                                   future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
                                                                                                   builder: (context, snapshot) {
@@ -4666,18 +4426,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                   Icons.place_sharp,
                                                                                                   color: FlutterFlowTheme.of(context).primaryText,
                                                                                                   size: 18.0,
-                                                                                                ),
-                                                                                                Text(
-                                                                                                  'Ville : ',
-                                                                                                  style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                        font: GoogleFonts.inter(
-                                                                                                          fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                        ),
-                                                                                                        letterSpacing: 0.0,
-                                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                      ),
                                                                                                 ),
                                                                                                 FutureBuilder<EnseignesRecord>(
                                                                                                   future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
@@ -4726,19 +4474,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                   size: 18.0,
                                                                                                 ),
                                                                                                 Text(
-                                                                                                  'Valeur: ',
-                                                                                                  style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                        font: GoogleFonts.inter(
-                                                                                                          fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                        ),
-                                                                                                        letterSpacing: 0.0,
-                                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                      ),
-                                                                                                ),
-                                                                                                Text(
-                                                                                                  '${listViewGamesRecord.prizeValue.toString()} €',
+                                                                                                  listViewGamesRecord.prizeValue == 0 ? 'Gains instantanés à gagner' : '${listViewGamesRecord.prizeValue.toString()} €',
                                                                                                   style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                                         font: GoogleFonts.inter(
                                                                                                           fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -5121,18 +4857,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                   color: FlutterFlowTheme.of(context).primaryText,
                                                                                                   size: 18.0,
                                                                                                 ),
-                                                                                                Text(
-                                                                                                  'Commerce : ',
-                                                                                                  style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                        font: GoogleFonts.inter(
-                                                                                                          fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                        ),
-                                                                                                        letterSpacing: 0.0,
-                                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                      ),
-                                                                                                ),
                                                                                                 FutureBuilder<EnseignesRecord>(
                                                                                                   future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
                                                                                                   builder: (context, snapshot) {
@@ -5178,18 +4902,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                   Icons.place_sharp,
                                                                                                   color: FlutterFlowTheme.of(context).primaryText,
                                                                                                   size: 18.0,
-                                                                                                ),
-                                                                                                Text(
-                                                                                                  'Ville : ',
-                                                                                                  style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                        font: GoogleFonts.inter(
-                                                                                                          fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                        ),
-                                                                                                        letterSpacing: 0.0,
-                                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                      ),
                                                                                                 ),
                                                                                                 FutureBuilder<EnseignesRecord>(
                                                                                                   future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
@@ -5238,19 +4950,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                   size: 18.0,
                                                                                                 ),
                                                                                                 Text(
-                                                                                                  'Valeur: ',
-                                                                                                  style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                        font: GoogleFonts.inter(
-                                                                                                          fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                        ),
-                                                                                                        letterSpacing: 0.0,
-                                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                      ),
-                                                                                                ),
-                                                                                                Text(
-                                                                                                  '${listViewGamesRecord.prizeValue.toString()} €',
+                                                                                                  listViewGamesRecord.prizeValue == 0 ? 'Gains instantanés à gagner' : '${listViewGamesRecord.prizeValue.toString()} €',
                                                                                                   style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                                         font: GoogleFonts.inter(
                                                                                                           fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
