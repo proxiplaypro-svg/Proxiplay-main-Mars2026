@@ -23,6 +23,8 @@ class PlayJoueurPageModel extends FlutterFlowModel<PlayJoueurPageWidget> {
 
   bool isWin = false;
 
+  bool isScratching = false;
+
   ///  State fields for stateful widgets in this page.
 
   AudioPlayer? soundPlayer;

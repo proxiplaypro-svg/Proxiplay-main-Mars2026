@@ -58,24 +58,24 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final hasMainPrize = (widget!.game?.hasName() ?? false) ||
-        (widget!.game?.hasDescription() ?? false) ||
-        (widget!.game?.hasPrizeValue() ?? false);
-    final isWin = widget!.resultParticipation?.isWin == true;
+    final hasMainPrize = (widget.game?.hasName() ?? false) || 
+      (widget.game?.hasDescription() ?? false) || 
+      (widget.game?.hasPrizeValue() ?? false);
+    final isWin = widget.resultParticipation?.isWin == true;
     final rewardText = isWin
-        ? (widget!.resultParticipation?.message ?? '')
+        ? (widget.resultParticipation?.message ?? '')
         : (hasMainPrize
-            ? (widget!.resultParticipation?.message ?? '')
+            ? (widget.resultParticipation?.message ?? '')
             : 'Perdu ! Retentez votre chance demain !');
     final now = DateTime.now();
-    final endDate = widget!.game?.endDate;
+    final endDate = widget.game?.endDate;
     final endWindowEnd = endDate?.add(const Duration(hours: 48));
     final isWithinEndWindow = endDate != null &&
         now.isAfter(endDate) &&
         (endWindowEnd != null && now.isBefore(endWindowEnd));
     final hasWinnerAnnouncement = isWithinEndWindow &&
-        (widget!.game?.hasWinner ?? false) &&
-        (widget!.game?.mainPrizeWinner != null);
+        (widget.game?.hasWinner ?? false) &&
+        (widget.game?.mainPrizeWinner != null);
 
     return GestureDetector(
       onTap: () {
@@ -188,8 +188,11 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                           ),
                         ),
                         child: SingleChildScrollView(
-                          primary: false,
-                          child: Column(
+                            primary: false,
+                            physics: _model.isScratching
+                                ? const NeverScrollableScrollPhysics()
+                                : const AlwaysScrollableScrollPhysics(),
+                            child: Column(
                             mainAxisSize: MainAxisSize.max,
                             children: [
                               Container(
@@ -260,7 +263,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                             child: FutureBuilder<UsersRecord>(
                                               future:
                                                   UsersRecord.getDocumentOnce(
-                                                      widget!.game!
+                                                      widget.game!
                                                           .mainPrizeWinner!),
                                               builder: (context, snapshot) {
                                                 final winnerName =
@@ -382,59 +385,58 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                           ),
                                         )
                                       else
-                                        Container(
-                                          width:
-                                              MediaQuery.sizeOf(context).width *
-                                                  1.0,
-                                          height: 200.0,
-                                          decoration: BoxDecoration(
-                                            color: Color(0xFFF5F5F5),
-                                            borderRadius:
-                                                BorderRadius.circular(12.0),
-                                          ),
-                                          child: Container(
-                                            width: 300.0,
-                                            height: 300.0,
-                                            child: custom_widgets
-                                                .ScratchCardWidget(
-                                              width: 300.0,
-                                              height: 300.0,
-                                              hiddenContent: ' ',
-                                              rewardText: rewardText,
-                                              rewardImageUrl:
-                                                  widget!.game!.photo,
-                                              rewardTextBonus: widget!
-                                                  .resultParticipation!
-                                                  .messageBonus,
-                                              setCardRevealed: () async {
-                                                _model.cardReveal = true;
-                                                if (widget!.resultParticipation
-                                                        ?.isWin ==
-                                                    true) {
-                                                  _model.isWin = true;
-                                                  safeSetState(() {});
-                                                  _model.soundPlayer ??=
-                                                      AudioPlayer();
-                                                  if (_model
-                                                      .soundPlayer!.playing) {
-                                                    await _model.soundPlayer!
-                                                        .stop();
-                                                  }
-                                                  _model.soundPlayer!
-                                                      .setVolume(1.0);
-                                                  await _model.soundPlayer!
-                                                      .setAsset(
-                                                          'assets/audios/171670__leszek_szary__success-2.wav')
-                                                      .then((_) => _model
-                                                          .soundPlayer!
-                                                          .play());
-
-                                                  _model.soundPlayer?.stop();
-                                                } else {
-                                                  _model.isWin = false;
-                                                  safeSetState(() {});
-                                                }
-                                              },
+                                        Listener(
+                                          onPointerDown: (event) {
+                                            _model.isScratching = true;
+                                            safeSetState(() {});
+                                          },
+                                          onPointerUp: (event) {
+                                            _model.isScratching = false;
+                                            safeSetState(() {});
+                                          },
+                                          onPointerCancel: (event) {
+                                            _model.isScratching = false;
+                                            safeSetState(() {});
+                                          },
+                                          behavior: HitTestBehavior.opaque,
+                                          child: MouseRegion(
+                                            cursor: SystemMouseCursors.click,
+                                            child: Container(
+                                              width: MediaQuery.sizeOf(context).width * 1.0,
+                                              height: 200.0,
+                                              decoration: BoxDecoration(
+                                                color: Color(0xFFF5F5F5),
+                                                borderRadius: BorderRadius.circular(12.0),
+                                              ),
+                                              child: Container(
+                                                width: 300.0,
+                                                height: 300.0,
+                                                child: custom_widgets.ScratchCardWidget(
+                                                  width: 300.0,
+                                                  height: 300.0,
+                                                  hiddenContent: ' ',
+                                                  rewardText: rewardText,
+                                                  rewardImageUrl: widget.game!.photo,
+                                                  rewardTextBonus: widget.resultParticipation!.messageBonus,
+                                                  setCardRevealed: () async {
+                                                    _model.cardReveal = true;
+                                                    if (widget.resultParticipation?.isWin == true) {
+                                                      _model.isWin = true;
+                                                      safeSetState(() {});
+                                                      _model.soundPlayer ??= AudioPlayer();
+                                                      if (_model.soundPlayer!.playing) {
+                                                        await _model.soundPlayer!.stop();
+                                                      }
+                                                      _model.soundPlayer!.setVolume(1.0);
+                                                      await _model.soundPlayer!.setAsset('assets/audios/171670__leszek_szary__success-2.wav').then((_) => _model.soundPlayer!.play());
+                                                      _model.soundPlayer?.stop();
+                                                    } else {
+                                                      _model.isWin = false;
+                                                      safeSetState(() {});
+                                                    }
+                                                  },
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -442,19 +444,19 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                   ),
                                 ),
                               ),
-                              if (widget!.game?.enseigneId != null)
+                              if (widget.game?.enseigneId != null)
                                 FutureBuilder<EnseignesRecord>(
                                   future: EnseignesRecord.getDocumentOnce(
-                                      widget!.game!.enseigneId!),
+                                      widget.game!.enseigneId!),
                                   builder: (context, snapshot) {
                                     if (!snapshot.hasData) {
                                       return SizedBox(height: 0.0);
                                     }
                                     final enseigneRecord = snapshot.data!;
-                                    final enseigneName = (widget!.game
+                                    final enseigneName = (widget.game
                                                 ?.enseigneName.isNotEmpty ??
                                             false)
-                                        ? widget!.game!.enseigneName
+                                        ? widget.game!.enseigneName
                                         : enseigneRecord.name;
                                     return Container(
                                       width: MediaQuery.sizeOf(context).width *
@@ -543,7 +545,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                     child: Column(
                                       mainAxisSize: MainAxisSize.max,
                                       children: [
-                                        if (widget!
+                                        if (widget
                                                 .resultParticipation?.isWin ==
                                             true)
                                           FFButtonWidget(
@@ -699,7 +701,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                       Column(
                                         mainAxisSize: MainAxisSize.max,
                                         children: [
-                                          if (widget!.game?.startDate != null)
+                                          if (widget.game?.startDate != null)
                                             Row(
                                               mainAxisSize: MainAxisSize.max,
                                               children: [
@@ -714,7 +716,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                   child: Text(
                                                     'Début du jeu le ${dateTimeFormat(
                                                       "d/M/y",
-                                                      widget!.game?.startDate,
+                                                      widget.game?.startDate,
                                                       locale:
                                                           FFLocalizations.of(
                                                                   context)
@@ -815,7 +817,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                   child: Text(
                                                     'Le lot principal sera attribué par tirage au sort le ${dateTimeFormat(
                                                       "d/M/y",
-                                                      widget!.game?.endDate,
+                                                      widget.game?.endDate,
                                                       locale:
                                                           FFLocalizations.of(
                                                                   context)
@@ -992,7 +994,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                         ),
                                                   ),
                                                   Text(
-                                                    widget!.game!.name,
+                                                    widget.game!.name,
                                                     style: FlutterFlowTheme.of(
                                                             context)
                                                         .bodyMedium
@@ -1124,7 +1126,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                     Builder(
                                                       builder: (context) {
                                                         final secondaryPrizes =
-                                                            widget!.game!
+                                                            widget.game!
                                                                 .secondaryPrizes;
                                                         if (secondaryPrizes
                                                             .isNotEmpty) {
@@ -1191,12 +1193,12 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                             ).toList(),
                                                           );
                                                         }
-                                                        if (widget!
+                                                        if (widget
                                                             .game!
                                                             .secondaryPrizeDescription
                                                             .isNotEmpty) {
                                                           return AutoSizeText(
-                                                            widget!.game!
+                                                            widget.game!
                                                                 .secondaryPrizeDescription,
                                                             style: FlutterFlowTheme
                                                                     .of(context)
@@ -1329,9 +1331,9 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                 ),
                               ),
                             ].divide(SizedBox(height: 20.0)),
-                          ),
                         ),
                       ),
+                    ),
                     ),
                     wrapWithModel(
                       model: _model.customNavBarJoueurModel,
