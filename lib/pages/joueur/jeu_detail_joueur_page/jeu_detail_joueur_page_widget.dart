@@ -124,7 +124,19 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                 .trim()
                 .isNotEmpty ||
             hasSecondaryPrizeEntries;
-
+        final leftActionVisible = (() {
+          final isGuest = currentUserUid == null || currentUserUid == '';
+          if (isGuest) return true;
+          final endDate = widget.gameDoc?.endDate;
+          final isGameOpen = endDate != null
+              ? endDate.isAfter(getCurrentTimestamp)
+              : true;
+          final isMinorBlocked =
+              (widget.gameDoc?.prohibitedForMinors ?? false) &&
+                  (currentUserDocument?.birthday == null ||
+                      !functions.isAdult(currentUserDocument!.birthday!));
+          return isGameOpen || isMinorBlocked;
+        })();
         return GestureDetector(
           onTap: () {
             FocusScope.of(context).unfocus();
@@ -473,8 +485,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                     // Action Buttons Row
                                     Row(
                                       children: [
-                                        Expanded(
-                                          child: Builder(
+                                        if (leftActionVisible)
+                                          Expanded(
+                                            child: Builder(
                                             builder: (context) {
                                               if (currentUserUid != null &&
                                                   currentUserUid != '') {
@@ -913,76 +926,70 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             },
                                           ),
                                         ),
-                                        SizedBox(width: 12.0),
-                                        Expanded(
+                                        if (leftActionVisible)
+                                          SizedBox(width: 12.0),
+                                        SizedBox(
+                                          width: 220.0,
                                           child: InkWell(
-                                            splashColor: Colors.transparent,
-                                            focusColor: Colors.transparent,
-                                            hoverColor: Colors.transparent,
-                                            highlightColor: Colors.transparent,
-                                            onTap: () async {
-                                              context.pushNamed(
-                                                EnseigneDetailJoueurPageWidget
-                                                    .routeName,
-                                                queryParameters: {
-                                                  'enseigneDoc': serializeParam(
-                                                    widget!.enseigneDoc,
-                                                    ParamType.Document,
-                                                  ),
-                                                }.withoutNulls,
-                                                extra: <String, dynamic>{
-                                                  'enseigneDoc': widget!.enseigneDoc,
-                                                },
-                                              );
-                                            },
-                                            child: Container(
-                                              height: 56.0,
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius: BorderRadius.circular(16.0),
-                                                border: Border.all(
-                                                  color: FlutterFlowTheme.of(context).primary,
-                                                  width: 2.0,
-                                                ),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black.withOpacity(0.05),
-                                                    blurRadius: 10.0,
-                                                    offset: Offset(0, 2),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons.store_rounded,
-                                                    color: FlutterFlowTheme.of(context).primary,
-                                                    size: 20.0,
-                                                  ),
-                                                  SizedBox(width: 8.0),
-                                                  Text(
-                                                    // (widget.enseigneDoc?.name ??
-                                                    //         '')
-                                                    //     .trim()
-                                                    //     .isNotEmpty
-                                                    //     ? (widget.enseigneDoc
-                                                    //             ?.name ??
-                                                    //         '')
-                                                    //     : 
-                                                        'Voir la boutique',
-                                                    textAlign: TextAlign.center,
-                                                    style: GoogleFonts.inter(
-                                                      fontSize: 16.0,
-                                                      fontWeight: FontWeight.w600,
-                                                      color: FlutterFlowTheme.of(context).primary,
-                                                      letterSpacing: 0.0,
+                                              splashColor: Colors.transparent,
+                                              focusColor: Colors.transparent,
+                                              hoverColor: Colors.transparent,
+                                              highlightColor: Colors.transparent,
+                                              onTap: () async {
+                                                context.pushNamed(
+                                                  EnseigneDetailJoueurPageWidget
+                                                      .routeName,
+                                                  queryParameters: {
+                                                    'enseigneDoc': serializeParam(
+                                                      widget!.enseigneDoc,
+                                                      ParamType.Document,
                                                     ),
+                                                  }.withoutNulls,
+                                                  extra: <String, dynamic>{
+                                                    'enseigneDoc': widget!.enseigneDoc,
+                                                  },
+                                                );
+                                              },
+                                              child: Container(
+                                                height: 56.0,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(16.0),
+                                                  border: Border.all(
+                                                    color: FlutterFlowTheme.of(context).primary,
+                                                    width: 2.0,
                                                   ),
-                                                ],
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black.withOpacity(0.05),
+                                                      blurRadius: 10.0,
+                                                      offset: Offset(0, 2),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Row(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.store_rounded,
+                                                      color: FlutterFlowTheme.of(context).primary,
+                                                      size: 20.0,
+                                                    ),
+                                                    SizedBox(width: 8.0),
+                                                    Text(
+                                                          'Voir la boutique',
+                                                      textAlign: TextAlign.center,
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 16.0,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: FlutterFlowTheme.of(context).primary,
+                                                        letterSpacing: 0.0,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
                                             ),
-                                          ),
                                         ),
                                       ],
                                     ),
@@ -1135,8 +1142,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                           ),
                                         ),
                                       ),
-                                    if (hasMainPrize || hasSecondaryPrizeContent)
-                                     
                                     if ((widget!.gameDoc?.description ?? '')
                                         .trim()
                                         .isNotEmpty)
