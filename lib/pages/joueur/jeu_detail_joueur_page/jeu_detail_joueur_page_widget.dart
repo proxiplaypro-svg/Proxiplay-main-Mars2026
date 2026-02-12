@@ -111,19 +111,13 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final hasMainPrize = (widget.gameDoc?.prizeValue ?? 0) > 0;
         final secondaryPrizes = widget.gameDoc?.secondaryPrizes ?? const [];
         final hasSecondaryPrizeEntries = secondaryPrizes.any((item) {
-          final name = (item['name'] ?? '').toString().trim();
-          final presentation = (item['presentation'] ?? '').toString().trim();
           final countValue = item['count'];
           final parsedCount = countValue is num
               ? countValue.toInt()
               : int.tryParse((countValue ?? '').toString()) ?? 0;
-          return name.isNotEmpty || presentation.isNotEmpty || parsedCount > 0;
+          return parsedCount > 0;
         });
-        final hasSecondaryPrizeContent =
-            (widget.gameDoc?.secondaryPrizeDescription ?? '')
-                .trim()
-                .isNotEmpty ||
-            hasSecondaryPrizeEntries;
+        final hasSecondaryPrizeContent = hasSecondaryPrizeEntries;
         final leftActionVisible = (() {
           final isGuest = currentUserUid == null || currentUserUid == '';
           if (isGuest) return true;
@@ -951,7 +945,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                         );
                                       },
                                       child: Container(
-                                                height: 56.0,
+                                                constraints: BoxConstraints(minHeight: 56.0),
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: 12.0,
+                                                  vertical: 8.0,
+                                                ),
                                                 decoration: BoxDecoration(
                                                   color: Colors.white,
                                                   borderRadius: BorderRadius.circular(16.0),
@@ -976,14 +974,19 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       size: 20.0,
                                                     ),
                                                     SizedBox(width: 8.0),
-                                                    Text(
+                                                    Flexible(
+                                                      child: Text(
                                                           'Voir la boutique',
-                                                      textAlign: TextAlign.center,
-                                                      style: GoogleFonts.inter(
-                                                        fontSize: 16.0,
-                                                        fontWeight: FontWeight.w600,
-                                                        color: FlutterFlowTheme.of(context).primary,
-                                                        letterSpacing: 0.0,
+                                                        maxLines: 2,
+                                                        softWrap: true,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        textAlign: TextAlign.center,
+                                                        style: GoogleFonts.inter(
+                                                          fontSize: 16.0,
+                                                          fontWeight: FontWeight.w600,
+                                                          color: FlutterFlowTheme.of(context).primary,
+                                                          letterSpacing: 0.0,
+                                                        ),
                                                       ),
                                                     ),
                                                   ],
@@ -1031,8 +1034,45 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               return Column(
                                             mainAxisSize: MainAxisSize.max,
                                             children: [
-                                                  Text(
-                                                    'Félicitations !',
+                                              if (winnerName.isNotEmpty)
+                                                    // Text(
+                                                    //   'Félicitations à $winnerName de ${snapshot.data!.city} !',
+                                                    //   textAlign:
+                                                    //       TextAlign.center,
+                                                    //   style:
+                                                    //       FlutterFlowTheme.of(
+                                                    //               context)
+                                                    //           .bodyMedium
+                                                    //           .override(
+                                                    //             font:
+                                                    //                 GoogleFonts
+                                                    //                     .inter(
+                                                    //               fontWeight: FlutterFlowTheme.of(
+                                                    //                       context)
+                                                    //                   .bodyMedium
+                                                    //                   .fontWeight,
+                                                    //               fontStyle: FlutterFlowTheme.of(
+                                                    //                       context)
+                                                    //                   .bodyMedium
+                                                    //                   .fontStyle,
+                                                    //             ),
+                                                    //             color: FlutterFlowTheme.of(
+                                                    //                     context)
+                                                    //                 .secondaryText,
+                                                    //             letterSpacing:
+                                                    //                 0.0,
+                                                    //             fontWeight: FlutterFlowTheme.of(
+                                                    //                     context)
+                                                    //                 .bodyMedium
+                                                    //                 .fontWeight,
+                                                    //             fontStyle: FlutterFlowTheme.of(
+                                                    //                     context)
+                                                    //                 .bodyMedium
+                                                    //                 .fontStyle,
+                                                    //           ),
+                                                    // ),
+                                                  Text(textAlign: TextAlign.center,
+                                                    'Félicitations à $winnerName de ${snapshot.data!.city} !',
                                                   style: FlutterFlowTheme.of(
                                                           context)
                                                         .titleMedium
@@ -1063,45 +1103,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 .fontStyle,
                                                       ),
                                                 ),
-                                                  if (winnerName.isNotEmpty)
-                                                    Text(
-                                                      'Félicitations à $winnerName !',
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      style:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .override(
-                                                                font:
-                                                                    GoogleFonts
-                                                                        .inter(
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                                color: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .secondaryText,
-                                                                letterSpacing:
-                                                                    0.0,
-                                                                fontWeight: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontWeight,
-                                                                fontStyle: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                              ),
-                                                    ),
+                                                  
                                               Text(
-                                                    'Le jeu est terminé pour le moment. Revenez bientôt pour découvrir les prochains jeux !',
+                                                    'Le jeu est terminé. Revenez bientôt pour découvrir les prochains jeux !',
                                                     textAlign: TextAlign.center,
                                                     style: FlutterFlowTheme.of(
                                                             context)
