@@ -1275,14 +1275,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                         null) {
                                                                   return false;
                                                                 }
-                                                                final endPlus48h =
+                                                                final endPlus168h =
                                                                     end.add(const Duration(
                                                                         hours:
-                                                                            48));
+                                                                            168));
                                                                 return now.isAfter(
                                                                         end) &&
                                                                     now.isBefore(
-                                                                        endPlus48h);
+                                                                        endPlus168h);
                                                               }).toList()
                                                                 ..sort((a, b) =>
                                                                     (b.endDate ??

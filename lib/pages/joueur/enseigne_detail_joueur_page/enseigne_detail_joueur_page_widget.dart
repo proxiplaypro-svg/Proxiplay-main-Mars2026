@@ -48,6 +48,23 @@ class _EnseigneDetailJoueurPageWidgetState
     super.initState();
     _model = createModel(context, () => EnseigneDetailJoueurPageModel());
 
+    // Initialize scroll controller for image carousel
+    _model.imagesScrollController = ScrollController();
+    _model.imagesScrollController?.addListener(() {
+      if (_model.imagesScrollController!.hasClients) {
+        final scrollPosition = _model.imagesScrollController!.offset;
+        final screenWidth = MediaQuery.of(context).size.width;
+        final imageWidth = (screenWidth - 40.0 - 32.0) + 10.0; // (screen width - outer padding - card padding) + spacing
+        final currentIndex = (scrollPosition / imageWidth).round();
+        final clampedIndex = currentIndex.clamp(0, 1000);
+        if (clampedIndex != _model.currentImageIndex) {
+          safeSetState(() {
+            _model.currentImageIndex = clampedIndex;
+          });
+        }
+      }
+    });
+
     logFirebaseEvent('screen_view',
         parameters: {'screen_name': 'EnseigneDetailJoueurPage'});
   }
@@ -90,25 +107,48 @@ class _EnseigneDetailJoueurPageWidgetState
                             EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 12.0, 8.0),
                         child: Row(
                           mainAxisSize: MainAxisSize.max,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Padding(
                               padding: EdgeInsetsDirectional.fromSTEB(
                                   12.0, 0.0, 0.0, 0.0),
-                              child: FlutterFlowIconButton(
-                                borderColor: Colors.transparent,
-                                borderRadius: 30.0,
-                                borderWidth: 1.0,
-                                buttonSize: 50.0,
-                                icon: Icon(
-                                  Icons.chevron_left_rounded,
-                                  color:
-                                      FlutterFlowTheme.of(context).primaryText,
-                                  size: 30.0,
+                              child: Container(
+                                width: 44.0,
+                                height: 44.0,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.9),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.08),
+                                      blurRadius: 10.0,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                                onPressed: () async {
-                                  context.pop();
-                                },
+                                child: FlutterFlowIconButton(
+                                  borderColor: Colors.transparent,
+                                  borderRadius: 30.0,
+                                  borderWidth: 1.0,
+                                  buttonSize: 44.0,
+                                  icon: Icon(
+                                    Icons.chevron_left_rounded,
+                                    color:
+                                        FlutterFlowTheme.of(context).primaryText,
+                                    size: 28.0,
+                                  ),
+                                  onPressed: () async {
+                                    context.pop();
+                                  },
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Center(
+                                child: Image.asset(
+                                  'assets/images/logo_D_secondaire.png',
+                                  height: 34.0,
+                                  fit: BoxFit.contain,
+                                ),
                               ),
                             ),
                             Builder(
@@ -244,13 +284,14 @@ class _EnseigneDetailJoueurPageWidgetState
             top: true,
             child: Container(
               decoration: BoxDecoration(
-                image: DecorationImage(
-                  fit: BoxFit.cover,
-                  alignment: AlignmentDirectional(-1.0, 1.0),
-                  image: Image.asset(
-                    'assets/images/Background.png',
-                  ).image,
-                ),
+                // gradient: LinearGradient(
+                //   begin: Alignment.topCenter,
+                //   end: Alignment.bottomCenter,
+                //   colors: [
+                //     Color(0xFFF4F7FF),
+                //     Color(0xFFEFF2FB),
+                  // ],
+                // ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.max,
@@ -268,45 +309,63 @@ class _EnseigneDetailJoueurPageWidgetState
                           children: [
                             Container(
                               width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                borderRadius: BorderRadius.circular(20.0),
-                              ),
+                              // decoration: BoxDecoration(
+                              //   color: Colors.white,
+                              //   borderRadius: BorderRadius.circular(20.0),
+                              //   boxShadow: [
+                              //     BoxShadow(
+                              //       color: Colors.black.withOpacity(0.06),
+                              //       blurRadius: 14.0,
+                              //       offset: Offset(0, 4),
+                              //     ),
+                              //   ],
+                              // ),
                               child: Padding(
                                 padding: EdgeInsets.all(16.0),
-                                child: Text(
-                                  widget!.enseigneDoc!.name,
-                                  style: FlutterFlowTheme.of(context)
-                                      .titleMedium
-                                      .override(
-                                        font: GoogleFonts.interTight(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .titleMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .titleMedium
-                                                  .fontStyle,
-                                        ),
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .titleMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .titleMedium
-                                            .fontStyle,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget!.enseigneDoc!.name,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 32.0,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF23255E),
+                                        letterSpacing: -0.3,
                                       ),
+                                    ),
+                                    if (!functions.checkValueIsEmpty(
+                                        widget!.enseigneDoc!.city))
+                                      Padding(
+                                        padding:
+                                            EdgeInsetsDirectional.fromSTEB(
+                                                0.0, 6.0, 0.0, 0.0),
+                                        child: Text(
+                                          widget!.enseigneDoc!.city,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 16.0,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF6B70A7),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                             ),
                             Container(
                               width: double.infinity,
                               decoration: BoxDecoration(
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
+                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(20.0),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.06),
+                                    blurRadius: 14.0,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ],
                               ),
                               child: Padding(
                                 padding: EdgeInsetsDirectional.fromSTEB(
@@ -314,56 +373,6 @@ class _EnseigneDetailJoueurPageWidgetState
                                 child: Column(
                                   mainAxisSize: MainAxisSize.max,
                                   children: [
-                                    Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                          0.0, 16.0, 0.0, 16.0),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.max,
-                                        children: [
-                                          Expanded(
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.max,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  widget!
-                                                      .enseigneDoc!.description,
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                ),
-                                              ].divide(SizedBox(height: 8.0)),
-                                            ),
-                                          ),
-                                        ].divide(SizedBox(width: 16.0)),
-                                      ),
-                                    ),
                                     FutureBuilder<List<ImagesRecord>>(
                                       future: queryImagesRecordOnce(
                                         parent: widget!.enseigneDoc?.reference,
@@ -390,25 +399,38 @@ class _EnseigneDetailJoueurPageWidgetState
                                         List<ImagesRecord> rowImagesRecordList =
                                             snapshot.data!;
 
-                                        return SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.max,
-                                            children: List.generate(
-                                                rowImagesRecordList.length,
-                                                (rowIndex) {
-                                              final rowImagesRecord =
-                                                  rowImagesRecordList[rowIndex];
-                                              return Container(
-                                                width: 100.0,
-                                                height: 100.0,
+                                        final descriptionText =
+                                            widget!.enseigneDoc!.description;
+                                        final hasDescription =
+                                            !functions.checkValueIsEmpty(
+                                                descriptionText);
+                                        final hasImages =
+                                            rowImagesRecordList.isNotEmpty;
+
+                                        if (rowImagesRecordList.length == 1 &&
+                                            hasDescription) {
+                                          final rowImagesRecord =
+                                              rowImagesRecordList.first;
+                                          return Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Container(
+                                                width: double.infinity,
+                                                height: 200.0,
                                                 decoration: BoxDecoration(
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .secondaryBackground,
+                                                  color: Colors.white,
                                                   borderRadius:
                                                       BorderRadius.circular(
                                                           20.0),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black
+                                                          .withOpacity(0.10),
+                                                      blurRadius: 16.0,
+                                                      offset: Offset(0, 4),
+                                                    ),
+                                                  ],
                                                 ),
                                                 child: InkWell(
                                                   splashColor:
@@ -423,8 +445,9 @@ class _EnseigneDetailJoueurPageWidgetState
                                                     await Navigator.push(
                                                       context,
                                                       PageTransition(
-                                                        type: PageTransitionType
-                                                            .fade,
+                                                        type:
+                                                            PageTransitionType
+                                                                .fade,
                                                         child:
                                                             FlutterFlowExpandedImageView(
                                                           image: Image.network(
@@ -450,16 +473,187 @@ class _EnseigneDetailJoueurPageWidgetState
                                                               20.0),
                                                       child: Image.network(
                                                         rowImagesRecord.url,
-                                                        width: 200.0,
+                                                        width: double.infinity,
                                                         height: 200.0,
                                                         fit: BoxFit.cover,
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-                                              );
-                                            }).divide(SizedBox(width: 10.0)),
-                                          ),
+                                              ),
+                                              SizedBox(height: 16.0),
+                                              Text(
+                                                descriptionText,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 16.0,
+                                                  height: 1.6,
+                                                  fontWeight:
+                                                      FontWeight.w400,
+                                                  color: Color(0xFF2D3250),
+                                                  letterSpacing: 0.2,
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        }
+
+                                        final screenWidth = MediaQuery.of(context).size.width;
+                                        // Account for outer padding (20px each side) and card padding (16px each side)
+                                        final imageWidth = screenWidth - 40.0 - 32.0;
+                                        
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            if (hasImages)
+                                              Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  SingleChildScrollView(
+                                                    controller: _model.imagesScrollController,
+                                                    scrollDirection:
+                                                        Axis.horizontal,
+                                                    child: Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.max,
+                                                      children:
+                                                          List.generate(
+                                                              rowImagesRecordList
+                                                                  .length,
+                                                              (rowIndex) {
+                                                        final rowImagesRecord =
+                                                            rowImagesRecordList[
+                                                                rowIndex];
+                                                        return Container(
+                                                          width: imageWidth,
+                                                          height: 200.0,
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: Colors.white,
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        20.0),
+                                                            boxShadow: [
+                                                              BoxShadow(
+                                                                color: Colors
+                                                                    .black
+                                                                    .withOpacity(
+                                                                        0.10),
+                                                                blurRadius: 16.0,
+                                                                offset:
+                                                                    Offset(0, 4),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          child: InkWell(
+                                                            splashColor: Colors
+                                                                .transparent,
+                                                            focusColor: Colors
+                                                                .transparent,
+                                                            hoverColor: Colors
+                                                                .transparent,
+                                                            highlightColor:
+                                                                Colors
+                                                                    .transparent,
+                                                            onTap: () async {
+                                                              await Navigator
+                                                                  .push(
+                                                                context,
+                                                                PageTransition(
+                                                                  type:
+                                                                      PageTransitionType
+                                                                          .fade,
+                                                                  child:
+                                                                      FlutterFlowExpandedImageView(
+                                                                    image: Image
+                                                                        .network(
+                                                                      rowImagesRecord
+                                                                          .url,
+                                                                      fit: BoxFit
+                                                                          .contain,
+                                                                    ),
+                                                                    allowRotation:
+                                                                        false,
+                                                                    tag:
+                                                                        rowImagesRecord
+                                                                            .url,
+                                                                    useHeroAnimation:
+                                                                        true,
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            },
+                                                            child: Hero(
+                                                              tag:
+                                                                  rowImagesRecord
+                                                                      .url,
+                                                              transitionOnUserGestures:
+                                                                  true,
+                                                              child: ClipRRect(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            20.0),
+                                                                child:
+                                                                    Image.network(
+                                                                  rowImagesRecord
+                                                                      .url,
+                                                                  width: imageWidth,
+                                                                  height: 200.0,
+                                                                  fit: BoxFit
+                                                                      .cover,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        );
+                                                      }).divide(SizedBox(
+                                                              width: 10.0)),
+                                                    ),
+                                                  ),
+                                                  if (rowImagesRecordList.length > 1)
+                                                    Padding(
+                                                      padding: EdgeInsetsDirectional.fromSTEB(0.0, 12.0, 0.0, 0.0),
+                                                      child: Row(
+                                                        mainAxisAlignment: MainAxisAlignment.center,
+                                                        children: List.generate(
+                                                          rowImagesRecordList.length,
+                                                          (index) {
+                                                            final currentIndex = _model.currentImageIndex.clamp(0, rowImagesRecordList.length - 1);
+                                                            final isActive = index == currentIndex;
+                                                            return Container(
+                                                              width: isActive ? 8.0 : 6.0,
+                                                              height: isActive ? 8.0 : 6.0,
+                                                              margin: EdgeInsets.symmetric(horizontal: 4.0),
+                                                              decoration: BoxDecoration(
+                                                                color: isActive 
+                                                                    ? Color(0xFF6B70A7)
+                                                                    : Color(0xFF6B70A7).withOpacity(0.3),
+                                                                shape: BoxShape.circle,
+                                                              ),
+                                                            );
+                                                          },
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            if (hasDescription)
+                                              Padding(
+                                                padding: EdgeInsetsDirectional.fromSTEB(0.0, hasImages ? 16.0 : 0.0, 0.0, 0.0),
+                                                child: Text(
+                                                  descriptionText,
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 16.0,
+                                                    height: 1.6,
+                                                    fontWeight: FontWeight.w400,
+                                                    color: Color(0xFF2D3250),
+                                                    letterSpacing: 0.2,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
                                         );
                                       },
                                     ),
@@ -469,119 +663,139 @@ class _EnseigneDetailJoueurPageWidgetState
                             ),
                             Container(
                               width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
-                                borderRadius: BorderRadius.circular(20.0),
-                              ),
+                              // decoration: BoxDecoration(
+                              //   color: Colors.white,
+                              //   borderRadius: BorderRadius.circular(20.0),
+                              //   boxShadow: [
+                              //     BoxShadow(
+                              //       color: Colors.black.withOpacity(0.06),
+                              //       blurRadius: 14.0,
+                              //       offset: Offset(0, 4),
+                              //     ),
+                              //   ],
+                              // ),
                               child: Padding(
-                                padding: EdgeInsets.all(16.0),
+                                padding: EdgeInsets.all(5.0),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.max,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.max,
-                                        children: [
-                                          Icon(
-                                            Icons.place_sharp,
-                                            color: FlutterFlowTheme.of(context)
-                                                .primary,
-                                            size: 24.0,
-                                          ),
-                                          Text(
-                                            '${widget!.enseigneDoc?.city} - ${widget!.enseigneDoc?.address}',
-                                            style: FlutterFlowTheme.of(context)
-                                                .bodyMedium
-                                                .override(
-                                                  font: GoogleFonts.inter(
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodyMedium
-                                                            .fontWeight,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodyMedium
-                                                            .fontStyle,
-                                                  ),
-                                                  letterSpacing: 0.0,
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontStyle,
-                                                ),
-                                          ),
-                                        ].divide(SizedBox(width: 12.0)),
+                                    Container(
+                                      width: double.infinity,
+                                      padding: EdgeInsets.all(14.0),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius:
+                                            BorderRadius.circular(14.0),
+                                        border: Border.all(
+                                          color: Color(0xFFE3E8F7),
+                                          width: 1.0,
+                                        ),
                                       ),
-                                    ),
-                                    SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
                                       child: Row(
-                                        mainAxisSize: MainAxisSize.max,
                                         children: [
-                                          Icon(
-                                            Icons.phone,
-                                            color: FlutterFlowTheme.of(context)
-                                                .primary,
-                                            size: 24.0,
-                                          ),
-                                          InkWell(
-                                            splashColor: Colors.transparent,
-                                            focusColor: Colors.transparent,
-                                            hoverColor: Colors.transparent,
-                                            highlightColor: Colors.transparent,
-                                            onTap: () async {
-                                              await launchURL(widget!
-                                                  .enseigneDoc!.twitterLink);
-                                            },
-                                            child: Text(
-                                              widget!.enseigneDoc!.phoneNumber,
-                                              style:
+                                          Container(
+                                            width: 36.0,
+                                            height: 36.0,
+                                            decoration: BoxDecoration(
+                                              color: FlutterFlowTheme.of(context)
+                                                  .primary
+                                                  .withOpacity(0.12),
+                                              borderRadius:
+                                                  BorderRadius.circular(10.0),
+                                            ),
+                                            child: Icon(
+                                              Icons.place_rounded,
+                                              color:
                                                   FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
+                                                      .primary,
+                                              size: 20.0,
                                             ),
                                           ),
-                                        ].divide(SizedBox(width: 12.0)),
+                                          SizedBox(width: 12.0),
+                                          Expanded(
+                                            child: Text(
+                                              '${widget!.enseigneDoc?.city} · ${widget!.enseigneDoc?.address}',
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 15.0,
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xFF3B3F74),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    InkWell(
+                                      splashColor: Colors.transparent,
+                                      focusColor: Colors.transparent,
+                                      hoverColor: Colors.transparent,
+                                      highlightColor: Colors.transparent,
+                                      onTap: () async {
+                                        await launchURL(
+                                            'tel:${widget!.enseigneDoc!.phoneNumber}');
+                                      },
+                                      child: Container(
+                                        width: double.infinity,
+                                        padding: EdgeInsets.all(14.0),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(14.0),
+                                          border: Border.all(
+                                            color: Color(0xFFE3E8F7),
+                                            width: 1.0,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 36.0,
+                                              height: 36.0,
+                                              decoration: BoxDecoration(
+                                                color: FlutterFlowTheme.of(
+                                                        context)
+                                                    .primary
+                                                    .withOpacity(0.12),
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                        10.0),
+                                              ),
+                                              child: Icon(
+                                                Icons.phone_rounded,
+                                                color: FlutterFlowTheme.of(
+                                                        context)
+                                                    .primary,
+                                                size: 20.0,
+                                              ),
+                                            ),
+                                            SizedBox(width: 12.0),
+                                            Expanded(
+                                              child: Text(
+                                                widget!.enseigneDoc!.phoneNumber,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 15.0,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF3B3F74),
+                                                ),
+                                              ),
+                                            ),
+                                            Icon(
+                                              Icons.call_rounded,
+                                              color:
+                                                  FlutterFlowTheme.of(context)
+                                                      .primary,
+                                              size: 18.0,
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ]
                                       .divide(SizedBox(height: 12.0))
-                                      .around(SizedBox(height: 12.0)),
+                                      .around(SizedBox(height: 6.0)),
                                 ),
                               ),
                             ),
@@ -596,9 +810,15 @@ class _EnseigneDetailJoueurPageWidgetState
                               Container(
                                 width: double.infinity,
                                 decoration: BoxDecoration(
-                                  color: FlutterFlowTheme.of(context)
-                                      .secondaryBackground,
+                                  color: Colors.white,
                                   borderRadius: BorderRadius.circular(20.0),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.06),
+                                      blurRadius: 14.0,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
                                 ),
                                 child: Padding(
                                   padding: EdgeInsets.all(16.0),
@@ -618,51 +838,64 @@ class _EnseigneDetailJoueurPageWidgetState
                                             await launchURL(widget!
                                                 .enseigneDoc!.siteWebUrl);
                                           },
-                                          child: SingleChildScrollView(
-                                            scrollDirection: Axis.horizontal,
+                                          child: Container(
+                                            width: double.infinity,
+                                            padding: EdgeInsets.all(14.0),
+                                            decoration: BoxDecoration(
+                                              color: Color(0xFFF7FAFF),
+                                              borderRadius:
+                                                  BorderRadius.circular(14.0),
+                                              border: Border.all(
+                                                color: Color(0xFFE3E8F7),
+                                                width: 1.0,
+                                              ),
+                                            ),
                                             child: Row(
-                                              mainAxisSize: MainAxisSize.max,
                                               children: [
+                                                Container(
+                                                  width: 36.0,
+                                                  height: 36.0,
+                                                  decoration: BoxDecoration(
+                                                    color: FlutterFlowTheme.of(
+                                                            context)
+                                                        .primary
+                                                        .withOpacity(0.12),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            10.0),
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.language_rounded,
+                                                    color: FlutterFlowTheme.of(
+                                                            context)
+                                                        .primary,
+                                                    size: 20.0,
+                                                  ),
+                                                ),
+                                                SizedBox(width: 10.0),
+                                                Expanded(
+                                                  child: Text(
+                                                    widget!.enseigneDoc!
+                                                        .siteWebUrl,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 15.0,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: Color(0xFF3B3F74),
+                                                    ),
+                                                  ),
+                                                ),
                                                 Icon(
-                                                  Icons.language,
+                                                  Icons.open_in_new_rounded,
                                                   color: FlutterFlowTheme.of(
                                                           context)
                                                       .primary,
-                                                  size: 24.0,
+                                                  size: 18.0,
                                                 ),
-                                                Text(
-                                                  widget!
-                                                      .enseigneDoc!.siteWebUrl,
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                ),
-                                              ].divide(SizedBox(width: 12.0)),
+                                              ],
                                             ),
                                           ),
                                         ),
@@ -858,9 +1091,15 @@ class _EnseigneDetailJoueurPageWidgetState
                             Container(
                               width: double.infinity,
                               decoration: BoxDecoration(
-                                color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
+                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(20.0),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.06),
+                                    blurRadius: 14.0,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ],
                               ),
                               child: Padding(
                                 padding: EdgeInsetsDirectional.fromSTEB(
@@ -1380,7 +1619,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                                                   child:
                                                                       Container(
                                                                     height:
-                                                                        130.0,
+                                                                        150.0,
                                                                     decoration:
                                                                         BoxDecoration(),
                                                                     child:

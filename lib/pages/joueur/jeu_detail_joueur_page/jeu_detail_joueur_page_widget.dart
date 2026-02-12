@@ -164,16 +164,16 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                     ],
                   ),
                   child: IconButton(
-                    icon: Icon(
+                                  icon: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       color: FlutterFlowTheme.of(context).primaryText,
                       size: 18.0,
-                    ),
-                    onPressed: () async {
-                      context.pop();
-                    },
-                  ),
-                ),
+                                  ),
+                                  onPressed: () async {
+                                    context.pop();
+                                  },
+                                ),
+                              ),
               ),
               centerTitle: true,
               title: Container(
@@ -185,21 +185,21 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                 ),
               ),
               actions: [
-                Builder(
-                  builder: (context) {
+                                  Builder(
+                                    builder: (context) {
                     if (currentUserUid != null && currentUserUid != '') {
                       return StreamBuilder<List<FavoriteGamesRecord>>(
-                        stream: queryFavoriteGamesRecord(
-                          parent: currentUserReference,
+                                          stream: queryFavoriteGamesRecord(
+                                            parent: currentUserReference,
                           queryBuilder: (favoriteGamesRecord) =>
-                              favoriteGamesRecord.where(
-                            'game_id',
+                                                    favoriteGamesRecord.where(
+                                              'game_id',
                             isEqualTo: widget!.gameDoc?.reference,
-                          ),
-                          singleRecord: true,
-                        ),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
+                                            ),
+                                            singleRecord: true,
+                                          ),
+                                          builder: (context, snapshot) {
+                                            if (!snapshot.hasData) {
                             return Padding(
                               padding: EdgeInsets.only(right: 8.0),
                               child: Container(
@@ -217,7 +217,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                   ],
                                 ),
                                 child: Center(
-                                  child: SizedBox(
+                                                child: SizedBox(
                                     width: 18.0,
                                     height: 18.0,
                                     child: CircularProgressIndicator(
@@ -226,15 +226,15 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                         FlutterFlowTheme.of(context).primary,
                                       ),
                                     ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            }
                           List<FavoriteGamesRecord> favoriteGamesList = snapshot.data!;
                           final favoriteGame = favoriteGamesList.isNotEmpty
                               ? favoriteGamesList.first
-                              : null;
+                                                    : null;
 
                           return Padding(
                             padding: EdgeInsets.only(right: 8.0),
@@ -254,7 +254,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                               ),
                               child: IconButton(
                                 padding: EdgeInsets.zero,
-                                icon: Icon(
+                                                    icon: Icon(
                                   favoriteGame != null
                                       ? Icons.favorite_rounded
                                       : Icons.favorite_border_rounded,
@@ -262,15 +262,15 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                       ? Colors.red
                                       : FlutterFlowTheme.of(context).primaryText,
                                   size: 20.0,
-                                ),
-                                onPressed: () async {
+                                                    ),
+                                                    onPressed: () async {
                                   if (favoriteGame != null) {
                                     await favoriteGame.reference.delete();
                                   } else {
-                                    await FavoriteGamesRecord
+                                                      await FavoriteGamesRecord
                                         .createDoc(currentUserReference!)
-                                        .set({
-                                      ...createFavoriteGamesRecordData(
+                                                          .set({
+                                                        ...createFavoriteGamesRecordData(
                                         gameId: widget!.gameDoc?.reference,
                                       ),
                                       ...mapToFirestore({
@@ -289,14 +289,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                 },
                               ),
                             ),
-                          );
-                        },
-                      );
-                    } else {
+                                            );
+                                          },
+                                        );
+                                      } else {
                       return SizedBox.shrink();
-                    }
-                  },
-                ),
+                                      }
+                                    },
+                                  ),
                 Padding(
                   padding: EdgeInsets.only(right: 16.0),
                   child: Container(
@@ -315,19 +315,19 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                     ),
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      icon: Icon(
+                                      icon: Icon(
                         Icons.share_rounded,
                         color: FlutterFlowTheme.of(context).primaryText,
                         size: 20.0,
-                      ),
-                      onPressed: () async {
-                        await Share.share(
-                          'proxiplay://proxiplay.com/shareJeuPage?gameDoc=${widget!.gameDoc?.reference.id}&enseigneDoc=${widget!.enseigneDoc?.reference.id}',
+                                      ),
+                                      onPressed: () async {
+                                        await Share.share(
+                                          'proxiplay://proxiplay.com/shareJeuPage?gameDoc=${widget!.gameDoc?.reference.id}&enseigneDoc=${widget!.enseigneDoc?.reference.id}',
                           sharePositionOrigin: getWidgetBoundingBox(context),
-                        );
-                      },
-                    ),
-                  ),
+                                        );
+                                      },
+                                    ),
+                                  ),
                 ),
               ],
             ),
@@ -349,12 +349,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Flexible(
-                      child: SingleChildScrollView(
+                        child: SingleChildScrollView(
                         padding: EdgeInsets.zero,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.max,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.max,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
+                            children: [
                             // Hero Image Section
                             Image.network(
                               widget!.gameDoc!.photo,
@@ -382,16 +382,16 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                   ],
                                 ),
                                 child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: EdgeInsetsDirectional.fromSTEB(
                                     24.0, 
                                     (widget!.gameDoc?.description ?? '').trim().isEmpty ? 0.0 : 32.0, 
                                     24.0, 
                                     24.0
                                   ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.max,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.max,
                                     crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
+                                  children: [
                                     // Game Title
                                     Text(
                                       widget!.gameDoc!.name ?? 'Jeu', 
@@ -409,9 +409,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                       runSpacing: 8.0,
                                       children: [
                                         if (widget!.gameDoc!.prizeValue != null && widget!.gameDoc!.prizeValue! > 0)
-                                          Container(
+                                    Container(
                                             padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                            decoration: BoxDecoration(
+                                      decoration: BoxDecoration(
                                               color: Color(0xFFFFF4E6),
                                               borderRadius: BorderRadius.circular(12.0),
                                             ),
@@ -434,18 +434,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                         if ((widget.enseigneDoc?.city ?? '')
                                             .trim()
                                             .isNotEmpty)
-                                          Container(
+                                      Container(
                                             padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                            decoration: BoxDecoration(
+                                        decoration: BoxDecoration(
                                               color: Color(0xFFF0F9FF),
                                               borderRadius: BorderRadius.circular(12.0),
                                             ),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
-                                              children: [
+                                                children: [
                                                 Icon(Icons.location_on_outlined, size: 16.0, color: Color(0xFF3B82F6)),
                                                 SizedBox(width: 6.0),
-                                                Text(
+                                                  Text(
                                                   widget.enseigneDoc?.city ?? '',
                                                   style: GoogleFonts.inter(
                                                     fontSize: 13.0,
@@ -468,7 +468,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               children: [
                                                 Icon(Icons.store_rounded, size: 16.0, color: Color(0xFF10B981)),
                                                 SizedBox(width: 6.0),
-                                                Text(
+                                                  Text(
                                                   widget!.enseigneDoc!.name ?? '',
                                                   style: GoogleFonts.inter(
                                                     fontSize: 13.0,
@@ -487,27 +487,27 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                       children: [
                                         if (leftActionVisible)
                                           Expanded(
-                                            child: Builder(
-                                            builder: (context) {
-                                              if (currentUserUid != null &&
-                                                  currentUserUid != '') {
-                                                return Builder(
-                                                  builder: (context) {
-                                                    if (widget!.gameDoc
-                                                            ?.prohibitedForMinors ??
-                                                        false) {
-                                                      return Builder(
-                                                        builder: (context) {
-                                                          if (functions.isAdult(
-                                                              currentUserDocument!
-                                                                  .birthday!)) {
-                                                            return Visibility(
-                                                              visible: widget!
-                                                                      .gameDoc!
-                                                                      .endDate! >
-                                                                  getCurrentTimestamp,
-                                                              child: FFButtonWidget(
-                                                                onPressed: ((widget!
+                                      child: Builder(
+                                        builder: (context) {
+                                          if (currentUserUid != null &&
+                                              currentUserUid != '') {
+                                            return Builder(
+                                              builder: (context) {
+                                                if (widget!.gameDoc
+                                                        ?.prohibitedForMinors ??
+                                                    false) {
+                                                  return Builder(
+                                                    builder: (context) {
+                                                      if (functions.isAdult(
+                                                          currentUserDocument!
+                                                              .birthday!)) {
+                                                        return Visibility(
+                                                          visible: widget!
+                                                                  .gameDoc!
+                                                                  .endDate! >
+                                                              getCurrentTimestamp,
+                                                          child: FFButtonWidget(
+                                                            onPressed: ((widget!
                                                                             .gameDoc!
                                                                             .endDate! <
                                                                         getCurrentTimestamp) ||
@@ -519,201 +519,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                             currentUserDocument?.remainingPart,
                                                                             0) <=
                                                                         0))
-                                                                    ? null
-                                                                    : () async {
-                                                                        try {
-                                                                          final result = await FirebaseFunctions
-                                                                              .instance
-                                                                              .httpsCallable(
-                                                                                  'participateInGameTransaction')
-                                                                              .call({
-                                                                            "gameRef": widget!
-                                                                                .gameDoc!
-                                                                                .reference
-                                                                                .id,
-                                                                          });
-                                                                          _model.cloudFunction3sn =
-                                                                              ParticipateInGameTransactionCloudFunctionCallResponse(
-                                                                            data: ResultParticipationGameStruct.fromMap(
-                                                                                result.data),
-                                                                            succeeded:
-                                                                                true,
-                                                                            resultAsString: result
-                                                                                .data
-                                                                                .toString(),
-                                                                            jsonBody:
-                                                                                result.data,
-                                                                          );
-                                                                        } on FirebaseFunctionsException catch (error) {
-                                                                          _model.cloudFunction3sn =
-                                                                              ParticipateInGameTransactionCloudFunctionCallResponse(
-                                                                            errorCode:
-                                                                                error.code,
-                                                                            succeeded:
-                                                                                false,
-                                                                          );
-                                                                        }
-
-                                                                        if (_model
-                                                                            .cloudFunction3sn!
-                                                                            .succeeded!) {
-                                                                          context
-                                                                              .pushNamed(
-                                                                            PlayJoueurPageWidget
-                                                                                .routeName,
-                                                                            queryParameters:
-                                                                                {
-                                                                              'game':
-                                                                                  serializeParam(
-                                                                                widget!.gameDoc,
-                                                                                ParamType.Document,
-                                                                              ),
-                                                                              'resultParticipation':
-                                                                                  serializeParam(
-                                                                                ResultParticipationGameStruct.maybeFromMap(_model.cloudFunction3sn?.jsonBody),
-                                                                                ParamType.DataStruct,
-                                                                              ),
-                                                                            }.withoutNulls,
-                                                                            extra: <String,
-                                                                                dynamic>{
-                                                                              'game':
-                                                                                  widget!.gameDoc,
-                                                                            },
-                                                                          );
-                                                                        } else {
-                                                                          await showDialog(
-                                                                            context:
-                                                                                context,
-                                                                            builder:
-                                                                                (alertDialogContext) {
-                                                                              return WebViewAware(
-                                                                                child:
-                                                                                    AlertDialog(
-                                                                                  title: Text(_model.cloudFunction3sn!.data!.message),
-                                                                                  actions: [
-                                                                                    TextButton(
-                                                                                      onPressed: () => Navigator.pop(alertDialogContext),
-                                                                                      child: Text('Ok'),
-                                                                                    ),
-                                                                                  ],
-                                                                                ),
-                                                                              );
-                                                                            },
-                                                                          );
-                                                                        }
-
-                                                                        safeSetState(
-                                                                            () {});
-                                                                      },
-                                                                text: () {
-                                                                  if (valueOrDefault(
-                                                                          currentUserDocument
-                                                                              ?.remainingPart,
-                                                                          0) <=
-                                                                      0) {
-                                                                    return 'Vous n\'avez plus de parties';
-                                                                  } else if (widget!
-                                                                          .gameDoc!
-                                                                          .endDate! <
-                                                                      getCurrentTimestamp) {
-                                                                    return 'Le jeu est terminé';
-                                                                  } else if ((jeuDetailJoueurPageParticipantsDetailsRecord !=
-                                                                          null) &&
-                                                                      (jeuDetailJoueurPageParticipantsDetailsRecord!
-                                                                              .lastPlay! >=
-                                                                          getCurrentTimestamp)) {
-                                                                    return 'Vous avez déjà joué';
-                                                                  } else if ((jeuDetailJoueurPageParticipantsDetailsRecord !=
-                                                                          null) &&
-                                                                      (jeuDetailJoueurPageParticipantsDetailsRecord!
-                                                                              .lastPlay! <
-                                                                          getCurrentTimestamp)) {
-                                                                    return 'Rejouer';
-                                                                  } else {
-                                                                    return 'Participer';
-                                                                  }
-                                                                }(),
-                                                                options:
-                                                                    FFButtonOptions(
-                                                                  width: double
-                                                                      .infinity,
-                                                                  height: 56.0,
-                                                                  padding:
-                                                                      EdgeInsets
-                                                                          .all(0.0),
-                                                                  iconPadding:
-                                                                      EdgeInsetsDirectional
-                                                                          .fromSTEB(
-                                                                              0.0,
-                                                                              0.0,
-                                                                              0.0,
-                                                                              0.0),
-                                                                  color: FlutterFlowTheme
-                                                                          .of(context)
-                                                                      .primary,
-                                                                  textStyle:
-                                                                      FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .titleMedium
-                                                                          .override(
-                                                                            font: GoogleFonts
-                                                                                .inter(
-                                                                              fontWeight: FontWeight.w600,
-                                                                            ),
-                                                                            color: Colors.white,
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                          ),
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              16.0),
-                                                                  elevation: 4.0,
-                                                                ),
-                                                              ),
-                                                            );
-                                                          } else {
-                                                            return Container(
-                                                              height: 56.0,
-                                                              decoration: BoxDecoration(
-                                                                color: FlutterFlowTheme.of(context).primary,
-                                                                borderRadius: BorderRadius.circular(16.0),
-                                                              ),
-                                                              child: Center(
-                                                                child: Text(
-                                                                  'Interdit au mineur',
-                                                                  style: GoogleFonts.inter(
-                                                                    fontWeight: FontWeight.w600,
-                                                                    color: Colors.white,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            );
-                                                          }
-                                                        },
-                                                      );
-                                                    } else {
-                                                      return Visibility(
-                                                        visible: widget!
-                                                                .gameDoc!.endDate! >
-                                                            getCurrentTimestamp,
-                                                        child: AuthUserStreamWidget(
-                                                          builder: (context) =>
-                                                              FFButtonWidget(
-                                                            onPressed: ((widget!
-                                                                        .gameDoc!
-                                                                        .endDate! <
-                                                                    getCurrentTimestamp) ||
-                                                                ((jeuDetailJoueurPageParticipantsDetailsRecord !=
-                                                                        null) &&
-                                                                    (jeuDetailJoueurPageParticipantsDetailsRecord!
-                                                                            .lastPlay! >=
-                                                                        getCurrentTimestamp)) ||
-                                                                (valueOrDefault(
-                                                                        currentUserDocument
-                                                                            ?.remainingPart,
-                                                                        0) <=
-                                                                    0))
                                                                 ? null
                                                                 : () async {
                                                                     try {
@@ -727,34 +532,30 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                             .reference
                                                                             .id,
                                                                       });
-                                                                      _model.cloudFunction3sn2 =
+                                                                      _model.cloudFunction3sn =
                                                                           ParticipateInGameTransactionCloudFunctionCallResponse(
-                                                                        data: ResultParticipationGameStruct
-                                                                            .fromMap(
-                                                                                result.data),
+                                                                        data: ResultParticipationGameStruct.fromMap(
+                                                                            result.data),
                                                                         succeeded:
                                                                             true,
-                                                                        resultAsString:
-                                                                            result
-                                                                                .data
-                                                                                .toString(),
+                                                                        resultAsString: result
+                                                                            .data
+                                                                            .toString(),
                                                                         jsonBody:
-                                                                            result
-                                                                                .data,
+                                                                            result.data,
                                                                       );
                                                                     } on FirebaseFunctionsException catch (error) {
-                                                                      _model.cloudFunction3sn2 =
+                                                                      _model.cloudFunction3sn =
                                                                           ParticipateInGameTransactionCloudFunctionCallResponse(
                                                                         errorCode:
-                                                                            error
-                                                                                .code,
+                                                                            error.code,
                                                                         succeeded:
                                                                             false,
                                                                       );
                                                                     }
 
                                                                     if (_model
-                                                                        .cloudFunction3sn2!
+                                                                        .cloudFunction3sn!
                                                                         .succeeded!) {
                                                                       context
                                                                           .pushNamed(
@@ -764,24 +565,19 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                             {
                                                                           'game':
                                                                               serializeParam(
-                                                                            widget!
-                                                                                .gameDoc,
-                                                                            ParamType
-                                                                                .Document,
+                                                                            widget!.gameDoc,
+                                                                            ParamType.Document,
                                                                           ),
                                                                           'resultParticipation':
                                                                               serializeParam(
-                                                                            ResultParticipationGameStruct.maybeFromMap(_model
-                                                                                .cloudFunction3sn2
-                                                                                ?.jsonBody),
-                                                                            ParamType
-                                                                                .DataStruct,
+                                                                            ResultParticipationGameStruct.maybeFromMap(_model.cloudFunction3sn?.jsonBody),
+                                                                            ParamType.DataStruct,
                                                                           ),
                                                                         }.withoutNulls,
                                                                         extra: <String,
                                                                             dynamic>{
-                                                                          'game': widget!
-                                                                              .gameDoc,
+                                                                          'game':
+                                                                              widget!.gameDoc,
                                                                         },
                                                                       );
                                                                     } else {
@@ -793,10 +589,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                           return WebViewAware(
                                                                             child:
                                                                                 AlertDialog(
-                                                                              title: Text(_model
-                                                                                  .cloudFunction3sn2!
-                                                                                  .data!
-                                                                                  .message),
+                                                                              title: Text(_model.cloudFunction3sn!.data!.message),
                                                                               actions: [
                                                                                 TextButton(
                                                                                   onPressed: () => Navigator.pop(alertDialogContext),
@@ -835,19 +628,19 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   (jeuDetailJoueurPageParticipantsDetailsRecord!
                                                                           .lastPlay! <
                                                                       getCurrentTimestamp)) {
-                                                                return '🎫 Rejouer';
+                                                                return 'Rejouer';
                                                               } else {
                                                                 return 'Participer';
                                                               }
                                                             }(),
                                                             options:
                                                                 FFButtonOptions(
-                                                              width:
-                                                                  double.infinity,
-                                                              height: 56.0,
+                                                              width: double
+                                                                  .infinity,
+                                                                  height: 56.0,
                                                               padding:
-                                                                  EdgeInsets.all(
-                                                                      0.0),
+                                                                  EdgeInsets
+                                                                      .all(0.0),
                                                               iconPadding:
                                                                   EdgeInsetsDirectional
                                                                       .fromSTEB(
@@ -864,93 +657,300 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       .titleMedium
                                                                       .override(
                                                                         font: GoogleFonts
-                                                                            .inter(
-                                                                          fontWeight: FontWeight.w600,
-                                                                        ),
-                                                                        color: Colors.white,
+                                                                                .inter(
+                                                                              fontWeight: FontWeight.w600,
+                                                                            ),
+                                                                            color: Colors.white,
                                                                         letterSpacing:
                                                                             0.0,
                                                                       ),
                                                               borderRadius:
                                                                   BorderRadius
                                                                       .circular(
-                                                                          16.0),
-                                                              elevation: 4.0,
+                                                                              16.0),
+                                                                  elevation: 4.0,
                                                             ),
                                                           ),
+                                                        );
+                                                      } else {
+                                                            return Container(
+                                                              height: 56.0,
+                                                              decoration: BoxDecoration(
+                                                                color: FlutterFlowTheme.of(context).primary,
+                                                                borderRadius: BorderRadius.circular(16.0),
+                                                              ),
+                                                              child: Center(
+                                                                child: Text(
+                                                          'Interdit au mineur',
+                                                                  style: GoogleFonts.inter(
+                                                                    fontWeight: FontWeight.w600,
+                                                                    color: Colors.white,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                        );
+                                                      }
+                                                    },
+                                                  );
+                                                } else {
+                                                  return Visibility(
+                                                    visible: widget!
+                                                            .gameDoc!.endDate! >
+                                                        getCurrentTimestamp,
+                                                    child: AuthUserStreamWidget(
+                                                      builder: (context) =>
+                                                          FFButtonWidget(
+                                                        onPressed: ((widget!
+                                                                        .gameDoc!
+                                                                        .endDate! <
+                                                                    getCurrentTimestamp) ||
+                                                                ((jeuDetailJoueurPageParticipantsDetailsRecord !=
+                                                                        null) &&
+                                                                    (jeuDetailJoueurPageParticipantsDetailsRecord!
+                                                                            .lastPlay! >=
+                                                                        getCurrentTimestamp)) ||
+                                                                (valueOrDefault(
+                                                                        currentUserDocument
+                                                                            ?.remainingPart,
+                                                                        0) <=
+                                                                    0))
+                                                            ? null
+                                                            : () async {
+                                                                try {
+                                                                  final result = await FirebaseFunctions
+                                                                      .instance
+                                                                      .httpsCallable(
+                                                                          'participateInGameTransaction')
+                                                                      .call({
+                                                                    "gameRef": widget!
+                                                                        .gameDoc!
+                                                                        .reference
+                                                                        .id,
+                                                                  });
+                                                                  _model.cloudFunction3sn2 =
+                                                                      ParticipateInGameTransactionCloudFunctionCallResponse(
+                                                                    data: ResultParticipationGameStruct
+                                                                        .fromMap(
+                                                                            result.data),
+                                                                    succeeded:
+                                                                        true,
+                                                                    resultAsString:
+                                                                        result
+                                                                            .data
+                                                                            .toString(),
+                                                                    jsonBody:
+                                                                        result
+                                                                            .data,
+                                                                  );
+                                                                } on FirebaseFunctionsException catch (error) {
+                                                                  _model.cloudFunction3sn2 =
+                                                                      ParticipateInGameTransactionCloudFunctionCallResponse(
+                                                                    errorCode:
+                                                                        error
+                                                                            .code,
+                                                                    succeeded:
+                                                                        false,
+                                                                  );
+                                                                }
+
+                                                                if (_model
+                                                                    .cloudFunction3sn2!
+                                                                    .succeeded!) {
+                                                                  context
+                                                                      .pushNamed(
+                                                                    PlayJoueurPageWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'game':
+                                                                          serializeParam(
+                                                                        widget!
+                                                                            .gameDoc,
+                                                                        ParamType
+                                                                            .Document,
+                                                                      ),
+                                                                      'resultParticipation':
+                                                                          serializeParam(
+                                                                        ResultParticipationGameStruct.maybeFromMap(_model
+                                                                            .cloudFunction3sn2
+                                                                            ?.jsonBody),
+                                                                        ParamType
+                                                                            .DataStruct,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                    extra: <String,
+                                                                        dynamic>{
+                                                                      'game': widget!
+                                                                          .gameDoc,
+                                                                    },
+                                                                  );
+                                                                } else {
+                                                                  await showDialog(
+                                                                    context:
+                                                                        context,
+                                                                    builder:
+                                                                        (alertDialogContext) {
+                                                                      return WebViewAware(
+                                                                        child:
+                                                                            AlertDialog(
+                                                                          title: Text(_model
+                                                                              .cloudFunction3sn2!
+                                                                              .data!
+                                                                              .message),
+                                                                          actions: [
+                                                                            TextButton(
+                                                                              onPressed: () => Navigator.pop(alertDialogContext),
+                                                                              child: Text('Ok'),
+                                                                            ),
+                                                                          ],
+                                                                        ),
+                                                                      );
+                                                                    },
+                                                                  );
+                                                                }
+
+                                                                safeSetState(
+                                                                    () {});
+                                                              },
+                                                        text: () {
+                                                          if (valueOrDefault(
+                                                                  currentUserDocument
+                                                                      ?.remainingPart,
+                                                                  0) <=
+                                                              0) {
+                                                            return 'Vous n\'avez plus de parties';
+                                                          } else if (widget!
+                                                                  .gameDoc!
+                                                                  .endDate! <
+                                                              getCurrentTimestamp) {
+                                                            return 'Le jeu est terminé';
+                                                          } else if ((jeuDetailJoueurPageParticipantsDetailsRecord !=
+                                                                  null) &&
+                                                              (jeuDetailJoueurPageParticipantsDetailsRecord!
+                                                                      .lastPlay! >=
+                                                                  getCurrentTimestamp)) {
+                                                            return 'Vous avez déjà joué';
+                                                          } else if ((jeuDetailJoueurPageParticipantsDetailsRecord !=
+                                                                  null) &&
+                                                              (jeuDetailJoueurPageParticipantsDetailsRecord!
+                                                                      .lastPlay! <
+                                                                  getCurrentTimestamp)) {
+                                                                return '🎫 Rejouer';
+                                                          } else {
+                                                            return 'Participer';
+                                                          }
+                                                        }(),
+                                                        options:
+                                                            FFButtonOptions(
+                                                          width:
+                                                              double.infinity,
+                                                              height: 56.0,
+                                                          padding:
+                                                              EdgeInsets.all(
+                                                                      0.0),
+                                                          iconPadding:
+                                                              EdgeInsetsDirectional
+                                                                  .fromSTEB(
+                                                                      0.0,
+                                                                      0.0,
+                                                                      0.0,
+                                                                      0.0),
+                                                          color: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .primary,
+                                                          textStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .titleMedium
+                                                                  .override(
+                                                                    font: GoogleFonts
+                                                                            .inter(
+                                                                          fontWeight: FontWeight.w600,
+                                                                        ),
+                                                                        color: Colors.white,
+                                                                    letterSpacing:
+                                                                        0.0,
+                                                                      ),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                          16.0),
+                                                              elevation: 4.0,
                                                         ),
-                                                      );
-                                                    }
-                                                  },
-                                                );
-                                              } else {
-                                                return FFButtonWidget(
-                                                  onPressed: () async {
-                                                    if (Navigator.of(context)
-                                                        .canPop()) {
-                                                      context.pop();
-                                                    }
-                                                    context.pushNamed(
-                                                        InscriptionPageWidget
-                                                            .routeName);
-                                                  },
-                                                  text: 'Créer un compte',
-                                                  options: FFButtonOptions(
-                                                    width: double.infinity,
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
+                                              },
+                                            );
+                                          } else {
+                                            return FFButtonWidget(
+                                              onPressed: () async {
+                                                if (Navigator.of(context)
+                                                    .canPop()) {
+                                                  context.pop();
+                                                }
+                                                context.pushNamed(
+                                                    InscriptionPageWidget
+                                                        .routeName);
+                                              },
+                                              text: 'Créer un compte',
+                                              options: FFButtonOptions(
+                                                width: double.infinity,
                                                     height: 56.0,
-                                                    padding: EdgeInsets.all(0.0),
-                                                    iconPadding:
-                                                        EdgeInsetsDirectional
-                                                            .fromSTEB(
-                                                                0.0, 0.0, 0.0, 0.0),
-                                                    color:
-                                                        FlutterFlowTheme.of(context)
-                                                            .primary,
-                                                    textStyle:
-                                                        FlutterFlowTheme.of(context)
-                                                            .titleMedium
-                                                            .override(
-                                                              font: GoogleFonts
+                                                padding: EdgeInsets.all(0.0),
+                                                iconPadding:
+                                                    EdgeInsetsDirectional
+                                                        .fromSTEB(
+                                                            0.0, 0.0, 0.0, 0.0),
+                                                color:
+                                                    FlutterFlowTheme.of(context)
+                                                        .primary,
+                                                textStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .titleMedium
+                                                        .override(
+                                                          font: GoogleFonts
                                                                   .inter(
                                                                 fontWeight: FontWeight.w600,
                                                               ),
                                                               color: Colors.white,
-                                                              letterSpacing: 0.0,
-                                                            ),
-                                                    borderRadius:
+                                                          letterSpacing: 0.0,
+                                                        ),
+                                                borderRadius:
                                                         BorderRadius.circular(16.0),
                                                     elevation: 4.0,
-                                                  ),
-                                                );
-                                              }
-                                            },
-                                          ),
-                                        ),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    ),
                                         if (leftActionVisible)
                                           SizedBox(width: 12.0),
                                         SizedBox(
                                           width: 220.0,
                                           child: InkWell(
-                                              splashColor: Colors.transparent,
-                                              focusColor: Colors.transparent,
-                                              hoverColor: Colors.transparent,
-                                              highlightColor: Colors.transparent,
-                                              onTap: () async {
-                                                context.pushNamed(
-                                                  EnseigneDetailJoueurPageWidget
-                                                      .routeName,
-                                                  queryParameters: {
-                                                    'enseigneDoc': serializeParam(
-                                                      widget!.enseigneDoc,
-                                                      ParamType.Document,
-                                                    ),
-                                                  }.withoutNulls,
-                                                  extra: <String, dynamic>{
-                                                    'enseigneDoc': widget!.enseigneDoc,
-                                                  },
-                                                );
-                                              },
-                                              child: Container(
+                                      splashColor: Colors.transparent,
+                                      focusColor: Colors.transparent,
+                                      hoverColor: Colors.transparent,
+                                      highlightColor: Colors.transparent,
+                                      onTap: () async {
+                                        context.pushNamed(
+                                          EnseigneDetailJoueurPageWidget
+                                              .routeName,
+                                          queryParameters: {
+                                            'enseigneDoc': serializeParam(
+                                              widget!.enseigneDoc,
+                                              ParamType.Document,
+                                            ),
+                                          }.withoutNulls,
+                                          extra: <String, dynamic>{
+                                            'enseigneDoc': widget!.enseigneDoc,
+                                          },
+                                        );
+                                      },
+                                      child: Container(
                                                 height: 56.0,
                                                 decoration: BoxDecoration(
                                                   color: Colors.white,
@@ -1029,40 +1029,40 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       ? snapshot.data!.pseudo
                                                       : '';
                                               return Column(
-                                                mainAxisSize: MainAxisSize.max,
-                                                children: [
+                                            mainAxisSize: MainAxisSize.max,
+                                            children: [
                                                   Text(
                                                     'Félicitations !',
-                                                    style: FlutterFlowTheme.of(
-                                                            context)
+                                                  style: FlutterFlowTheme.of(
+                                                          context)
                                                         .titleMedium
-                                                        .override(
-                                                          font: GoogleFonts
-                                                              .interTight(
-                                                            fontWeight:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .titleMedium
-                                                                    .fontWeight,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .titleMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          letterSpacing: 0.0,
+                                                      .override(
+                                                        font: GoogleFonts
+                                                            .interTight(
                                                           fontWeight:
                                                               FlutterFlowTheme.of(
                                                                       context)
-                                                                  .titleMedium
+                                                                    .titleMedium
                                                                   .fontWeight,
                                                           fontStyle:
                                                               FlutterFlowTheme.of(
                                                                       context)
-                                                                  .titleMedium
+                                                                    .titleMedium
                                                                   .fontStyle,
                                                         ),
-                                                  ),
+                                                        letterSpacing: 0.0,
+                                                        fontWeight:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                  .titleMedium
+                                                                .fontWeight,
+                                                        fontStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                  .titleMedium
+                                                                .fontStyle,
+                                                      ),
+                                                ),
                                                   if (winnerName.isNotEmpty)
                                                     Text(
                                                       'Félicitations à $winnerName !',
@@ -1100,7 +1100,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     .fontStyle,
                                                               ),
                                                     ),
-                                                  Text(
+                                              Text(
                                                     'Le jeu est terminé pour le moment. Revenez bientôt pour découvrir les prochains jeux !',
                                                     textAlign: TextAlign.center,
                                                     style: FlutterFlowTheme.of(
@@ -1135,8 +1135,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   .bodySmall
                                                                   .fontStyle,
                                                         ),
-                                                  ),
-                                                ].divide(SizedBox(height: 8.0)),
+                                              ),
+                                            ].divide(SizedBox(height: 8.0)),
                                               );
                                             },
                                           ),
@@ -1145,11 +1145,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                     if ((widget!.gameDoc?.description ?? '')
                                         .trim()
                                         .isNotEmpty)
-                                      Container(
-                                        width: double.infinity,
+                                    Container(
+                                      width: double.infinity,
                                         margin: EdgeInsets.only(bottom: 16.0),
                                         padding: EdgeInsets.all(20.0),
-                                        decoration: BoxDecoration(
+                                      decoration: BoxDecoration(
                                           color: Colors.white,
                                           borderRadius: BorderRadius.circular(24.0),
                                           boxShadow: [
@@ -1163,10 +1163,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                         ),
                                         child: Column(
                                           mainAxisSize: MainAxisSize.max,
-                                          crossAxisAlignment:
+                                                      crossAxisAlignment:
                                               CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
+                                                      children: [
+                                                        Text(
                                               widget!.gameDoc!.description
                                                   .trim(),
                                               style: GoogleFonts.inter(
@@ -1214,22 +1214,22 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             ),
                                           ),
                                           // Store Images - Outside Container
-                                          FutureBuilder<List<ImagesRecord>>(
-                                            future: (_model
-                                                        .firestoreRequestCompleter ??=
-                                                    Completer<
-                                                        List<ImagesRecord>>()
-                                                      ..complete(
-                                                          queryImagesRecordOnce(
-                                                        parent: widget!
-                                                            .enseigneDoc
-                                                            ?.reference,
-                                                        limit: 5,
-                                                      )))
-                                                .future,
-                                            builder: (context, snapshot) {
-                                              if (!snapshot.hasData) {
-                                                return Center(
+                                            FutureBuilder<List<ImagesRecord>>(
+                                              future: (_model
+                                                          .firestoreRequestCompleter ??=
+                                                      Completer<
+                                                          List<ImagesRecord>>()
+                                                        ..complete(
+                                                            queryImagesRecordOnce(
+                                                          parent: widget!
+                                                              .enseigneDoc
+                                                              ?.reference,
+                                                          limit: 5,
+                                                        )))
+                                                  .future,
+                                              builder: (context, snapshot) {
+                                                if (!snapshot.hasData) {
+                                                  return Center(
                                                   child: Padding(
                                                     padding: EdgeInsets.all(20.0),
                                                     child: SizedBox(
@@ -1244,14 +1244,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   context)
                                                               .primary,
                                                         ),
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                );
-                                              }
-                                              List<ImagesRecord>
-                                                  rowImagesRecordList =
-                                                  snapshot.data!;
+                                                  );
+                                                }
+                                                List<ImagesRecord>
+                                                    rowImagesRecordList =
+                                                    snapshot.data!;
 
                                               if (rowImagesRecordList.isEmpty) {
                                                 return SizedBox.shrink();
@@ -1303,12 +1303,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       );
                                                     }),
                                                   ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                    ),
                                     Builder(
                                       builder: (context) {
                                         if (widget!.enseigneDoc != null) {
@@ -1443,10 +1443,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       widget!.enseigneDoc!
                                                           .instagramLink))
                                                 Container(
-                                                  width: double.infinity,
+                                                    width: double.infinity,
                                                   margin: EdgeInsets.only(bottom: 16.0),
                                                   padding: EdgeInsets.all(16.0),
-                                                  decoration: BoxDecoration(
+                                                    decoration: BoxDecoration(
                                                     color: Colors.white,
                                                     borderRadius: BorderRadius.circular(16.0),
                                                     boxShadow: [
@@ -1461,19 +1461,19 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   child: Wrap(
                                                     spacing: 12.0,
                                                     runSpacing: 12.0,
-                                                    children: [
-                                                      if (!functions
+                                                        children: [
+                                                          if (!functions
                                                           .checkValueIsEmpty(widget!
-                                                              .enseigneDoc!
+                                                                      .enseigneDoc!
                                                               .facebookLink))
-                                                        InkWell(
+                                                                  InkWell(
                                                           splashColor: Colors.transparent,
                                                           focusColor: Colors.transparent,
                                                           hoverColor: Colors.transparent,
                                                           highlightColor: Colors.transparent,
                                                           onTap: () async {
-                                                            await launchURL(widget!
-                                                                .enseigneDoc!
+                                                                      await launchURL(widget!
+                                                                          .enseigneDoc!
                                                                 .facebookLink);
                                                           },
                                                           child: Container(
@@ -1482,10 +1482,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                               color: Color(0xFF1877F2).withOpacity(0.1),
                                                               borderRadius: BorderRadius.circular(12.0),
                                                             ),
-                                                            child: Row(
+                                                              child: Row(
                                                               mainAxisSize: MainAxisSize.min,
-                                                              children: [
-                                                                Icon(
+                                                                children: [
+                                                                  Icon(
                                                                   Icons.facebook,
                                                                   color: Color(0xFF1877F2),
                                                                   size: 18.0,
@@ -1501,22 +1501,22 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 ),
                                                               ],
                                                             ),
-                                                          ),
-                                                        ),
-                                                      if (!functions
-                                                          .checkValueIsEmpty(widget!
-                                                              .enseigneDoc!
-                                                              .instagramLink))
-                                                        InkWell(
+                                                              ),
+                                                            ),
+                                                          if (!functions
+                                                              .checkValueIsEmpty(widget!
+                                                                  .enseigneDoc!
+                                                                  .instagramLink))
+                                                                  InkWell(
                                                           splashColor: Colors.transparent,
                                                           focusColor: Colors.transparent,
                                                           hoverColor: Colors.transparent,
                                                           highlightColor: Colors.transparent,
                                                           onTap: () async {
-                                                            await launchURL(widget!
-                                                                .enseigneDoc!
-                                                                .instagramLink);
-                                                          },
+                                                                      await launchURL(widget!
+                                                                          .enseigneDoc!
+                                                                          .instagramLink);
+                                                                    },
                                                           child: Container(
                                                             padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
                                                             decoration: BoxDecoration(
@@ -1542,22 +1542,22 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 ),
                                                               ],
                                                             ),
-                                                          ),
-                                                        ),
-                                                      if (!functions
-                                                          .checkValueIsEmpty(widget!
-                                                              .enseigneDoc!
-                                                              .twitterLink))
-                                                        InkWell(
+                                                              ),
+                                                            ),
+                                                          if (!functions
+                                                              .checkValueIsEmpty(widget!
+                                                                  .enseigneDoc!
+                                                                  .twitterLink))
+                                                                  InkWell(
                                                           splashColor: Colors.transparent,
                                                           focusColor: Colors.transparent,
                                                           hoverColor: Colors.transparent,
                                                           highlightColor: Colors.transparent,
                                                           onTap: () async {
-                                                            await launchURL(widget!
-                                                                .enseigneDoc!
-                                                                .twitterLink);
-                                                          },
+                                                                      await launchURL(widget!
+                                                                          .enseigneDoc!
+                                                                          .twitterLink);
+                                                                    },
                                                           child: Container(
                                                             padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
                                                             decoration: BoxDecoration(
@@ -1890,7 +1890,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                         padding: EdgeInsets.all(16.0),
                                         decoration: BoxDecoration(
                                           color: Colors.white,
-                                          borderRadius:
+                                                            borderRadius:
                                               BorderRadius.circular(20.0),
                                           border: Border.all(
                                             color: Color(0xFFE5E7EB),
@@ -1905,10 +1905,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             ),
                                           ],
                                         ),
-                                        child: Column(
+                                                            child: Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
-                                          children: [
+                                                              children: [
                                             // Text(
                                             //   'Lots à gagner',
                                             //   style: GoogleFonts.inter(
@@ -1919,7 +1919,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             //   ),
                                             // ),
                                             // SizedBox(height: 12.0),
-                                             Text(
+                                                                Text(
                                       widget!.gameDoc!.name ?? 'Jeu', 
                                       style: GoogleFonts.inter(
                                         fontSize:  widget!.gameDoc!.name.isEmpty ? 0.0 : 23.0,
@@ -1966,12 +1966,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       ],
                                                     ),
                                                   ),
-                                                  Container(
+                                                                                Container(
                                                     padding:
                                                         EdgeInsets.symmetric(
                                                             horizontal: 10.0,
                                                             vertical: 4.0),
-                                                    decoration: BoxDecoration(
+                                                                              decoration: BoxDecoration(
                                                       color: Color(0xFFFFF4E6),
                                                       borderRadius:
                                                           BorderRadius
@@ -1998,7 +1998,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               Row(
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
-                                                children: [
+                                                                                      children: [
                                                   Expanded(
                                                     child: Column(
                                                       crossAxisAlignment:
@@ -2100,9 +2100,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                 child: Column(
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment.start,
-                                                  children: [
+                                                                                                      children: [
                                                     
-                                                    Text(
+                                                                                                        Text(
                                                       'Règles du jeu',
                                                       style: GoogleFonts.inter(
                                                         fontSize: 20.0,
@@ -2138,9 +2138,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   0xFF374151),
                                                               height: 1.35,
                                                             ),
-                                                          ),
-                                                        ),
-                                                      ],
+                                                                                                              ),
+                                                                                                        ),
+                                                                                                      ],
                                                     ),
                                                     SizedBox(height: 8.0),
                                                     Row(
@@ -2169,9 +2169,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                               height: 1.35,
                                                             ),
                                                           ),
-                                                        ),
-                                                      ],
-                                                    ),
+                                                                                    ),
+                                                                                  ],
+                                                                                ),
                                                     SizedBox(height: 8.0),
                                                     Row(
                                                       crossAxisAlignment:
@@ -2227,9 +2227,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                               color: Color(
                                                                   0xFF374151),
                                                               height: 1.35,
-                                                            ),
-                                                          ),
                                                         ),
+                                                      ),
+                                                    ),
                                                       ],
                                                     ),
                                                   ],
@@ -2293,9 +2293,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                       },
                                     ),
                                         ],
-                                      ),
-                                    ),
-                                  ),
+                                ),
+                              ),
+                          ),
                                 ),
                           ],
                         ),

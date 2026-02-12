@@ -69,7 +69,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
             : 'Perdu ! Retentez votre chance demain !');
     final now = DateTime.now();
     final endDate = widget.game?.endDate;
-    final endWindowEnd = endDate?.add(const Duration(hours: 48));
+    final endWindowEnd = endDate?.add(const Duration(hours: 168));
     final isWithinEndWindow = endDate != null &&
         now.isAfter(endDate) &&
         (endWindowEnd != null && now.isBefore(endWindowEnd));

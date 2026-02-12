@@ -33,6 +33,10 @@ class EnseigneDetailJoueurPageModel
   // Model for CustomNavBarJoueur component.
   late CustomNavBarJoueurModel customNavBarJoueurModel;
   Completer<List<HorairesRecord>>? firestoreRequestCompleter;
+  
+  // ScrollController for image carousel
+  ScrollController? imagesScrollController;
+  int currentImageIndex = 0;
 
   @override
   void initState(BuildContext context) {
@@ -43,6 +47,7 @@ class EnseigneDetailJoueurPageModel
   @override
   void dispose() {
     customNavBarJoueurModel.dispose();
+    imagesScrollController?.dispose();
   }
 
   /// Additional helper methods.
