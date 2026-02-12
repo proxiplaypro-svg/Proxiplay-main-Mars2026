@@ -476,12 +476,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                       ],
                                     ),
                                     SizedBox(height: (widget!.gameDoc?.description ?? '').trim().isEmpty ? 16.0 : 24.0),
-                                    // Action Buttons Row
-                                    Row(
+                                    // Action Buttons Column
+                                    Column(
                                       children: [
                                         if (leftActionVisible)
-                                          Expanded(
-                                      child: Builder(
+                                      Builder(
                                         builder: (context) {
                                           if (currentUserUid != null &&
                                               currentUserUid != '') {
@@ -919,11 +918,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                           }
                                         },
                                       ),
-                                    ),
                                         if (leftActionVisible)
-                                          SizedBox(width: 12.0),
+                                          SizedBox(height: 12.0),
                                         SizedBox(
-                                          width: 220.0,
+                                          width: double.infinity,
                                           child: InkWell(
                                       splashColor: Colors.transparent,
                                       focusColor: Colors.transparent,
