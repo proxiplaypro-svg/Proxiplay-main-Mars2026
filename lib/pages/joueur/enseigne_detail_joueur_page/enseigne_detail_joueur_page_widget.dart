@@ -822,11 +822,21 @@ class _EnseigneDetailJoueurPageWidgetState
                                 ),
                                 child: Padding(
                                   padding: EdgeInsets.all(16.0),
-                                  child: Column(
+                                  child: 
+                                  
+                                     Column(
+                                      mainAxisSize: MainAxisSize.max,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        
+                                    
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     mainAxisSize: MainAxisSize.max,
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                        CrossAxisAlignment.center,
                                     children: [
+                                      
                                       if (!functions.checkValueIsEmpty(
                                           widget!.enseigneDoc!.siteWebUrl))
                                         InkWell(
@@ -839,253 +849,276 @@ class _EnseigneDetailJoueurPageWidgetState
                                                 .enseigneDoc!.siteWebUrl);
                                           },
                                           child: Container(
-                                            width: double.infinity,
-                                            padding: EdgeInsets.all(14.0),
-                                            decoration: BoxDecoration(
-                                              color: Color(0xFFF7FAFF),
-                                              borderRadius:
-                                                  BorderRadius.circular(14.0),
-                                              border: Border.all(
-                                                color: Color(0xFFE3E8F7),
-                                                width: 1.0,
-                                              ),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Container(
-                                                  width: 36.0,
-                                                  height: 36.0,
-                                                  decoration: BoxDecoration(
-                                                    color: FlutterFlowTheme.of(
-                                                            context)
-                                                        .primary
-                                                        .withOpacity(0.12),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            10.0),
-                                                  ),
-                                                  child: Icon(
-                                                    Icons.language_rounded,
-                                                    color: FlutterFlowTheme.of(
-                                                            context)
-                                                        .primary,
-                                                    size: 20.0,
-                                                  ),
-                                                ),
-                                                SizedBox(width: 10.0),
-                                                Expanded(
-                                                  child: Text(
-                                                    widget!.enseigneDoc!
-                                                        .siteWebUrl,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: GoogleFonts.inter(
-                                                      fontSize: 15.0,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: Color(0xFF3B3F74),
-                                                    ),
-                                                  ),
-                                                ),
-                                                Icon(
-                                                  Icons.open_in_new_rounded,
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .primary,
-                                                  size: 18.0,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
+                                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                                            decoration: BoxDecoration(
+                                                              color: Color(0xFF1DA1F2).withOpacity(0.1),
+                                                              borderRadius: BorderRadius.circular(12.0),
+                                                            ),
+                                                            child: Row(
+                                                              mainAxisSize: MainAxisSize.min,
+                                                              children: [
+                                                                FaIcon(
+                                                                  FontAwesomeIcons.globe,
+                                                                  color: Color(0xFF1DA1F2),
+                                                                  size: 18.0,
+                                                                ),
+                                                                SizedBox(width: 6.0),
+                                                                Text(
+                                                                  'WEBSITE',
+                                                                  style: GoogleFonts.inter(
+                                                                    fontSize: 13.0,
+                                                                    fontWeight: FontWeight.w600,
+                                                                    color: Color(0xFF1DA1F2),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                          // child: Container(
+                                          //   width: double.infinity,
+                                          //   padding: EdgeInsets.all(14.0),
+                                          //   decoration: BoxDecoration(
+                                          //     color: Color(0xFFF7FAFF),
+                                          //     borderRadius:
+                                          //         BorderRadius.circular(14.0),
+                                          //     border: Border.all(
+                                          //       color: Color(0xFFE3E8F7),
+                                          //       width: 1.0,
+                                          //     ),
+                                          //   ),
+                                          //   child: Row(
+                                          //     children: [
+                                          //       Container(
+                                          //         width: 36.0,
+                                          //         height: 36.0,
+                                          //         decoration: BoxDecoration(
+                                          //           color: FlutterFlowTheme.of(
+                                          //                   context)
+                                          //               .primary
+                                          //               .withOpacity(0.12),
+                                          //           borderRadius:
+                                          //               BorderRadius.circular(
+                                          //                   10.0),
+                                          //         ),
+                                          //         child: Icon(
+                                          //           Icons.language_rounded,
+                                          //           color: FlutterFlowTheme.of(
+                                          //                   context)
+                                          //               .primary,
+                                          //           size: 20.0,
+                                          //         ),
+                                          //       ),
+                                          //       SizedBox(width: 10.0),
+                                          //       Expanded(
+                                          //         child: Text(
+                                          //           widget!.enseigneDoc!
+                                          //               .siteWebUrl,
+                                          //           maxLines: 1,
+                                          //           overflow:
+                                          //               TextOverflow.ellipsis,
+                                          //           style: GoogleFonts.inter(
+                                          //             fontSize: 15.0,
+                                          //             fontWeight:
+                                          //                 FontWeight.w600,
+                                          //             color: Color(0xFF3B3F74),
+                                          //           ),
+                                          //         ),
+                                          //       ),
+                                          //       Icon(
+                                          //         Icons.open_in_new_rounded,
+                                          //         color: FlutterFlowTheme.of(
+                                          //                 context)
+                                          //             .primary,
+                                          //         size: 18.0,
+                                          //       ),
+                                          //     ],
+                                          //   ),
+                                          // ),
                                         ),
                                       if (!functions.checkValueIsEmpty(
-                                          widget!.enseigneDoc!.facebookLink))
-                                        SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.max,
-                                            children: [
-                                              Icon(
-                                                Icons.facebook,
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primary,
-                                                size: 24.0,
-                                              ),
-                                              InkWell(
-                                                splashColor: Colors.transparent,
-                                                focusColor: Colors.transparent,
-                                                hoverColor: Colors.transparent,
-                                                highlightColor:
-                                                    Colors.transparent,
-                                                onTap: () async {
-                                                  await launchURL(widget!
-                                                      .enseigneDoc!
-                                                      .facebookLink);
-                                                },
-                                                child: Text(
-                                                  widget!.enseigneDoc!
-                                                      .facebookLink,
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                ),
-                                              ),
-                                            ].divide(SizedBox(width: 12.0)),
-                                          ),
-                                        ),
+                                          widget!.enseigneDoc!.facebookLink ))
+                                     InkWell(
+                                                          splashColor: Colors.transparent,
+                                                          focusColor: Colors.transparent,
+                                                          hoverColor: Colors.transparent,
+                                                          highlightColor: Colors.transparent,
+                                                          onTap: () async {
+                                                                      await launchURL(widget!
+                                                                          .enseigneDoc!
+                                                                .facebookLink);
+                                                          },
+                                                          child: Container(
+                                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                                            decoration: BoxDecoration(
+                                                              color: Color(0xFF1877F2).withOpacity(0.1),
+                                                              borderRadius: BorderRadius.circular(12.0),
+                                                            ),
+                                                              child: Row(
+                                                              mainAxisSize: MainAxisSize.min,
+                                                                children: [
+                                                                  Icon(
+                                                                  Icons.facebook,
+                                                                  color: Color(0xFF1877F2),
+                                                                  size: 18.0,
+                                                                ),
+                                                                SizedBox(width: 6.0),
+                                                                Text(
+                                                                  'Facebook',
+                                                                  style: GoogleFonts.inter(
+                                                                    fontSize: 13.0,
+                                                                    fontWeight: FontWeight.w600,
+                                                                    color: Color(0xFF1877F2),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                              ),
+                                                            ),
                                       if (!functions.checkValueIsEmpty(
                                           widget!.enseigneDoc!.instagramLink))
-                                        SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.max,
-                                            children: [
-                                              FaIcon(
-                                                FontAwesomeIcons.instagram,
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primary,
-                                                size: 24.0,
-                                              ),
-                                              InkWell(
-                                                splashColor: Colors.transparent,
-                                                focusColor: Colors.transparent,
-                                                hoverColor: Colors.transparent,
-                                                highlightColor:
-                                                    Colors.transparent,
-                                                onTap: () async {
-                                                  await launchURL(widget!
-                                                      .enseigneDoc!
-                                                      .instagramLink);
-                                                },
-                                                child: Text(
-                                                  widget!.enseigneDoc!
-                                                      .instagramLink,
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                ),
-                                              ),
-                                            ].divide(SizedBox(width: 12.0)),
-                                          ),
-                                        ),
-                                      if (!functions.checkValueIsEmpty(
-                                          widget!.enseigneDoc!.twitterLink))
-                                        SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.max,
-                                            children: [
-                                              FaIcon(
-                                                FontAwesomeIcons.twitter,
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primary,
-                                                size: 24.0,
-                                              ),
-                                              InkWell(
-                                                splashColor: Colors.transparent,
-                                                focusColor: Colors.transparent,
-                                                hoverColor: Colors.transparent,
-                                                highlightColor:
-                                                    Colors.transparent,
-                                                onTap: () async {
-                                                  await launchURL(widget!
-                                                      .enseigneDoc!
-                                                      .twitterLink);
-                                                },
-                                                child: Text(
-                                                  widget!
-                                                      .enseigneDoc!.twitterLink,
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                ),
-                                              ),
-                                            ].divide(SizedBox(width: 12.0)),
-                                          ),
-                                        ),
+                                       InkWell(
+                                                          splashColor: Colors.transparent,
+                                                          focusColor: Colors.transparent,
+                                                          hoverColor: Colors.transparent,
+                                                          highlightColor: Colors.transparent,
+                                                          onTap: () async {
+                                                                      await launchURL(widget!
+                                                                          .enseigneDoc!
+                                                                          .instagramLink);
+                                                                    },
+                                                          child: Container(
+                                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                                            decoration: BoxDecoration(
+                                                              color: Color(0xFFE4405F).withOpacity(0.1),
+                                                              borderRadius: BorderRadius.circular(12.0),
+                                                            ),
+                                                            child: Row(
+                                                              mainAxisSize: MainAxisSize.min,
+                                                              children: [
+                                                                FaIcon(
+                                                                  FontAwesomeIcons.instagram,
+                                                                  color: Color(0xFFE4405F),
+                                                                  size: 18.0,
+                                                                ),
+                                                                SizedBox(width: 6.0),
+                                                                Text(
+                                                                  'Instagram',
+                                                                  style: GoogleFonts.inter(
+                                                                    fontSize: 13.0,
+                                                                    fontWeight: FontWeight.w600,
+                                                                    color: Color(0xFFE4405F),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                              ),
+                                                            ),
+                                  
+
+
+                                        
                                     ]
                                         .divide(SizedBox(height: 12.0))
                                         .around(SizedBox(height: 12.0)),
                                   ),
+
+SizedBox(height: 1.0),
+
+                                  // Social Media Links
+                                  Row(
+                                    mainAxisSize: MainAxisSize.max,
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+
+   if (!functions.checkValueIsEmpty(
+                                          widget!.enseigneDoc!.instagramLink))
+                                       InkWell(
+                                                          splashColor: Colors.transparent,
+                                                          focusColor: Colors.transparent,
+                                                          hoverColor: Colors.transparent,
+                                                          highlightColor: Colors.transparent,
+                                                          onTap: () async {
+                                                                      await launchURL(widget!
+                                                                          .enseigneDoc!
+                                                                          .instagramLink);
+                                                                    },
+                                                          child: Container(
+                                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                                            decoration: BoxDecoration(
+                                                              color: Color(0xFFE4405F).withOpacity(0.1),
+                                                              borderRadius: BorderRadius.circular(12.0),
+                                                            ),
+                                                            child: Row(
+                                                              mainAxisSize: MainAxisSize.min,
+                                                              children: [
+                                                                FaIcon(
+                                                                  FontAwesomeIcons.instagram,
+                                                                  color: Color(0xFFE4405F),
+                                                                  size: 18.0,
+                                                                ),
+                                                                SizedBox(width: 6.0),
+                                                                Text(
+                                                                  'Instagram',
+                                                                  style: GoogleFonts.inter(
+                                                                    fontSize: 13.0,
+                                                                    fontWeight: FontWeight.w600,
+                                                                    color: Color(0xFFE4405F),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                              ),
+                                                            ),
+                                  
+
+
+                                      // Twitter
+                                          if (!functions.checkValueIsEmpty(
+                                          widget!.enseigneDoc!.twitterLink))
+                                          InkWell(
+                                                          splashColor: Colors.transparent,
+                                                          focusColor: Colors.transparent,
+                                                          hoverColor: Colors.transparent,
+                                                          highlightColor: Colors.transparent,
+                                                          onTap: () async {
+                                                                      await launchURL(widget!
+                                                                          .enseigneDoc!
+                                                                          .twitterLink);
+                                                                    },
+                                                          child: Container(
+                                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                                            decoration: BoxDecoration(
+                                                              color: Color(0xFF1DA1F2).withOpacity(0.1),
+                                                              borderRadius: BorderRadius.circular(12.0),
+                                                            ),
+                                                            child: Row(
+                                                              mainAxisSize: MainAxisSize.min,
+                                                              children: [
+                                                                FaIcon(
+                                                                  FontAwesomeIcons.twitter,
+                                                                  color: Color(0xFF1DA1F2),
+                                                                  size: 18.0,
+                                                                ),
+                                                                SizedBox(width: 6.0),
+                                                                Text(
+                                                                  'Twitter',
+                                                                  style: GoogleFonts.inter(
+                                                                    fontSize: 13.0,
+                                                                    fontWeight: FontWeight.w600,
+                                                                    color: Color(0xFF1DA1F2),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+
+
+
+                                    ],
+                                  ),
+                                  ])
                                 ),
                               ),
                             Container(

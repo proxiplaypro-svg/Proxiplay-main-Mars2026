@@ -113,7 +113,7 @@ class _AddHoraireCommercantPageWidgetState
                   ),
                 ),
                 title: Text(
-                  'Horaires d\'ouverture',
+                  'Horairssses d\'ouverture',
                   style: FlutterFlowTheme.of(context).headlineMedium.override(
                         font: GoogleFonts.interTight(
                           fontWeight: FlutterFlowTheme.of(context)

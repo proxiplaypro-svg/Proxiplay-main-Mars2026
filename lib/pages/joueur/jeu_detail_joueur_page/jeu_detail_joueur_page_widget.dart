@@ -117,7 +117,13 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
               : int.tryParse((countValue ?? '').toString()) ?? 0;
           return parsedCount > 0;
         });
-        final hasSecondaryPrizeContent = hasSecondaryPrizeEntries;
+        final secondaryPrizeDescription =
+            (widget.gameDoc?.secondaryPrizeDescription ?? '').trim();
+        final hasSecondaryPrizeDescriptionText =
+            secondaryPrizeDescription.isNotEmpty &&
+                secondaryPrizeDescription != '0';
+        final hasSecondaryPrizeContent =
+            hasSecondaryPrizeEntries || hasSecondaryPrizeDescriptionText;
         final leftActionVisible = (() {
           final isGuest = currentUserUid == null || currentUserUid == '';
           if (isGuest) return true;
@@ -480,7 +486,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                     Column(
                                       children: [
                                         if (leftActionVisible)
-                                      Builder(
+                                      //     Expanded(
+                                      // child:
+                                         Builder(
                                         builder: (context) {
                                           if (currentUserUid != null &&
                                               currentUserUid != '') {
@@ -917,11 +925,13 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             );
                                           }
                                         },
-                                      ),
-                                        if (leftActionVisible)
+                                      // ),
+                                    ),
+                                        // if (leftActionVisible)
+
                                           SizedBox(height: 12.0),
                                         SizedBox(
-                                          width: double.infinity,
+                                          // width: 220.0,
                                           child: InkWell(
                                       splashColor: Colors.transparent,
                                       focusColor: Colors.transparent,
@@ -974,7 +984,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     SizedBox(width: 8.0),
                                                     Flexible(
                                                       child: Text(
-                                                          'Voir la boutique',
+                                                        //  here name of the store
+                                                        widget!.enseigneDoc!.name ?? '',
                                                         maxLines: 2,
                                                         softWrap: true,
                                                         overflow: TextOverflow.ellipsis,
@@ -1027,7 +1038,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             builder: (context, snapshot) {
                                               final winnerName =
                                                   snapshot.hasData
-                                                      ? snapshot.data!.pseudo
+                                                      ? snapshot.data!.firstName
                                                       : '';
                                               return Column(
                                             mainAxisSize: MainAxisSize.max,
@@ -1993,8 +2004,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   ),
                                                 ],
                                               ),
-                                            if (hasMainPrize &&
-                                                hasSecondaryPrizeContent)
+                                            if (hasSecondaryPrizeContent)
                                               SizedBox(height: 10.0),
                                             if (hasSecondaryPrizeContent)
                                               Row(
@@ -2018,20 +2028,13 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 0xFF111827),
                                                           ),
                                                         ),
-                                                        if ((widget.gameDoc
-                                                                        ?.secondaryPrizeDescription ??
-                                                                    '')
-                                                                .trim()
-                                                                .isNotEmpty)
+                                                        if (hasSecondaryPrizeDescriptionText)
                                                           Padding(
                                                             padding:
                                                                 EdgeInsets.only(
                                                                     top: 2.0),
                                                             child: Text(
-                                                              (widget.gameDoc
-                                                                          ?.secondaryPrizeDescription ??
-                                                                      '')
-                                                                  .trim(),
+                                                              secondaryPrizeDescription,
                                                               style: GoogleFonts
                                                                   .inter(
                                                                 fontSize: 13.0,
@@ -2175,18 +2178,19 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                   ],
                                                                                 ),
                                                     SizedBox(height: 8.0),
-                                                    Row(
+                                               if (hasMainPrize)       Row(
                                                       crossAxisAlignment:
                                                           CrossAxisAlignment
                                                               .start,
                                                       children: [
-                                                        Icon(
+                                                       Icon(
                                                           Icons
                                                               .card_giftcard_rounded,
                                                           size: 16.0,
                                                           color: Color(0xFF6B7280),
                                                         ),
                                                         SizedBox(width: 8.0),
+                                                      
                                                         Expanded(
                                                           child: Text(
                                                             'Le lot principal sera attribué par tirage au sort le ${widget!.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget!.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
@@ -2205,6 +2209,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       ],
                                                     ),
                                                     SizedBox(height: 8.0),
+                                                 
+                                                 if (hasSecondaryPrizeContent)
                                                     Row(
                                                       crossAxisAlignment:
                                                           CrossAxisAlignment

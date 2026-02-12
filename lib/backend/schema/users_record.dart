@@ -50,6 +50,7 @@ class UsersRecord extends FirestoreRecord {
   // "pseudo" field.
   String? _pseudo;
   String get pseudo => _pseudo ?? '';
+  String get firstNameAndLastName => '${firstName} ${lastName}';
   bool hasPseudo() => _pseudo != null;
 
   // "account_status" field.
