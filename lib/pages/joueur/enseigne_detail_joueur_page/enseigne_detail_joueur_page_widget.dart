@@ -713,18 +713,49 @@ class _EnseigneDetailJoueurPageWidgetState
                                             ),
                                           ),
                                           SizedBox(width: 12.0),
+
                                           Expanded(
-                                            child: Text(
-                                              '${widget!.enseigneDoc?.city} · ${widget!.enseigneDoc?.address}',
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: GoogleFonts.inter(
-                                                fontSize: 15.0,
-                                                fontWeight: FontWeight.w600,
-                                                color: Color(0xFF3B3F74),
-                                              ),
-                                            ),
-                                          ),
+  child: InkWell(
+    onTap: () async {
+      final city = widget!.enseigneDoc?.city;
+      final address = widget!.enseigneDoc?.address;
+
+      if (city == null || address == null) return;
+
+      final fullAddress = "$address, $city";
+
+      // Encode for URL safety
+      final encodedAddress = Uri.encodeComponent(fullAddress);
+
+      final mapUrl = "https://www.google.com/maps/search/?api=1&query=$encodedAddress";
+
+      await launchURL(mapUrl);
+    },
+    child: Text(
+      '${widget!.enseigneDoc?.city} · ${widget!.enseigneDoc?.address}',
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: GoogleFonts.inter(
+        fontSize: 15.0,
+        fontWeight: FontWeight.w600,
+        color: Color(0xFF3B3F74),
+      ),
+    ),
+  ),
+),
+
+                                          // Expanded(
+                                          //   child: Text(
+                                          //     '${widget!.enseigneDoc?.city} · ${widget!.enseigneDoc?.address}',
+                                          //     maxLines: 2,
+                                          //     overflow: TextOverflow.ellipsis,
+                                          //     style: GoogleFonts.inter(
+                                          //       fontSize: 15.0,
+                                          //       fontWeight: FontWeight.w600,
+                                          //       color: Color(0xFF3B3F74),
+                                          //     ),
+                                          //   ),
+                                          // ),
                                         ],
                                       ),
                                     ),
@@ -845,8 +876,18 @@ class _EnseigneDetailJoueurPageWidgetState
                                           hoverColor: Colors.transparent,
                                           highlightColor: Colors.transparent,
                                           onTap: () async {
-                                            await launchURL(widget!
-                                                .enseigneDoc!.siteWebUrl);
+                                      String? link = widget!.enseigneDoc!.siteWebUrl;
+
+  if (link == null || link.isEmpty) return;
+
+  link = link.trim();
+
+  // If user saved "example.com" without http
+  if (!link.startsWith('http://') && !link.startsWith('https://')) {
+    link = "https://$link";
+  }
+
+  await launchURL(link);
                                           },
                                           child: Container(
                                                             padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
@@ -943,9 +984,19 @@ class _EnseigneDetailJoueurPageWidgetState
                                                           hoverColor: Colors.transparent,
                                                           highlightColor: Colors.transparent,
                                                           onTap: () async {
-                                                                      await launchURL(widget!
-                                                                          .enseigneDoc!
-                                                                .facebookLink);
+                                                                String? link = widget!.enseigneDoc!.facebookLink;
+
+  if (link == null || link.isEmpty) return;
+
+  // Clean input
+  link = link.trim().replaceAll('@', '');
+
+  // If no http, assume it's a Facebook username/page
+  if (!link.startsWith('http')) {
+    link = "https://www.facebook.com/$link";
+  }
+
+  await launchURL(link);
                                                           },
                                                           child: Container(
                                                             padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
@@ -974,6 +1025,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                                             ),
                                                               ),
                                                             ),
+                                                            // instagram link
                                       if (!functions.checkValueIsEmpty(
                                           widget!.enseigneDoc!.instagramLink))
                                        InkWell(
@@ -982,9 +1034,22 @@ class _EnseigneDetailJoueurPageWidgetState
                                                           hoverColor: Colors.transparent,
                                                           highlightColor: Colors.transparent,
                                                           onTap: () async {
-                                                                      await launchURL(widget!
-                                                                          .enseigneDoc!
-                                                                          .instagramLink);
+                                                             String? link = widget!.enseigneDoc!.instagramLink;
+
+  if (link == null || link.isEmpty) return;
+
+  // Trim spaces
+  link = link.trim();
+
+  // If it doesn’t contain http, assume it's a username
+  if (!link.startsWith('http')) {
+    link = "https://www.instagram.com/$link";
+  }
+
+  await launchURL(link);
+                                                                      // await launchURL(widget!
+                                                                      //     .enseigneDoc!
+                                                                      //     .instagramLink);
                                                                     },
                                                           child: Container(
                                                             padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
@@ -1031,45 +1096,6 @@ SizedBox(height: 1.0),
                                     crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
 
-   if (!functions.checkValueIsEmpty(
-                                          widget!.enseigneDoc!.instagramLink))
-                                       InkWell(
-                                                          splashColor: Colors.transparent,
-                                                          focusColor: Colors.transparent,
-                                                          hoverColor: Colors.transparent,
-                                                          highlightColor: Colors.transparent,
-                                                          onTap: () async {
-                                                                      await launchURL(widget!
-                                                                          .enseigneDoc!
-                                                                          .instagramLink);
-                                                                    },
-                                                          child: Container(
-                                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                                            decoration: BoxDecoration(
-                                                              color: Color(0xFFE4405F).withOpacity(0.1),
-                                                              borderRadius: BorderRadius.circular(12.0),
-                                                            ),
-                                                            child: Row(
-                                                              mainAxisSize: MainAxisSize.min,
-                                                              children: [
-                                                                FaIcon(
-                                                                  FontAwesomeIcons.instagram,
-                                                                  color: Color(0xFFE4405F),
-                                                                  size: 18.0,
-                                                                ),
-                                                                SizedBox(width: 6.0),
-                                                                Text(
-                                                                  'Instagram',
-                                                                  style: GoogleFonts.inter(
-                                                                    fontSize: 13.0,
-                                                                    fontWeight: FontWeight.w600,
-                                                                    color: Color(0xFFE4405F),
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                              ),
-                                                            ),
                                   
 
 
@@ -1082,9 +1108,21 @@ SizedBox(height: 1.0),
                                                           hoverColor: Colors.transparent,
                                                           highlightColor: Colors.transparent,
                                                           onTap: () async {
-                                                                      await launchURL(widget!
-                                                                          .enseigneDoc!
-                                                                          .twitterLink);
+                                                                     String? link = widget!.enseigneDoc!.twitterLink;
+
+  if (link == null || link.isEmpty) return;
+
+  link = link.trim().replaceAll('@', '');
+
+  if (!link.startsWith('http')) {
+    if (link.contains('twitter.com') || link.contains('x.com')) {
+      link = "https://$link";
+    } else {
+      link = "https://twitter.com/$link";
+    }
+  }
+
+  await launchURL(link);
                                                                     },
                                                           child: Container(
                                                             padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),

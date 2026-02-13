@@ -1194,134 +1194,134 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                         ),
                                       ),
                                     // Store Information Section
-                                    if (widget!.enseigneDoc != null)
-                                      Column(
-                                        mainAxisSize: MainAxisSize.max,
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
+                                    // if (widget!.enseigneDoc != null)
+                                    //   Column(
+                                    //     mainAxisSize: MainAxisSize.max,
+                                    //     crossAxisAlignment: CrossAxisAlignment.start,
+                                    //     children: [
                                           // Store Name in Container
-                                          Container(
-                                            width: double.infinity,
-                                            margin: EdgeInsets.only(bottom: 16.0),
-                                            padding: EdgeInsets.all(20.0),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius: BorderRadius.circular(24.0),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black.withOpacity(0.05),
-                                                  blurRadius: 20.0,
-                                                  offset: Offset(0, 4),
-                                                  spreadRadius: 0,
-                                                ),
-                                              ],
-                                            ),
-                                            child: Text(
-                                              widget!.enseigneDoc!.name ?? '',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 22.0,
-                                                fontWeight: FontWeight.bold,
-                                                color: Color(0xFF1A1A1A),
-                                                letterSpacing: -0.5,
-                                              ),
-                                            ),
-                                          ),
+                                          // Container(
+                                          //   width: double.infinity,
+                                          //   margin: EdgeInsets.only(bottom: 16.0),
+                                          //   padding: EdgeInsets.all(20.0),
+                                          //   decoration: BoxDecoration(
+                                          //     color: Colors.white,
+                                          //     borderRadius: BorderRadius.circular(24.0),
+                                          //     boxShadow: [
+                                          //       BoxShadow(
+                                          //         color: Colors.black.withOpacity(0.05),
+                                          //         blurRadius: 20.0,
+                                          //         offset: Offset(0, 4),
+                                          //         spreadRadius: 0,
+                                          //       ),
+                                          //     ],
+                                          //   ),
+                                          //   child: Text(
+                                          //     widget!.enseigneDoc!.name ?? '',
+                                          //     style: GoogleFonts.inter(
+                                          //       fontSize: 22.0,
+                                          //       fontWeight: FontWeight.bold,
+                                          //       color: Color(0xFF1A1A1A),
+                                          //       letterSpacing: -0.5,
+                                          //     ),
+                                          //   ),
+                                          // ),
                                           // Store Images - Outside Container
-                                            FutureBuilder<List<ImagesRecord>>(
-                                              future: (_model
-                                                          .firestoreRequestCompleter ??=
-                                                      Completer<
-                                                          List<ImagesRecord>>()
-                                                        ..complete(
-                                                            queryImagesRecordOnce(
-                                                          parent: widget!
-                                                              .enseigneDoc
-                                                              ?.reference,
-                                                          limit: 5,
-                                                        )))
-                                                  .future,
-                                              builder: (context, snapshot) {
-                                                if (!snapshot.hasData) {
-                                                  return Center(
-                                                  child: Padding(
-                                                    padding: EdgeInsets.all(20.0),
-                                                    child: SizedBox(
-                                                      width: 40.0,
-                                                      height: 40.0,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                        valueColor:
-                                                            AlwaysStoppedAnimation<
-                                                                Color>(
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .primary,
-                                                        ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  );
-                                                }
-                                                List<ImagesRecord>
-                                                    rowImagesRecordList =
-                                                    snapshot.data!;
+                                          //   FutureBuilder<List<ImagesRecord>>(
+                                          //     future: (_model
+                                          //                 .firestoreRequestCompleter ??=
+                                          //             Completer<
+                                          //                 List<ImagesRecord>>()
+                                          //               ..complete(
+                                          //                   queryImagesRecordOnce(
+                                          //                 parent: widget!
+                                          //                     .enseigneDoc
+                                          //                     ?.reference,
+                                          //                 limit: 5,
+                                          //               )))
+                                          //         .future,
+                                          //     builder: (context, snapshot) {
+                                          //       if (!snapshot.hasData) {
+                                          //         return Center(
+                                          //         child: Padding(
+                                          //           padding: EdgeInsets.all(20.0),
+                                          //           child: SizedBox(
+                                          //             width: 40.0,
+                                          //             height: 40.0,
+                                          //             child:
+                                          //                 CircularProgressIndicator(
+                                          //               valueColor:
+                                          //                   AlwaysStoppedAnimation<
+                                          //                       Color>(
+                                          //                 FlutterFlowTheme.of(
+                                          //                         context)
+                                          //                     .primary,
+                                          //               ),
+                                          //               ),
+                                          //             ),
+                                          //           ),
+                                          //         );
+                                          //       }
+                                          //       List<ImagesRecord>
+                                          //           rowImagesRecordList =
+                                          //           snapshot.data!;
 
-                                              if (rowImagesRecordList.isEmpty) {
-                                                return SizedBox.shrink();
-                                              }
+                                          //     if (rowImagesRecordList.isEmpty) {
+                                          //       return SizedBox.shrink();
+                                          //     }
 
-                                              return Container(
-                                                margin: EdgeInsets.only(bottom: 16.0),
-                                                child: SingleChildScrollView(
-                                                  scrollDirection:
-                                                      Axis.horizontal,
-                                                  padding: EdgeInsets.symmetric(horizontal: 4.0),
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.max,
-                                                    children: List.generate(
-                                                        rowImagesRecordList.length > 2 ? 2 : rowImagesRecordList.length,
-                                                        (rowIndex) {
-                                                      final rowImagesRecord =
-                                                          rowImagesRecordList[
-                                                              rowIndex];
-                                                      return Container(
-                                                        width: (MediaQuery.of(context).size.width - 64.0) * 0.48,
-                                                        height: 160.0,
-                                                        margin: EdgeInsets.only(right: 12.0),
-                                                        decoration: BoxDecoration(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(20.0),
-                                                          boxShadow: [
-                                                            BoxShadow(
-                                                              color: Colors.black.withOpacity(0.12),
-                                                              blurRadius: 20.0,
-                                                              offset: Offset(0, 4),
-                                                              spreadRadius: 0,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        child: ClipRRect(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(20.0),
-                                                          child: Image.network(
-                                                            rowImagesRecord.url,
-                                                            width: double.infinity,
-                                                            height: 160.0,
-                                                            fit: BoxFit.cover,
-                                                          ),
-                                                        ),
-                                                      );
-                                                    }),
-                                                  ),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          ],
-                                    ),
+                                          //     return Container(
+                                          //       margin: EdgeInsets.only(bottom: 16.0),
+                                          //       child: SingleChildScrollView(
+                                          //         scrollDirection:
+                                          //             Axis.horizontal,
+                                          //         padding: EdgeInsets.symmetric(horizontal: 4.0),
+                                          //         child: Row(
+                                          //           mainAxisSize:
+                                          //               MainAxisSize.max,
+                                          //           children: List.generate(
+                                          //               rowImagesRecordList.length > 2 ? 2 : rowImagesRecordList.length,
+                                          //               (rowIndex) {
+                                          //             final rowImagesRecord =
+                                          //                 rowImagesRecordList[
+                                          //                     rowIndex];
+                                          //             return Container(
+                                          //               width: (MediaQuery.of(context).size.width - 64.0) * 0.48,
+                                          //               height: 160.0,
+                                          //               margin: EdgeInsets.only(right: 12.0),
+                                          //               decoration: BoxDecoration(
+                                          //                 borderRadius:
+                                          //                     BorderRadius
+                                          //                         .circular(20.0),
+                                          //                 boxShadow: [
+                                          //                   BoxShadow(
+                                          //                     color: Colors.black.withOpacity(0.12),
+                                          //                     blurRadius: 20.0,
+                                          //                     offset: Offset(0, 4),
+                                          //                     spreadRadius: 0,
+                                          //                   ),
+                                          //                 ],
+                                          //               ),
+                                          //               child: ClipRRect(
+                                          //                 borderRadius:
+                                          //                     BorderRadius
+                                          //                         .circular(20.0),
+                                          //                 child: Image.network(
+                                          //                   rowImagesRecord.url,
+                                          //                   width: double.infinity,
+                                          //                   height: 160.0,
+                                          //                   fit: BoxFit.cover,
+                                          //                 ),
+                                          //               ),
+                                          //             );
+                                          //           }),
+                                          //         ),
+                                          //         ),
+                                          //       );
+                                          //     },
+                                          //   ),
+                                          // ],
+                                    // ),
                                     Builder(
                                       builder: (context) {
                                         if (widget!.enseigneDoc != null) {
@@ -1445,162 +1445,163 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                 //     ),
                                                 //   ),
                                                 // ),
+                                                
                                               // Social Media Links
-                                              if (!functions.checkValueIsEmpty(
-                                                      widget!.enseigneDoc!
-                                                          .facebookLink) ||
-                                                  !functions.checkValueIsEmpty(
-                                                      widget!.enseigneDoc!
-                                                          .twitterLink) ||
-                                                  !functions.checkValueIsEmpty(
-                                                      widget!.enseigneDoc!
-                                                          .instagramLink))
-                                                Container(
-                                                    width: double.infinity,
-                                                  margin: EdgeInsets.only(bottom: 16.0),
-                                                  padding: EdgeInsets.all(16.0),
-                                                    decoration: BoxDecoration(
-                                                    color: Colors.white,
-                                                    borderRadius: BorderRadius.circular(16.0),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black.withOpacity(0.05),
-                                                        blurRadius: 15.0,
-                                                        offset: Offset(0, 2),
-                                                        spreadRadius: 0,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  child: Wrap(
-                                                    spacing: 12.0,
-                                                    runSpacing: 12.0,
-                                                        children: [
-                                                          if (!functions
-                                                          .checkValueIsEmpty(widget!
-                                                                      .enseigneDoc!
-                                                              .facebookLink))
-                                                                  InkWell(
-                                                          splashColor: Colors.transparent,
-                                                          focusColor: Colors.transparent,
-                                                          hoverColor: Colors.transparent,
-                                                          highlightColor: Colors.transparent,
-                                                          onTap: () async {
-                                                                      await launchURL(widget!
-                                                                          .enseigneDoc!
-                                                                .facebookLink);
-                                                          },
-                                                          child: Container(
-                                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                                            decoration: BoxDecoration(
-                                                              color: Color(0xFF1877F2).withOpacity(0.1),
-                                                              borderRadius: BorderRadius.circular(12.0),
-                                                            ),
-                                                              child: Row(
-                                                              mainAxisSize: MainAxisSize.min,
-                                                                children: [
-                                                                  Icon(
-                                                                  Icons.facebook,
-                                                                  color: Color(0xFF1877F2),
-                                                                  size: 18.0,
-                                                                ),
-                                                                SizedBox(width: 6.0),
-                                                                Text(
-                                                                  'Facebook',
-                                                                  style: GoogleFonts.inter(
-                                                                    fontSize: 13.0,
-                                                                    fontWeight: FontWeight.w600,
-                                                                    color: Color(0xFF1877F2),
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                              ),
-                                                            ),
-                                                          if (!functions
-                                                              .checkValueIsEmpty(widget!
-                                                                  .enseigneDoc!
-                                                                  .instagramLink))
-                                                                  InkWell(
-                                                          splashColor: Colors.transparent,
-                                                          focusColor: Colors.transparent,
-                                                          hoverColor: Colors.transparent,
-                                                          highlightColor: Colors.transparent,
-                                                          onTap: () async {
-                                                                      await launchURL(widget!
-                                                                          .enseigneDoc!
-                                                                          .instagramLink);
-                                                                    },
-                                                          child: Container(
-                                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                                            decoration: BoxDecoration(
-                                                              color: Color(0xFFE4405F).withOpacity(0.1),
-                                                              borderRadius: BorderRadius.circular(12.0),
-                                                            ),
-                                                            child: Row(
-                                                              mainAxisSize: MainAxisSize.min,
-                                                              children: [
-                                                                FaIcon(
-                                                                  FontAwesomeIcons.instagram,
-                                                                  color: Color(0xFFE4405F),
-                                                                  size: 18.0,
-                                                                ),
-                                                                SizedBox(width: 6.0),
-                                                                Text(
-                                                                  'Instagram',
-                                                                  style: GoogleFonts.inter(
-                                                                    fontSize: 13.0,
-                                                                    fontWeight: FontWeight.w600,
-                                                                    color: Color(0xFFE4405F),
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                              ),
-                                                            ),
-                                                          if (!functions
-                                                              .checkValueIsEmpty(widget!
-                                                                  .enseigneDoc!
-                                                                  .twitterLink))
-                                                                  InkWell(
-                                                          splashColor: Colors.transparent,
-                                                          focusColor: Colors.transparent,
-                                                          hoverColor: Colors.transparent,
-                                                          highlightColor: Colors.transparent,
-                                                          onTap: () async {
-                                                                      await launchURL(widget!
-                                                                          .enseigneDoc!
-                                                                          .twitterLink);
-                                                                    },
-                                                          child: Container(
-                                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                                            decoration: BoxDecoration(
-                                                              color: Color(0xFF1DA1F2).withOpacity(0.1),
-                                                              borderRadius: BorderRadius.circular(12.0),
-                                                            ),
-                                                            child: Row(
-                                                              mainAxisSize: MainAxisSize.min,
-                                                              children: [
-                                                                FaIcon(
-                                                                  FontAwesomeIcons.twitter,
-                                                                  color: Color(0xFF1DA1F2),
-                                                                  size: 18.0,
-                                                                ),
-                                                                SizedBox(width: 6.0),
-                                                                Text(
-                                                                  'Twitter',
-                                                                  style: GoogleFonts.inter(
-                                                                    fontSize: 13.0,
-                                                                    fontWeight: FontWeight.w600,
-                                                                    color: Color(0xFF1DA1F2),
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                ),
+                                              // if (!functions.checkValueIsEmpty(
+                                              //         widget!.enseigneDoc!
+                                              //             .facebookLink) ||
+                                              //     !functions.checkValueIsEmpty(
+                                              //         widget!.enseigneDoc!
+                                              //             .twitterLink) ||
+                                              //     !functions.checkValueIsEmpty(
+                                              //         widget!.enseigneDoc!
+                                              //             .instagramLink))
+                                              //   Container(
+                                              //       width: double.infinity,
+                                              //     margin: EdgeInsets.only(bottom: 16.0),
+                                              //     padding: EdgeInsets.all(16.0),
+                                              //       decoration: BoxDecoration(
+                                              //       color: Colors.white,
+                                              //       borderRadius: BorderRadius.circular(16.0),
+                                              //       boxShadow: [
+                                              //         BoxShadow(
+                                              //           color: Colors.black.withOpacity(0.05),
+                                              //           blurRadius: 15.0,
+                                              //           offset: Offset(0, 2),
+                                              //           spreadRadius: 0,
+                                              //         ),
+                                              //       ],
+                                              //     ),
+                                              //     child: Wrap(
+                                              //       spacing: 12.0,
+                                              //       runSpacing: 12.0,
+                                              //           children: [
+                                              //             if (!functions
+                                              //             .checkValueIsEmpty(widget!
+                                              //                         .enseigneDoc!
+                                              //                 .facebookLink))
+                                              //                     InkWell(
+                                              //             splashColor: Colors.transparent,
+                                              //             focusColor: Colors.transparent,
+                                              //             hoverColor: Colors.transparent,
+                                              //             highlightColor: Colors.transparent,
+                                              //             onTap: () async {
+                                              //                         await launchURL(widget!
+                                              //                             .enseigneDoc!
+                                              //                   .facebookLink);
+                                              //             },
+                                              //             child: Container(
+                                              //               padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                              //               decoration: BoxDecoration(
+                                              //                 color: Color(0xFF1877F2).withOpacity(0.1),
+                                              //                 borderRadius: BorderRadius.circular(12.0),
+                                              //               ),
+                                              //                 child: Row(
+                                              //                 mainAxisSize: MainAxisSize.min,
+                                              //                   children: [
+                                              //                     Icon(
+                                              //                     Icons.facebook,
+                                              //                     color: Color(0xFF1877F2),
+                                              //                     size: 18.0,
+                                              //                   ),
+                                              //                   SizedBox(width: 6.0),
+                                              //                   Text(
+                                              //                     'Facebook',
+                                              //                     style: GoogleFonts.inter(
+                                              //                       fontSize: 13.0,
+                                              //                       fontWeight: FontWeight.w600,
+                                              //                       color: Color(0xFF1877F2),
+                                              //                     ),
+                                              //                   ),
+                                              //                 ],
+                                              //               ),
+                                              //                 ),
+                                              //               ),
+                                              //             if (!functions
+                                              //                 .checkValueIsEmpty(widget!
+                                              //                     .enseigneDoc!
+                                              //                     .instagramLink))
+                                              //                     InkWell(
+                                              //             splashColor: Colors.transparent,
+                                              //             focusColor: Colors.transparent,
+                                              //             hoverColor: Colors.transparent,
+                                              //             highlightColor: Colors.transparent,
+                                              //             onTap: () async {
+                                              //                         await launchURL(widget!
+                                              //                             .enseigneDoc!
+                                              //                             .instagramLink);
+                                              //                       },
+                                              //             child: Container(
+                                              //               padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                              //               decoration: BoxDecoration(
+                                              //                 color: Color(0xFFE4405F).withOpacity(0.1),
+                                              //                 borderRadius: BorderRadius.circular(12.0),
+                                              //               ),
+                                              //               child: Row(
+                                              //                 mainAxisSize: MainAxisSize.min,
+                                              //                 children: [
+                                              //                   FaIcon(
+                                              //                     FontAwesomeIcons.instagram,
+                                              //                     color: Color(0xFFE4405F),
+                                              //                     size: 18.0,
+                                              //                   ),
+                                              //                   SizedBox(width: 6.0),
+                                              //                   Text(
+                                              //                     'Instagram',
+                                              //                     style: GoogleFonts.inter(
+                                              //                       fontSize: 13.0,
+                                              //                       fontWeight: FontWeight.w600,
+                                              //                       color: Color(0xFFE4405F),
+                                              //                     ),
+                                              //                   ),
+                                              //                 ],
+                                              //               ),
+                                              //                 ),
+                                              //               ),
+                                              //             if (!functions
+                                              //                 .checkValueIsEmpty(widget!
+                                              //                     .enseigneDoc!
+                                              //                     .twitterLink))
+                                              //                     InkWell(
+                                              //             splashColor: Colors.transparent,
+                                              //             focusColor: Colors.transparent,
+                                              //             hoverColor: Colors.transparent,
+                                              //             highlightColor: Colors.transparent,
+                                              //             onTap: () async {
+                                              //                         await launchURL(widget!
+                                              //                             .enseigneDoc!
+                                              //                             .twitterLink);
+                                              //                       },
+                                              //             child: Container(
+                                              //               padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                              //               decoration: BoxDecoration(
+                                              //                 color: Color(0xFF1DA1F2).withOpacity(0.1),
+                                              //                 borderRadius: BorderRadius.circular(12.0),
+                                              //               ),
+                                              //               child: Row(
+                                              //                 mainAxisSize: MainAxisSize.min,
+                                              //                 children: [
+                                              //                   FaIcon(
+                                              //                     FontAwesomeIcons.twitter,
+                                              //                     color: Color(0xFF1DA1F2),
+                                              //                     size: 18.0,
+                                              //                   ),
+                                              //                   SizedBox(width: 6.0),
+                                              //                   Text(
+                                              //                     'Twitter',
+                                              //                     style: GoogleFonts.inter(
+                                              //                       fontSize: 13.0,
+                                              //                       fontWeight: FontWeight.w600,
+                                              //                       color: Color(0xFF1DA1F2),
+                                              //                     ),
+                                              //                   ),
+                                              //                 ],
+                                              //               ),
+                                              //             ),
+                                              //           ),
+                                              //       ],
+                                              //     ),
+                                              //   ),
                                               FutureBuilder<
                                                   List<HorairesRecord>>(
                                                 future: queryHorairesRecordOnce(
