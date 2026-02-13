@@ -43,6 +43,118 @@ class _EnseigneDetailJoueurPageWidgetState
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
+  String? _ensureHttpScheme(String? raw) {
+    if (raw == null) return null;
+    final s = raw.trim();
+    if (s.isEmpty) return null;
+    if (s.startsWith('http://') || s.startsWith('https://')) return s;
+    return 'https://$s';
+  }
+
+  bool _hasWhitespace(String s) => RegExp(r'\s').hasMatch(s);
+
+  bool _looksLikeUrl(String s) {
+    final lower = s.toLowerCase();
+    return lower.startsWith('http://') ||
+        lower.startsWith('https://') ||
+        lower.startsWith('www.') ||
+        lower.contains('://') ||
+        lower.contains('.');
+  }
+
+  String _encodePossibleSpaces(String url) => Uri.encodeFull(url);
+
+  String? _normalizeWebsiteUrl(String? raw) {
+    if (raw == null) return null;
+    final s = raw.trim();
+    if (s.isEmpty) return null;
+
+    // If it's already a URL (or looks like one), open exactly that.
+    if (_looksLikeUrl(s)) {
+      final withScheme = _ensureHttpScheme(s);
+      return withScheme == null ? null : _encodePossibleSpaces(withScheme);
+    }
+
+    // Otherwise, treat it as a search query rather than inventing a URL.
+    return Uri.https('www.google.com', '/search', {'q': s}).toString();
+  }
+
+  String? _normalizeFacebookUrl(String? raw) {
+    if (raw == null) return null;
+    final s = raw.trim();
+    if (s.isEmpty) return null;
+
+    final lower = s.toLowerCase();
+    final looksLikeFacebookUrl = lower.contains('facebook.com') ||
+        lower.contains('fb.com') ||
+        lower.contains('fb.me');
+    if (looksLikeFacebookUrl) {
+      final withScheme = _ensureHttpScheme(s);
+      return withScheme == null ? null : _encodePossibleSpaces(withScheme);
+    }
+
+    // If it's clearly a handle (no spaces), open profile. Otherwise search the exact text.
+    final candidate = s.replaceAll('@', '').trim();
+    if (candidate.isEmpty) return null;
+    if (_hasWhitespace(candidate)) {
+      return Uri.https('www.facebook.com', '/search/top', {'q': candidate})
+          .toString();
+    }
+    final username = candidate.split('/').first.trim();
+    if (username.isEmpty) return null;
+    return Uri.https('www.facebook.com', '/$username').toString();
+  }
+
+  String? _normalizeInstagramUrl(String? raw) {
+    if (raw == null) return null;
+    final s = raw.trim();
+    if (s.isEmpty) return null;
+
+    final lower = s.toLowerCase();
+    final looksLikeInstagramUrl =
+        lower.contains('instagram.com') || lower.contains('instagr.am');
+    if (looksLikeInstagramUrl) {
+      final withScheme = _ensureHttpScheme(s);
+      return withScheme == null ? null : _encodePossibleSpaces(withScheme);
+    }
+
+    final candidate = s.replaceAll('@', '').trim();
+    if (candidate.isEmpty) return null;
+    if (_hasWhitespace(candidate)) {
+      return Uri.https('www.instagram.com', '/explore/search/keyword/',
+              {'q': candidate})
+          .toString();
+    }
+    final username = candidate.split('/').first.trim();
+    if (username.isEmpty) return null;
+    return Uri.https('www.instagram.com', '/$username').toString();
+  }
+
+  String? _normalizeTwitterUrl(String? raw) {
+    if (raw == null) return null;
+    final s = raw.trim();
+    if (s.isEmpty) return null;
+
+    final lower = s.toLowerCase();
+    final looksLikeTwitterUrl =
+        lower.contains('twitter.com') || lower.contains('x.com');
+    if (looksLikeTwitterUrl) {
+      final withScheme = _ensureHttpScheme(s);
+      return withScheme == null ? null : _encodePossibleSpaces(withScheme);
+    }
+
+    final candidate = s.replaceAll('@', '').trim();
+    if (candidate.isEmpty) return null;
+    if (_hasWhitespace(candidate)) {
+      return Uri.https('x.com', '/search',
+              {'q': candidate, 'src': 'typed_query'})
+          .toString();
+    }
+    final username = candidate.split('/').first.trim();
+    if (username.isEmpty) return null;
+    return Uri.https('x.com', '/$username').toString();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -717,12 +829,13 @@ class _EnseigneDetailJoueurPageWidgetState
                                           Expanded(
   child: InkWell(
     onTap: () async {
-      final city = widget!.enseigneDoc?.city;
-      final address = widget!.enseigneDoc?.address;
+      final city = widget.enseigneDoc?.city.trim();
+      final address = widget.enseigneDoc?.address.trim();
 
       if (city == null || address == null) return;
+      if (city.isEmpty || address.isEmpty) return;
 
-      final fullAddress = "$address, $city";
+      final fullAddress = '$address, $city';
 
       // Encode for URL safety
       final encodedAddress = Uri.encodeComponent(fullAddress);
@@ -876,18 +989,10 @@ class _EnseigneDetailJoueurPageWidgetState
                                           hoverColor: Colors.transparent,
                                           highlightColor: Colors.transparent,
                                           onTap: () async {
-                                      String? link = widget!.enseigneDoc!.siteWebUrl;
-
-  if (link == null || link.isEmpty) return;
-
-  link = link.trim();
-
-  // If user saved "example.com" without http
-  if (!link.startsWith('http://') && !link.startsWith('https://')) {
-    link = "https://$link";
-  }
-
-  await launchURL(link);
+                                            final link = _normalizeWebsiteUrl(
+                                                widget.enseigneDoc?.siteWebUrl);
+                                            if (link == null) return;
+                                            await launchURL(link);
                                           },
                                           child: Container(
                                                             padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
@@ -984,19 +1089,14 @@ class _EnseigneDetailJoueurPageWidgetState
                                                           hoverColor: Colors.transparent,
                                                           highlightColor: Colors.transparent,
                                                           onTap: () async {
-                                                                String? link = widget!.enseigneDoc!.facebookLink;
-
-  if (link == null || link.isEmpty) return;
-
-  // Clean input
-  link = link.trim().replaceAll('@', '');
-
-  // If no http, assume it's a Facebook username/page
-  if (!link.startsWith('http')) {
-    link = "https://www.facebook.com/$link";
-  }
-
-  await launchURL(link);
+                                                            final link =
+                                                                _normalizeFacebookUrl(
+                                                                    widget.enseigneDoc
+                                                                        ?.facebookLink);
+                                                            if (link == null) {
+                                                              return;
+                                                            }
+                                                            await launchURL(link);
                                                           },
                                                           child: Container(
                                                             padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
@@ -1034,19 +1134,14 @@ class _EnseigneDetailJoueurPageWidgetState
                                                           hoverColor: Colors.transparent,
                                                           highlightColor: Colors.transparent,
                                                           onTap: () async {
-                                                             String? link = widget!.enseigneDoc!.instagramLink;
-
-  if (link == null || link.isEmpty) return;
-
-  // Trim spaces
-  link = link.trim();
-
-  // If it doesn’t contain http, assume it's a username
-  if (!link.startsWith('http')) {
-    link = "https://www.instagram.com/$link";
-  }
-
-  await launchURL(link);
+                                                            final link =
+                                                                _normalizeInstagramUrl(
+                                                                    widget.enseigneDoc
+                                                                        ?.instagramLink);
+                                                            if (link == null) {
+                                                              return;
+                                                            }
+                                                            await launchURL(link);
                                                                       // await launchURL(widget!
                                                                       //     .enseigneDoc!
                                                                       //     .instagramLink);
@@ -1108,21 +1203,14 @@ SizedBox(height: 1.0),
                                                           hoverColor: Colors.transparent,
                                                           highlightColor: Colors.transparent,
                                                           onTap: () async {
-                                                                     String? link = widget!.enseigneDoc!.twitterLink;
-
-  if (link == null || link.isEmpty) return;
-
-  link = link.trim().replaceAll('@', '');
-
-  if (!link.startsWith('http')) {
-    if (link.contains('twitter.com') || link.contains('x.com')) {
-      link = "https://$link";
-    } else {
-      link = "https://twitter.com/$link";
-    }
-  }
-
-  await launchURL(link);
+                                                            final link =
+                                                                _normalizeTwitterUrl(
+                                                                    widget.enseigneDoc
+                                                                        ?.twitterLink);
+                                                            if (link == null) {
+                                                              return;
+                                                            }
+                                                            await launchURL(link);
                                                                     },
                                                           child: Container(
                                                             padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
