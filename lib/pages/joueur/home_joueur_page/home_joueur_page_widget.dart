@@ -2232,7 +2232,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                               return Container(
                                                                 width: double
                                                                     .infinity,
-                                                                height: 340.0,
+                                                                height: 305.0,
                                                                 child: ListView
                                                                     .separated(
                                                                   padding:
@@ -2257,8 +2257,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                             idx];
                                                                     return InkWell(
                                                                       splashColor:
-                                                                          Colors
-                                                                              .transparent,
+                                                                          const Color.from(alpha: 0, red: 0, green: 0, blue: 0),
                                                                       focusColor:
                                                                           Colors
                                                                               .transparent,
@@ -2301,7 +2300,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                       },
                                                                       child: Container(
                                                                         width:
-                                                                            220.0,
+                                                                            200.0,
                                                                         decoration:
                                                                             BoxDecoration(
                                                                           borderRadius:
@@ -2322,9 +2321,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                 children: [
                                                                                   SizedBox(
                                                                                     height: 145.0,
-                                                                                    child: Image.network(
-                                                                                      game.photo,
-                                                                                      fit: BoxFit.cover,
+                                                                                    child: ColorFiltered(
+                                                                                      colorFilter: ColorFilter.mode(
+                                                                                        Colors.grey.withOpacity(0.9), // adjust opacity as needed
+                                                                                        BlendMode.saturation,
+                                                                                      ),
+                                                                                      child: Image.network(
+                                                                                        game.photo,
+                                                                                        fit: BoxFit.cover,
+                                                                                      ),
                                                                                     ),
                                                                                   ),
                                                                                   Expanded(
@@ -2332,8 +2337,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                       decoration: BoxDecoration(
                                                                                         color: Colors.white,
                                                                                         borderRadius: BorderRadius.only(
-                                                                                          topLeft: Radius.circular(20.0),
-                                                                                          topRight: Radius.circular(20.0),
+                                                                                          topLeft: Radius.circular(0.0),
+                                                                                          topRight: Radius.circular(0.0),
                                                                                         ),
                                                                                       ),
                                                                                     
@@ -2341,7 +2346,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                       child: Column(
                                                                                         crossAxisAlignment: CrossAxisAlignment.start,
                                                                                         children: [
-                                                                                          SizedBox(height: 35.0),
+                                                                                          // SizedBox(height: 35.0),
                                                                                           Text(
                                                                                             game.name,
                                                                                             maxLines: 2,
@@ -2351,7 +2356,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                     fontWeight: FontWeight.w700,
                                                                                                     fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                   ),
-                                                                                                  fontSize: 18.0,
+                                                                                                  fontSize: 16.0,
                                                                                                   color: Colors.black,
                                                                                                   letterSpacing: 0.0,
                                                                                                 ),
@@ -2463,8 +2468,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                               final firstName = (winner?.firstName ?? '').trim();
                                                                                               final city = (winner?.city ?? '').trim();
                                                                                               final winnerText = city.isNotEmpty ? '$firstName - $city' : firstName;
-                                                                                              return Text(
-                                                                                                winnerText.isNotEmpty ? 'Gagnant : $winnerText' : 'Gagnant annoncé',
+
+
+                                                                                              return Container (
+                                                                                                  decoration: BoxDecoration(
+                                                                                                    color: Color(0xFFdef1ef),
+                                                                                                    borderRadius: BorderRadius.circular(12.0),
+                                                                                                  ), padding: EdgeInsets.symmetric(horizontal: 5.0, vertical:2.5), child: Text(
+                                                                                                winnerText.isNotEmpty ? 'Gagné par $winnerText' : 'Gagnant annoncé',
                                                                                                 maxLines: 1,
                                                                                                 overflow: TextOverflow.ellipsis,
                                                                                                 style: FlutterFlowTheme.of(context).bodySmall.override(
@@ -2472,9 +2483,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                                         fontWeight: FontWeight.w600,
                                                                                                         fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
                                                                                                       ),
-                                                                                                      color: Colors.orange,
+                                                                                                      color: Colors.green,
                                                                                                       letterSpacing: 0.0,
-                                                                                                    ),
+                                                                                                
+                                                                                                
+                                                                                                    ),),
                                                                                               );
                                                                                             },
                                                                                           ),
@@ -2486,25 +2499,25 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                               ),
                                                                               Positioned(
                                                                                 left: 0.0,
-                                                                                top: 149.0,
+                                                                                top: 0.0,
                                                                                 child: Transform.rotate(
-                                                                                  angle: -0.20,
+                                                                                  angle: -0.0,
                                                                                   child: Container(
                                                                                     width: 128.0,
                                                                                     padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 7.0),
                                                                                     decoration: BoxDecoration(
-                                                                                      color: Color(0xFFC1121F),
+                                                                                      color: Color(0xFF3e61ae),
                                                                                       borderRadius: BorderRadius.only(
-                                                                                        topRight: Radius.circular(8.0),
-                                                                                        bottomRight: Radius.circular(8.0),
+                                                                                        topRight: Radius.circular(0.0),
+                                                                                        bottomRight: Radius.circular(18.0),
                                                                                         
                                                                                       ),
                                                                                     ),
                                                                                     child: Text(
-                                                                                      'Trop tard',
+                                                                                      'Jeu terminé',
                                                                                       style: FlutterFlowTheme.of(context).bodyMedium.override(
                                                                                             font: GoogleFonts.inter(
-                                                                                              fontWeight: FontWeight.w700,
+                                                                                              fontWeight: FontWeight.w800,
                                                                                               fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                             ),
                                                                                             color: Colors.white,
