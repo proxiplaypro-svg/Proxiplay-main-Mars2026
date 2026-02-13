@@ -1798,6 +1798,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                           .listViewPagingController3!
                                                                           .itemList![
                                                                       listViewIndex];
+                                                                      
                                                                   return InkWell(
                                                                     splashColor:
                                                                         Colors
@@ -1917,6 +1918,31 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget> {
                                                                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                                                                   children: [
                                                                                     Container(
+                                                                                      width: double.infinity,
+                                                                                      decoration: BoxDecoration(),
+                                                                                      child: SingleChildScrollView(
+                                                                                        scrollDirection: Axis.horizontal,
+                                                                                        child: Row(
+                                                                                          mainAxisSize: MainAxisSize.max,
+                                                                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                                          children: [
+                                                                                            Text(
+                                                                                              listViewGamesRecord.name,
+                                                                                              style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                                                                                    font: GoogleFonts.inter(
+                                                                                                      fontWeight: FontWeight.w600,
+                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                    ),
+                                                                                                    letterSpacing: 0.0,
+                                                                                                    fontWeight: FontWeight.w600,
+                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                                                  ),
+                                                                                            ),
+                                                                                          ],
+                                                                                        ),
+                                                                                      ),
+                                                                                    ),
+                                                                                       Container(
                                                                                       width: double.infinity,
                                                                                       decoration: BoxDecoration(),
                                                                                       child: SingleChildScrollView(
