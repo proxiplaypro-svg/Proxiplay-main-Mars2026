@@ -19,6 +19,8 @@ android/**/*.b
 android/app/build
 android/.gradle
 android/key.properties
+android/*.jks
+android/*.keystore
 android/app/key.properties
 
 # -----------------------
@@ -76,6 +78,8 @@ firebase/**/serviceAccountKey.json
 # Android signing keys and configuration (CRITICAL - Never commit!)
 android/key.properties
 android/app/key.properties
+android/*.jks
+android/*.keystore
 android/app/*.jks
 android/app/*.keystore
 android/**/*.keystore
@@ -120,3 +124,28 @@ tree.txt
 # Si vos "datas" non nécessaires sont des assets lourds (vidéos, images raw)
 # Décommentez la ligne ci-dessous et adaptez le chemin si nécessaire :
 # assets/raw_data/
+
+
+# Rapports et fichiers locaux
+analyze.txt
+analyze_current.txt
+analyze_report.txt
+local.properties
+
+# Gradle racine
+.gradle/
+gradle/
+gradlew
+gradlew.bat
+build.gradle.kts
+settings.gradle.kts
+gradle.properties
+
+# Firebase Functions build généré
+firebase/functions/lib/
+
+# Fichiers audio/temp si non voulus
+# assets/audios/
+
+# Logs divers
+*.log
