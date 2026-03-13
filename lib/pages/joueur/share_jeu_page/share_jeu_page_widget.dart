@@ -1,21 +1,19 @@
-import '/auth/firebase_auth/auth_util.dart';
+﻿import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
-import '/backend/schema/structs/index.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import '/flutter_flow/custom_functions.dart' as functions;
+import '/utils/create_account_to_play_dialog.dart';
+import '/widgets/proxiplay_network_image.dart';
 import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'share_jeu_page_model.dart';
@@ -64,7 +62,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
   Widget build(BuildContext context) {
     return FutureBuilder<List<ParticipantsDetailsRecord>>(
       future: queryParticipantsDetailsRecordOnce(
-        parent: widget!.gameDoc?.reference,
+        parent: widget.gameDoc?.reference,
         queryBuilder: (participantsDetailsRecord) =>
             participantsDetailsRecord.where(
           'user_id',
@@ -77,15 +75,11 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
         if (!snapshot.hasData) {
           return Scaffold(
             backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-            body: Center(
+            body: const Center(
               child: SizedBox(
                 width: 50.0,
                 height: 50.0,
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    FlutterFlowTheme.of(context).primary,
-                  ),
-                ),
+                child: SizedBox.shrink(),
               ),
             ),
           );
@@ -108,23 +102,23 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
               key: scaffoldKey,
               backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
               appBar: PreferredSize(
-                preferredSize: Size.fromHeight(100.0),
+                preferredSize: const Size.fromHeight(100.0),
                 child: AppBar(
                   backgroundColor:
                       FlutterFlowTheme.of(context).primaryBackground,
                   automaticallyImplyLeading: false,
-                  actions: [],
+                  actions: const [],
                   flexibleSpace: FlexibleSpaceBar(
                     title: Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
+                          const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
                         mainAxisAlignment: MainAxisAlignment.end,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 40.0, 8.0),
                             child: Row(
                               mainAxisSize: MainAxisSize.max,
@@ -135,8 +129,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                   children: [
                                     Builder(
                                       builder: (context) {
-                                        if (currentUserUid != null &&
-                                            currentUserUid != '') {
+                                        if (currentUserUid != '') {
                                           return FlutterFlowIconButton(
                                             borderRadius: 8.0,
                                             buttonSize: 40.0,
@@ -153,7 +146,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                           currentUserReference!)
                                                   .set({
                                                 ...createFavoriteGamesRecordData(
-                                                  gameId: widget!
+                                                  gameId: widget
                                                       .gameDoc?.reference,
                                                 ),
                                                 ...mapToFirestore(
@@ -164,7 +157,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                 ),
                                               });
 
-                                              await widget!.gameDoc!.reference
+                                              await widget.gameDoc!.reference
                                                   .update({
                                                 ...mapToFirestore(
                                                   {
@@ -177,7 +170,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                           );
                                         } else {
                                           return Container(
-                                            decoration: BoxDecoration(),
+                                            decoration: const BoxDecoration(),
                                           );
                                         }
                                       },
@@ -224,20 +217,20 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                   children: [
                     Flexible(
                       child: Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
                             20.0, 0.0, 20.0, 0.0),
                         child: SingleChildScrollView(
                           child: Column(
                             mainAxisSize: MainAxisSize.max,
                             children: [
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 50.0),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.max,
                                   children: [
                                     Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                      padding: const EdgeInsetsDirectional.fromSTEB(
                                           20.0, 0.0, 20.0, 0.0),
                                       child: Container(
                                         width: double.infinity,
@@ -250,8 +243,8 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                         child: ClipRRect(
                                           borderRadius:
                                               BorderRadius.circular(20.0),
-                                          child: Image.network(
-                                            widget!.gameDoc!.photo,
+                                          child: ProxiplayNetworkImage(
+                                            imageUrl: widget.gameDoc!.photo,
                                             width: double.infinity,
                                             fit: BoxFit.cover,
                                           ),
@@ -259,47 +252,55 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                       ),
                                     ),
                                     Align(
-                                      alignment: AlignmentDirectional(0.0, 0.0),
+                                      alignment: const AlignmentDirectional(0.0, 0.0),
                                       child: Builder(
                                         builder: (context) {
-                                          if (currentUserUid != null &&
-                                              currentUserUid != '') {
+                                          if (currentUserUid != '') {
                                             return Builder(
                                               builder: (context) {
-                                                if (functions.isAdult(
-                                                    currentUserDocument!
-                                                        .birthday!)) {
+                                                if (isGuestOrAnonymous ||
+                                                    ((currentUserDocument
+                                                                ?.birthday !=
+                                                            null) &&
+                                                        functions.isAdult(
+                                                            currentUserDocument!
+                                                                .birthday!))) {
                                                   return Visibility(
-                                                    visible: widget!
+                                                    visible: widget
                                                             .gameDoc!.endDate! >
                                                         getCurrentTimestamp,
                                                     child: Padding(
                                                       padding:
-                                                          EdgeInsetsDirectional
+                                                          const EdgeInsetsDirectional
                                                               .fromSTEB(
                                                                   16.0,
                                                                   0.0,
                                                                   16.0,
                                                                   0.0),
                                                       child: FFButtonWidget(
-                                                        onPressed: ((widget!
+                                                        onPressed: ((widget
                                                                         .gameDoc!
                                                                         .endDate! <
                                                                     getCurrentTimestamp) ||
                                                                 ((shareJeuPageParticipantsDetailsRecord !=
                                                                         null) &&
-                                                                    (shareJeuPageParticipantsDetailsRecord!
+                                                                    (shareJeuPageParticipantsDetailsRecord
                                                                             .lastPlay! >=
                                                                         getCurrentTimestamp)))
                                                             ? null
                                                             : () async {
+                                                                if (isGuestOrAnonymous) {
+                                                                  await showCreateAccountToPlayDialog(
+                                                                      context);
+                                                                  return;
+                                                                }
                                                                 try {
                                                                   final result = await FirebaseFunctions
                                                                       .instance
                                                                       .httpsCallable(
                                                                           'participateInGameTransaction')
                                                                       .call({
-                                                                    "gameRef": widget!
+                                                                    "gameRef": widget
                                                                         .gameDoc!
                                                                         .reference
                                                                         .id,
@@ -322,6 +323,10 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                 } on FirebaseFunctionsException catch (error) {
                                                                   _model.cloudFunction3sn =
                                                                       ParticipateInGameTransactionCloudFunctionCallResponse(
+                                                                    data: createResultParticipationGameStruct(
+                                                                      message: error.message ??
+                                                                          "Erreur (${error.code})",
+                                                                    ),
                                                                     errorCode:
                                                                         error
                                                                             .code,
@@ -330,6 +335,9 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                   );
                                                                 }
 
+                                                                if (!context.mounted) {
+                                                                  return;
+                                                                }
                                                                 if (_model
                                                                     .cloudFunction3sn!
                                                                     .succeeded!) {
@@ -341,7 +349,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                         {
                                                                       'game':
                                                                           serializeParam(
-                                                                        widget!
+                                                                        widget
                                                                             .gameDoc,
                                                                         ParamType
                                                                             .Document,
@@ -357,7 +365,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                     }.withoutNulls,
                                                                     extra: <String,
                                                                         dynamic>{
-                                                                      'game': widget!
+                                                                      'game': widget
                                                                           .gameDoc,
                                                                     },
                                                                   );
@@ -370,14 +378,15 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                       return WebViewAware(
                                                                         child:
                                                                             AlertDialog(
-                                                                          title: Text(_model
-                                                                              .cloudFunction3sn!
-                                                                              .data!
-                                                                              .message),
+                                                                          title: Text(
+                                                                            _model.cloudFunction3sn?.data?.message.isNotEmpty == true
+                                                                                ? _model.cloudFunction3sn!.data!.message
+                                                                                : "Une erreur est survenue (${_model.cloudFunction3sn?.errorCode ?? 'inconnue'}).",
+                                                                          ),
                                                                           actions: [
                                                                             TextButton(
                                                                               onPressed: () => Navigator.pop(alertDialogContext),
-                                                                              child: Text('Ok'),
+                                                                              child: const Text('Ok'),
                                                                             ),
                                                                           ],
                                                                         ),
@@ -390,19 +399,19 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                     () {});
                                                               },
                                                         text: () {
-                                                          if (widget!.gameDoc!
+                                                          if (widget.gameDoc!
                                                                   .endDate! <
                                                               getCurrentTimestamp) {
-                                                            return 'Le jeu est terminé';
+                                                            return 'Le jeu est termin\u00E9';
                                                           } else if ((shareJeuPageParticipantsDetailsRecord !=
                                                                   null) &&
-                                                              (shareJeuPageParticipantsDetailsRecord!
+                                                              (shareJeuPageParticipantsDetailsRecord
                                                                       .lastPlay! >=
                                                                   getCurrentTimestamp)) {
-                                                            return 'Vous avez déjà joué';
+                                                            return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
                                                           } else if ((shareJeuPageParticipantsDetailsRecord !=
                                                                   null) &&
-                                                              (shareJeuPageParticipantsDetailsRecord!
+                                                              (shareJeuPageParticipantsDetailsRecord
                                                                       .lastPlay! <
                                                                   getCurrentTimestamp)) {
                                                             return 'Rejouer';
@@ -416,10 +425,10 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                               double.infinity,
                                                           height: 50.0,
                                                           padding:
-                                                              EdgeInsets.all(
+                                                              const EdgeInsets.all(
                                                                   8.0),
                                                           iconPadding:
-                                                              EdgeInsetsDirectional
+                                                              const EdgeInsetsDirectional
                                                                   .fromSTEB(
                                                                       0.0,
                                                                       0.0,
@@ -505,14 +514,14 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                             );
                                           } else {
                                             return Container(
-                                              decoration: BoxDecoration(),
+                                              decoration: const BoxDecoration(),
                                             );
                                           }
                                         },
                                       ),
                                     ),
                                     Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                      padding: const EdgeInsetsDirectional.fromSTEB(
                                           20.0, 0.0, 20.0, 0.0),
                                       child: Container(
                                         width: double.infinity,
@@ -525,7 +534,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                         ),
                                         child: Padding(
                                           padding:
-                                              EdgeInsetsDirectional.fromSTEB(
+                                              const EdgeInsetsDirectional.fromSTEB(
                                                   16.0, 16.0, 16.0, 16.0),
                                           child: Column(
                                             mainAxisSize: MainAxisSize.max,
@@ -533,7 +542,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                widget!.gameDoc!.description,
+                                                widget.gameDoc!.description,
                                                 style:
                                                     FlutterFlowTheme.of(context)
                                                         .bodyMedium
@@ -564,21 +573,21 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                   .fontStyle,
                                                         ),
                                               ),
-                                            ].divide(SizedBox(height: 8.0)),
+                                            ].divide(const SizedBox(height: 8.0)),
                                           ),
                                         ),
                                       ),
                                     ),
                                     Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                      padding: const EdgeInsetsDirectional.fromSTEB(
                                           20.0, 0.0, 20.0, 0.0),
                                       child: Container(
                                         width: double.infinity,
-                                        decoration: BoxDecoration(),
+                                        decoration: const BoxDecoration(),
                                       ),
                                     ),
                                     Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                      padding: const EdgeInsetsDirectional.fromSTEB(
                                           20.0, 0.0, 20.0, 0.0),
                                       child: Container(
                                         width: double.infinity,
@@ -590,13 +599,13 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                         ),
                                         child: Padding(
                                           padding:
-                                              EdgeInsetsDirectional.fromSTEB(
+                                              const EdgeInsetsDirectional.fromSTEB(
                                                   10.0, 10.0, 10.0, 10.0),
                                           child: Column(
                                             mainAxisSize: MainAxisSize.max,
                                             children: [
                                               Padding(
-                                                padding: EdgeInsetsDirectional
+                                                padding: const EdgeInsetsDirectional
                                                     .fromSTEB(
                                                         0.0, 16.0, 0.0, 16.0),
                                                 child: Row(
@@ -612,7 +621,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                 .start,
                                                         children: [
                                                           Text(
-                                                            widget!.enseigneDoc!
+                                                            widget.enseigneDoc!
                                                                 .description,
                                                             style: FlutterFlowTheme
                                                                     .of(context)
@@ -642,37 +651,29 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                       .fontStyle,
                                                                 ),
                                                           ),
-                                                        ].divide(SizedBox(
+                                                        ].divide(const SizedBox(
                                                             height: 8.0)),
                                                       ),
                                                     ),
                                                   ].divide(
-                                                      SizedBox(width: 16.0)),
+                                                      const SizedBox(width: 16.0)),
                                                 ),
                                               ),
                                               FutureBuilder<List<ImagesRecord>>(
                                                 future: queryImagesRecordOnce(
-                                                  parent: widget!
+                                                  parent: widget
                                                       .enseigneDoc?.reference,
                                                   limit: 5,
                                                 ),
                                                 builder: (context, snapshot) {
                                                   // Customize what your widget looks like when it's loading.
                                                   if (!snapshot.hasData) {
-                                                    return Center(
+                                                    return const Center(
                                                       child: SizedBox(
                                                         width: 50.0,
                                                         height: 50.0,
                                                         child:
-                                                            CircularProgressIndicator(
-                                                          valueColor:
-                                                              AlwaysStoppedAnimation<
-                                                                  Color>(
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .primary,
-                                                          ),
-                                                        ),
+                                                            SizedBox.shrink(),
                                                       ),
                                                     );
                                                   }
@@ -708,8 +709,8 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                               BorderRadius
                                                                   .circular(
                                                                       20.0),
-                                                          child: Image.network(
-                                                            rowImagesRecord.url,
+                                                          child: ProxiplayNetworkImage(
+                                                            imageUrl: rowImagesRecord.url,
                                                             width: 200.0,
                                                             height: 200.0,
                                                             fit: BoxFit.cover,
@@ -717,7 +718,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                         ),
                                                       );
                                                     }).divide(
-                                                        SizedBox(width: 10.0)),
+                                                        const SizedBox(width: 10.0)),
                                                   );
                                                 },
                                               ),
@@ -726,16 +727,16 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                         ),
                                       ),
                                     ),
-                                    if (!functions.checkValueIsEmpty(widget!
+                                    if (!functions.checkValueIsEmpty(widget
                                             .enseigneDoc!.facebookLink) ||
                                         !functions.checkValueIsEmpty(
-                                            widget!.enseigneDoc!.twitterLink) ||
+                                            widget.enseigneDoc!.twitterLink) ||
                                         !functions.checkValueIsEmpty(
-                                            widget!.enseigneDoc!.siteWebUrl) ||
+                                            widget.enseigneDoc!.siteWebUrl) ||
                                         !functions.checkValueIsEmpty(
-                                            widget!.enseigneDoc!.instagramLink))
+                                            widget.enseigneDoc!.instagramLink))
                                       Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                        padding: const EdgeInsetsDirectional.fromSTEB(
                                             20.0, 0.0, 20.0, 0.0),
                                         child: Container(
                                           width: double.infinity,
@@ -746,14 +747,14 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                 BorderRadius.circular(20.0),
                                           ),
                                           child: Padding(
-                                            padding: EdgeInsets.all(10.0),
+                                            padding: const EdgeInsets.all(10.0),
                                             child: Column(
                                               mainAxisSize: MainAxisSize.max,
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 if (!functions
-                                                    .checkValueIsEmpty(widget!
+                                                    .checkValueIsEmpty(widget
                                                         .enseigneDoc!
                                                         .siteWebUrl))
                                                   Row(
@@ -769,7 +770,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                         size: 24.0,
                                                       ),
                                                       Text(
-                                                        widget!.enseigneDoc!
+                                                        widget.enseigneDoc!
                                                             .siteWebUrl,
                                                         style:
                                                             FlutterFlowTheme.of(
@@ -801,10 +802,10 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                 ),
                                                       ),
                                                     ].divide(
-                                                        SizedBox(width: 12.0)),
+                                                        const SizedBox(width: 12.0)),
                                                   ),
                                                 if (!functions
-                                                    .checkValueIsEmpty(widget!
+                                                    .checkValueIsEmpty(widget
                                                         .enseigneDoc!
                                                         .facebookLink))
                                                   Row(
@@ -820,7 +821,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                         size: 24.0,
                                                       ),
                                                       Text(
-                                                        widget!.enseigneDoc!
+                                                        widget.enseigneDoc!
                                                             .facebookLink,
                                                         style:
                                                             FlutterFlowTheme.of(
@@ -852,10 +853,10 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                 ),
                                                       ),
                                                     ].divide(
-                                                        SizedBox(width: 12.0)),
+                                                        const SizedBox(width: 12.0)),
                                                   ),
                                                 if (!functions
-                                                    .checkValueIsEmpty(widget!
+                                                    .checkValueIsEmpty(widget
                                                         .enseigneDoc!
                                                         .instagramLink))
                                                   Row(
@@ -872,7 +873,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                         size: 24.0,
                                                       ),
                                                       Text(
-                                                        widget!.enseigneDoc!
+                                                        widget.enseigneDoc!
                                                             .instagramLink,
                                                         style:
                                                             FlutterFlowTheme.of(
@@ -904,10 +905,10 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                 ),
                                                       ),
                                                     ].divide(
-                                                        SizedBox(width: 12.0)),
+                                                        const SizedBox(width: 12.0)),
                                                   ),
                                                 if (!functions
-                                                    .checkValueIsEmpty(widget!
+                                                    .checkValueIsEmpty(widget
                                                         .enseigneDoc!
                                                         .twitterLink))
                                                   Row(
@@ -924,7 +925,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                         size: 24.0,
                                                       ),
                                                       Text(
-                                                        widget!.enseigneDoc!
+                                                        widget.enseigneDoc!
                                                             .twitterLink,
                                                         style:
                                                             FlutterFlowTheme.of(
@@ -956,19 +957,19 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                 ),
                                                       ),
                                                     ].divide(
-                                                        SizedBox(width: 12.0)),
+                                                        const SizedBox(width: 12.0)),
                                                   ),
                                               ]
                                                   .divide(
-                                                      SizedBox(height: 12.0))
+                                                      const SizedBox(height: 12.0))
                                                   .around(
-                                                      SizedBox(height: 12.0)),
+                                                      const SizedBox(height: 12.0)),
                                             ),
                                           ),
                                         ),
                                       ),
                                     Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                      padding: const EdgeInsetsDirectional.fromSTEB(
                                           20.0, 0.0, 20.0, 0.0),
                                       child: Container(
                                         width: double.infinity,
@@ -980,7 +981,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                         ),
                                         child: Padding(
                                           padding:
-                                              EdgeInsetsDirectional.fromSTEB(
+                                              const EdgeInsetsDirectional.fromSTEB(
                                                   16.0, 16.0, 16.0, 16.0),
                                           child: Column(
                                             mainAxisSize: MainAxisSize.max,
@@ -1020,26 +1021,18 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                               FutureBuilder<
                                                   List<HorairesRecord>>(
                                                 future: queryHorairesRecordOnce(
-                                                  parent: widget!
+                                                  parent: widget
                                                       .enseigneDoc?.reference,
                                                 ),
                                                 builder: (context, snapshot) {
                                                   // Customize what your widget looks like when it's loading.
                                                   if (!snapshot.hasData) {
-                                                    return Center(
+                                                    return const Center(
                                                       child: SizedBox(
                                                         width: 50.0,
                                                         height: 50.0,
                                                         child:
-                                                            CircularProgressIndicator(
-                                                          valueColor:
-                                                              AlwaysStoppedAnimation<
-                                                                  Color>(
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .primary,
-                                                          ),
-                                                        ),
+                                                            SizedBox.shrink(),
                                                       ),
                                                     );
                                                   }
@@ -1063,7 +1056,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                               listViewIndex];
                                                       return Padding(
                                                         padding:
-                                                            EdgeInsetsDirectional
+                                                            const EdgeInsetsDirectional
                                                                 .fromSTEB(
                                                                     8.0,
                                                                     0.0,
@@ -1080,7 +1073,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                           ),
                                                           child: Padding(
                                                             padding:
-                                                                EdgeInsetsDirectional
+                                                                const EdgeInsetsDirectional
                                                                     .fromSTEB(
                                                                         8.0,
                                                                         8.0,
@@ -1203,7 +1196,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                       );
                                                                     } else {
                                                                       return Text(
-                                                                        'Fermé',
+                                                                        'Ferm\u00E9',
                                                                         style: FlutterFlowTheme.of(context)
                                                                             .bodyMedium
                                                                             .override(
@@ -1228,15 +1221,15 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                   );
                                                 },
                                               ),
-                                            ].divide(SizedBox(height: 16.0)),
+                                            ].divide(const SizedBox(height: 16.0)),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ].divide(SizedBox(height: 20.0)),
+                                  ].divide(const SizedBox(height: 20.0)),
                                 ),
                               ),
-                            ].divide(SizedBox(height: 20.0)),
+                            ].divide(const SizedBox(height: 20.0)),
                           ),
                         ),
                       ),
@@ -1244,7 +1237,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                     wrapWithModel(
                       model: _model.customNavBarJoueurModel,
                       updateCallback: () => safeSetState(() {}),
-                      child: CustomNavBarJoueurWidget(),
+                      child: const CustomNavBarJoueurWidget(),
                     ),
                   ],
                 ),
@@ -1256,3 +1249,4 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
     );
   }
 }
+
