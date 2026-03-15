@@ -1,4 +1,5 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 
 Future<Map<String, dynamic>> makeCloudCall(
   String callName,
@@ -13,15 +14,14 @@ Future<Map<String, dynamic>> makeCloudCall(
     return response.data is Map
         ? Map<String, dynamic>.from(response.data as Map)
         : {};
-  } on FirebaseFunctionsException catch (e) {
-    print(
-      'Cloud call error!\n ${callName}'
-      'Code: ${e.code}\n'
-      'Details: ${e.details}\n'
-      'Message: ${e.message}',
-    );
+  } on FirebaseFunctionsException {
+    if (kDebugMode) {
+      debugPrint('Cloud function error');
+    }
   } catch (e) {
-    print('Cloud call error:${callName} $e');
+    if (kDebugMode) {
+      debugPrint('Cloud function error');
+    }
   }
   return {};
 }

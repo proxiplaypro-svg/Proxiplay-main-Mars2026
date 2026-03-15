@@ -1,25 +1,86 @@
-const functions = require("firebase-functions");
+﻿const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
 const db = admin.firestore();
+
+function getParisDayKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((p) => p.type === "year")?.value || "";
+  const month = parts.find((p) => p.type === "month")?.value || "";
+  const day = parts.find((p) => p.type === "day")?.value || "";
+  return `${year}${month}${day}`;
+}
+
+function sanitizeDisplayText(value) {
+  if (typeof value !== "string") return "";
+  let output = value;
+
+  const replacements = {
+    "\u00C3\u00A9": "\u00E9",
+    "\u00C3\u00A8": "\u00E8",
+    "\u00C3\u00A0": "\u00E0",
+    "\u00C3\u00A2": "\u00E2",
+    "\u00C3\u00AA": "\u00EA",
+    "\u00C3\u00AE": "\u00EE",
+    "\u00C3\u00B4": "\u00F4",
+    "\u00C3\u00BB": "\u00FB",
+    "\u00C3\u00A7": "\u00E7",
+    "\u00E2\u20AC\u2122": "'",
+    "\u00E2\u20AC\u02DC": "'",
+    "\u00E2\u20AC\u0153": "\"",
+    "\u00E2\u20AC\u009D": "\"",
+    "\u00E2\u20AC\u00A6": "...",
+    "\u00E2\u20AC\u0093": "-",
+    "\u00E2\u20AC\u0094": "-",
+    "\u00E2\u20AC\u00AC": "\u20AC",
+    "\u00C2\u00A0": " ",
+  };
+
+  Object.entries(replacements).forEach(([source, target]) => {
+    output = output.split(source).join(target);
+  });
+
+  output = output.replace(/\u00F0[\u0080-\u00BF]{2,4}/g, "");
+  output = output.replace(/\u00C3[\u0080-\u00BF]/g, "");
+  output = output.replace(/\u00E2[\u0080-\u00BF]{1,2}/g, "");
+  output = output.replace(/ð[\wÀ-ÿ]*/g, "");
+  output = output.replace(/Ã[\wÀ-ÿ]*/g, "");
+  output = output.replace(/[^\t\n\r\x20-\x7E\u00A0-\u00FF]/g, "");
+  output = output.replace(/\s+/g, " ").trim();
+  output = output.replace(/^[^A-Za-zÀ-ÖØ-öø-ÿ0-9]+/, "");
+  return output;
+}
+
+function hasUnlimitedAccess(userData, now) {
+  const accessUntil = userData && userData.allGamesAccessUntil;
+  if (!accessUntil || typeof accessUntil.toMillis !== "function") {
+    return false;
+  }
+  return accessUntil.toMillis() > now.toMillis();
+}
 
 exports.participateInGameTransaction = functions.https.onCall(
   async (data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError(
         "unauthenticated",
-        "Vous devez être connecté pour participer.",
+        "Vous devez ÃƒÂªtre connectÃƒÂ© pour participer."
       );
     }
 
     let gameRefPath = data.gameRef;
-    console.log("gameRefPath reçu:", gameRefPath);
+    console.log("gameRefPath reÃƒÂ§u:", gameRefPath);
 
     if (!gameRefPath || typeof gameRefPath !== "string" || gameRefPath === "") {
       console.error("gameRefPath est invalide:", gameRefPath);
       throw new functions.https.HttpsError(
         "invalid-argument",
-        "Référence du jeu invalide.",
+        "RÃƒÂ©fÃƒÂ©rence du jeu invalide."
       );
     }
 
@@ -31,90 +92,145 @@ exports.participateInGameTransaction = functions.https.onCall(
     try {
       await db.runTransaction(async (transaction) => {
         const now = admin.firestore.Timestamp.now();
+        const uid = context.auth.uid;
+        const dayKey = getParisDayKey(new Date());
+        const participantDocId = `${dayKey}_${uid}`;
 
         const participantsRef = gameRef.collection("participants");
-        const userRef = db.collection("users").doc(context.auth.uid);
-        const userParticipantRef = participantsRef.doc(context.auth.uid);
+        const userRef = db.collection("users").doc(uid);
+        const participantTodayRef = participantsRef.doc(participantDocId);
+        const uniquePlayerRef = gameRef
+          .collection("unique_players")
+          .doc(uid);
 
         const participantDetailRef = gameRef
           .collection("participants_details")
-          .doc(context.auth.uid);
+          .doc(uid);
 
         console.log("UserRef Firestore path:", userRef.path);
 
-        const [gameDoc, userDoc, userParticipantDoc, participantDetailDoc] =
+        const [
+          gameDoc,
+          userDoc,
+          participantTodayDoc,
+          participantDetailDoc,
+          uniquePlayerDoc,
+        ] =
           await Promise.all([
             transaction.get(gameRef),
             transaction.get(userRef),
-            transaction.get(userParticipantRef),
+            transaction.get(participantTodayRef),
             transaction.get(participantDetailRef),
+            transaction.get(uniquePlayerRef),
           ]);
 
-        // 1. Référence à la sous-collection
+        // 1. RÃƒÂ©fÃƒÂ©rence ÃƒÂ  la sous-collection
         const instantWinnersRef = gameRef.collection("instant_winners");
 
-        // 2. Construire la query pour le prochain lot instantané non réclamé
+        // 2. Query prochain lot instantanÃƒÂ© non rÃƒÂ©clamÃƒÂ©
         const instantWinnersQuery = instantWinnersRef
-          .where("hasWinner", "==", false) // ou 'claimed' == false selon votre schéma
-          .where("date", "<=", now) // dateGain déjà passée
+          .where("hasWinner", "==", false)
+          .where("date", "<=", now)
           .orderBy("date", "asc")
           .limit(1);
 
-        // 3. Exécuter la query dans la transaction
+        // 3. ExÃƒÂ©cuter la query dans la transaction
         const instantWinnerSnap = await transaction.get(instantWinnersQuery);
 
         if (!gameDoc.exists) {
-          throw new functions.https.HttpsError(
-            "not-found",
-            "Le jeu n'existe pas.",
-          );
+          throw new functions.https.HttpsError("not-found", "Le jeu n'existe pas.");
         }
         if (!userDoc.exists) {
-          throw new functions.https.HttpsError(
-            "not-found",
-            "Utilisateur introuvable.",
-          );
+          throw new functions.https.HttpsError("not-found", "Utilisateur introuvable.");
         }
 
         const gameData = gameDoc.data();
         const userData = userDoc.data();
         const ownerRef = db.doc(gameData.create_by.path);
         const enseigneRef = db.doc(gameData.enseigne_id.path);
-        // RÉCUPÉRER LES DONNÉES DE L'ENSEIGNE DANS LA TRANSACTION
+
+        // RÃƒÂ©cupÃƒÂ©rer l'enseigne
         const enseigneDoc = await transaction.get(enseigneRef);
         if (!enseigneDoc.exists) {
           throw new functions.https.HttpsError(
             "not-found",
-            "L'enseigne associée au jeu n'existe pas.",
+            "L'enseigne associÃƒÂ©e au jeu n'existe pas."
           );
         }
         const enseigneData = enseigneDoc.data();
-        const enseigneName = enseigneData.name; // En supposant que 'name' est le champ du nom de l'enseigne
+        const enseigneName = enseigneData.name;
 
         const currentParticipation = gameData.participations || 0;
         const newPosition = currentParticipation + 1;
         const remainingPart = userData.remaining_part || 0;
-        const hasMainPrize =
-          !!gameData.name ||
-          !!gameData.description ||
-          gameData.prize_value !== null &&
-            typeof gameData.prize_value !== "undefined";
+        const alreadyParticipatedToday = participantTodayDoc.exists;
+        const unlimitedAccessActive = hasUnlimitedAccess(userData, now);
+        let uniquePlayerNew = false;
+
+        // DÃƒÂ©tection lot principal (sert uniquement ÃƒÂ  la cohÃƒÂ©rence des champs, pas au message de perte)
+        const hasMainPrizeField = Object.prototype.hasOwnProperty.call(
+          gameData || {},
+          "hasMainPrize"
+        );
+        const hasMainPrize = hasMainPrizeField
+          ? gameData.hasMainPrize === true
+          : (
+              (typeof gameData.name === "string" && gameData.name.trim().length > 0) ||
+              (typeof gameData.description === "string" && gameData.description.trim().length > 0) ||
+              (gameData.prize_value !== null && typeof gameData.prize_value !== "undefined")
+            );
+
+        // Patch cohÃƒÂ©rence: si pas de lot principal -> pas de winner / tirage au sort
+        const gameConsistencyPatch = {};
+        if (!hasMainPrizeField) {
+          gameConsistencyPatch.hasMainPrize = hasMainPrize;
+        }
+        if (
+          !hasMainPrize &&
+          (gameData.hasWinner === true || !!gameData.main_prize_winner)
+        ) {
+          gameConsistencyPatch.hasWinner = false;
+          gameConsistencyPatch.main_prize_winner = null;
+        }
+        if (Object.keys(gameConsistencyPatch).length > 0) {
+          transaction.update(gameRef, gameConsistencyPatch);
+        }
 
         const endOfDay = new Date();
         endOfDay.setHours(21, 59, 59, 999);
-        const endOfDayTimestamp = admin.firestore.Timestamp.fromDate(endOfDay);
 
-        if (remainingPart <= 0) {
+        if (remainingPart <= 0 && !unlimitedAccessActive) {
           throw new functions.https.HttpsError(
             "failed-precondition",
-            "Vous n'avez plus de parties disponibles.",
+            "Vous n'avez plus de parties disponibles."
           );
         }
 
-        //if (userParticipantDoc.exists) {
-        //    throw new functions.https.HttpsError('already-exists', 'Vous êtes déjà inscrit à ce jeu.');
-        //}
+        if (!uniquePlayerDoc.exists) {
+          uniquePlayerNew = true;
+          transaction.set(uniquePlayerRef, {
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          transaction.update(gameRef, {
+            unique_players_count: admin.firestore.FieldValue.increment(1),
+          });
+        }
 
+        if (alreadyParticipatedToday) {
+          console.log(
+            `participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=true uniquePlayerNew=${uniquePlayerNew}`
+          );
+          responseData = {
+            message: "Vous avez déjà participé aujourd'hui.",
+            messageBonus: "",
+            isWin: false,
+            prize_id: null,
+            alreadyParticipatedToday: true,
+          };
+          return;
+        }
+
+        // Bonus/jour
         if (participantDetailDoc.exists) {
           const detailData = participantDetailDoc.data();
           const lastPlay = detailData.last_play?.toDate?.();
@@ -124,16 +240,31 @@ exports.participateInGameTransaction = functions.https.onCall(
           const bonus = detailData.game_bonus || 0;
 
           if (hasPlayedToday && bonus <= 0) {
-            throw new functions.https.HttpsError(
-              "failed-precondition",
-              "Vous avez déjà participé aujourd'hui. Partagez le jeu pour rejouer !",
+            console.log(
+              `participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=true(unique-last-play) uniquePlayerNew=${uniquePlayerNew}`
             );
+            responseData = {
+              message: "Vous avez déjà participé aujourd'hui.",
+              messageBonus: "",
+              isWin: false,
+              prize_id: null,
+              alreadyParticipatedToday: true,
+            };
+            return;
           }
 
           if (hasPlayedToday && bonus > 0) {
-            transaction.update(participantDetailRef, {
-              game_bonus: admin.firestore.FieldValue.increment(-1),
-            });
+            console.log(
+              `participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=true(bonus) uniquePlayerNew=${uniquePlayerNew}`
+            );
+            responseData = {
+              message: "Vous avez déjà participé aujourd'hui.",
+              messageBonus: "",
+              isWin: false,
+              prize_id: null,
+              alreadyParticipatedToday: true,
+            };
+            return;
           } else {
             transaction.set(
               participantDetailRef,
@@ -142,7 +273,7 @@ exports.participateInGameTransaction = functions.https.onCall(
                 game_bonus: bonus,
                 user_id: userRef,
               },
-              { merge: true },
+              { merge: true }
             );
           }
         } else {
@@ -153,29 +284,32 @@ exports.participateInGameTransaction = functions.https.onCall(
           });
         }
 
-        transaction.set(userParticipantRef, {
+        // Enregistrer participation
+        transaction.set(participantTodayRef, {
           user_id: userRef,
           participation_date: now,
         });
+
 
         transaction.update(gameRef, {
           participations: admin.firestore.FieldValue.increment(1),
         });
 
-        transaction.update(userRef, {
-          remaining_part: admin.firestore.FieldValue.increment(-1),
-        });
+        if (!unlimitedAccessActive) {
+          transaction.update(userRef, {
+            remaining_part: admin.firestore.FieldValue.increment(-1),
+          });
+        }
 
+        // Lots (gains immÃƒÂ©diats uniquement)
         let lotGagne = false;
         let lotDetails = null;
-        // let prizeRef = db.collection('prizes').doc();
         let prizeRef = null;
 
         let messageBonus = "";
 
         if (!instantWinnerSnap.empty) {
           const instantWinnerDoc = instantWinnerSnap.docs[0];
-          const instantData = instantWinnerDoc.data();
 
           const claim_code = `${Date.now().toString(36).toUpperCase()}`;
 
@@ -183,6 +317,7 @@ exports.participateInGameTransaction = functions.https.onCall(
             hasWinner: true,
             player_id: userRef,
           });
+
           prizeRef = db.collection("prizes").doc();
 
           transaction.set(prizeRef, {
@@ -207,33 +342,57 @@ exports.participateInGameTransaction = functions.https.onCall(
           lotDetails = gameData.secondary_prize_description;
         }
 
+        // Bonus toutes les 10 participations
         if (newPosition % 10 === 0) {
           transaction.update(userRef, {
             remaining_part: admin.firestore.FieldValue.increment(3),
           });
-          messageBonus = "🎉 Vous avez gagné 3 parties supplémentaires !";
+          messageBonus = "Vous avez gagné 3 parties supplémentaires !";
         }
 
+        // Messages aleatoires a afficher en cas de perte
+        const loseMessages = [
+          "Retente ta chance demain !",
+          "A demain pour une nouvelle partie.",
+          "Reviens demain pour une nouvelle tentative !",
+        ];
+
+        // Message principal renvoye a l'app :
+        // - Si gain immÃƒÂ©diat => lotDetails
+        // - Si perte => message alÃƒÂ©atoire (mÃƒÂªme si pas de lot principal)
+        const message = lotGagne
+          ? lotDetails
+          : loseMessages[Math.floor(Math.random() * loseMessages.length)];
+
         responseData = {
-          message: lotGagne
-            ? lotDetails
-            : hasMainPrize
-              ? "Vous êtes sélectionné pour le grand tirage au sort."
-              : "Merci pour votre participation. Aucun tirage final pour ce jeu.",
-          messageBonus: messageBonus,
+          message,
+          messageBonus,
           isWin: lotGagne,
-          prize_id: prizeRef ? prizeRef.path : null, // ✅ Corrigé ici
+          prize_id: prizeRef ? prizeRef.path : null,
+          alreadyParticipatedToday: false,
+          // Optionnel: garde l'info cÃƒÂ´tÃƒÂ© app si besoin un jour
+          // hasMainPrize,
         };
+        console.log(`participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=false uniquePlayerNew=${uniquePlayerNew}`);
       });
 
-      console.log("✅ Retour des données FINAL :", responseData);
+      console.log("Retour des données FINAL :", responseData);
+      responseData = {
+        ...responseData,
+        message: sanitizeDisplayText(responseData.message || ""),
+        messageBonus: sanitizeDisplayText(responseData.messageBonus || ""),
+      };
       return responseData;
     } catch (error) {
       console.error("Erreur lors de la participation au jeu :", error);
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
       throw new functions.https.HttpsError(
         "internal",
-        error.message || "Une erreur est survenue.",
+        error.message || "Une erreur est survenue."
       );
     }
-  },
+  }
 );
+

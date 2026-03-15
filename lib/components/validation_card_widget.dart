@@ -1,10 +1,8 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'validation_card_model.dart';
 export 'validation_card_model.dart';
 
@@ -46,7 +44,7 @@ class _ValidationCardWidgetState extends State<ValidationCardWidget> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.transparent,
       ),
       child: Card(
@@ -57,7 +55,7 @@ class _ValidationCardWidgetState extends State<ValidationCardWidget> {
           borderRadius: BorderRadius.circular(12.0),
         ),
         child: Padding(
-          padding: EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 16.0),
+          padding: const EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 16.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -115,7 +113,7 @@ class _ValidationCardWidgetState extends State<ValidationCardWidget> {
                               .fontStyle,
                         ),
                   ),
-                ].divide(SizedBox(height: 8.0)),
+                ].divide(const SizedBox(height: 8.0)),
               ),
               Container(
                 width: double.infinity,
@@ -136,9 +134,9 @@ class _ValidationCardWidgetState extends State<ValidationCardWidget> {
                     options: FFButtonOptions(
                       width: 100.0,
                       height: 40.0,
-                      padding: EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.all(8.0),
                       iconPadding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
                       color: FlutterFlowTheme.of(context).secondaryBackground,
                       textStyle:
                           FlutterFlowTheme.of(context).bodyMedium.override(
@@ -170,15 +168,18 @@ class _ValidationCardWidgetState extends State<ValidationCardWidget> {
                   FFButtonWidget(
                     onPressed: () async {
                       await widget.callback?.call();
+                      if (!context.mounted) {
+                        return;
+                      }
                       context.safePop();
                     },
                     text: 'Valider',
                     options: FFButtonOptions(
                       width: 100.0,
                       height: 40.0,
-                      padding: EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.all(8.0),
                       iconPadding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
                       color: FlutterFlowTheme.of(context).primary,
                       textStyle:
                           FlutterFlowTheme.of(context).bodyMedium.override(
@@ -200,16 +201,16 @@ class _ValidationCardWidgetState extends State<ValidationCardWidget> {
                                     .fontStyle,
                               ),
                       elevation: 0.0,
-                      borderSide: BorderSide(
+                      borderSide: const BorderSide(
                         color: Colors.transparent,
                         width: 1.0,
                       ),
                       borderRadius: BorderRadius.circular(20.0),
                     ),
                   ),
-                ].divide(SizedBox(width: 12.0)),
+                ].divide(const SizedBox(width: 12.0)),
               ),
-            ].divide(SizedBox(height: 16.0)),
+            ].divide(const SizedBox(height: 16.0)),
           ),
         ),
       ),

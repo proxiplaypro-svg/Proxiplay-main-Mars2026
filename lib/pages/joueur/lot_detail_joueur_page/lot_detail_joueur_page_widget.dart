@@ -1,21 +1,19 @@
-import '/backend/backend.dart';
+﻿import '/backend/backend.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/update_horaire_card_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'lot_detail_joueur_page_model.dart';
 export 'lot_detail_joueur_page_model.dart';
 
-/// page avec detail du lot gagné avec code a montrer au commercant pour
-/// récupérer le lot
+/// page avec detail du lot gagnÃ© avec code a montrer au commercant pour
+/// rÃ©cupÃ©rer le lot
 class LotDetailJoueurPageWidget extends StatefulWidget {
   const LotDetailJoueurPageWidget({
     super.key,
@@ -57,7 +55,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
   Widget build(BuildContext context) {
     return StreamBuilder<List<HorairesRecord>>(
       stream: queryHorairesRecord(
-        parent: widget!.lot?.enseigneId,
+        parent: widget.lot?.enseigneId,
         queryBuilder: (horairesRecord) =>
             horairesRecord.orderBy('created_time'),
       ),
@@ -66,15 +64,11 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
         if (!snapshot.hasData) {
           return Scaffold(
             backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
-            body: Center(
+            body: const Center(
               child: SizedBox(
                 width: 50.0,
                 height: 50.0,
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    FlutterFlowTheme.of(context).primary,
-                  ),
-                ),
+                child: SizedBox.shrink(),
               ),
             ),
           );
@@ -91,27 +85,27 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
             key: scaffoldKey,
             backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
             appBar: PreferredSize(
-              preferredSize: Size.fromHeight(100.0),
+              preferredSize: const Size.fromHeight(100.0),
               child: AppBar(
                 automaticallyImplyLeading: false,
-                actions: [],
+                actions: const [],
                 flexibleSpace: FlexibleSpaceBar(
                   title: Padding(
                     padding:
-                        EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
+                        const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
                     child: Column(
                       mainAxisSize: MainAxisSize.max,
                       mainAxisAlignment: MainAxisAlignment.end,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(
+                          padding: const EdgeInsetsDirectional.fromSTEB(
                               0.0, 0.0, 0.0, 8.0),
                           child: Row(
                             mainAxisSize: MainAxisSize.max,
                             children: [
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     12.0, 0.0, 0.0, 0.0),
                                 child: FlutterFlowIconButton(
                                   borderColor: Colors.transparent,
@@ -130,7 +124,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                 ),
                               ),
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     4.0, 0.0, 0.0, 0.0),
                                 child: Text(
                                   'Mes lots',
@@ -171,7 +165,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                     child: Image.asset(
                       'assets/images/Background.png',
                       fit: BoxFit.cover,
-                      alignment: Alignment(1.0, -1.0),
+                      alignment: const Alignment(1.0, -1.0),
                     ),
                   ),
                   centerTitle: true,
@@ -186,7 +180,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                 decoration: BoxDecoration(
                   image: DecorationImage(
                     fit: BoxFit.cover,
-                    alignment: AlignmentDirectional(-1.0, 1.0),
+                    alignment: const AlignmentDirectional(-1.0, 1.0),
                     image: Image.asset(
                       'assets/images/Background.png',
                     ).image,
@@ -198,19 +192,15 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                   children: [
                     Expanded(
                       child: StreamBuilder<GamesRecord>(
-                        stream: GamesRecord.getDocument(widget!.lot!.gameId!),
+                        stream: GamesRecord.getDocument(widget.lot!.gameId!),
                         builder: (context, snapshot) {
                           // Customize what your widget looks like when it's loading.
                           if (!snapshot.hasData) {
-                            return Center(
+                            return const Center(
                               child: SizedBox(
                                 width: 50.0,
                                 height: 50.0,
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    FlutterFlowTheme.of(context).primary,
-                                  ),
-                                ),
+                                child: SizedBox.shrink(),
                               ),
                             );
                           }
@@ -223,7 +213,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                               children: [
                                 Container(
                                   width: MediaQuery.sizeOf(context).width * 1.0,
-                                  decoration: BoxDecoration(
+                                  decoration: const BoxDecoration(
                                     borderRadius: BorderRadius.only(
                                       bottomLeft: Radius.circular(0.0),
                                       bottomRight: Radius.circular(0.0),
@@ -232,7 +222,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                     ),
                                   ),
                                   child: Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                    padding: const EdgeInsetsDirectional.fromSTEB(
                                         20.0, 24.0, 20.0, 24.0),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.max,
@@ -245,20 +235,12 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                           builder: (context, snapshot) {
                                             // Customize what your widget looks like when it's loading.
                                             if (!snapshot.hasData) {
-                                              return Center(
+                                              return const Center(
                                                 child: SizedBox(
                                                   width: 50.0,
                                                   height: 50.0,
                                                   child:
-                                                      CircularProgressIndicator(
-                                                    valueColor:
-                                                        AlwaysStoppedAnimation<
-                                                            Color>(
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .primary,
-                                                    ),
-                                                  ),
+                                                      SizedBox.shrink(),
                                                 ),
                                               );
                                             }
@@ -275,7 +257,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                     BorderRadius.circular(16.0),
                                               ),
                                               child: Padding(
-                                                padding: EdgeInsetsDirectional
+                                                padding: const EdgeInsetsDirectional
                                                     .fromSTEB(
                                                         20.0, 20.0, 20.0, 20.0),
                                                 child: Column(
@@ -354,7 +336,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                                     .fontStyle,
                                                               ),
                                                         ),
-                                                      ].divide(SizedBox(
+                                                      ].divide(const SizedBox(
                                                           width: 12.0)),
                                                     ),
                                                     FFButtonWidget(
@@ -384,14 +366,14 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                         width: double.infinity,
                                                         height: 40.0,
                                                         padding:
-                                                            EdgeInsetsDirectional
+                                                            const EdgeInsetsDirectional
                                                                 .fromSTEB(
                                                                     16.0,
                                                                     0.0,
                                                                     16.0,
                                                                     0.0),
                                                         iconPadding:
-                                                            EdgeInsetsDirectional
+                                                            const EdgeInsetsDirectional
                                                                 .fromSTEB(
                                                                     0.0,
                                                                     0.0,
@@ -445,7 +427,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
-                                                          BoxDecoration(),
+                                                          const BoxDecoration(),
                                                       child:
                                                           SingleChildScrollView(
                                                         scrollDirection:
@@ -490,7 +472,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                                         .fontStyle,
                                                                   ),
                                                             ),
-                                                          ].divide(SizedBox(
+                                                          ].divide(const SizedBox(
                                                               width: 12.0)),
                                                         ),
                                                       ),
@@ -534,7 +516,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                                         .length,
                                                                 separatorBuilder: (_,
                                                                         __) =>
-                                                                    SizedBox(
+                                                                    const SizedBox(
                                                                         height:
                                                                             10.0),
                                                                 itemBuilder:
@@ -544,7 +526,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                                       addHoraireCommercantPageVar[
                                                                           addHoraireCommercantPageVarIndex];
                                                                   return Padding(
-                                                                    padding: EdgeInsetsDirectional
+                                                                    padding: const EdgeInsetsDirectional
                                                                         .fromSTEB(
                                                                             8.0,
                                                                             0.0,
@@ -585,7 +567,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                                                 },
                                                                                 child: Padding(
                                                                                   padding: MediaQuery.viewInsetsOf(context),
-                                                                                  child: Container(
+                                                                                  child: SizedBox(
                                                                                     height: MediaQuery.sizeOf(context).height * 0.7,
                                                                                     child: UpdateHoraireCardWidget(
                                                                                       day: addHoraireCommercantPageVarItem,
@@ -609,7 +591,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                                         ),
                                                                         child:
                                                                             Padding(
-                                                                          padding: EdgeInsetsDirectional.fromSTEB(
+                                                                          padding: const EdgeInsetsDirectional.fromSTEB(
                                                                               8.0,
                                                                               8.0,
                                                                               8.0,
@@ -714,7 +696,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                                                         );
                                                                                       } else {
                                                                                         return Text(
-                                                                                          'Fermé',
+                                                                                          'FermÃ©',
                                                                                           style: FlutterFlowTheme.of(context).bodyMedium.override(
                                                                                                 font: GoogleFonts.inter(
                                                                                                   fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
@@ -728,7 +710,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                                                       }
                                                                                     },
                                                                                   ),
-                                                                                ].divide(SizedBox(width: 10.0)),
+                                                                                ].divide(const SizedBox(width: 10.0)),
                                                                               ),
                                                                             ],
                                                                           ),
@@ -741,11 +723,11 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                             },
                                                           ),
                                                         ),
-                                                      ].divide(SizedBox(
+                                                      ].divide(const SizedBox(
                                                           width: 12.0)),
                                                     ),
                                                   ].divide(
-                                                      SizedBox(height: 16.0)),
+                                                      const SizedBox(height: 16.0)),
                                                 ),
                                               ),
                                             );
@@ -763,13 +745,13 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                           ),
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     20.0, 20.0, 20.0, 20.0),
                                             child: Column(
                                               mainAxisSize: MainAxisSize.max,
                                               children: [
                                                 Text(
-                                                  'Détails du Lot',
+                                                  'DÃ©tails du Lot',
                                                   style: FlutterFlowTheme.of(
                                                           context)
                                                       .headlineSmall
@@ -842,7 +824,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                     ),
                                                     Expanded(
                                                       child: Text(
-                                                        widget!.lot!.name,
+                                                        widget.lot!.name,
                                                         style:
                                                             FlutterFlowTheme.of(
                                                                     context)
@@ -878,7 +860,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                     ),
                                                   ],
                                                 ),
-                                              ].divide(SizedBox(height: 16.0)),
+                                              ].divide(const SizedBox(height: 16.0)),
                                             ),
                                           ),
                                         ),
@@ -894,13 +876,13 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                           ),
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     20.0, 20.0, 20.0, 20.0),
                                             child: Column(
                                               mainAxisSize: MainAxisSize.max,
                                               children: [
                                                 Text(
-                                                  'Code de Récupération',
+                                                  'Code de RÃ©cupÃ©ration',
                                                   textAlign: TextAlign.center,
                                                   style: FlutterFlowTheme.of(
                                                           context)
@@ -934,14 +916,14 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                 ),
                                                 Builder(
                                                   builder: (context) {
-                                                    if (!widget!.lot!.claimed) {
+                                                    if (!widget.lot!.claimed) {
                                                       return Column(
                                                         mainAxisSize:
                                                             MainAxisSize.max,
                                                         children: [
                                                           Align(
                                                             alignment:
-                                                                AlignmentDirectional(
+                                                                const AlignmentDirectional(
                                                                     0.0, 0.0),
                                                             child: Container(
                                                               width: MediaQuery
@@ -968,12 +950,12 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                               ),
                                                               child: Align(
                                                                 alignment:
-                                                                    AlignmentDirectional(
+                                                                    const AlignmentDirectional(
                                                                         0.0,
                                                                         0.0),
                                                                 child: Padding(
                                                                   padding:
-                                                                      EdgeInsets
+                                                                      const EdgeInsets
                                                                           .all(
                                                                               4.0),
                                                                   child: Column(
@@ -988,12 +970,12 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                                             .center,
                                                                     children: [
                                                                       Align(
-                                                                        alignment: AlignmentDirectional(
+                                                                        alignment: const AlignmentDirectional(
                                                                             0.0,
                                                                             0.0),
                                                                         child:
                                                                             Text(
-                                                                          widget!
+                                                                          widget
                                                                               .lot!
                                                                               .claimCode,
                                                                           textAlign:
@@ -1019,7 +1001,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                             ),
                                                           ),
                                                           Text(
-                                                            'Présentez ce code au commerçant',
+                                                            'PrÃ©sentez ce code au commerÃ§ant',
                                                             textAlign: TextAlign
                                                                 .center,
                                                             style: FlutterFlowTheme
@@ -1053,7 +1035,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                                       .fontStyle,
                                                                 ),
                                                           ),
-                                                        ].divide(SizedBox(
+                                                        ].divide(const SizedBox(
                                                             height: 10.0)),
                                                       );
                                                     } else {
@@ -1066,7 +1048,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                         decoration:
                                                             BoxDecoration(
                                                           color:
-                                                              Color(0xFFC3DFFF),
+                                                              const Color(0xFFC3DFFF),
                                                           borderRadius:
                                                               BorderRadius
                                                                   .circular(
@@ -1074,14 +1056,14 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                         ),
                                                         child: Padding(
                                                           padding:
-                                                              EdgeInsetsDirectional
+                                                              const EdgeInsetsDirectional
                                                                   .fromSTEB(
                                                                       12.0,
                                                                       16.0,
                                                                       12.0,
                                                                       16.0),
                                                           child: Text(
-                                                            'Lot Récupéré',
+                                                            'Lot RÃ©cupÃ©rÃ©',
                                                             textAlign: TextAlign
                                                                 .center,
                                                             style: FlutterFlowTheme
@@ -1100,7 +1082,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                                         .bodyMedium
                                                                         .fontStyle,
                                                                   ),
-                                                                  color: Color(
+                                                                  color: const Color(
                                                                       0xFF2068B9),
                                                                   letterSpacing:
                                                                       0.0,
@@ -1119,11 +1101,11 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                     }
                                                   },
                                                 ),
-                                              ].divide(SizedBox(height: 16.0)),
+                                              ].divide(const SizedBox(height: 16.0)),
                                             ),
                                           ),
                                         ),
-                                      ].divide(SizedBox(height: 24.0)),
+                                      ].divide(const SizedBox(height: 24.0)),
                                     ),
                                   ),
                                 ),
@@ -1136,7 +1118,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                     wrapWithModel(
                       model: _model.customNavBarJoueurModel,
                       updateCallback: () => safeSetState(() {}),
-                      child: CustomNavBarJoueurWidget(
+                      child: const CustomNavBarJoueurWidget(
                         indexActive: 4,
                       ),
                     ),
@@ -1150,3 +1132,4 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
     );
   }
 }
+

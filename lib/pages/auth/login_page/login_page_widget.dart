@@ -1,17 +1,12 @@
-import '/auth/base_auth_user_provider.dart';
 import '/auth/firebase_auth/auth_util.dart';
-import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/resend_email_verification_widget.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
-import '/flutter_flow/permissions_util.dart';
 import '/index.dart';
-import '/app_state.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -49,7 +44,9 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
     logFirebaseEvent('screen_view', parameters: {'screen_name': 'LoginPage'});
     // On page load action.
     SchedulerBinding.instance.addPostFrameCallback((_) async {
-      await requestPermission(cameraPermission);
+      if (!mounted) {
+        return;
+      }
       // If a logout is in progress, don't auto-redirect (prevents a brief flash
       // to home pages before landing on login).
       if (FFAppState().isLoggingOut) {
@@ -77,6 +74,9 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
           for (int i = 0; i < 10 && currentUserDocument == null; i++) {
             await Future.delayed(const Duration(milliseconds: 300));
           }
+          if (!mounted) {
+            return;
+          }
           // If the document never loaded (e.g. anonymous user with no
           // Firestore doc), fall through to the joueur home as a default.
           if (currentUserDocument == null) {
@@ -91,33 +91,16 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
             }
             context.pushNamed(InscriptionInformationsPageWidget.routeName);
           } else {
-            if ((dateTimeFormat(
-                      "d/M",
-                      currentUserDocument?.partLastUpdate,
-                      locale: FFLocalizations.of(context).languageCode,
-                    ) !=
-                    dateTimeFormat(
-                      "d/M",
-                      getCurrentTimestamp,
-                      locale: FFLocalizations.of(context).languageCode,
-                    )) &&
-                (valueOrDefault(currentUserDocument?.remainingPart, 0) != 3)) {
-              _model.refreshDate = await actions.setEndOfDay(
-                getCurrentTimestamp,
-              );
-
-              await currentUserReference!.update(createUsersRecordData(
-                remainingPart: 3,
-                partLastUpdate: _model.refreshDate,
-              ));
-            }
             if (currentUserDocument?.birthday != null) {
               _model.isMineur = await actions.isMineur(
                 currentUserDocument!.birthday!,
               );
-              FFAppState().isMineur = _model.isMineur2 ?? false;
+              FFAppState().isMineur = _model.isMineur ?? false;
             } else {
               FFAppState().isMineur = false;
+            }
+            if (!mounted) {
+              return;
             }
 
             context.goNamed(HomeJoueurPageWidget.routeName);
@@ -154,8 +137,8 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
             curve: Curves.bounceOut,
             delay: 0.0.ms,
             duration: 300.0.ms,
-            begin: Offset(0.6, 1.0),
-            end: Offset(1.0, 1.0),
+            begin: const Offset(0.6, 1.0),
+            end: const Offset(1.0, 1.0),
           ),
         ],
       ),
@@ -173,15 +156,15 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
             curve: Curves.easeInOut,
             delay: 200.0.ms,
             duration: 400.0.ms,
-            begin: Offset(0.0, 60.0),
-            end: Offset(0.0, 0.0),
+            begin: const Offset(0.0, 60.0),
+            end: const Offset(0.0, 0.0),
           ),
           TiltEffect(
             curve: Curves.easeInOut,
             delay: 200.0.ms,
             duration: 400.0.ms,
-            begin: Offset(-0.349, 0),
-            end: Offset(0, 0),
+            begin: const Offset(-0.349, 0),
+            end: const Offset(0, 0),
           ),
         ],
       ),
@@ -199,14 +182,9 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
   Widget build(BuildContext context) {
     context.watch<FFAppState>();
 
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: PopScope(
-        canPop: false,
-        child: Scaffold(
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
           key: scaffoldKey,
           backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
           body: Container(
@@ -219,56 +197,65 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                 ).image,
               ),
             ),
-            child: SingleChildScrollView(
-              child: Column(
+            child: SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(context).bottom + 24.0,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Column(
                 mainAxisSize: MainAxisSize.max,
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   Container(
                     width: double.infinity,
                     height: 300.0,
-                    decoration: BoxDecoration(),
+                    decoration: const BoxDecoration(),
                     child: Container(
                       width: 100.0,
                       height: 100.0,
-                      decoration: BoxDecoration(),
+                      decoration: const BoxDecoration(),
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Align(
-                            alignment: AlignmentDirectional(0.0, 0.0),
-                            child: Container(
-                              width: 226.0,
-                              height: 80.0,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8.0),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8.0),
-                                child: SvgPicture.asset(
-                                  'assets/images/logo_D_secondaire_sans_html_avec_couleurs.svg',
-                                  width: 200.0,
-                                  height: 80.0,
-                                  fit: BoxFit.fitWidth,
+                            alignment: const AlignmentDirectional(0.0, 0.0),
+                            child: Transform.translate(
+                              offset: const Offset(0.0, 36.0),
+                              child: Container(
+                                width: 226.0,
+                                height: 80.0,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8.0),
                                 ),
-                              ),
-                            ).animateOnPageLoad(
-                                animationsMap['containerOnPageLoadAnimation']!),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8.0),
+                                  child: SvgPicture.asset(
+                                    'assets/images/logo_D_secondaire_sans_html_avec_couleurs.svg',
+                                    width: 200.0,
+                                    height: 80.0,
+                                    fit: BoxFit.fitWidth,
+                                  ),
+                                ),
+                              ).animateOnPageLoad(
+                                  animationsMap['containerOnPageLoadAnimation']!),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
                   Align(
-                    alignment: AlignmentDirectional(0.0, 0.0),
-                    child: Container(
-                      height: MediaQuery.sizeOf(context).height * 0.5,
-                      decoration: BoxDecoration(),
-                      child: Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
-                            20.0, 0.0, 20.0, 16.0),
-                        child: Column(
+                    alignment: const AlignmentDirectional(0.0, 0.0),
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                          20.0, 0.0, 20.0, 16.0),
+                      child: Column(
                           mainAxisSize: MainAxisSize.max,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -279,16 +266,16 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                 mainAxisSize: MainAxisSize.max,
                                 children: [
                                   Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                    padding: const EdgeInsetsDirectional.fromSTEB(
                                         0.0, 0.0, 0.0, 16.0),
-                                    child: Container(
+                                    child: SizedBox(
                                       width: double.infinity,
                                       child: TextFormField(
                                         controller:
                                             _model.emailAddressTextController,
                                         focusNode: _model.emailAddressFocusNode,
                                         autofocus: false,
-                                        autofillHints: [AutofillHints.email],
+                                        autofillHints: const [AutofillHints.email],
                                         obscureText: false,
                                         decoration: InputDecoration(
                                           labelText: 'Mail',
@@ -322,7 +309,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 2.0,
                                             ),
@@ -364,7 +351,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                           fillColor:
                                               FlutterFlowTheme.of(context)
                                                   .fieldBg,
-                                          contentPadding: EdgeInsets.all(24.0),
+                                          contentPadding: const EdgeInsets.all(24.0),
                                           suffixIcon: Icon(
                                             Icons.mail_rounded,
                                             color: FlutterFlowTheme.of(context)
@@ -407,16 +394,16 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                     ),
                                   ),
                                   Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                    padding: const EdgeInsetsDirectional.fromSTEB(
                                         0.0, 0.0, 0.0, 16.0),
-                                    child: Container(
+                                    child: SizedBox(
                                       width: double.infinity,
                                       child: TextFormField(
                                         controller:
                                             _model.passwordTextController,
                                         focusNode: _model.passwordFocusNode,
                                         autofocus: false,
-                                        autofillHints: [AutofillHints.password],
+                                        autofillHints: const [AutofillHints.password],
                                         obscureText: !_model.passwordVisibility,
                                         decoration: InputDecoration(
                                           labelText: 'Mot de passe',
@@ -450,7 +437,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 2.0,
                                             ),
@@ -492,7 +479,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                           fillColor:
                                               FlutterFlowTheme.of(context)
                                                   .fieldBg,
-                                          contentPadding: EdgeInsets.all(24.0),
+                                          contentPadding: const EdgeInsets.all(24.0),
                                           suffixIcon: InkWell(
                                             onTap: () => safeSetState(
                                               () => _model.passwordVisibility =
@@ -545,15 +532,18 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                     ),
                                   ),
                                   Align(
-                                    alignment: AlignmentDirectional(0.0, 0.0),
+                                    alignment: const AlignmentDirectional(0.0, 0.0),
                                     child: Builder(
                                       builder: (context) => Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                        padding: const EdgeInsetsDirectional.fromSTEB(
                                             0.0, 0.0, 0.0, 16.0),
                                         child: FFButtonWidget(
                                           onPressed: () async {
                                             await authManager.refreshUser();
-                                            var _shouldSetState = false;
+                                            if (!context.mounted) {
+                                              return;
+                                            }
+                                            var shouldSetState = false;
                                             if (_model.formKey.currentState ==
                                                     null ||
                                                 !_model.formKey.currentState!
@@ -574,6 +564,9 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                             if (user == null) {
                                               return;
                                             }
+                                            if (!context.mounted) {
+                                              return;
+                                            }
 
                                             if (currentUserEmailVerified ==
                                                 true) {
@@ -588,7 +581,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                     backgroundColor:
                                                         Colors.transparent,
                                                     alignment:
-                                                        AlignmentDirectional(
+                                                        const AlignmentDirectional(
                                                                 0.0, 0.0)
                                                             .resolve(
                                                                 Directionality.of(
@@ -604,7 +597,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                               ?.unfocus();
                                                         },
                                                         child:
-                                                            ResendEmailVerificationWidget(),
+                                                            const ResendEmailVerificationWidget(),
                                                       ),
                                                     ),
                                                   );
@@ -676,50 +669,23 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                               if (currentUserDocument
                                                       ?.userRole ==
                                                   Roles.joueur) {
-                                                if ((dateTimeFormat(
-                                                          "d/M",
-                                                          currentUserDocument
-                                                              ?.partLastUpdate,
-                                                          locale:
-                                                              FFLocalizations.of(
-                                                                      context)
-                                                                  .languageCode,
-                                                        ) !=
-                                                        dateTimeFormat(
-                                                          "d/M",
-                                                          getCurrentTimestamp,
-                                                          locale:
-                                                              FFLocalizations.of(
-                                                                      context)
-                                                                  .languageCode,
-                                                        )) &&
-                                                    (valueOrDefault(
-                                                            currentUserDocument
-                                                                ?.remainingPart,
-                                                            0) !=
-                                                        3)) {
-                                                  _model.refreshDate2 =
-                                                      await actions.setEndOfDay(
-                                                    getCurrentTimestamp,
+                                                if (currentUserDocument
+                                                        ?.birthday !=
+                                                    null) {
+                                                  _model.isMineur2 =
+                                                      await actions.isMineur(
+                                                    currentUserDocument!
+                                                        .birthday!,
                                                   );
-                                                  _shouldSetState = true;
-
-                                                  await currentUserReference!
-                                                      .update(
-                                                          createUsersRecordData(
-                                                    remainingPart: 3,
-                                                    partLastUpdate:
-                                                        _model.refreshDate2,
-                                                  ));
+                                                  shouldSetState = true;
+                                                  FFAppState().isMineur =
+                                                      _model.isMineur2 ?? false;
+                                                } else {
+                                                  FFAppState().isMineur = false;
                                                 }
-                                                _model.isMineur2 =
-                                                    await actions.isMineur(
-                                                  currentUserDocument!
-                                                      .birthday!,
-                                                );
-                                                _shouldSetState = true;
-                                                FFAppState().isMineur =
-                                                    _model.isMineur2!;
+                                                if (!context.mounted) {
+                                                  return;
+                                                }
 
                                                 context.goNamedAuth(
                                                   HomeJoueurPageWidget
@@ -730,12 +696,18 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                               } else if (currentUserDocument
                                                       ?.userRole ==
                                                   Roles.admin) {
+                                                if (!context.mounted) {
+                                                  return;
+                                                }
                                                 context.goNamedAuth(
                                                   HomeAdminPageWidget.routeName,
                                                   context.mounted,
                                                   ignoreRedirect: true,
                                                 );
                                               } else {
+                                                if (!context.mounted) {
+                                                  return;
+                                                }
                                                 context.goNamedAuth(
                                                   HomeCommercantPageWidget
                                                       .routeName,
@@ -744,8 +716,9 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                 );
                                               }
 
-                                              if (_shouldSetState)
+                                              if (shouldSetState) {
                                                 safeSetState(() {});
+                                              }
                                               return;
                                             }
                                           },
@@ -754,10 +727,10 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                             width: double.infinity,
                                             height: 52.0,
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     0.0, 0.0, 0.0, 0.0),
                                             iconPadding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     0.0, 0.0, 0.0, 0.0),
                                             color: FlutterFlowTheme.of(context)
                                                 .primary,
@@ -791,7 +764,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                           .fontStyle,
                                                 ),
                                             elevation: 0.0,
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Colors.transparent,
                                               width: 1.0,
                                             ),
@@ -810,15 +783,14 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                               color: FlutterFlowTheme.of(context).primary,
                             ),
                             Align(
-                              alignment: AlignmentDirectional(0.0, 0.0),
+                              alignment: const AlignmentDirectional(0.0, 0.0),
                               child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 16.0, 0.0, 16.0),
                                 child: FFButtonWidget(
                                   onPressed: () async {
-                                    final user = await authManager
-                                        .signInAnonymously(context);
-                                    if (user == null) {
+                                    FFAppState().isGuest = true;
+                                    if (!context.mounted) {
                                       return;
                                     }
                                     context.goNamed(
@@ -828,11 +800,11 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                   options: FFButtonOptions(
                                     width: double.infinity,
                                     height: 52.0,
-                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                    padding: const EdgeInsetsDirectional.fromSTEB(
                                         0.0, 0.0, 0.0, 0.0),
-                                    iconPadding: EdgeInsetsDirectional.fromSTEB(
+                                    iconPadding: const EdgeInsetsDirectional.fromSTEB(
                                         0.0, 0.0, 0.0, 0.0),
-                                    color: Color(0x006052EC),
+                                    color: const Color(0xFFF7F7F7),
                                     textStyle: FlutterFlowTheme.of(context)
                                         .titleSmall
                                         .override(
@@ -846,8 +818,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                     .titleSmall
                                                     .fontStyle,
                                           ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .primary,
+                                          color: const Color(0xFF6B6B6B),
                                           letterSpacing: 0.0,
                                           fontWeight:
                                               FlutterFlowTheme.of(context)
@@ -859,9 +830,8 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                   .fontStyle,
                                         ),
                                     elevation: 0.0,
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context)
-                                          .primaryText,
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFFDADADA),
                                       width: 1.0,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
@@ -870,7 +840,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                               ),
                             ),
                             Align(
-                              alignment: AlignmentDirectional(0.0, 0.0),
+                              alignment: const AlignmentDirectional(0.0, 0.0),
                               child: InkWell(
                                 splashColor: Colors.transparent,
                                 focusColor: Colors.transparent,
@@ -903,9 +873,9 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                         children: [
                                           Align(
                                             alignment:
-                                                AlignmentDirectional(0.0, 0.0),
+                                                const AlignmentDirectional(0.0, 0.0),
                                             child: Padding(
-                                              padding: EdgeInsetsDirectional
+                                              padding: const EdgeInsetsDirectional
                                                   .fromSTEB(
                                                       0.0, 0.0, 0.0, 16.0),
                                               child: Text(
@@ -954,29 +924,43 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                             Column(
                               mainAxisSize: MainAxisSize.max,
                               children: [
-                                InkWell(
-                                  splashColor: Colors.transparent,
-                                  focusColor: Colors.transparent,
-                                  hoverColor: Colors.transparent,
-                                  highlightColor: Colors.transparent,
-                                  onTap: () async {
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {
                                     context.pushNamed(
                                         InscriptionPageWidget.routeName);
                                   },
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.max,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Align(
-                                        alignment:
-                                            AlignmentDirectional(0.0, 0.0),
-                                        child: Text(
-                                          'Pas de compte ? ',
-                                          textAlign: TextAlign.center,
-                                          style: FlutterFlowTheme.of(context)
-                                              .labelMedium
-                                              .override(
-                                                font: GoogleFonts.inter(
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsetsDirectional.fromSTEB(
+                                        0.0, 8.0, 0.0, 8.0),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.max,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Align(
+                                          alignment:
+                                              const AlignmentDirectional(0.0, 0.0),
+                                          child: Text(
+                                            'Pas de compte ? ',
+                                            textAlign: TextAlign.center,
+                                            style: FlutterFlowTheme.of(context)
+                                                .labelMedium
+                                                .override(
+                                                  font: GoogleFonts.inter(
+                                                    fontWeight:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .labelMedium
+                                                            .fontWeight,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .labelMedium
+                                                            .fontStyle,
+                                                  ),
+                                                  letterSpacing: 0.0,
                                                   fontWeight:
                                                       FlutterFlowTheme.of(
                                                               context)
@@ -988,28 +972,29 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                           .labelMedium
                                                           .fontStyle,
                                                 ),
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .labelMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .labelMedium
-                                                        .fontStyle,
-                                              ),
+                                          ),
                                         ),
-                                      ),
-                                      Align(
-                                        alignment:
-                                            AlignmentDirectional(0.0, 0.0),
-                                        child: Text(
-                                          ' Inscription',
-                                          textAlign: TextAlign.center,
-                                          style: FlutterFlowTheme.of(context)
-                                              .labelMedium
-                                              .override(
-                                                font: GoogleFonts.inter(
+                                        Align(
+                                          alignment:
+                                              const AlignmentDirectional(0.0, 0.0),
+                                          child: Text(
+                                            ' Inscription',
+                                            textAlign: TextAlign.center,
+                                            style: FlutterFlowTheme.of(context)
+                                                .labelMedium
+                                                .override(
+                                                  font: GoogleFonts.inter(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .labelMedium
+                                                            .fontStyle,
+                                                  ),
+                                                  color: FlutterFlowTheme.of(
+                                                          context)
+                                                      .primary,
+                                                  letterSpacing: 0.0,
                                                   fontWeight: FontWeight.bold,
                                                   fontStyle:
                                                       FlutterFlowTheme.of(
@@ -1017,19 +1002,10 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                           .labelMedium
                                                           .fontStyle,
                                                 ),
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primary,
-                                                letterSpacing: 0.0,
-                                                fontWeight: FontWeight.bold,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .labelMedium
-                                                        .fontStyle,
-                                              ),
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1037,15 +1013,16 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                           ],
                         ).animateOnPageLoad(
                             animationsMap['columnOnPageLoadAnimation']!),
-                      ),
                     ),
                   ),
                 ],
               ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
-      ),
     );
   }
 }

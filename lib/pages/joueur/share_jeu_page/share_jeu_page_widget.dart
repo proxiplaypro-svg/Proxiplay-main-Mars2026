@@ -8,6 +8,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/utils/create_account_to_play_dialog.dart';
+import '/utils/share_links.dart';
 import '/widgets/proxiplay_network_image.dart';
 import '/index.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -131,14 +132,16 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                       builder: (context) {
                                         if (currentUserUid != '') {
                                           return FlutterFlowIconButton(
-                                            borderRadius: 8.0,
-                                            buttonSize: 40.0,
+                                            borderRadius: 12.0,
+                                            buttonSize: 48.0,
+                                            fillColor:
+                                                Colors.white.withOpacity(0.9),
                                             icon: Icon(
                                               Icons.favorite_border_rounded,
                                               color:
                                                   FlutterFlowTheme.of(context)
                                                       .error,
-                                              size: 24.0,
+                                              size: 22.0,
                                             ),
                                             onPressed: () async {
                                               await FavoriteGamesRecord
@@ -178,17 +181,28 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                     Builder(
                                       builder: (context) =>
                                           FlutterFlowIconButton(
-                                        borderRadius: 8.0,
-                                        buttonSize: 40.0,
-                                        icon: Icon(
+                                        borderRadius: 12.0,
+                                        buttonSize: 48.0,
+                                        fillColor:
+                                            FlutterFlowTheme.of(context).primary,
+                                        icon: const Icon(
                                           Icons.share_sharp,
-                                          color: FlutterFlowTheme.of(context)
-                                              .primaryText,
+                                          color: Colors.white,
                                           size: 24.0,
                                         ),
                                         onPressed: () async {
                                           await Share.share(
-                                            'proxiplay://proxiplay.com${GoRouterState.of(context).uri.toString()}',
+                                            buildAppShareText(
+                                              title:
+                                                  '${widget.gameDoc?.name ?? 'ce jeu'} sur ProxiPlay',
+                                              description: widget
+                                                              .enseigneDoc?.name
+                                                              .trim()
+                                                              .isNotEmpty ==
+                                                          true
+                                                  ? 'Disponible chez ${widget.enseigneDoc!.name}.'
+                                                  : null,
+                                            ),
                                             sharePositionOrigin:
                                                 getWidgetBoundingBox(context),
                                           );

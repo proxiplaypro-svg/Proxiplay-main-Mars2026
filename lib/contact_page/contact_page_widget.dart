@@ -3,10 +3,8 @@ import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'contact_page_model.dart';
 export 'contact_page_model.dart';
@@ -70,14 +68,14 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                   fontStyle: FlutterFlowTheme.of(context).titleLarge.fontStyle,
                 ),
           ),
-          actions: [],
+          actions: const [],
           flexibleSpace: FlexibleSpaceBar(
             background: ClipRRect(
               borderRadius: BorderRadius.circular(8.0),
               child: Image.asset(
                 'assets/images/Background.png',
                 fit: BoxFit.cover,
-                alignment: Alignment(1.0, -1.0),
+                alignment: const Alignment(1.0, -1.0),
               ),
             ),
           ),
@@ -90,21 +88,21 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
             decoration: BoxDecoration(
               image: DecorationImage(
                 fit: BoxFit.cover,
-                alignment: AlignmentDirectional(-1.0, 1.0),
+                alignment: const AlignmentDirectional(-1.0, 1.0),
                 image: Image.asset(
                   'assets/images/Background.png',
                 ).image,
               ),
             ),
             child: Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
+              padding: const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
               child: Column(
                 mainAxisSize: MainAxisSize.max,
                 children: [
                   Expanded(
                     child: Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 32.0, 0.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(0.0, 32.0, 0.0, 0.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,7 +117,7 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                                   borderRadius: BorderRadius.circular(12.0),
                                 ),
                                 child: Padding(
-                                  padding: EdgeInsets.all(16.0),
+                                  padding: const EdgeInsets.all(16.0),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.max,
                                     crossAxisAlignment:
@@ -176,7 +174,7 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                                       ),
                                       Align(
                                         alignment:
-                                            AlignmentDirectional(0.0, 0.0),
+                                            const AlignmentDirectional(0.0, 0.0),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.max,
                                           children: [
@@ -229,7 +227,7 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                                                     ),
                                               ),
                                             ),
-                                          ].divide(SizedBox(width: 12.0)),
+                                          ].divide(const SizedBox(width: 12.0)),
                                         ),
                                       ),
                                       FFButtonWidget(
@@ -240,7 +238,7 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                                           ));
                                         },
                                         text: 'Appeler',
-                                        icon: Icon(
+                                        icon: const Icon(
                                           Icons.phone,
                                           size: 20.0,
                                         ),
@@ -248,10 +246,10 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                                           width: double.infinity,
                                           height: 50.0,
                                           padding:
-                                              EdgeInsetsDirectional.fromSTEB(
+                                              const EdgeInsetsDirectional.fromSTEB(
                                                   16.0, 0.0, 16.0, 0.0),
                                           iconPadding:
-                                              EdgeInsetsDirectional.fromSTEB(
+                                              const EdgeInsetsDirectional.fromSTEB(
                                                   0.0, 0.0, 0.0, 0.0),
                                           iconColor:
                                               FlutterFlowTheme.of(context).info,
@@ -291,7 +289,7 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                                               BorderRadius.circular(12.0),
                                         ),
                                       ),
-                                    ].divide(SizedBox(height: 16.0)),
+                                    ].divide(const SizedBox(height: 16.0)),
                                   ),
                                 ),
                               ),
@@ -304,7 +302,7 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                               borderRadius: BorderRadius.circular(12.0),
                             ),
                             child: Padding(
-                              padding: EdgeInsets.all(16.0),
+                              padding: const EdgeInsets.all(16.0),
                               child: Column(
                                 mainAxisSize: MainAxisSize.max,
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -358,7 +356,7 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                                         ),
                                   ),
                                   Align(
-                                    alignment: AlignmentDirectional(0.0, 0.0),
+                                    alignment: const AlignmentDirectional(0.0, 0.0),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.max,
                                       children: [
@@ -392,7 +390,7 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                                                         .fontStyle,
                                               ),
                                         ),
-                                      ].divide(SizedBox(width: 12.0)),
+                                      ].divide(const SizedBox(width: 12.0)),
                                     ),
                                   ),
                                   FFButtonWidget(
@@ -410,17 +408,17 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                                               .join('&')));
                                     },
                                     text: 'Envoyer un mail',
-                                    icon: Icon(
+                                    icon: const Icon(
                                       Icons.email_outlined,
                                       size: 20.0,
                                     ),
                                     options: FFButtonOptions(
                                       width: double.infinity,
                                       height: 50.0,
-                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                      padding: const EdgeInsetsDirectional.fromSTEB(
                                           16.0, 0.0, 16.0, 0.0),
                                       iconPadding:
-                                          EdgeInsetsDirectional.fromSTEB(
+                                          const EdgeInsetsDirectional.fromSTEB(
                                               0.0, 0.0, 0.0, 0.0),
                                       iconColor:
                                           FlutterFlowTheme.of(context).info,
@@ -455,11 +453,11 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                                       borderRadius: BorderRadius.circular(12.0),
                                     ),
                                   ),
-                                ].divide(SizedBox(height: 16.0)),
+                                ].divide(const SizedBox(height: 16.0)),
                               ),
                             ),
                           ),
-                        ].divide(SizedBox(height: 24.0)),
+                        ].divide(const SizedBox(height: 24.0)),
                       ),
                     ),
                   ),

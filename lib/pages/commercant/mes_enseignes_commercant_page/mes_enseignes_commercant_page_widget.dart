@@ -1,17 +1,14 @@
-import '/auth/firebase_auth/auth_util.dart';
+﻿import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
 import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import '/index.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'mes_enseignes_commercant_page_model.dart';
 export 'mes_enseignes_commercant_page_model.dart';
 
@@ -61,16 +58,12 @@ class _MesEnseignesCommercantPageWidgetState
       builder: (context, snapshot) {
         // Customize what your widget looks like when it's loading.
         if (!snapshot.hasData) {
-          return Scaffold(
+          return const Scaffold(
             body: Center(
               child: SizedBox(
                 width: 50.0,
                 height: 50.0,
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    FlutterFlowTheme.of(context).primary,
-                  ),
-                ),
+                child: SizedBox.shrink(),
               ),
             ),
           );
@@ -125,7 +118,7 @@ class _MesEnseignesCommercantPageWidgetState
               actions: [
                 Visibility(
                   visible:
-                      mesEnseignesCommercantPageEnseignesRecordList.length == 0,
+                      mesEnseignesCommercantPageEnseignesRecordList.isEmpty,
                   child: FlutterFlowIconButton(
                     borderRadius: 8.0,
                     buttonSize: 40.0,
@@ -138,7 +131,7 @@ class _MesEnseignesCommercantPageWidgetState
                       context.pushNamed(
                         AddEnseigneCommercantPageWidget.routeName,
                         extra: <String, dynamic>{
-                          kTransitionInfoKey: TransitionInfo(
+                          kTransitionInfoKey: const TransitionInfo(
                             hasTransition: true,
                             transitionType: PageTransitionType.rightToLeft,
                             duration: Duration(milliseconds: 1000),
@@ -155,7 +148,7 @@ class _MesEnseignesCommercantPageWidgetState
                   child: Image.asset(
                     'assets/images/Background.png',
                     fit: BoxFit.cover,
-                    alignment: Alignment(1.0, -1.0),
+                    alignment: const Alignment(1.0, -1.0),
                   ),
                 ),
               ),
@@ -167,7 +160,7 @@ class _MesEnseignesCommercantPageWidgetState
                 decoration: BoxDecoration(
                   image: DecorationImage(
                     fit: BoxFit.cover,
-                    alignment: AlignmentDirectional(-1.0, 1.0),
+                    alignment: const AlignmentDirectional(-1.0, 1.0),
                     image: Image.asset(
                       'assets/images/Background.png',
                     ).image,
@@ -179,7 +172,7 @@ class _MesEnseignesCommercantPageWidgetState
                   children: [
                     Expanded(
                       child: Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
                             20.0, 0.0, 20.0, 0.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
@@ -189,7 +182,7 @@ class _MesEnseignesCommercantPageWidgetState
                                 if (mesEnseignesCommercantPageEnseignesRecordList
                                     .isNotEmpty) {
                                   return Container(
-                                    decoration: BoxDecoration(),
+                                    decoration: const BoxDecoration(),
                                     child: Builder(
                                       builder: (context) {
                                         final mesEnseignesCommercantPageVar =
@@ -197,7 +190,7 @@ class _MesEnseignesCommercantPageWidgetState
                                                 .toList();
                                         if (mesEnseignesCommercantPageVar
                                             .isEmpty) {
-                                          return Center(
+                                          return const Center(
                                             child: ListEmptyComponentWidget(
                                               title: 'Aucun points de vente ',
                                               description:
@@ -214,7 +207,7 @@ class _MesEnseignesCommercantPageWidgetState
                                               mesEnseignesCommercantPageVar
                                                   .length,
                                           separatorBuilder: (_, __) =>
-                                              SizedBox(height: 10.0),
+                                              const SizedBox(height: 10.0),
                                           itemBuilder: (context,
                                               mesEnseignesCommercantPageVarIndex) {
                                             final mesEnseignesCommercantPageVarItem =
@@ -263,7 +256,7 @@ class _MesEnseignesCommercantPageWidgetState
                                                       child: Container(
                                                         height: 120.0,
                                                         decoration:
-                                                            BoxDecoration(),
+                                                            const BoxDecoration(),
                                                         child: FutureBuilder<
                                                             List<ImagesRecord>>(
                                                           future:
@@ -278,20 +271,12 @@ class _MesEnseignesCommercantPageWidgetState
                                                             // Customize what your widget looks like when it's loading.
                                                             if (!snapshot
                                                                 .hasData) {
-                                                              return Center(
+                                                              return const Center(
                                                                 child: SizedBox(
                                                                   width: 50.0,
                                                                   height: 50.0,
                                                                   child:
-                                                                      CircularProgressIndicator(
-                                                                    valueColor:
-                                                                        AlwaysStoppedAnimation<
-                                                                            Color>(
-                                                                      FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primary,
-                                                                    ),
-                                                                  ),
+                                                                      SizedBox.shrink(),
                                                                 ),
                                                               );
                                                             }
@@ -318,11 +303,11 @@ class _MesEnseignesCommercantPageWidgetState
                                                               child:
                                                                   CachedNetworkImage(
                                                                 fadeInDuration:
-                                                                    Duration(
+                                                                    const Duration(
                                                                         milliseconds:
                                                                             500),
                                                                 fadeOutDuration:
-                                                                    Duration(
+                                                                    const Duration(
                                                                         milliseconds:
                                                                             500),
                                                                 imageUrl:
@@ -340,7 +325,7 @@ class _MesEnseignesCommercantPageWidgetState
                                                       flex: 2,
                                                       child: Padding(
                                                         padding:
-                                                            EdgeInsetsDirectional
+                                                            const EdgeInsetsDirectional
                                                                 .fromSTEB(
                                                                     10.0,
                                                                     0.0,
@@ -474,16 +459,12 @@ class _MesEnseignesCommercantPageWidgetState
                                                                         // Customize what your widget looks like when it's loading.
                                                                         if (!snapshot
                                                                             .hasData) {
-                                                                          return Center(
+                                                                          return const Center(
                                                                             child:
                                                                                 SizedBox(
                                                                               width: 50.0,
                                                                               height: 50.0,
-                                                                              child: CircularProgressIndicator(
-                                                                                valueColor: AlwaysStoppedAnimation<Color>(
-                                                                                  FlutterFlowTheme.of(context).primary,
-                                                                                ),
-                                                                              ),
+                                                                              child: SizedBox.shrink(),
                                                                             ),
                                                                           );
                                                                         }
@@ -512,14 +493,14 @@ class _MesEnseignesCommercantPageWidgetState
                                                                     ),
                                                                   ],
                                                                 ),
-                                                              ].divide(SizedBox(
+                                                              ].divide(const SizedBox(
                                                                   height: 5.0)),
                                                             ),
                                                           ]
-                                                              .divide(SizedBox(
+                                                              .divide(const SizedBox(
                                                                   height: 10.0))
                                                               .addToStart(
-                                                                  SizedBox(
+                                                                  const SizedBox(
                                                                       height:
                                                                           10.0)),
                                                         ),
@@ -535,12 +516,12 @@ class _MesEnseignesCommercantPageWidgetState
                                     ),
                                   );
                                 } else {
-                                  return Container(
+                                  return SizedBox(
                                     height: 200.0,
                                     child: wrapWithModel(
                                       model: _model.listEmptyComponentModel,
                                       updateCallback: () => safeSetState(() {}),
-                                      child: ListEmptyComponentWidget(
+                                      child: const ListEmptyComponentWidget(
                                         title: 'Liste vide',
                                         description: 'Pas de point de vente',
                                       ),
@@ -549,14 +530,14 @@ class _MesEnseignesCommercantPageWidgetState
                                 }
                               },
                             ),
-                          ].divide(SizedBox(height: 20.0)),
+                          ].divide(const SizedBox(height: 20.0)),
                         ),
                       ),
                     ),
                     wrapWithModel(
                       model: _model.customNavBarCommercant2Model,
                       updateCallback: () => safeSetState(() {}),
-                      child: CustomNavBarCommercant2Widget(),
+                      child: const CustomNavBarCommercant2Widget(),
                     ),
                   ],
                 ),
@@ -568,3 +549,4 @@ class _MesEnseignesCommercantPageWidgetState
     );
   }
 }
+

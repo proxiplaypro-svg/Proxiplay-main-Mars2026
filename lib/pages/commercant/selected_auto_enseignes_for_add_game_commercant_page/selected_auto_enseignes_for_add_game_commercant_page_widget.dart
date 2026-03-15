@@ -2,14 +2,10 @@ import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'selected_auto_enseignes_for_add_game_commercant_page_model.dart';
 export 'selected_auto_enseignes_for_add_game_commercant_page_model.dart';
 
@@ -49,6 +45,9 @@ class _SelectedAutoEnseignesForAddGameCommercantPageWidgetState
         ),
         singleRecord: true,
       ).then((s) => s.firstOrNull);
+      if (!mounted) {
+        return;
+      }
       if (Navigator.of(context).canPop()) {
         context.pop();
       }
@@ -65,7 +64,7 @@ class _SelectedAutoEnseignesForAddGameCommercantPageWidgetState
           ),
         }.withoutNulls,
         extra: <String, dynamic>{
-          kTransitionInfoKey: TransitionInfo(
+          kTransitionInfoKey: const TransitionInfo(
             hasTransition: true,
             transitionType: PageTransitionType.fade,
             duration: Duration(milliseconds: 0),

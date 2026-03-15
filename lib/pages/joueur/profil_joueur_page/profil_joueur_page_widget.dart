@@ -2,9 +2,7 @@ import '/auth/firebase_auth/auth_util.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import 'dart:ui';
 import '/index.dart';
-import '/app_state.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
@@ -59,7 +57,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
             backgroundColor: Colors.transparent,
             automaticallyImplyLeading: false,
             title: Padding(
-              padding: EdgeInsets.all(10.0),
+              padding: const EdgeInsets.all(10.0),
               child: Column(
                 mainAxisSize: MainAxisSize.max,
                 children: [
@@ -86,17 +84,17 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                               ),
                     ),
                   ),
-                ].divide(SizedBox(height: 10.0)),
+                ].divide(const SizedBox(height: 10.0)),
               ),
             ),
-            actions: [],
+            actions: const [],
             flexibleSpace: FlexibleSpaceBar(
               background: ClipRRect(
                 borderRadius: BorderRadius.circular(8.0),
                 child: Image.asset(
                   'assets/images/Background.png',
                   fit: BoxFit.cover,
-                  alignment: Alignment(1.0, -1.0),
+                  alignment: const Alignment(1.0, -1.0),
                 ),
               ),
             ),
@@ -119,14 +117,14 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                   Expanded(
                     child: Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(20.0, 60.0, 20.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(20.0, 60.0, 20.0, 0.0),
                       child: SingleChildScrollView(
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 1.0, 0.0, 0.0),
                               child: Container(
                                 width: double.infinity,
@@ -136,7 +134,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   16.0, 16.0, 0.0, 0.0),
                               child: Text(
                                 'Mon compte',
@@ -159,7 +157,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 12.0, 0.0, 0.0),
                               child: InkWell(
                                 splashColor: Colors.transparent,
@@ -180,7 +178,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                     shape: BoxShape.rectangle,
                                   ),
                                   child: Padding(
-                                    padding: EdgeInsets.all(8.0),
+                                    padding: const EdgeInsets.all(8.0),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.max,
                                       children: [
@@ -193,7 +191,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                         Expanded(
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     12.0, 0.0, 0.0, 0.0),
                                             child: Text(
                                               'Mes informations',
@@ -230,7 +228,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                         ),
                                         Align(
                                           alignment:
-                                              AlignmentDirectional(0.9, 0.0),
+                                              const AlignmentDirectional(0.9, 0.0),
                                           child: Icon(
                                             Icons.arrow_forward_ios,
                                             color: FlutterFlowTheme.of(context)
@@ -245,7 +243,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 12.0, 0.0, 0.0),
                               child: InkWell(
                                 splashColor: Colors.transparent,
@@ -266,7 +264,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                     shape: BoxShape.rectangle,
                                   ),
                                   child: Padding(
-                                    padding: EdgeInsets.all(8.0),
+                                    padding: const EdgeInsets.all(8.0),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.max,
                                       children: [
@@ -279,7 +277,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                         Expanded(
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     12.0, 0.0, 0.0, 0.0),
                                             child: Text(
                                               'Mes lots',
@@ -316,7 +314,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                         ),
                                         Align(
                                           alignment:
-                                              AlignmentDirectional(0.9, 0.0),
+                                              const AlignmentDirectional(0.9, 0.0),
                                           child: Icon(
                                             Icons.arrow_forward_ios,
                                             color: FlutterFlowTheme.of(context)
@@ -331,7 +329,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 12.0, 0.0, 0.0),
                               child: InkWell(
                                 splashColor: Colors.transparent,
@@ -357,7 +355,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                     shape: BoxShape.rectangle,
                                   ),
                                   child: Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                    padding: const EdgeInsetsDirectional.fromSTEB(
                                         8.0, 8.0, 8.0, 8.0),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.max,
@@ -371,7 +369,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                         Expanded(
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     12.0, 0.0, 12.0, 0.0),
                                             child: Text(
                                               'Se déconnecter',
@@ -423,7 +421,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 12.0, 0.0, 0.0),
                               child: InkWell(
                                 splashColor: Colors.transparent,
@@ -437,9 +435,9 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                             builder: (alertDialogContext) {
                                               return WebViewAware(
                                                 child: AlertDialog(
-                                                  title: Text(
+                                                  title: const Text(
                                                       'Suppression du compte'),
-                                                  content: Text(
+                                                  content: const Text(
                                                       'Êtes-vous sur de vouloir supprimer votre compte ?'),
                                                   actions: [
                                                     TextButton(
@@ -447,14 +445,14 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                                           Navigator.pop(
                                                               alertDialogContext,
                                                               false),
-                                                      child: Text('Annuler'),
+                                                      child: const Text('Annuler'),
                                                     ),
                                                     TextButton(
                                                       onPressed: () =>
                                                           Navigator.pop(
                                                               alertDialogContext,
                                                               true),
-                                                      child: Text('Confirmer'),
+                                                      child: const Text('Confirmer'),
                                                     ),
                                                   ],
                                                 ),
@@ -462,8 +460,10 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                             },
                                           ) ??
                                           false;
+                                  if (!context.mounted) return;
                                   if (confirmDialogResponse) {
                                     await authManager.deleteUser(context);
+                                    if (!context.mounted) return;
 
                                     context
                                         .pushNamed(LoginPageWidget.routeName);
@@ -479,7 +479,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                     shape: BoxShape.rectangle,
                                   ),
                                   child: Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                    padding: const EdgeInsetsDirectional.fromSTEB(
                                         8.0, 8.0, 8.0, 8.0),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.max,
@@ -493,7 +493,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                         Expanded(
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     12.0, 0.0, 12.0, 0.0),
                                             child: Text(
                                               'Supprimer mon compte',
@@ -545,7 +545,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   16.0, 30.0, 0.0, 0.0),
                               child: Text(
                                 'ProxiPlay',
@@ -568,7 +568,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 12.0, 0.0, 0.0),
                               child: InkWell(
                                 splashColor: Colors.transparent,
@@ -589,7 +589,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                     shape: BoxShape.rectangle,
                                   ),
                                   child: Padding(
-                                    padding: EdgeInsets.all(8.0),
+                                    padding: const EdgeInsets.all(8.0),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.max,
                                       children: [
@@ -602,7 +602,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                         Expanded(
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     12.0, 0.0, 0.0, 0.0),
                                             child: Text(
                                               'Nous contacter',
@@ -639,7 +639,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                         ),
                                         Align(
                                           alignment:
-                                              AlignmentDirectional(0.9, 0.0),
+                                              const AlignmentDirectional(0.9, 0.0),
                                           child: Icon(
                                             Icons.arrow_forward_ios,
                                             color: FlutterFlowTheme.of(context)
@@ -654,7 +654,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 12.0, 0.0, 0.0),
                               child: InkWell(
                                 splashColor: Colors.transparent,
@@ -674,7 +674,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                     shape: BoxShape.rectangle,
                                   ),
                                   child: Padding(
-                                    padding: EdgeInsets.all(8.0),
+                                    padding: const EdgeInsets.all(8.0),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.max,
                                       children: [
@@ -687,7 +687,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                         Expanded(
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     12.0, 0.0, 0.0, 0.0),
                                             child: Text(
                                               'Mentions légales',
@@ -742,7 +742,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                   wrapWithModel(
                     model: _model.customNavBarJoueurModel,
                     updateCallback: () => safeSetState(() {}),
-                    child: CustomNavBarJoueurWidget(
+                    child: const CustomNavBarJoueurWidget(
                       indexActive: 4,
                     ),
                   ),

@@ -8,12 +8,10 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/upload_data.dart';
-import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'add_game_commercant_page_model.dart';
@@ -25,10 +23,12 @@ class AddGameCommercantPageWidget extends StatefulWidget {
     super.key,
     required this.enseigneRef,
     required this.enseigne,
+    this.templateGame,
   });
 
   final DocumentReference? enseigneRef;
   final String? enseigne;
+  final GamesRecord? templateGame;
 
   static String routeName = 'AddGameCommercantPage';
   static String routePath = 'addGameCommercantPage';
@@ -59,8 +59,11 @@ class _AddGameCommercantPageWidgetState
 
     _model.textController3 ??= TextEditingController();
     _model.textFieldFocusNode3 ??= FocusNode();
+    _model.textController4 ??= TextEditingController();
+    _model.textFieldFocusNode4 ??= FocusNode();
 
     _model.switchValue = false;
+    _prefillFromTemplate();
   }
 
   @override
@@ -108,6 +111,60 @@ class _AddGameCommercantPageWidgetState
     return prizes;
   }
 
+  double? _parsePriceValue(String? rawValue) {
+    if (rawValue == null) {
+      return null;
+    }
+    final normalized = rawValue.trim().replaceAll(',', '.');
+    if (normalized.isEmpty) {
+      return null;
+    }
+    return double.tryParse(normalized);
+  }
+
+  String _formatPriceForInput(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toStringAsFixed(0);
+    }
+    return value.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+  }
+
+  void _prefillFromTemplate() {
+    final template = widget.templateGame;
+    if (template == null) {
+      return;
+    }
+
+    final hasMainPrizeData = template.name.trim().isNotEmpty ||
+        template.description.trim().isNotEmpty ||
+        template.hasPrizeValue();
+    _model.mainPrizeEnabled = hasMainPrizeData;
+    _model.textController1?.text = template.name;
+    _model.textController2?.text = template.description;
+    _model.textController3?.text = template.hasPrizeValue()
+        ? _formatPriceForInput(template.prizeValue)
+        : '';
+    _model.textController4?.text = template.name;
+    _model.switchValue = template.prohibitedForMinors;
+    _model.uploadedFileUrl_uploadDataNyu = template.photo;
+
+    for (final entry in _model.secondaryPrizes) {
+      entry.dispose();
+    }
+    _model.secondaryPrizes.clear();
+    for (final prize in template.secondaryPrizes) {
+      final entry = SecondaryPrizeEntry();
+      entry.nameController.text = (prize['name'] ?? '').toString();
+      entry.presentationController.text =
+          (prize['presentation'] ?? '').toString();
+      entry.countController.text = (prize['count'] ?? '').toString();
+      _model.secondaryPrizes.add(entry);
+    }
+    if (_model.secondaryPrizes.isEmpty) {
+      _model.secondaryPrizes.add(SecondaryPrizeEntry());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -133,7 +190,7 @@ class _AddGameCommercantPageWidgetState
               key: _model.formKey,
               autovalidateMode: AutovalidateMode.disabled,
               child: Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 20.0),
+                padding: const EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 20.0),
                 child: ListView(
                   padding: EdgeInsets.zero,
                   scrollDirection: Axis.vertical,
@@ -166,7 +223,7 @@ class _AddGameCommercantPageWidgetState
                         borderRadius: BorderRadius.circular(20.0),
                       ),
                       child: Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
                             16.0, 16.0, 16.0, 16.0),
                         child: ListView(
                           padding: EdgeInsets.zero,
@@ -198,14 +255,14 @@ class _AddGameCommercantPageWidgetState
                                   ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 12.0, 0.0, 8.0),
                               child: Row(
                                 children: [
                                   Text(
                                     'Lot principal',
-                                    style: FlutterFlowTheme.of(context)
-                                        .titleSmall,
+                                    style:
+                                        FlutterFlowTheme.of(context).titleSmall,
                                   ),
                                   const Spacer(),
                                   Switch(
@@ -217,6 +274,7 @@ class _AddGameCommercantPageWidgetState
                                           _model.textController1?.clear();
                                           _model.textController2?.clear();
                                           _model.textController3?.clear();
+                                          _model.textController4?.clear();
                                         }
                                       });
                                     },
@@ -240,23 +298,23 @@ class _AddGameCommercantPageWidgetState
                                               FlutterFlowTheme.of(context)
                                                   .labelMedium
                                                   .fontWeight,
-                                          fontStyle: FlutterFlowTheme.of(context)
-                                              .labelMedium
-                                              .fontStyle,
+                                          fontStyle:
+                                              FlutterFlowTheme.of(context)
+                                                  .labelMedium
+                                                  .fontStyle,
                                         ),
-                                        color:
-                                            FlutterFlowTheme.of(context).fieldText,
+                                        color: FlutterFlowTheme.of(context)
+                                            .fieldText,
                                         letterSpacing: 0.0,
-                                        fontWeight:
-                                            FlutterFlowTheme.of(context)
-                                                .labelMedium
-                                                .fontWeight,
+                                        fontWeight: FlutterFlowTheme.of(context)
+                                            .labelMedium
+                                            .fontWeight,
                                         fontStyle: FlutterFlowTheme.of(context)
                                             .labelMedium
                                             .fontStyle,
                                       ),
                                   enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
+                                    borderSide: const BorderSide(
                                       color: Color(0x00000000),
                                       width: 2.0,
                                     ),
@@ -264,7 +322,8 @@ class _AddGameCommercantPageWidgetState
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).primary,
+                                      color:
+                                          FlutterFlowTheme.of(context).primary,
                                       width: 2.0,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
@@ -286,7 +345,7 @@ class _AddGameCommercantPageWidgetState
                                   filled: true,
                                   fillColor:
                                       FlutterFlowTheme.of(context).fieldBg,
-                                  contentPadding: EdgeInsets.all(24.0),
+                                  contentPadding: const EdgeInsets.all(24.0),
                                 ),
                                 style: FlutterFlowTheme.of(context)
                                     .bodyMedium
@@ -309,12 +368,17 @@ class _AddGameCommercantPageWidgetState
                                           .bodyMedium
                                           .fontStyle,
                                     ),
+                                onChanged: (value) {
+                                  if (_model.mainPrizeEnabled) {
+                                    _model.textController4?.text = value.trim();
+                                  }
+                                },
                                 validator: _model.textController1Validator
                                     .asValidator(context),
                               ),
                             if (_model.mainPrizeEnabled)
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 16.0),
                                 child: TextFormField(
                                   controller: _model.textController2,
@@ -336,9 +400,8 @@ class _AddGameCommercantPageWidgetState
                                                     .labelMedium
                                                     .fontStyle,
                                           ),
-                                          color:
-                                              FlutterFlowTheme.of(context)
-                                                  .fieldText,
+                                          color: FlutterFlowTheme.of(context)
+                                              .fieldText,
                                           letterSpacing: 0.0,
                                           fontWeight:
                                               FlutterFlowTheme.of(context)
@@ -350,7 +413,7 @@ class _AddGameCommercantPageWidgetState
                                                   .fontStyle,
                                         ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 2.0,
                                       ),
@@ -358,8 +421,8 @@ class _AddGameCommercantPageWidgetState
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderSide: BorderSide(
-                                        color:
-                                            FlutterFlowTheme.of(context).primary,
+                                        color: FlutterFlowTheme.of(context)
+                                            .primary,
                                         width: 2.0,
                                       ),
                                       borderRadius: BorderRadius.circular(12.0),
@@ -383,7 +446,7 @@ class _AddGameCommercantPageWidgetState
                                     filled: true,
                                     fillColor:
                                         FlutterFlowTheme.of(context).fieldBg,
-                                    contentPadding: EdgeInsets.all(24.0),
+                                    contentPadding: const EdgeInsets.all(24.0),
                                   ),
                                   style: FlutterFlowTheme.of(context)
                                       .bodyMedium
@@ -398,18 +461,15 @@ class _AddGameCommercantPageWidgetState
                                                   .bodyMedium
                                                   .fontStyle,
                                         ),
-                                        color:
-                                            FlutterFlowTheme.of(context)
-                                                .fieldText,
+                                        color: FlutterFlowTheme.of(context)
+                                            .fieldText,
                                         letterSpacing: 0.0,
-                                        fontWeight:
-                                            FlutterFlowTheme.of(context)
-                                                .bodyMedium
-                                                .fontWeight,
-                                        fontStyle:
-                                            FlutterFlowTheme.of(context)
-                                                .bodyMedium
-                                                .fontStyle,
+                                        fontWeight: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .fontWeight,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .fontStyle,
                                       ),
                                   maxLines: 5,
                                   validator: _model.textController2Validator
@@ -428,12 +488,14 @@ class _AddGameCommercantPageWidgetState
                                       .labelMedium
                                       .override(
                                         font: GoogleFonts.inter(
-                                          fontWeight: FlutterFlowTheme.of(context)
-                                              .labelMedium
-                                              .fontWeight,
-                                          fontStyle: FlutterFlowTheme.of(context)
-                                              .labelMedium
-                                              .fontStyle,
+                                          fontWeight:
+                                              FlutterFlowTheme.of(context)
+                                                  .labelMedium
+                                                  .fontWeight,
+                                          fontStyle:
+                                              FlutterFlowTheme.of(context)
+                                                  .labelMedium
+                                                  .fontStyle,
                                         ),
                                         color: FlutterFlowTheme.of(context)
                                             .fieldText,
@@ -446,7 +508,7 @@ class _AddGameCommercantPageWidgetState
                                             .fontStyle,
                                       ),
                                   enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
+                                    borderSide: const BorderSide(
                                       color: Color(0x00000000),
                                       width: 2.0,
                                     ),
@@ -454,7 +516,8 @@ class _AddGameCommercantPageWidgetState
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).primary,
+                                      color:
+                                          FlutterFlowTheme.of(context).primary,
                                       width: 2.0,
                                     ),
                                     borderRadius: BorderRadius.circular(12.0),
@@ -474,8 +537,9 @@ class _AddGameCommercantPageWidgetState
                                     borderRadius: BorderRadius.circular(12.0),
                                   ),
                                   filled: true,
-                                  fillColor: FlutterFlowTheme.of(context).fieldBg,
-                                  contentPadding: EdgeInsets.all(24.0),
+                                  fillColor:
+                                      FlutterFlowTheme.of(context).fieldBg,
+                                  contentPadding: const EdgeInsets.all(24.0),
                                   suffixIcon: Icon(
                                     Icons.euro,
                                     color: FlutterFlowTheme.of(context).primary,
@@ -493,7 +557,8 @@ class _AddGameCommercantPageWidgetState
                                             .bodyMedium
                                             .fontStyle,
                                       ),
-                                      color: FlutterFlowTheme.of(context).fieldText,
+                                      color: FlutterFlowTheme.of(context)
+                                          .fieldText,
                                       letterSpacing: 0.0,
                                       fontWeight: FlutterFlowTheme.of(context)
                                           .bodyMedium
@@ -502,11 +567,18 @@ class _AddGameCommercantPageWidgetState
                                           .bodyMedium
                                           .fontStyle,
                                     ),
-                                keyboardType: TextInputType.number,
+                                keyboardType: const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9,\.]'),
+                                  ),
+                                ],
                                 validator: _model.textController3Validator
                                     .asValidator(context),
                               ),
-                          ].divide(SizedBox(height: 10.0)),
+                          ].divide(const SizedBox(height: 10.0)),
                         ),
                       ),
                     ),
@@ -517,7 +589,7 @@ class _AddGameCommercantPageWidgetState
                         borderRadius: BorderRadius.circular(20.0),
                       ),
                       child: Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
                             16.0, 16.0, 16.0, 16.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
@@ -548,6 +620,95 @@ class _AddGameCommercantPageWidgetState
                               thickness: 2.0,
                               color: FlutterFlowTheme.of(context).alternate,
                             ),
+                            if (!_model.mainPrizeEnabled)
+                              TextFormField(
+                                controller: _model.textController4,
+                                focusNode: _model.textFieldFocusNode4,
+                                autofocus: false,
+                                obscureText: false,
+                                decoration: InputDecoration(
+                                  labelText: 'Titre du jeu',
+                                  labelStyle: FlutterFlowTheme.of(context)
+                                      .labelMedium
+                                      .override(
+                                        font: GoogleFonts.inter(
+                                          fontWeight:
+                                              FlutterFlowTheme.of(context)
+                                                  .labelMedium
+                                                  .fontWeight,
+                                          fontStyle:
+                                              FlutterFlowTheme.of(context)
+                                                  .labelMedium
+                                                  .fontStyle,
+                                        ),
+                                        color: FlutterFlowTheme.of(context)
+                                            .fieldText,
+                                        letterSpacing: 0.0,
+                                        fontWeight: FlutterFlowTheme.of(context)
+                                            .labelMedium
+                                            .fontWeight,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .labelMedium
+                                            .fontStyle,
+                                      ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderSide: const BorderSide(
+                                      color: Color(0x00000000),
+                                      width: 2.0,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12.0),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color:
+                                          FlutterFlowTheme.of(context).primary,
+                                      width: 2.0,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12.0),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: FlutterFlowTheme.of(context).error,
+                                      width: 2.0,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12.0),
+                                  ),
+                                  focusedErrorBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: FlutterFlowTheme.of(context).error,
+                                      width: 2.0,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12.0),
+                                  ),
+                                  filled: true,
+                                  fillColor:
+                                      FlutterFlowTheme.of(context).fieldBg,
+                                  contentPadding: const EdgeInsets.all(24.0),
+                                ),
+                                style: FlutterFlowTheme.of(context)
+                                    .bodyMedium
+                                    .override(
+                                      font: GoogleFonts.inter(
+                                        fontWeight: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .fontWeight,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .fontStyle,
+                                      ),
+                                      color: FlutterFlowTheme.of(context)
+                                          .fieldText,
+                                      letterSpacing: 0.0,
+                                      fontWeight: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontStyle,
+                                    ),
+                                validator: _model.textController4Validator
+                                    .asValidator(context),
+                              ),
                             Column(
                               children: [
                                 ...List.generate(
@@ -555,7 +716,8 @@ class _AddGameCommercantPageWidgetState
                                   (index) {
                                     final entry = _model.secondaryPrizes[index];
                                     return Padding(
-                                      padding: const EdgeInsets.only(bottom: 12),
+                                      padding:
+                                          const EdgeInsets.only(bottom: 12),
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
@@ -569,7 +731,8 @@ class _AddGameCommercantPageWidgetState
                                                         .titleSmall,
                                               ),
                                               const Spacer(),
-                                              if (_model.secondaryPrizes.length >
+                                              if (_model
+                                                      .secondaryPrizes.length >
                                                   1)
                                                 IconButton(
                                                   icon: const Icon(Icons.close),
@@ -589,40 +752,39 @@ class _AddGameCommercantPageWidgetState
                                             decoration: InputDecoration(
                                               labelText:
                                                   'Nom du lot secondaire (goodies, promo,...)',
-                                              labelStyle: FlutterFlowTheme.of(
-                                                      context)
-                                                  .labelMedium
-                                                  .override(
-                                                    font: GoogleFonts.inter(
-                                                      fontWeight:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .labelMedium
-                                                              .fontWeight,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .labelMedium
-                                                              .fontStyle,
-                                                    ),
-                                                    color:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .fieldText,
-                                                    letterSpacing: 0.0,
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .labelMedium
-                                                            .fontWeight,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .labelMedium
-                                                            .fontStyle,
-                                                  ),
-                                              enabledBorder:
-                                                  OutlineInputBorder(
+                                              labelStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .labelMedium
+                                                      .override(
+                                                        font: GoogleFonts.inter(
+                                                          fontWeight:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .labelMedium
+                                                                  .fontWeight,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .labelMedium
+                                                                  .fontStyle,
+                                                        ),
+                                                        color:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .fieldText,
+                                                        letterSpacing: 0.0,
+                                                        fontWeight:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .labelMedium
+                                                                .fontWeight,
+                                                        fontStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .labelMedium
+                                                                .fontStyle,
+                                                      ),
+                                              enabledBorder: OutlineInputBorder(
                                                 borderSide: const BorderSide(
                                                   color: Color(0x00000000),
                                                   width: 2.0,
@@ -630,8 +792,7 @@ class _AddGameCommercantPageWidgetState
                                                 borderRadius:
                                                     BorderRadius.circular(12.0),
                                               ),
-                                              focusedBorder:
-                                                  OutlineInputBorder(
+                                              focusedBorder: OutlineInputBorder(
                                                 borderSide: BorderSide(
                                                   color: FlutterFlowTheme.of(
                                                           context)
@@ -684,10 +845,9 @@ class _AddGameCommercantPageWidgetState
                                                             .bodyMedium
                                                             .fontStyle,
                                                   ),
-                                                  color:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .fieldText,
+                                                  color: FlutterFlowTheme.of(
+                                                          context)
+                                                      .fieldText,
                                                   letterSpacing: 0.0,
                                                   fontWeight:
                                                       FlutterFlowTheme.of(
@@ -710,40 +870,39 @@ class _AddGameCommercantPageWidgetState
                                             decoration: InputDecoration(
                                               labelText:
                                                   'Présentation du lot secondaire',
-                                              labelStyle: FlutterFlowTheme.of(
-                                                      context)
-                                                  .labelMedium
-                                                  .override(
-                                                    font: GoogleFonts.inter(
-                                                      fontWeight:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .labelMedium
-                                                              .fontWeight,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .labelMedium
-                                                              .fontStyle,
-                                                    ),
-                                                    color:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .fieldText,
-                                                    letterSpacing: 0.0,
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .labelMedium
-                                                            .fontWeight,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .labelMedium
-                                                            .fontStyle,
-                                                  ),
-                                              enabledBorder:
-                                                  OutlineInputBorder(
+                                              labelStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .labelMedium
+                                                      .override(
+                                                        font: GoogleFonts.inter(
+                                                          fontWeight:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .labelMedium
+                                                                  .fontWeight,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .labelMedium
+                                                                  .fontStyle,
+                                                        ),
+                                                        color:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .fieldText,
+                                                        letterSpacing: 0.0,
+                                                        fontWeight:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .labelMedium
+                                                                .fontWeight,
+                                                        fontStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .labelMedium
+                                                                .fontStyle,
+                                                      ),
+                                              enabledBorder: OutlineInputBorder(
                                                 borderSide: const BorderSide(
                                                   color: Color(0x00000000),
                                                   width: 2.0,
@@ -751,8 +910,7 @@ class _AddGameCommercantPageWidgetState
                                                 borderRadius:
                                                     BorderRadius.circular(12.0),
                                               ),
-                                              focusedBorder:
-                                                  OutlineInputBorder(
+                                              focusedBorder: OutlineInputBorder(
                                                 borderSide: BorderSide(
                                                   color: FlutterFlowTheme.of(
                                                           context)
@@ -805,10 +963,9 @@ class _AddGameCommercantPageWidgetState
                                                             .bodyMedium
                                                             .fontStyle,
                                                   ),
-                                                  color:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .fieldText,
+                                                  color: FlutterFlowTheme.of(
+                                                          context)
+                                                      .fieldText,
                                                   letterSpacing: 0.0,
                                                   fontWeight:
                                                       FlutterFlowTheme.of(
@@ -831,40 +988,39 @@ class _AddGameCommercantPageWidgetState
                                             decoration: InputDecoration(
                                               labelText:
                                                   'Nombre de lots secondaires',
-                                              labelStyle: FlutterFlowTheme.of(
-                                                      context)
-                                                  .labelMedium
-                                                  .override(
-                                                    font: GoogleFonts.inter(
-                                                      fontWeight:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .labelMedium
-                                                              .fontWeight,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .labelMedium
-                                                              .fontStyle,
-                                                    ),
-                                                    color:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .fieldText,
-                                                    letterSpacing: 0.0,
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .labelMedium
-                                                            .fontWeight,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .labelMedium
-                                                            .fontStyle,
-                                                  ),
-                                              enabledBorder:
-                                                  OutlineInputBorder(
+                                              labelStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .labelMedium
+                                                      .override(
+                                                        font: GoogleFonts.inter(
+                                                          fontWeight:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .labelMedium
+                                                                  .fontWeight,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .labelMedium
+                                                                  .fontStyle,
+                                                        ),
+                                                        color:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .fieldText,
+                                                        letterSpacing: 0.0,
+                                                        fontWeight:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .labelMedium
+                                                                .fontWeight,
+                                                        fontStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .labelMedium
+                                                                .fontStyle,
+                                                      ),
+                                              enabledBorder: OutlineInputBorder(
                                                 borderSide: const BorderSide(
                                                   color: Color(0x00000000),
                                                   width: 2.0,
@@ -872,8 +1028,7 @@ class _AddGameCommercantPageWidgetState
                                                 borderRadius:
                                                     BorderRadius.circular(12.0),
                                               ),
-                                              focusedBorder:
-                                                  OutlineInputBorder(
+                                              focusedBorder: OutlineInputBorder(
                                                 borderSide: BorderSide(
                                                   color: FlutterFlowTheme.of(
                                                           context)
@@ -926,10 +1081,9 @@ class _AddGameCommercantPageWidgetState
                                                             .bodyMedium
                                                             .fontStyle,
                                                   ),
-                                                  color:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .fieldText,
+                                                  color: FlutterFlowTheme.of(
+                                                          context)
+                                                      .fieldText,
                                                   letterSpacing: 0.0,
                                                   fontWeight:
                                                       FlutterFlowTheme.of(
@@ -959,12 +1113,13 @@ class _AddGameCommercantPageWidgetState
                                       });
                                     },
                                     icon: const Icon(Icons.add),
-                                    label: const Text('Ajouter un lot secondaire'),
+                                    label:
+                                        const Text('Ajouter un lot secondaire'),
                                   ),
                                 ),
                               ],
                             ),
-                          ].divide(SizedBox(height: 16.0)),
+                          ].divide(const SizedBox(height: 16.0)),
                         ),
                       ),
                     ),
@@ -975,7 +1130,7 @@ class _AddGameCommercantPageWidgetState
                         borderRadius: BorderRadius.circular(20.0),
                       ),
                       child: Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
                             16.0, 16.0, 16.0, 16.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
@@ -1014,6 +1169,7 @@ class _AddGameCommercantPageWidgetState
                                   mediaSource: MediaSource.photoGallery,
                                   multiImage: false,
                                 );
+                                if (!context.mounted) return;
                                 if (selectedMedia != null &&
                                     selectedMedia.every((m) =>
                                         validateFileFormat(
@@ -1069,25 +1225,39 @@ class _AddGameCommercantPageWidgetState
                                 decoration: BoxDecoration(
                                   color: FlutterFlowTheme.of(context)
                                       .primaryBackground,
-                                  image: DecorationImage(
-                                    fit: BoxFit.cover,
-                                    image: Image.memory(
-                                      _model.uploadedLocalFile_uploadGameData5ir
-                                              .bytes ??
-                                          Uint8List.fromList([]),
-                                    ).image,
-                                  ),
+                                  image: (_model.uploadedLocalFile_uploadGameData5ir
+                                                  .bytes?.isNotEmpty ??
+                                              false) ||
+                                          _model.uploadedFileUrl_uploadDataNyu
+                                              .isNotEmpty
+                                      ? DecorationImage(
+                                          fit: BoxFit.cover,
+                                          image: (_model
+                                                      .uploadedLocalFile_uploadGameData5ir
+                                                      .bytes
+                                                      ?.isNotEmpty ??
+                                                  false)
+                                              ? Image.memory(
+                                                  _model
+                                                          .uploadedLocalFile_uploadGameData5ir
+                                                          .bytes ??
+                                                      Uint8List.fromList([]),
+                                                ).image
+                                              : NetworkImage(_model
+                                                  .uploadedFileUrl_uploadDataNyu),
+                                        )
+                                      : null,
                                   borderRadius: BorderRadius.circular(8.0),
                                 ),
                                 child: Builder(
                                   builder: (context) {
-                                    if (_model.uploadedLocalFile_uploadGameData5ir ==
-                                            null ||
-                                        (_model.uploadedLocalFile_uploadGameData5ir
-                                                .bytes?.isEmpty ??
-                                            true)) {
+                                    if ((_model.uploadedLocalFile_uploadGameData5ir
+                                            .bytes?.isEmpty ??
+                                        true) &&
+                                        _model.uploadedFileUrl_uploadDataNyu
+                                            .isEmpty) {
                                       return Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                        padding: const EdgeInsetsDirectional.fromSTEB(
                                             16.0, 16.0, 16.0, 16.0),
                                         child: Column(
                                           mainAxisSize: MainAxisSize.max,
@@ -1134,21 +1304,21 @@ class _AddGameCommercantPageWidgetState
                                                                 .fontStyle,
                                                       ),
                                             ),
-                                          ].divide(SizedBox(height: 8.0)),
+                                          ].divide(const SizedBox(height: 8.0)),
                                         ),
                                       );
                                     } else {
                                       return Container(
                                         width: 100.0,
                                         height: 100.0,
-                                        decoration: BoxDecoration(),
+                                        decoration: const BoxDecoration(),
                                       );
                                     }
                                   },
                                 ),
                               ),
                             ),
-                          ].divide(SizedBox(height: 10.0)),
+                          ].divide(const SizedBox(height: 10.0)),
                         ),
                       ),
                     ),
@@ -1159,7 +1329,7 @@ class _AddGameCommercantPageWidgetState
                         borderRadius: BorderRadius.circular(20.0),
                       ),
                       child: Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
                             16.0, 16.0, 16.0, 16.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
@@ -1193,7 +1363,7 @@ class _AddGameCommercantPageWidgetState
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
                               child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     10.0, 0.0, 10.0, 0.0),
                                 child: InkWell(
                                   splashColor: Colors.transparent,
@@ -1204,7 +1374,7 @@ class _AddGameCommercantPageWidgetState
                                     final initialDate =
                                         _model.startDatePicked ??
                                             getCurrentTimestamp;
-                                    final _datePickedDate =
+                                    final datePickedDate =
                                         await showDatePicker(
                                       context: context,
                                       initialDate: initialDate,
@@ -1258,12 +1428,12 @@ class _AddGameCommercantPageWidgetState
                                       },
                                     );
 
-                                    if (_datePickedDate != null) {
+                                    if (datePickedDate != null) {
                                       safeSetState(() {
                                         _model.startDatePicked = DateTime(
-                                          _datePickedDate.year,
-                                          _datePickedDate.month,
-                                          _datePickedDate.day,
+                                          datePickedDate.year,
+                                          datePickedDate.month,
+                                          datePickedDate.day,
                                         );
                                       });
                                     }
@@ -1349,7 +1519,7 @@ class _AddGameCommercantPageWidgetState
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
                               child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     10.0, 0.0, 10.0, 0.0),
                                 child: InkWell(
                                   splashColor: Colors.transparent,
@@ -1357,14 +1527,12 @@ class _AddGameCommercantPageWidgetState
                                   hoverColor: Colors.transparent,
                                   highlightColor: Colors.transparent,
                                   onTap: () async {
-                                    final initialDate =
-                                        _model.datePicked ??
-                                            _model.startDatePicked ??
-                                            getCurrentTimestamp;
-                                    final firstDate =
+                                    final initialDate = _model.datePicked ??
                                         _model.startDatePicked ??
-                                            getCurrentTimestamp;
-                                    final _datePickedDate =
+                                        getCurrentTimestamp;
+                                    final firstDate = _model.startDatePicked ??
+                                        getCurrentTimestamp;
+                                    final datePickedDate =
                                         await showDatePicker(
                                       context: context,
                                       initialDate: initialDate,
@@ -1418,12 +1586,12 @@ class _AddGameCommercantPageWidgetState
                                       },
                                     );
 
-                                    if (_datePickedDate != null) {
+                                    if (datePickedDate != null) {
                                       safeSetState(() {
                                         _model.datePicked = DateTime(
-                                          _datePickedDate.year,
-                                          _datePickedDate.month,
-                                          _datePickedDate.day,
+                                          datePickedDate.year,
+                                          datePickedDate.month,
+                                          datePickedDate.day,
                                         );
                                       });
                                     } else if (_model.datePicked != null) {
@@ -1502,7 +1670,7 @@ class _AddGameCommercantPageWidgetState
                                 ),
                               ),
                             ),
-                          ].divide(SizedBox(height: 16.0)),
+                          ].divide(const SizedBox(height: 16.0)),
                         ),
                       ),
                     ),
@@ -1513,13 +1681,13 @@ class _AddGameCommercantPageWidgetState
                         borderRadius: BorderRadius.circular(20.0),
                       ),
                       child: Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
                             16.0, 16.0, 16.0, 16.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
                           children: [
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   10.0, 0.0, 10.0, 0.0),
                               child: Text(
                                 'Restrictions',
@@ -1545,7 +1713,7 @@ class _AddGameCommercantPageWidgetState
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   10.0, 0.0, 10.0, 0.0),
                               child: Row(
                                 mainAxisSize: MainAxisSize.max,
@@ -1570,7 +1738,7 @@ class _AddGameCommercantPageWidgetState
                                                         .bodyMedium
                                                         .fontStyle,
                                               ),
-                                              color: Color(0xFF605F83),
+                                              color: const Color(0xFF605F83),
                                               letterSpacing: 0.0,
                                               fontWeight:
                                                   FlutterFlowTheme.of(context)
@@ -1614,20 +1782,20 @@ class _AddGameCommercantPageWidgetState
                                     value: _model.switchValue!,
                                     onChanged: (newValue) async {
                                       safeSetState(
-                                          () => _model.switchValue = newValue!);
+                                          () => _model.switchValue = newValue);
                                     },
-                                    activeColor:
+                                    activeThumbColor:
                                         FlutterFlowTheme.of(context).primary,
-                                    activeTrackColor: Color(0xFFC4C4C4),
+                                    activeTrackColor: const Color(0xFFC4C4C4),
                                     inactiveTrackColor:
                                         FlutterFlowTheme.of(context)
                                             .secondaryText,
-                                    inactiveThumbColor: Color(0xFF8C82E7),
+                                    inactiveThumbColor: const Color(0xFF8C82E7),
                                   ),
-                                ].divide(SizedBox(width: 10.0)),
+                                ].divide(const SizedBox(width: 10.0)),
                               ),
                             ),
-                          ].divide(SizedBox(height: 16.0)),
+                          ].divide(const SizedBox(height: 16.0)),
                         ),
                       ),
                     ),
@@ -1638,25 +1806,23 @@ class _AddGameCommercantPageWidgetState
                               !_model.formKey.currentState!.validate()) {
                             return;
                           }
-                          if (_model.uploadedLocalFile_uploadGameData5ir ==
-                                  null ||
-                              (_model.uploadedLocalFile_uploadGameData5ir
-                                          .bytes ??
-                                      [])
-                                  .isEmpty) {
+                          if ((_model.uploadedLocalFile_uploadGameData5ir
+                                      .bytes?.isEmpty ??
+                                  true) &&
+                              _model.uploadedFileUrl_uploadDataNyu.isEmpty) {
                             await showDialog(
                               context: context,
                               builder: (alertDialogContext) {
                                 return WebViewAware(
                                   child: AlertDialog(
-                                    title: Text('Image manquante'),
-                                    content: Text(
+                                    title: const Text('Image manquante'),
+                                    content: const Text(
                                         'Une image est nécessaire pour ajouter un jeu'),
                                     actions: [
                                       TextButton(
                                         onPressed: () =>
                                             Navigator.pop(alertDialogContext),
-                                        child: Text('Ok'),
+                                        child: const Text('Ok'),
                                       ),
                                     ],
                                   ),
@@ -1668,8 +1834,7 @@ class _AddGameCommercantPageWidgetState
                           if (_model.datePicked == null) {
                             return;
                           }
-                          if (widget!.enseigneRef?.id != null &&
-                              widget!.enseigneRef?.id != '') {
+                          if (widget.enseigneRef != null) {
                             await showDialog(
                               context: context,
                               builder: (dialogContext) {
@@ -1677,7 +1842,7 @@ class _AddGameCommercantPageWidgetState
                                   elevation: 0,
                                   insetPadding: EdgeInsets.zero,
                                   backgroundColor: Colors.transparent,
-                                  alignment: AlignmentDirectional(0.0, 0.0)
+                                  alignment: const AlignmentDirectional(0.0, 0.0)
                                       .resolve(Directionality.of(context)),
                                   child: WebViewAware(
                                     child: GestureDetector(
@@ -1694,11 +1859,12 @@ class _AddGameCommercantPageWidgetState
                                                   .validate()) {
                                             return;
                                           }
-                                          if (_model.uploadedLocalFile_uploadGameData5ir ==
-                                                  null ||
-                                              (_model.uploadedLocalFile_uploadGameData5ir
-                                                          .bytes ??
-                                                      [])
+                                          if ((_model
+                                                      .uploadedLocalFile_uploadGameData5ir
+                                                      .bytes
+                                                      ?.isEmpty ??
+                                                  true) &&
+                                              _model.uploadedFileUrl_uploadDataNyu
                                                   .isEmpty) {
                                             await showDialog(
                                               context: context,
@@ -1706,15 +1872,15 @@ class _AddGameCommercantPageWidgetState
                                                 return WebViewAware(
                                                   child: AlertDialog(
                                                     title:
-                                                        Text('Image manquante'),
-                                                    content: Text(
+                                                        const Text('Image manquante'),
+                                                    content: const Text(
                                                         'Une image est nécessaire pour ajouter un jeu'),
                                                     actions: [
                                                       TextButton(
                                                         onPressed: () =>
                                                             Navigator.pop(
                                                                 alertDialogContext),
-                                                        child: Text('Ok'),
+                                                        child: const Text('Ok'),
                                                       ),
                                                     ],
                                                   ),
@@ -1735,7 +1901,8 @@ class _AddGameCommercantPageWidgetState
                                               secondaryPrizes.fold<int>(
                                             0,
                                             (sum, item) =>
-                                                sum + (item['count'] as int? ?? 0),
+                                                sum +
+                                                (item['count'] as int? ?? 0),
                                           );
                                           final secondaryPrizeSummary =
                                               secondaryPrizes.isNotEmpty
@@ -1743,25 +1910,37 @@ class _AddGameCommercantPageWidgetState
                                                       .map((e) =>
                                                           (e['name'] ?? '')
                                                               .toString())
-                                                      .where((e) => e.isNotEmpty)
+                                                      .where(
+                                                          (e) => e.isNotEmpty)
                                                       .join(', ')
                                                   : null;
-                                          final mainPrizeName =
-                                              _model.textController1.text.trim();
-                                          final mainPrizeDescription =
-                                              _model.textController2.text.trim();
-                                          final mainPrizeValueText =
-                                              _model.textController3.text.trim();
+                                          final mainPrizeName = _model
+                                              .textController1.text
+                                              .trim();
+                                          final mainPrizeDescription = _model
+                                              .textController2.text
+                                              .trim();
+                                          final manualGameTitle = _model
+                                              .textController4.text
+                                              .trim();
+                                          final mainPrizeValueText = _model
+                                              .textController3.text
+                                              .trim();
+                                          final gameName =
+                                              mainPrizeName.isNotEmpty
+                                                  ? mainPrizeName
+                                                  : manualGameTitle;
                                           final mainPrizeValue =
                                               mainPrizeValueText.isNotEmpty
-                                                  ? int.tryParse(mainPrizeValueText)
+                                                  ? _parsePriceValue(
+                                                      mainPrizeValueText)
                                                   : null;
                                           final startDate =
                                               _model.startDatePicked ??
                                                   getCurrentTimestamp;
                                           if (_model.datePicked != null &&
-                                              startDate
-                                                  .isAfter(_model.datePicked!)) {
+                                              startDate.isAfter(
+                                                  _model.datePicked!)) {
                                             ScaffoldMessenger.of(context)
                                                 .showSnackBar(
                                               const SnackBar(
@@ -1773,7 +1952,8 @@ class _AddGameCommercantPageWidgetState
                                           }
                                           if (_model.mainPrizeEnabled &&
                                               (mainPrizeName.isEmpty ||
-                                                  mainPrizeDescription.isEmpty)) {
+                                                  mainPrizeDescription
+                                                      .isEmpty)) {
                                             ScaffoldMessenger.of(context)
                                                 .showSnackBar(
                                               const SnackBar(
@@ -1783,13 +1963,24 @@ class _AddGameCommercantPageWidgetState
                                             );
                                             return;
                                           }
-                                          final hasAnyPrize =
-                                              (_model.mainPrizeEnabled &&
+                                          if (gameName.isEmpty) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                    'Le nom du jeu est requis.'),
+                                              ),
+                                            );
+                                            return;
+                                          }
+                                          final hasAnyPrize = (_model
+                                                      .mainPrizeEnabled &&
                                                   (mainPrizeName.isNotEmpty ||
                                                       mainPrizeDescription
                                                           .isNotEmpty ||
-                                                      mainPrizeValue != null)) ||
-                                                  secondaryPrizes.isNotEmpty;
+                                                      mainPrizeValue !=
+                                                          null)) ||
+                                              secondaryPrizes.isNotEmpty;
                                           if (!hasAnyPrize) {
                                             ScaffoldMessenger.of(context)
                                                 .showSnackBar(
@@ -1800,7 +1991,11 @@ class _AddGameCommercantPageWidgetState
                                             );
                                             return;
                                           }
-                                          {
+                                          if (_model
+                                                  .uploadedLocalFile_uploadGameData5ir
+                                                  .bytes
+                                                  ?.isNotEmpty ??
+                                              false) {
                                             safeSetState(() => _model
                                                     .isDataUploading_uploadDataNyu =
                                                 true);
@@ -1850,10 +2045,14 @@ class _AddGameCommercantPageWidgetState
                                               safeSetState(() {});
                                               return;
                                             }
+                                          } else if (_model
+                                              .uploadedFileUrl_uploadDataNyu
+                                              .isEmpty) {
+                                            return;
                                           }
 
                                           _model.endDateTransformCopy =
-                                              await actions.setEndOfDay(
+                                              actions.setEndOfDay(
                                             _model.datePicked!,
                                           );
 
@@ -1861,16 +2060,14 @@ class _AddGameCommercantPageWidgetState
                                               GamesRecord.collection.doc();
                                           await gamesRecordReference.set({
                                             ...createGamesRecordData(
-                                              name: mainPrizeName.isNotEmpty
-                                                  ? mainPrizeName
+                                              name: gameName,
+                                              description: mainPrizeDescription
+                                                      .isNotEmpty
+                                                  ? mainPrizeDescription
                                                   : null,
-                                              description:
-                                                  mainPrizeDescription.isNotEmpty
-                                                      ? mainPrizeDescription
-                                                      : null,
                                               endDate:
                                                   _model.endDateTransformCopy,
-                                              enseigneId: widget!.enseigneRef,
+                                              enseigneId: widget.enseigneRef,
                                               createBy: currentUserReference,
                                               visiblePublic: true,
                                               prizeValue: mainPrizeValue,
@@ -1888,28 +2085,28 @@ class _AddGameCommercantPageWidgetState
                                               hasWinner: false,
                                               mainPrizeWinner: null,
                                               startDate: startDate,
-                                              enseigneName: widget!.enseigne,
+                                              enseigneName: widget.enseigne,
                                             ),
                                             ...mapToFirestore(
                                               {
                                                 'created_time': FieldValue
                                                     .serverTimestamp(),
+                                                'uniquePlayersEnabled': true,
+                                                'unique_players_count': 0,
                                               },
                                             ),
                                           });
                                           _model.gameResult =
                                               GamesRecord.getDocumentFromData({
                                             ...createGamesRecordData(
-                                              name: mainPrizeName.isNotEmpty
-                                                  ? mainPrizeName
+                                              name: gameName,
+                                              description: mainPrizeDescription
+                                                      .isNotEmpty
+                                                  ? mainPrizeDescription
                                                   : null,
-                                              description:
-                                                  mainPrizeDescription.isNotEmpty
-                                                      ? mainPrizeDescription
-                                                      : null,
                                               endDate:
                                                   _model.endDateTransformCopy,
-                                              enseigneId: widget!.enseigneRef,
+                                              enseigneId: widget.enseigneRef,
                                               createBy: currentUserReference,
                                               visiblePublic: true,
                                               prizeValue: mainPrizeValue,
@@ -1927,16 +2124,19 @@ class _AddGameCommercantPageWidgetState
                                               hasWinner: false,
                                               mainPrizeWinner: null,
                                               startDate: startDate,
-                                              enseigneName: widget!.enseigne,
+                                              enseigneName: widget.enseigne,
                                             ),
                                             ...mapToFirestore(
                                               {
                                                 'created_time': DateTime.now(),
+                                                'uniquePlayersEnabled': true,
+                                                'unique_players_count': 0,
                                               },
                                             ),
                                           }, gamesRecordReference);
                                           if (totalSecondaryCount > 0) {
-                                            await actions.addInstantWinnersToGame(
+                                            await actions
+                                                .addInstantWinnersToGame(
                                               _model.gameResult!.reference,
                                               _model.gameResult!.startDate!,
                                               _model.endDateTransformCopy!,
@@ -1952,12 +2152,13 @@ class _AddGameCommercantPageWidgetState
                                                         Uint8List.fromList([]),
                                                     originalFilename: '');
                                           });
+                                          if (!context.mounted) return;
 
                                           context.goNamed(
                                             JeuxCommercantPageWidget.routeName,
                                             extra: <String, dynamic>{
                                               kTransitionInfoKey:
-                                                  TransitionInfo(
+                                                  const TransitionInfo(
                                                 hasTransition: true,
                                                 transitionType:
                                                     PageTransitionType.fade,
@@ -1979,13 +2180,13 @@ class _AddGameCommercantPageWidgetState
                               builder: (alertDialogContext) {
                                 return WebViewAware(
                                   child: AlertDialog(
-                                    title: Text('Erreur'),
-                                    content: Text('Veuillez recommencer'),
+                                    title: const Text('Erreur'),
+                                    content: const Text('Veuillez recommencer'),
                                     actions: [
                                       TextButton(
                                         onPressed: () =>
                                             Navigator.pop(alertDialogContext),
-                                        child: Text('Ok'),
+                                        child: const Text('Ok'),
                                       ),
                                     ],
                                   ),
@@ -2000,9 +2201,9 @@ class _AddGameCommercantPageWidgetState
                         options: FFButtonOptions(
                           width: double.infinity,
                           height: 50.0,
-                          padding: EdgeInsetsDirectional.fromSTEB(
+                          padding: const EdgeInsetsDirectional.fromSTEB(
                               0.0, 0.0, 0.0, 0.0),
-                          iconPadding: EdgeInsetsDirectional.fromSTEB(
+                          iconPadding: const EdgeInsetsDirectional.fromSTEB(
                               0.0, 0.0, 0.0, 0.0),
                           color: FlutterFlowTheme.of(context).primary,
                           textStyle:
@@ -2029,7 +2230,7 @@ class _AddGameCommercantPageWidgetState
                         ),
                       ),
                     ),
-                  ].divide(SizedBox(height: 10.0)),
+                  ].divide(const SizedBox(height: 10.0)),
                 ),
               ),
             ),

@@ -10,6 +10,7 @@
     "axios": "1.12.0",
     "razorpay": "^2.8.4",
     "qs": "^6.7.0",
+    "nodemailer": "^6.10.1",
     "@onesignal/node-onesignal": "^2.0.1-beta2",
     "@langchain/core": "^0.3.19",
     "@langchain/langgraph": "^0.2.23",
@@ -18,8 +19,10 @@
     "@langchain/anthropic": "^0.1.1"
   },
   "devDependencies": {
+    "@types/node": "^20.17.57",
     "eslint": "^6.8.0",
-    "eslint-plugin-promise": "^4.2.1"
+    "eslint-plugin-promise": "^4.2.1",
+    "typescript": "^5.7.3"
   },
   "scripts": {
     "lint": "./node_modules/.bin/eslint --max-warnings=0 .",
@@ -27,7 +30,7 @@
     "shell": "firebase -P proxi-play-odzp2e functions:shell",
     "start": "npm run shell",
     "logs": "firebase -P proxi-play-odzp2e functions:log",
-    "compile": "cp ../../tsconfig.template.json ./tsconfig-compile.json && tsc --project tsconfig-compile.json"
+    "compile": "tsc --project tsconfig.json"
   },
   "engines": {
     "node": "20"

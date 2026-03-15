@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -37,9 +36,18 @@ class AddGameCommercantPageModel
   String? Function(BuildContext, String?)? textController3Validator;
   String? _textController3Validator(BuildContext context, String? val) {
     if (val == null || val.isEmpty) return null;
-    if (!RegExp('^\\d+\$').hasMatch(val)) {
+    final normalized = val.replaceAll(',', '.').trim();
+    if (!RegExp(r'^\d+([.]\d{1,2})?$').hasMatch(normalized)) {
       return 'Il faut un nombre';
     }
+    return null;
+  }
+
+  // State field(s) for game title TextField widget.
+  FocusNode? textFieldFocusNode4;
+  TextEditingController? textController4;
+  String? Function(BuildContext, String?)? textController4Validator;
+  String? _textController4Validator(BuildContext context, String? val) {
     return null;
   }
 
@@ -64,6 +72,7 @@ class AddGameCommercantPageModel
     textController1Validator = _textController1Validator;
     textController2Validator = _textController2Validator;
     textController3Validator = _textController3Validator;
+    textController4Validator = _textController4Validator;
     // Start with one empty secondary prize row for convenience.
     secondaryPrizes.add(SecondaryPrizeEntry());
     startDatePicked = getCurrentTimestamp;
@@ -79,6 +88,8 @@ class AddGameCommercantPageModel
 
     textFieldFocusNode3?.dispose();
     textController3?.dispose();
+    textFieldFocusNode4?.dispose();
+    textController4?.dispose();
     for (final entry in secondaryPrizes) {
       entry.dispose();
     }

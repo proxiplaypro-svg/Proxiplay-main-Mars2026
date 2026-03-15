@@ -3,9 +3,13 @@ const admin = require("firebase-admin");
 
 exports.deleteEnseigneAndGames = functions.https.onCall(
   async (data, context) => {
-    // Vérifier que le client est authentifié ou possède le droit nécessaire (optionnel)
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Vous devez etre connecte pour supprimer une enseigne.",
+      );
+    }
 
-    // Récupérer le chemin complet de l'enseigne envoyé par le client
     const enseignePath = data.enseignePath;
     if (!enseignePath) {
       throw new functions.https.HttpsError(
@@ -14,10 +18,10 @@ exports.deleteEnseigneAndGames = functions.https.onCall(
       );
     }
 
-    const enseigneRef = admin.firestore().doc(enseignePath);
-
-    // Vérifier que l’enseigne existe
+    const db = admin.firestore();
+    const enseigneRef = db.doc(enseignePath);
     const enseigneDoc = await enseigneRef.get();
+
     if (!enseigneDoc.exists) {
       throw new functions.https.HttpsError(
         "not-found",
@@ -25,16 +29,33 @@ exports.deleteEnseigneAndGames = functions.https.onCall(
       );
     }
 
-    // Récupérer les documents dans "games" dont le champ "enseigne_id" correspond à l'enseigne
-    const gamesQuerySnapshot = await admin
-      .firestore()
+    const callerUid = context.auth.uid;
+    const callerRef = db.collection("users").doc(callerUid);
+    const callerDoc = await callerRef.get();
+    const callerData = callerDoc.exists ? callerDoc.data() : {};
+    const isAdmin = callerData?.user_role === "admin";
+
+    const enseigneData = enseigneDoc.data() || {};
+    const ownerRef = enseigneData.owner;
+    const isOwner =
+      ownerRef &&
+      typeof ownerRef.path === "string" &&
+      ownerRef.path === callerRef.path;
+
+    if (!isAdmin && !isOwner) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Vous n'avez pas les droits pour supprimer cette enseigne.",
+      );
+    }
+
+    const gamesQuerySnapshot = await db
       .collection("games")
       .where("enseigne_id", "==", enseigneRef)
       .get();
 
     const gameDocs = gamesQuerySnapshot.docs;
 
-    // Fonction utilitaire : découper un tableau en sous-tableaux de taille chunkSize
     function chunkArray(arr, chunkSize = 500) {
       const chunks = [];
       for (let i = 0; i < arr.length; i += chunkSize) {
@@ -43,24 +64,21 @@ exports.deleteEnseigneAndGames = functions.https.onCall(
       return chunks;
     }
 
-    // Diviser le tableau en groupes de 500 opérations maximum
     const chunks = chunkArray(gameDocs, 500);
 
-    // Traitement de chaque batch
     for (const chunk of chunks) {
-      const batch = admin.firestore().batch();
+      const batch = db.batch();
       chunk.forEach((doc) => {
         batch.delete(doc.ref);
       });
       await batch.commit();
     }
 
-    // Supprimer l’enseigne une fois que tous les jeux ont été supprimés
     await enseigneRef.delete();
 
     return {
       message:
-        "L'enseigne et tous ses jeux associés ont été supprimés avec succès.",
+        "L'enseigne et tous ses jeux associes ont ete supprimes avec succes.",
     };
   },
 );

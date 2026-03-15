@@ -2,10 +2,8 @@ import '/auth/firebase_auth/auth_util.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '/app_state.dart';
 import 'waiting_validation_page_model.dart';
 export 'waiting_validation_page_model.dart';
 
@@ -55,7 +53,7 @@ class _WaitingValidationPageWidgetState
           key: scaffoldKey,
           backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
           body: Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(24.0, 0.0, 24.0, 0.0),
+            padding: const EdgeInsetsDirectional.fromSTEB(24.0, 0.0, 24.0, 0.0),
             child: Column(
               mainAxisSize: MainAxisSize.max,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -74,7 +72,7 @@ class _WaitingValidationPageWidgetState
                       borderRadius: BorderRadius.circular(16.0),
                     ),
                     child: Padding(
-                      padding: EdgeInsetsDirectional.fromSTEB(
+                      padding: const EdgeInsetsDirectional.fromSTEB(
                           24.0, 24.0, 24.0, 24.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
@@ -137,7 +135,7 @@ class _WaitingValidationPageWidgetState
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             height: 4.0,
                             decoration: BoxDecoration(
-                              color: Color(0xFFF5F5F5),
+                              color: const Color(0xFFF5F5F5),
                               borderRadius: BorderRadius.circular(2.0),
                             ),
                             child: Container(
@@ -186,9 +184,9 @@ class _WaitingValidationPageWidgetState
                             options: FFButtonOptions(
                               width: MediaQuery.sizeOf(context).width * 1.0,
                               height: 50.0,
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 0.0, 0.0, 0.0),
-                              iconPadding: EdgeInsetsDirectional.fromSTEB(
+                              iconPadding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 0.0, 0.0, 0.0),
                               color: FlutterFlowTheme.of(context).primary,
                               textStyle: FlutterFlowTheme.of(context)
@@ -215,7 +213,7 @@ class _WaitingValidationPageWidgetState
                               borderRadius: BorderRadius.circular(25.0),
                             ),
                           ),
-                        ].divide(SizedBox(height: 24.0)),
+                        ].divide(const SizedBox(height: 24.0)),
                       ),
                     ),
                   ),

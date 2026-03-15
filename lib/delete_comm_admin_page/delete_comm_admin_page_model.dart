@@ -1,18 +1,10 @@
 import '/backend/backend.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
-import '/backend/schema/structs/index.dart';
 import '/components/custom_nav_bar_admin_widget.dart';
-import '/components/list_empty_component_widget.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'delete_comm_admin_page_widget.dart' show DeleteCommAdminPageWidget;
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
-import 'package:provider/provider.dart';
 
 class DeleteCommAdminPageModel
     extends FlutterFlowModel<DeleteCommAdminPageWidget> {
@@ -38,7 +30,9 @@ class DeleteCommAdminPageModel
 
   @override
   void dispose() {
-    listViewStreamSubscriptions.forEach((s) => s?.cancel());
+    for (var s in listViewStreamSubscriptions) {
+      s?.cancel();
+    }
     listViewPagingController?.dispose();
 
     customNavBarAdminModel.dispose();

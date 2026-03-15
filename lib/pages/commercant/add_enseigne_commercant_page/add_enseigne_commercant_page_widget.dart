@@ -9,15 +9,12 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
 import '/flutter_flow/upload_data.dart';
-import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
-import 'package:provider/provider.dart';
 import 'add_enseigne_commercant_page_model.dart';
 export 'add_enseigne_commercant_page_model.dart';
 
@@ -142,14 +139,14 @@ class _AddEnseigneCommercantPageWidgetState
                           FlutterFlowTheme.of(context).headlineMedium.fontStyle,
                     ),
               ),
-              actions: [],
+              actions: const [],
               flexibleSpace: FlexibleSpaceBar(
                 background: ClipRRect(
                   borderRadius: BorderRadius.circular(8.0),
                   child: Image.asset(
                     'assets/images/Background.png',
                     fit: BoxFit.cover,
-                    alignment: Alignment(1.0, -1.0),
+                    alignment: const Alignment(1.0, -1.0),
                   ),
                 ),
               ),
@@ -171,12 +168,12 @@ class _AddEnseigneCommercantPageWidgetState
                     ),
                   ),
                   child: Container(
-                    decoration: BoxDecoration(),
+                    decoration: const BoxDecoration(),
                     child: Form(
                       key: _model.formKey,
                       autovalidateMode: AutovalidateMode.disabled,
                       child: Padding(
-                        padding: EdgeInsets.all(20.0),
+                        padding: const EdgeInsets.all(20.0),
                         child: SingleChildScrollView(
                           child: Column(
                             mainAxisSize: MainAxisSize.max,
@@ -189,7 +186,7 @@ class _AddEnseigneCommercantPageWidgetState
                                   borderRadius: BorderRadius.circular(16.0),
                                 ),
                                 child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
+                                  padding: const EdgeInsetsDirectional.fromSTEB(
                                       20.0, 20.0, 20.0, 20.0),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.max,
@@ -259,7 +256,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 2.0,
                                             ),
@@ -301,7 +298,7 @@ class _AddEnseigneCommercantPageWidgetState
                                           fillColor:
                                               FlutterFlowTheme.of(context)
                                                   .fieldBg,
-                                          contentPadding: EdgeInsets.all(24.0),
+                                          contentPadding: const EdgeInsets.all(24.0),
                                         ),
                                         style: FlutterFlowTheme.of(context)
                                             .bodyMedium
@@ -339,7 +336,7 @@ class _AddEnseigneCommercantPageWidgetState
                                         focusNode: _model
                                             .textFieldDescriptionFocusNode,
                                         autofocus: false,
-                                        autofillHints: [AutofillHints.email],
+                                        autofillHints: const [AutofillHints.email],
                                         obscureText: false,
                                         decoration: InputDecoration(
                                           labelText: 'Description',
@@ -373,7 +370,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 2.0,
                                             ),
@@ -415,7 +412,7 @@ class _AddEnseigneCommercantPageWidgetState
                                           fillColor:
                                               FlutterFlowTheme.of(context)
                                                   .fieldBg,
-                                          contentPadding: EdgeInsets.all(24.0),
+                                          contentPadding: const EdgeInsets.all(24.0),
                                         ),
                                         style: FlutterFlowTheme.of(context)
                                             .bodyMedium
@@ -487,7 +484,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 2.0,
                                             ),
@@ -529,7 +526,7 @@ class _AddEnseigneCommercantPageWidgetState
                                           fillColor:
                                               FlutterFlowTheme.of(context)
                                                   .fieldBg,
-                                          contentPadding: EdgeInsets.all(24.0),
+                                          contentPadding: const EdgeInsets.all(24.0),
                                         ),
                                         style: FlutterFlowTheme.of(context)
                                             .bodyMedium
@@ -565,7 +562,7 @@ class _AddEnseigneCommercantPageWidgetState
                                           _model.textFieldPhoneMask
                                         ],
                                       ),
-                                    ].divide(SizedBox(height: 16.0)),
+                                    ].divide(const SizedBox(height: 16.0)),
                                   ),
                                 ),
                               ),
@@ -577,7 +574,7 @@ class _AddEnseigneCommercantPageWidgetState
                                   borderRadius: BorderRadius.circular(16.0),
                                 ),
                                 child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
+                                  padding: const EdgeInsetsDirectional.fromSTEB(
                                       20.0, 20.0, 20.0, 20.0),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.max,
@@ -647,7 +644,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 2.0,
                                             ),
@@ -689,7 +686,7 @@ class _AddEnseigneCommercantPageWidgetState
                                           fillColor:
                                               FlutterFlowTheme.of(context)
                                                   .fieldBg,
-                                          contentPadding: EdgeInsets.all(24.0),
+                                          contentPadding: const EdgeInsets.all(24.0),
                                         ),
                                         style: FlutterFlowTheme.of(context)
                                             .bodyMedium
@@ -733,7 +730,7 @@ class _AddEnseigneCommercantPageWidgetState
                                               focusNode:
                                                   _model.textFieldCodeFocusNode,
                                               autofocus: false,
-                                              autofillHints: [
+                                              autofillHints: const [
                                                 AutofillHints.email
                                               ],
                                               obscureText: false,
@@ -773,7 +770,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                     ),
                                                 enabledBorder:
                                                     OutlineInputBorder(
-                                                  borderSide: BorderSide(
+                                                  borderSide: const BorderSide(
                                                     color: Color(0x00000000),
                                                     width: 2.0,
                                                   ),
@@ -821,7 +818,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                     FlutterFlowTheme.of(context)
                                                         .fieldBg,
                                                 contentPadding:
-                                                    EdgeInsets.all(24.0),
+                                                    const EdgeInsets.all(24.0),
                                               ),
                                               style:
                                                   FlutterFlowTheme.of(context)
@@ -912,7 +909,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                     ),
                                                 enabledBorder:
                                                     OutlineInputBorder(
-                                                  borderSide: BorderSide(
+                                                  borderSide: const BorderSide(
                                                     color: Color(0x00000000),
                                                     width: 2.0,
                                                   ),
@@ -960,7 +957,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                     FlutterFlowTheme.of(context)
                                                         .fieldBg,
                                                 contentPadding:
-                                                    EdgeInsets.all(24.0),
+                                                    const EdgeInsets.all(24.0),
                                               ),
                                               style:
                                                   FlutterFlowTheme.of(context)
@@ -999,9 +996,9 @@ class _AddEnseigneCommercantPageWidgetState
                                                   .asValidator(context),
                                             ),
                                           ),
-                                        ].divide(SizedBox(width: 16.0)),
+                                        ].divide(const SizedBox(width: 16.0)),
                                       ),
-                                    ].divide(SizedBox(height: 16.0)),
+                                    ].divide(const SizedBox(height: 16.0)),
                                   ),
                                 ),
                               ),
@@ -1013,7 +1010,7 @@ class _AddEnseigneCommercantPageWidgetState
                                   borderRadius: BorderRadius.circular(16.0),
                                 ),
                                 child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
+                                  padding: const EdgeInsetsDirectional.fromSTEB(
                                       20.0, 20.0, 20.0, 20.0),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.max,
@@ -1101,6 +1098,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                         .photoGallery,
                                                     multiImage: false,
                                                   );
+                                                  if (!context.mounted) return;
                                                   if (selectedMedia != null &&
                                                       selectedMedia.every((m) =>
                                                           validateFileFormat(
@@ -1171,7 +1169,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                           .uploadedLocalFile_uploadDataPhoto5lq);
                                                 },
                                                 child: Container(
-                                                  decoration: BoxDecoration(),
+                                                  decoration: const BoxDecoration(),
                                                   child: Visibility(
                                                     visible: _model
                                                             .uploadedImagesList
@@ -1223,7 +1221,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                           photo[photoIndex];
                                                       return Stack(
                                                         alignment:
-                                                            AlignmentDirectional(
+                                                            const AlignmentDirectional(
                                                                 1.0, -1.0),
                                                         children: [
                                                           Container(
@@ -1284,7 +1282,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                         ],
                                                       );
                                                     }).divide(
-                                                        SizedBox(width: 15.0)),
+                                                        const SizedBox(width: 15.0)),
                                                   ),
                                                 );
                                               },
@@ -1292,7 +1290,7 @@ class _AddEnseigneCommercantPageWidgetState
                                           ],
                                         ),
                                       ),
-                                    ].divide(SizedBox(height: 16.0)),
+                                    ].divide(const SizedBox(height: 16.0)),
                                   ),
                                 ),
                               ),
@@ -1304,7 +1302,7 @@ class _AddEnseigneCommercantPageWidgetState
                                   borderRadius: BorderRadius.circular(16.0),
                                 ),
                                 child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
+                                  padding: const EdgeInsetsDirectional.fromSTEB(
                                       20.0, 20.0, 20.0, 20.0),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.max,
@@ -1347,7 +1345,7 @@ class _AddEnseigneCommercantPageWidgetState
                                         ),
                                         child: Padding(
                                           padding:
-                                              EdgeInsetsDirectional.fromSTEB(
+                                              const EdgeInsetsDirectional.fromSTEB(
                                                   16.0, 16.0, 16.0, 16.0),
                                           child: Column(
                                             mainAxisSize: MainAxisSize.min,
@@ -1481,11 +1479,11 @@ class _AddEnseigneCommercantPageWidgetState
                                                 ),
                                                 wrapped: true,
                                               ),
-                                            ].divide(SizedBox(height: 12.0)),
+                                            ].divide(const SizedBox(height: 12.0)),
                                           ),
                                         ),
                                       ),
-                                    ].divide(SizedBox(height: 16.0)),
+                                    ].divide(const SizedBox(height: 16.0)),
                                   ),
                                 ),
                               ),
@@ -1497,7 +1495,7 @@ class _AddEnseigneCommercantPageWidgetState
                                   borderRadius: BorderRadius.circular(16.0),
                                 ),
                                 child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
+                                  padding: const EdgeInsetsDirectional.fromSTEB(
                                       20.0, 20.0, 20.0, 20.0),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.max,
@@ -1567,7 +1565,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 2.0,
                                             ),
@@ -1609,7 +1607,7 @@ class _AddEnseigneCommercantPageWidgetState
                                           fillColor:
                                               FlutterFlowTheme.of(context)
                                                   .fieldBg,
-                                          contentPadding: EdgeInsets.all(24.0),
+                                          contentPadding: const EdgeInsets.all(24.0),
                                           suffixIcon: Icon(
                                             Icons.language,
                                             color: FlutterFlowTheme.of(context)
@@ -1687,7 +1685,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 2.0,
                                             ),
@@ -1729,7 +1727,7 @@ class _AddEnseigneCommercantPageWidgetState
                                           fillColor:
                                               FlutterFlowTheme.of(context)
                                                   .fieldBg,
-                                          contentPadding: EdgeInsets.all(24.0),
+                                          contentPadding: const EdgeInsets.all(24.0),
                                           suffixIcon: Icon(
                                             Icons.alternate_email,
                                             color: FlutterFlowTheme.of(context)
@@ -1807,7 +1805,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 2.0,
                                             ),
@@ -1849,7 +1847,7 @@ class _AddEnseigneCommercantPageWidgetState
                                           fillColor:
                                               FlutterFlowTheme.of(context)
                                                   .fieldBg,
-                                          contentPadding: EdgeInsets.all(24.0),
+                                          contentPadding: const EdgeInsets.all(24.0),
                                           suffixIcon: Icon(
                                             Icons.facebook,
                                             color: FlutterFlowTheme.of(context)
@@ -1927,7 +1925,7 @@ class _AddEnseigneCommercantPageWidgetState
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 2.0,
                                             ),
@@ -1969,7 +1967,7 @@ class _AddEnseigneCommercantPageWidgetState
                                           fillColor:
                                               FlutterFlowTheme.of(context)
                                                   .fieldBg,
-                                          contentPadding: EdgeInsets.all(24.0),
+                                          contentPadding: const EdgeInsets.all(24.0),
                                           suffixIcon: Icon(
                                             Icons.alternate_email,
                                             color: FlutterFlowTheme.of(context)
@@ -2008,13 +2006,13 @@ class _AddEnseigneCommercantPageWidgetState
                                             .textFieldTwitterTextControllerValidator
                                             .asValidator(context),
                                       ),
-                                    ].divide(SizedBox(height: 16.0)),
+                                    ].divide(const SizedBox(height: 16.0)),
                                   ),
                                 ),
                               ),
                               FFButtonWidget(
                                 onPressed: () async {
-                                  var _shouldSetState = false;
+                                  var shouldSetState = false;
                                   if (_model.uploadedImagesList.length >= 5) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -2025,13 +2023,12 @@ class _AddEnseigneCommercantPageWidgetState
                                                 .primaryBackground,
                                           ),
                                         ),
-                                        duration: Duration(milliseconds: 4000),
+                                        duration: const Duration(milliseconds: 4000),
                                         backgroundColor:
                                             FlutterFlowTheme.of(context)
                                                 .primary,
                                       ),
                                     );
-                                    if (_shouldSetState) safeSetState(() {});
                                     return;
                                   }
                                   if (_model.formKey.currentState == null ||
@@ -2107,7 +2104,7 @@ class _AddEnseigneCommercantPageWidgetState
                                       },
                                     ),
                                   }, enseignesRecordReference);
-                                  _shouldSetState = true;
+                                  shouldSetState = true;
                                   {
                                     safeSetState(() => _model
                                         .isDataUploading_uploadDataUnf = true);
@@ -2201,6 +2198,7 @@ class _AddEnseigneCommercantPageWidgetState
                                       isFullDay: false,
                                     ));
                                   }
+                                  if (!context.mounted) return;
 
                                   context.goNamed(
                                     AddHoraireCommercantPageWidget.routeName,
@@ -2216,15 +2214,15 @@ class _AddEnseigneCommercantPageWidgetState
                                     }.withoutNulls,
                                   );
 
-                                  if (_shouldSetState) safeSetState(() {});
+                                  if (shouldSetState) safeSetState(() {});
                                 },
                                 text: 'Enregistrer',
                                 options: FFButtonOptions(
                                   width: MediaQuery.sizeOf(context).width * 1.0,
                                   height: 50.0,
-                                  padding: EdgeInsetsDirectional.fromSTEB(
+                                  padding: const EdgeInsetsDirectional.fromSTEB(
                                       0.0, 0.0, 0.0, 0.0),
-                                  iconPadding: EdgeInsetsDirectional.fromSTEB(
+                                  iconPadding: const EdgeInsetsDirectional.fromSTEB(
                                       0.0, 0.0, 0.0, 0.0),
                                   color: FlutterFlowTheme.of(context).primary,
                                   textStyle: FlutterFlowTheme.of(context)
@@ -2254,7 +2252,7 @@ class _AddEnseigneCommercantPageWidgetState
                                   borderRadius: BorderRadius.circular(25.0),
                                 ),
                               ),
-                            ].divide(SizedBox(height: 24.0)),
+                            ].divide(const SizedBox(height: 24.0)),
                           ),
                         ),
                       ),

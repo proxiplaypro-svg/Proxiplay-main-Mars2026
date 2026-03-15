@@ -5,16 +5,13 @@ import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'lots_joueur_page_model.dart';
 export 'lots_joueur_page_model.dart';
 
-/// page pour le joueur puisse consulter tout les lots gagné
+/// page pour le joueur puisse consulter tous les lots gagnes
 class LotsJoueurPageWidget extends StatefulWidget {
   const LotsJoueurPageWidget({super.key});
 
@@ -29,6 +26,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
   late LotsJoueurPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  final Set<String> _deletingLotRefs = <String>{};
 
   @override
   void initState() {
@@ -44,6 +42,454 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
     _model.dispose();
 
     super.dispose();
+  }
+
+  Future<List<_LotListItem>> _loadLotItems(List<MyLotsRecord> myLots) async {
+    final recordsWithPrizeRef = myLots.where((record) => record.prizeId != null).toList();
+    if (recordsWithPrizeRef.isEmpty) {
+      return const <_LotListItem>[];
+    }
+
+    final prizeSnaps = await Future.wait(
+      recordsWithPrizeRef.map((record) => record.prizeId!.get()),
+    );
+
+    final items = <_LotListItem>[];
+    for (var i = 0; i < recordsWithPrizeRef.length; i++) {
+      final prizeSnap = prizeSnaps[i];
+      if (!prizeSnap.exists) {
+        continue;
+      }
+      final prize = PrizesRecord.fromSnapshot(prizeSnap);
+      items.add(_LotListItem(
+        myLot: recordsWithPrizeRef[i],
+        prize: prize,
+      ));
+    }
+
+    items.sort((a, b) {
+      final aTime = a.prize.winDate?.millisecondsSinceEpoch ?? 0;
+      final bTime = b.prize.winDate?.millisecondsSinceEpoch ?? 0;
+      return bTime.compareTo(aTime);
+    });
+    return items;
+  }
+
+  Future<void> _openLotDetail(PrizesRecord prize) async {
+    context.pushNamed(
+      LotDetailJoueurPageWidget.routeName,
+      queryParameters: {
+        'lot': serializeParam(
+          prize,
+          ParamType.Document,
+        ),
+      }.withoutNulls,
+      extra: <String, dynamic>{
+        'lot': prize,
+      },
+    );
+  }
+
+  Future<void> _openEnseigne(PrizesRecord prize) async {
+    final enseigneRef = prize.enseigneId;
+    if (enseigneRef == null) {
+      return;
+    }
+    final enseigneRecord = await EnseignesRecord.getDocumentOnce(enseigneRef);
+    if (!mounted) {
+      return;
+    }
+    context.pushNamed(
+      EnseigneDetailJoueurPageWidget.routeName,
+      queryParameters: {
+        'enseigneDoc': serializeParam(
+          enseigneRecord,
+          ParamType.Document,
+        ),
+      }.withoutNulls,
+      extra: <String, dynamic>{
+        'enseigneDoc': enseigneRecord,
+      },
+    );
+  }
+
+  Future<void> _confirmDeleteLot(_LotListItem item) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Supprimer ce lot ?'),
+            content: const Text(
+              'Voulez-vous vraiment supprimer ce lot de votre liste ?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Annuler'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Supprimer'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmed) {
+      return;
+    }
+
+    final deletingKey = item.myLot.reference.path;
+    setState(() {
+      _deletingLotRefs.add(deletingKey);
+    });
+
+    try {
+      await item.myLot.reference.delete();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lot supprimé'),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible de supprimer ce lot pour le moment.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deletingLotRefs.remove(deletingKey);
+        });
+      }
+    }
+  }
+
+  Widget _buildSummaryCard(BuildContext context, List<_LotListItem> items) {
+    final totalLots = items.length;
+    final unclaimedLots = items.where((item) => !item.prize.claimed).length;
+
+    return Material(
+      color: Colors.transparent,
+      elevation: 0.0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18.0),
+      ),
+      child: Container(
+        width: MediaQuery.sizeOf(context).width,
+        decoration: BoxDecoration(
+          color: FlutterFlowTheme.of(context).secondaryBackground,
+          borderRadius: BorderRadius.circular(18.0),
+          boxShadow: [
+              BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 18.0,
+              offset: const Offset(0.0, 8.0),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(20.0, 18.0, 20.0, 18.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Total des Lots',
+                      style: FlutterFlowTheme.of(context).headlineSmall.override(
+                            font: GoogleFonts.interTight(
+                              fontWeight: FontWeight.w700,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .headlineSmall
+                                  .fontStyle,
+                            ),
+                            fontSize: 20.0,
+                            letterSpacing: 0.0,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 6.0),
+                    Text(
+                      totalLots > 0
+                          ? '$totalLots lot${totalLots > 1 ? 's' : ''} gagné${totalLots > 1 ? 's' : ''}'
+                          : 'Aucun lot gagné',
+                      style: FlutterFlowTheme.of(context).bodyLarge.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FontWeight.w500,
+                              fontStyle:
+                                  FlutterFlowTheme.of(context).bodyLarge.fontStyle,
+                            ),
+                            color: FlutterFlowTheme.of(context).secondaryText,
+                            letterSpacing: 0.0,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                    if (totalLots > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(
+                          '$unclaimedLots non réclamé${unclaimedLots > 1 ? 's' : ''}',
+                          style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                font: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w500,
+                                  fontStyle: FlutterFlowTheme.of(context)
+                                      .bodyMedium
+                                      .fontStyle,
+                                ),
+                                color: FlutterFlowTheme.of(context).primary,
+                                letterSpacing: 0.0,
+                                fontWeight: FontWeight.w500,
+                              ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 52.0,
+                height: 52.0,
+                decoration: BoxDecoration(
+                  color: FlutterFlowTheme.of(context).primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16.0),
+                ),
+                child: Icon(
+                  Icons.emoji_events_rounded,
+                  color: FlutterFlowTheme.of(context).primary,
+                  size: 26.0,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBadge(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Color backgroundColor,
+    required Color textColor,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999.0),
+      ),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(10.0, 7.0, 10.0, 7.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14.0,
+              color: textColor,
+            ),
+            const SizedBox(width: 6.0),
+            Text(
+              label,
+              style: FlutterFlowTheme.of(context).bodySmall.override(
+                    font: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontStyle:
+                          FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                    ),
+                    color: textColor,
+                    letterSpacing: 0.0,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLotCard(BuildContext context, _LotListItem item) {
+    final prize = item.prize;
+    final isDeleting = _deletingLotRefs.contains(item.myLot.reference.path);
+    final merchantLabel = prize.enseigneName.isNotEmpty
+        ? prize.enseigneName
+        : 'Commerçant non renseigné';
+
+    return InkWell(
+      splashColor: Colors.transparent,
+      focusColor: Colors.transparent,
+      hoverColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      onTap: () async {
+        await _openLotDetail(prize);
+      },
+      child: Material(
+        color: Colors.transparent,
+        elevation: 0.0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18.0),
+        ),
+        child: Container(
+          width: MediaQuery.sizeOf(context).width,
+          decoration: BoxDecoration(
+            color: FlutterFlowTheme.of(context).secondaryBackground,
+            borderRadius: BorderRadius.circular(18.0),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.035),
+                blurRadius: 16.0,
+                offset: const Offset(0.0, 8.0),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(16.0, 14.0, 16.0, 14.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        prize.name,
+                        style: FlutterFlowTheme.of(context).titleMedium.override(
+                              font: GoogleFonts.interTight(
+                                fontWeight: FontWeight.w700,
+                                fontStyle:
+                                    FlutterFlowTheme.of(context).titleMedium.fontStyle,
+                              ),
+                              letterSpacing: 0.0,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                    const SizedBox(width: 12.0),
+                    IconButton(
+                      onPressed: isDeleting ? null : () => _confirmDeleteLot(item),
+                      icon: isDeleting
+                          ? SizedBox(
+                              width: 18.0,
+                              height: 18.0,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.0,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  FlutterFlowTheme.of(context).secondaryText,
+                                ),
+                              ),
+                            )
+                          : Icon(
+                              Icons.delete_outline_rounded,
+                              color: FlutterFlowTheme.of(context).secondaryText,
+                              size: 20.0,
+                            ),
+                      splashRadius: 20.0,
+                      tooltip: 'Supprimer',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
+                Text(
+                  merchantLabel,
+                  style: FlutterFlowTheme.of(context).bodyMedium.override(
+                        font: GoogleFonts.inter(
+                          fontWeight: FontWeight.w500,
+                          fontStyle:
+                              FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                        ),
+                        color: FlutterFlowTheme.of(context).secondaryText,
+                        letterSpacing: 0.0,
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+                const SizedBox(height: 12.0),
+                Wrap(
+                  spacing: 8.0,
+                  runSpacing: 8.0,
+                  children: [
+                    _buildBadge(
+                      context,
+                      icon: Icons.calendar_today_rounded,
+                      label: 'Gagné le ${dateTimeFormat(
+                        "d/M/y",
+                        prize.winDate,
+                        locale: FFLocalizations.of(context).languageCode,
+                      )}',
+                      backgroundColor:
+                          FlutterFlowTheme.of(context).secondary.withValues(alpha: 0.14),
+                      textColor: FlutterFlowTheme.of(context).secondary,
+                    ),
+                    _buildBadge(
+                      context,
+                      icon: prize.claimed
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.schedule_rounded,
+                      label: prize.claimed ? 'Réclamé' : 'Non réclamé',
+                      backgroundColor: prize.claimed
+                          ? FlutterFlowTheme.of(context).secondary.withValues(alpha: 0.14)
+                          : FlutterFlowTheme.of(context).tertiary.withValues(alpha: 0.16),
+                      textColor: prize.claimed
+                          ? FlutterFlowTheme.of(context).secondary
+                          : FlutterFlowTheme.of(context).tertiary,
+                    ),
+                  ],
+                ),
+                if (prize.enseigneId != null)
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 12.0),
+                      child: TextButton.icon(
+                        onPressed: () async {
+                          await _openEnseigne(prize);
+                        },
+                        icon: Icon(
+                          Icons.storefront_outlined,
+                          color: FlutterFlowTheme.of(context).primary,
+                          size: 16.0,
+                        ),
+                        label: Text(
+                          'Voir le commerce',
+                          style: FlutterFlowTheme.of(context).bodySmall.override(
+                                font: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontStyle: FlutterFlowTheme.of(context)
+                                      .bodySmall
+                                      .fontStyle,
+                                ),
+                                color: FlutterFlowTheme.of(context).primary,
+                                letterSpacing: 0.0,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12.0,
+                            vertical: 8.0,
+                          ),
+                          backgroundColor:
+                              FlutterFlowTheme.of(context).primary.withValues(alpha: 0.06),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -88,14 +534,14 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                       FlutterFlowTheme.of(context).headlineMedium.fontStyle,
                 ),
           ),
-          actions: [],
+          actions: const [],
           flexibleSpace: FlexibleSpaceBar(
             background: ClipRRect(
               borderRadius: BorderRadius.circular(8.0),
               child: Image.asset(
                 'assets/images/Background.png',
                 fit: BoxFit.cover,
-                alignment: Alignment(1.0, -1.0),
+                alignment: const Alignment(1.0, -1.0),
               ),
             ),
           ),
@@ -108,7 +554,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
             decoration: BoxDecoration(
               image: DecorationImage(
                 fit: BoxFit.cover,
-                alignment: AlignmentDirectional(-1.0, 1.0),
+                alignment: const AlignmentDirectional(-1.0, 1.0),
                 image: Image.asset(
                   'assets/images/Background.png',
                 ).image,
@@ -120,590 +566,74 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
               children: [
                 Expanded(
                   child: Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 0.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.max,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Material(
-                          color: Colors.transparent,
-                          elevation: 0.0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16.0),
-                          ),
-                          child: Container(
-                            width: MediaQuery.sizeOf(context).width * 1.0,
-                            decoration: BoxDecoration(
-                              color: FlutterFlowTheme.of(context)
-                                  .secondaryBackground,
-                              borderRadius: BorderRadius.circular(16.0),
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                        20.0, 20.0, 20.0, 0.0),
+                    child: StreamBuilder<List<MyLotsRecord>>(
+                      stream: currentUserReference == null
+                          ? const Stream<List<MyLotsRecord>>.empty()
+                          : queryMyLotsRecord(
+                              parent: currentUserReference,
                             ),
-                            child: Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  20.0, 20.0, 20.0, 20.0),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.max,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.max,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Column(
-                                        mainAxisSize: MainAxisSize.max,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Total des Lots',
-                                            style: FlutterFlowTheme.of(context)
-                                                .headlineSmall
-                                                .override(
-                                                  font: GoogleFonts.interTight(
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .headlineSmall
-                                                            .fontWeight,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .headlineSmall
-                                                            .fontStyle,
-                                                  ),
-                                                  fontSize: 20.0,
-                                                  letterSpacing: 0.0,
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .headlineSmall
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .headlineSmall
-                                                          .fontStyle,
-                                                ),
-                                          ),
-                                          FutureBuilder<int>(
-                                            future: queryPrizesRecordCount(
-                                              queryBuilder: (prizesRecord) =>
-                                                  prizesRecord.where(
-                                                'winner_id',
-                                                isEqualTo: currentUserReference,
-                                              ),
-                                            ),
-                                            builder: (context, snapshot) {
-                                              // Customize what your widget looks like when it's loading.
-                                              if (!snapshot.hasData) {
-                                                return Center(
-                                                  child: SizedBox(
-                                                    width: 50.0,
-                                                    height: 50.0,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                      valueColor:
-                                                          AlwaysStoppedAnimation<
-                                                              Color>(
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .primary,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                );
-                                              }
-                                              int textCount = snapshot.data!;
+                      builder: (context, myLotsSnapshot) {
+                        if (!myLotsSnapshot.hasData) {
+                          return const Center(
+                            child: SizedBox(
+                              width: 50.0,
+                              height: 50.0,
+                              child: SizedBox.shrink(),
+                            ),
+                          );
+                        }
 
-                                              return Text(
-                                                textCount > 0
-                                                    ? '${textCount.toString()} lots gagnés'
-                                                    : 'Aucun lot gagné',
-                                                style: FlutterFlowTheme.of(
-                                                        context)
-                                                    .bodyMedium
-                                                    .override(
-                                                      font: GoogleFonts.inter(
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                      color:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .secondaryText,
-                                                      letterSpacing: 0.0,
-                                                      fontWeight:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .fontWeight,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .fontStyle,
-                                                    ),
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                      Container(
-                                        width: 60.0,
-                                        height: 60.0,
-                                        decoration: BoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(30.0),
-                                        ),
-                                        child: Icon(
-                                          Icons.emoji_events,
-                                          color: FlutterFlowTheme.of(context)
-                                              .primary,
-                                          size: 30.0,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ].divide(SizedBox(height: 16.0)),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: PagedListView<DocumentSnapshot<Object?>?,
-                              PrizesRecord>.separated(
-                            pagingController: _model.setListViewController(
-                              PrizesRecord.collection
-                                  .where(
-                                    'winner_id',
-                                    isEqualTo: currentUserReference,
-                                  )
-                                  .orderBy('win_date', descending: true),
-                            ),
-                            padding: EdgeInsets.zero,
-                            shrinkWrap: true,
-                            reverse: false,
-                            scrollDirection: Axis.vertical,
-                            separatorBuilder: (_, __) => SizedBox(height: 16.0),
-                            builderDelegate:
-                                PagedChildBuilderDelegate<PrizesRecord>(
-                              // Customize what your widget looks like when it's loading the first page.
-                              firstPageProgressIndicatorBuilder: (_) => Center(
+                        final myLots = myLotsSnapshot.data ?? const <MyLotsRecord>[];
+                        return FutureBuilder<List<_LotListItem>>(
+                          future: _loadLotItems(myLots),
+                          builder: (context, lotItemsSnapshot) {
+                            if (!lotItemsSnapshot.hasData) {
+                              return const Center(
                                 child: SizedBox(
                                   width: 50.0,
                                   height: 50.0,
-                                  child: CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      FlutterFlowTheme.of(context).primary,
-                                    ),
-                                  ),
+                                  child: SizedBox.shrink(),
                                 ),
-                              ),
-                              // Customize what your widget looks like when it's loading another page.
-                              newPageProgressIndicatorBuilder: (_) => Center(
-                                child: SizedBox(
-                                  width: 50.0,
-                                  height: 50.0,
-                                  child: CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      FlutterFlowTheme.of(context).primary,
-                                    ),
-                                  ),
+                              );
+                            }
+
+                            final items =
+                                lotItemsSnapshot.data ?? const <_LotListItem>[];
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildSummaryCard(context, items),
+                                const SizedBox(height: 20.0),
+                                Expanded(
+                                  child: items.isEmpty
+                                      ? const ListEmptyComponentWidget(
+                                          title: 'Liste vide',
+                                          description: 'Aucun lot',
+                                        )
+                                      : ListView.separated(
+                                          padding: EdgeInsets.zero,
+                                          itemCount: items.length,
+                                          separatorBuilder: (_, __) =>
+                                              const SizedBox(height: 14.0),
+                                          itemBuilder: (context, index) =>
+                                              _buildLotCard(context, items[index]),
+                                        ),
                                 ),
-                              ),
-                              noItemsFoundIndicatorBuilder: (_) =>
-                                  ListEmptyComponentWidget(
-                                title: 'Liste vide',
-                                description: 'Aucun lot',
-                              ),
-                              itemBuilder: (context, _, listViewIndex) {
-                                final listViewPrizesRecord = _model
-                                    .listViewPagingController!
-                                    .itemList![listViewIndex];
-                                return InkWell(
-                                  splashColor: Colors.transparent,
-                                  focusColor: Colors.transparent,
-                                  hoverColor: Colors.transparent,
-                                  highlightColor: Colors.transparent,
-                                  onTap: () async {
-                                    context.pushNamed(
-                                      LotDetailJoueurPageWidget.routeName,
-                                      queryParameters: {
-                                        'lot': serializeParam(
-                                          listViewPrizesRecord,
-                                          ParamType.Document,
-                                        ),
-                                      }.withoutNulls,
-                                      extra: <String, dynamic>{
-                                        'lot': listViewPrizesRecord,
-                                      },
-                                    );
-                                  },
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    elevation: 0.0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16.0),
-                                    ),
-                                    child: Container(
-                                      width: MediaQuery.sizeOf(context).width *
-                                          1.0,
-                                      decoration: BoxDecoration(
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryBackground,
-                                        borderRadius:
-                                            BorderRadius.circular(16.0),
-                                      ),
-                                      child: Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
-                                            16.0, 16.0, 16.0, 16.0),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.max,
-                                          children: [
-                                            Expanded(
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.max,
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    listViewPrizesRecord.name,
-                                                    style: FlutterFlowTheme.of(
-                                                            context)
-                                                        .bodyLarge
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyLarge
-                                                                    .fontStyle,
-                                                          ),
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontStyle,
-                                                        ),
-                                                  ),
-                                                  if (listViewPrizesRecord
-                                                      .enseigneName.isNotEmpty)
-                                                    Text(
-                                                      listViewPrizesRecord
-                                                          .enseigneName,
-                                                      style: FlutterFlowTheme
-                                                              .of(context)
-                                                          .bodyLarge
-                                                          .override(
-                                                            font: GoogleFonts
-                                                                .inter(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              fontStyle:
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyLarge
-                                                                      .fontStyle,
-                                                            ),
-                                                            letterSpacing: 0.0,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyLarge
-                                                                    .fontStyle,
-                                                          ),
-                                                    ),
-                                                  if (listViewPrizesRecord
-                                                          .enseigneId !=
-                                                      null)
-                                                    FutureBuilder<
-                                                        EnseignesRecord>(
-                                                      future: EnseignesRecord
-                                                          .getDocumentOnce(
-                                                              listViewPrizesRecord
-                                                                  .enseigneId!),
-                                                      builder:
-                                                          (context, snapshot) {
-                                                        if (!snapshot.hasData) {
-                                                          return SizedBox(
-                                                              height: 0.0);
-                                                        }
-                                                        final enseigneRecord =
-                                                            snapshot.data!;
-                                                        return FFButtonWidget(
-                                                          onPressed: () async {
-                                                            context.pushNamed(
-                                                              EnseigneDetailJoueurPageWidget
-                                                                  .routeName,
-                                                              queryParameters: {
-                                                                'enseigneDoc':
-                                                                    serializeParam(
-                                                                  enseigneRecord,
-                                                                  ParamType
-                                                                      .Document,
-                                                                ),
-                                                              }.withoutNulls,
-                                                              extra: <String,
-                                                                  dynamic>{
-                                                                'enseigneDoc':
-                                                                    enseigneRecord,
-                                                              },
-                                                            );
-                                                          },
-                                                          text: enseigneRecord
-                                                                  .name
-                                                                  .isNotEmpty
-                                                              ? enseigneRecord
-                                                                  .name
-                                                              : listViewPrizesRecord
-                                                                  .enseigneName,
-                                                          options:
-                                                              FFButtonOptions(
-                                                            width:
-                                                                double.infinity,
-                                                            height: 36.0,
-                                                            padding:
-                                                                EdgeInsetsDirectional
-                                                                    .fromSTEB(
-                                                                        12.0,
-                                                                        0.0,
-                                                                        12.0,
-                                                                        0.0),
-                                                            iconPadding:
-                                                                EdgeInsetsDirectional
-                                                                    .fromSTEB(
-                                                                        0.0,
-                                                                        0.0,
-                                                                        0.0,
-                                                                        0.0),
-                                                            color: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .secondaryBackground,
-                                                            textStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .titleSmall
-                                                                    .override(
-                                                                      font: GoogleFonts
-                                                                          .interTight(
-                                                                        fontWeight: FlutterFlowTheme.of(context)
-                                                                            .titleSmall
-                                                                            .fontWeight,
-                                                                        fontStyle: FlutterFlowTheme.of(context)
-                                                                            .titleSmall
-                                                                            .fontStyle,
-                                                                      ),
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primary,
-                                                                      letterSpacing:
-                                                                          0.0,
-                                                                      fontWeight: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .titleSmall
-                                                                          .fontWeight,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .titleSmall
-                                                                          .fontStyle,
-                                                                    ),
-                                                            elevation: 0.0,
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        30.0),
-                                                            borderSide:
-                                                                BorderSide(
-                                                              color: FlutterFlowTheme
-                                                                      .of(context)
-                                                                  .primary,
-                                                              width: 1.0,
-                                                            ),
-                                                          ),
-                                                        );
-                                                      },
-                                                    ),
-                                                  Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.max,
-                                                    children: [
-                                                      Container(
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .accent2,
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      12.0),
-                                                        ),
-                                                        child: Padding(
-                                                          padding:
-                                                              EdgeInsetsDirectional
-                                                                  .fromSTEB(
-                                                                      4.0,
-                                                                      8.0,
-                                                                      4.0,
-                                                                      8.0),
-                                                          child: Text(
-                                                            'Gagné le ${dateTimeFormat(
-                                                              "d/M/y",
-                                                              listViewPrizesRecord
-                                                                  .winDate,
-                                                              locale: FFLocalizations
-                                                                      .of(context)
-                                                                  .languageCode,
-                                                            )}',
-                                                            style: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .bodySmall
-                                                                .override(
-                                                                  font:
-                                                                      GoogleFonts
-                                                                          .inter(
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodySmall
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodySmall
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .secondary,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodySmall
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodySmall
-                                                                      .fontStyle,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      Container(
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: listViewPrizesRecord
-                                                                      .claimed ==
-                                                                  true
-                                                              ? FlutterFlowTheme
-                                                                      .of(
-                                                                          context)
-                                                                  .accent2
-                                                              : FlutterFlowTheme
-                                                                      .of(context)
-                                                                  .accent3,
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      12.0),
-                                                        ),
-                                                        child: Padding(
-                                                          padding:
-                                                              EdgeInsetsDirectional
-                                                                  .fromSTEB(
-                                                                      4.0,
-                                                                      8.0,
-                                                                      4.0,
-                                                                      8.0),
-                                                          child: Text(
-                                                            listViewPrizesRecord
-                                                                        .claimed ==
-                                                                    true
-                                                                ? 'Obtenu'
-                                                                : 'Non réclamé',
-                                                            style: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .bodySmall
-                                                                .override(
-                                                                  font:
-                                                                      GoogleFonts
-                                                                          .inter(
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodySmall
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodySmall
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: listViewPrizesRecord
-                                                                              .claimed ==
-                                                                          true
-                                                                      ? FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .secondary
-                                                                      : FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .tertiary,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodySmall
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodySmall
-                                                                      .fontStyle,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ].divide(
-                                                        SizedBox(width: 8.0)),
-                                                  ),
-                                                ].divide(
-                                                    SizedBox(height: 10.0)),
-                                              ),
-                                            ),
-                                          ].divide(SizedBox(width: 16.0)),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      ].divide(SizedBox(height: 24.0)),
+                              ],
+                            );
+                          },
+                        );
+                      },
                     ),
                   ),
                 ),
                 wrapWithModel(
                   model: _model.customNavBarJoueurModel,
                   updateCallback: () => safeSetState(() {}),
-                  child: CustomNavBarJoueurWidget(
+                  child: const CustomNavBarJoueurWidget(
                     indexActive: 4,
                   ),
                 ),
@@ -714,4 +644,14 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
       ),
     );
   }
+}
+
+class _LotListItem {
+  const _LotListItem({
+    required this.myLot,
+    required this.prize,
+  });
+
+  final MyLotsRecord myLot;
+  final PrizesRecord prize;
 }

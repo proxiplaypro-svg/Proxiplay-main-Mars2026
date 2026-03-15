@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '/auth/firebase_auth/auth_util.dart';
@@ -17,7 +17,7 @@ class AdminPushNotificationsHistoryPageWidget extends StatelessWidget {
     // Guard: only admins should see this page (wait for user doc to load).
     if (currentUserDocument == null && loggedIn) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: Center(child: SizedBox.shrink()),
       );
     }
     if (currentUserDocument?.userRole != Roles.admin) {
@@ -42,7 +42,7 @@ class AdminPushNotificationsHistoryPageWidget extends StatelessWidget {
           stream: query.snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: SizedBox.shrink());
             }
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
               return const Center(child: Text('No notifications sent yet.'));
@@ -120,4 +120,5 @@ class AdminPushNotificationsHistoryPageWidget extends StatelessWidget {
     );
   }
 }
+
 

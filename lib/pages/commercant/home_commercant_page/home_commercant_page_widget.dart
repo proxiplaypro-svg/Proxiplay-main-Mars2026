@@ -1,4 +1,4 @@
-import '/auth/firebase_auth/auth_util.dart';
+﻿import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
 import '/components/get_code_gagnant_widget.dart';
@@ -6,16 +6,14 @@ import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
+import '/widgets/proxiplay_loading_logo.dart';
 import '/index.dart';
 import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'home_commercant_page_model.dart';
 export 'home_commercant_page_model.dart';
@@ -67,11 +65,11 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
           key: scaffoldKey,
           backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
           appBar: PreferredSize(
-            preferredSize: Size.fromHeight(60.0),
+            preferredSize: const Size.fromHeight(60.0),
             child: AppBar(
               backgroundColor: Colors.transparent,
               automaticallyImplyLeading: false,
-              actions: [],
+              actions: const [],
               flexibleSpace: FlexibleSpaceBar(
                 title: Row(
                   mainAxisSize: MainAxisSize.max,
@@ -92,13 +90,13 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                   child: Image.asset(
                     'assets/images/Background.png',
                     fit: BoxFit.cover,
-                    alignment: Alignment(1.0, -1.0),
+                    alignment: const Alignment(1.0, -1.0),
                   ),
                 ),
                 centerTitle: true,
                 expandedTitleScale: 1.0,
                 titlePadding:
-                    EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 0.0, 0.0),
+                    const EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 0.0, 0.0),
               ),
               toolbarHeight: 60.0,
             ),
@@ -111,32 +109,32 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
               decoration: BoxDecoration(
                 image: DecorationImage(
                   fit: BoxFit.cover,
-                  alignment: AlignmentDirectional(-1.0, 1.0),
+                  alignment: const AlignmentDirectional(-1.0, 1.0),
                   image: Image.asset(
                     'assets/images/Background.png',
                   ).image,
                 ),
               ),
-              child: Container(
+              child: SizedBox(
                 height: double.infinity,
                 child: Stack(
-                  alignment: AlignmentDirectional(0.0, 1.0),
+                  alignment: const AlignmentDirectional(0.0, 1.0),
                   children: [
                     Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 100.0),
+                          const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 100.0),
                       child: Container(
                         height: double.infinity,
-                        decoration: BoxDecoration(),
+                        decoration: const BoxDecoration(),
                         child: Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(
+                          padding: const EdgeInsetsDirectional.fromSTEB(
                               20.0, 20.0, 20.0, 0.0),
                           child: Column(
                             mainAxisSize: MainAxisSize.max,
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Container(
-                                decoration: BoxDecoration(),
+                                decoration: const BoxDecoration(),
                               ),
                               Container(
                                 width: double.infinity,
@@ -146,17 +144,17 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                   borderRadius: BorderRadius.circular(20.0),
                                 ),
                                 child: Padding(
-                                  padding: EdgeInsets.all(10.0),
+                                  padding: const EdgeInsets.all(10.0),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.max,
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
                                       Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                        padding: const EdgeInsetsDirectional.fromSTEB(
                                             16.0, 8.0, 0.0, 0.0),
                                         child: Text(
-                                          'Vérifier le code gagnant',
+                                          'V\u00E9rifier le code gagnant',
                                           style: FlutterFlowTheme.of(context)
                                               .bodyMedium
                                               .override(
@@ -181,7 +179,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                         ),
                                       ),
                                       Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                        padding: const EdgeInsetsDirectional.fromSTEB(
                                             16.0, 0.0, 16.0, 16.0),
                                         child: TextFormField(
                                           controller: _model.textController,
@@ -223,7 +221,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                     ),
                                             hintText: 'Code du gagnant',
                                             enabledBorder: OutlineInputBorder(
-                                              borderSide: BorderSide(
+                                              borderSide: const BorderSide(
                                                 color: Color(0x00000000),
                                                 width: 2.0,
                                               ),
@@ -266,7 +264,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                 FlutterFlowTheme.of(context)
                                                     .fieldBg,
                                             contentPadding:
-                                                EdgeInsets.all(24.0),
+                                                const EdgeInsets.all(24.0),
                                           ),
                                           style: FlutterFlowTheme.of(context)
                                               .bodyMedium
@@ -304,7 +302,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                       Builder(
                                         builder: (context) => Padding(
                                           padding:
-                                              EdgeInsetsDirectional.fromSTEB(
+                                              const EdgeInsetsDirectional.fromSTEB(
                                                   16.0, 0.0, 16.0, 16.0),
                                           child: FFButtonWidget(
                                             onPressed: () async {
@@ -325,6 +323,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                         ),
                                                 singleRecord: true,
                                               ).then((s) => s.firstOrNull);
+                                              if (!context.mounted) return;
                                               if (_model.resultPrize != null) {
                                                 context.pushNamed(
                                                   ValidationLotCommercantPageWidget
@@ -350,7 +349,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                       backgroundColor:
                                                           Colors.transparent,
                                                       alignment:
-                                                          AlignmentDirectional(
+                                                          const AlignmentDirectional(
                                                                   0.0, 0.0)
                                                               .resolve(
                                                                   Directionality.of(
@@ -367,11 +366,11 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                                 ?.unfocus();
                                                           },
                                                           child:
-                                                              GetCodeGagnantWidget(
+                                                              const GetCodeGagnantWidget(
                                                             title:
-                                                                'Pas de résultat',
+                                                                'Pas de r\u00E9sultat',
                                                             description:
-                                                                'Le code ne correspont à aucun lot',
+                                                                'Le code ne correspond \u00E0 aucun lot',
                                                           ),
                                                         ),
                                                       ),
@@ -382,14 +381,14 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
 
                                               safeSetState(() {});
                                             },
-                                            text: 'Vérifier',
+                                            text: 'V\u00E9rifier',
                                             options: FFButtonOptions(
                                               width: double.infinity,
                                               height: 40.0,
-                                              padding: EdgeInsetsDirectional
+                                              padding: const EdgeInsetsDirectional
                                                   .fromSTEB(
                                                       16.0, 0.0, 16.0, 0.0),
-                                              iconPadding: EdgeInsetsDirectional
+                                              iconPadding: const EdgeInsetsDirectional
                                                   .fromSTEB(0.0, 0.0, 0.0, 0.0),
                                               color:
                                                   FlutterFlowTheme.of(context)
@@ -431,14 +430,14 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                           ),
                                         ),
                                       ),
-                                    ].divide(SizedBox(height: 15.0)),
+                                    ].divide(const SizedBox(height: 15.0)),
                                   ),
                                 ),
                               ),
                               Align(
-                                alignment: AlignmentDirectional(-1.0, 0.0),
+                                alignment: const AlignmentDirectional(-1.0, 0.0),
                                 child: Container(
-                                  decoration: BoxDecoration(),
+                                  decoration: const BoxDecoration(),
                                   child: Text(
                                     'Jeux en cours',
                                     style: FlutterFlowTheme.of(context)
@@ -472,7 +471,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                               Expanded(
                                 child: Container(
                                   height: double.infinity,
-                                  decoration: BoxDecoration(),
+                                  decoration: const BoxDecoration(),
                                   child: FutureBuilder<List<GamesRecord>>(
                                     future: (_model
                                                 .firestoreRequestCompleter ??=
@@ -496,17 +495,11 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                     builder: (context, snapshot) {
                                       // Customize what your widget looks like when it's loading.
                                       if (!snapshot.hasData) {
-                                        return Center(
+                                        return const Center(
                                           child: SizedBox(
                                             width: 40.0,
                                             height: 40.0,
-                                            child: CircularProgressIndicator(
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                FlutterFlowTheme.of(context)
-                                                    .primary,
-                                              ),
-                                            ),
+                                            child: ProxiplayLoadingLogo(size: 42.0),
                                           ),
                                         );
                                       }
@@ -514,7 +507,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                           listViewGamesRecordList =
                                           snapshot.data!;
                                       if (listViewGamesRecordList.isEmpty) {
-                                        return Container(
+                                        return const SizedBox(
                                           height: double.infinity,
                                           child: ListEmptyComponentWidget(
                                             title: 'Liste vide',
@@ -537,7 +530,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                           itemCount:
                                               listViewGamesRecordList.length,
                                           separatorBuilder: (_, __) =>
-                                              SizedBox(height: 10.0),
+                                              const SizedBox(height: 10.0),
                                           itemBuilder:
                                               (context, listViewIndex) {
                                             final listViewGamesRecord =
@@ -555,6 +548,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                         .getDocumentOnce(
                                                             listViewGamesRecord
                                                                 .enseigneId!);
+                                                if (!context.mounted) return;
 
                                                 context.pushNamed(
                                                   JeuDetailCommercantPageWidget
@@ -582,7 +576,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                               },
                                               child: Container(
                                                 width: double.infinity,
-                                                height: 130.0,
+                                                height: 145.0,
                                                 decoration: BoxDecoration(
                                                   color: FlutterFlowTheme.of(
                                                           context)
@@ -602,7 +596,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                       child: Container(
                                                         height: double.infinity,
                                                         decoration:
-                                                            BoxDecoration(),
+                                                            const BoxDecoration(),
                                                         child: ClipRRect(
                                                           borderRadius:
                                                               BorderRadius
@@ -611,11 +605,11 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                           child:
                                                               CachedNetworkImage(
                                                             fadeInDuration:
-                                                                Duration(
+                                                                const Duration(
                                                                     milliseconds:
                                                                         500),
                                                             fadeOutDuration:
-                                                                Duration(
+                                                                const Duration(
                                                                     milliseconds:
                                                                         500),
                                                             imageUrl:
@@ -629,7 +623,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                     Flexible(
                                                       flex: 2,
                                                       child: Padding(
-                                                        padding: EdgeInsets.all(
+                                                        padding: const EdgeInsets.all(
                                                             10.0),
                                                         child: Column(
                                                           mainAxisSize:
@@ -700,7 +694,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                                               MainAxisSize.max,
                                                                           children: [
                                                                             Padding(
-                                                                              padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 4.0, 0.0),
+                                                                              padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 4.0, 0.0),
                                                                               child: Icon(
                                                                                 Icons.remove_red_eye,
                                                                                 color: FlutterFlowTheme.of(context).primaryText,
@@ -738,7 +732,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                                               MainAxisSize.max,
                                                                           children: [
                                                                             Padding(
-                                                                              padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 4.0, 0.0),
+                                                                              padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 4.0, 0.0),
                                                                               child: Icon(
                                                                                 Icons.person_rounded,
                                                                                 color: FlutterFlowTheme.of(context).primaryText,
@@ -776,36 +770,41 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                                               MainAxisSize.max,
                                                                           children: [
                                                                             Padding(
-                                                                              padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 4.0, 0.0),
+                                                                              padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 4.0, 0.0),
                                                                               child: Icon(
                                                                                 Icons.edit_calendar,
                                                                                 color: FlutterFlowTheme.of(context).primaryText,
                                                                                 size: 18.0,
                                                                               ),
                                                                             ),
-                                                                            Text(
-                                                                              'Jusqu\'au ${dateTimeFormat(
-                                                                                "d/M/y",
-                                                                                listViewGamesRecord.endDate,
-                                                                                locale: FFLocalizations.of(context).languageCode,
-                                                                              )}',
-                                                                              style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                    font: GoogleFonts.inter(
+                                                                            Expanded(
+                                                                              child: Text(
+                                                                                'Jusqu\'au ${dateTimeFormat(
+                                                                                  "dd/MM/y",
+                                                                                  listViewGamesRecord.endDate,
+                                                                                  locale: FFLocalizations.of(context).languageCode,
+                                                                                )}',
+                                                                                maxLines: 2,
+                                                                                softWrap: true,
+                                                                                overflow: TextOverflow.visible,
+                                                                                style: FlutterFlowTheme.of(context).bodySmall.override(
+                                                                                      font: GoogleFonts.inter(
+                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                                                                                      ),
+                                                                                      letterSpacing: 0.0,
                                                                                       fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
                                                                                       fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
                                                                                     ),
-                                                                                    letterSpacing: 0.0,
-                                                                                    fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                    fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                  ),
+                                                                              ),
                                                                             ),
                                                                           ],
                                                                         ),
-                                                                      ].divide(SizedBox(
+                                                                      ].divide(const SizedBox(
                                                                               height: 10.0)),
                                                                     ),
                                                                   ),
-                                                                  Flexible(
+                                                                  Expanded(
                                                                     child:
                                                                         Column(
                                                                       mainAxisSize:
@@ -822,7 +821,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                                                 MainAxisSize.max,
                                                                             children: [
                                                                               Padding(
-                                                                                padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 4.0, 0.0),
+                                                                                padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 4.0, 0.0),
                                                                                 child: Icon(
                                                                                   Icons.star_rounded,
                                                                                   color: FlutterFlowTheme.of(context).primaryText,
@@ -862,7 +861,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                                 ],
                                                               ),
                                                             ),
-                                                          ].divide(SizedBox(
+                                                          ].divide(const SizedBox(
                                                               height: 10.0)),
                                                         ),
                                                       ),
@@ -878,7 +877,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                   ),
                                 ),
                               ),
-                            ].divide(SizedBox(height: 10.0)),
+                            ].divide(const SizedBox(height: 10.0)),
                           ),
                         ),
                       ),
@@ -886,7 +885,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                     wrapWithModel(
                       model: _model.customNavBarCommercant2Model,
                       updateCallback: () => safeSetState(() {}),
-                      child: CustomNavBarCommercant2Widget(
+                      child: const CustomNavBarCommercant2Widget(
                         indexActive: 1,
                       ),
                     ),
@@ -900,3 +899,5 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
     );
   }
 }
+
+

@@ -1,16 +1,13 @@
-import '/auth/firebase_auth/auth_util.dart';
+﻿import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/add_enseigne_btn_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import '/index.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'selected_enseignes_for_add_game_commercant_page_model.dart';
 export 'selected_enseignes_for_add_game_commercant_page_model.dart';
 
@@ -60,14 +57,14 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
         key: scaffoldKey,
         backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
         appBar: PreferredSize(
-          preferredSize: Size.fromHeight(100.0),
+          preferredSize: const Size.fromHeight(100.0),
           child: AppBar(
             backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
             automaticallyImplyLeading: false,
-            actions: [],
+            actions: const [],
             flexibleSpace: FlexibleSpaceBar(
               title: Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
+                padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.max,
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -75,7 +72,7 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
                   children: [
                     Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 8.0),
+                          const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 8.0),
                       child: Row(
                         mainAxisSize: MainAxisSize.max,
                         children: [
@@ -129,7 +126,7 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
                 child: Image.asset(
                   'assets/images/Background.png',
                   fit: BoxFit.cover,
-                  alignment: Alignment(1.0, -1.0),
+                  alignment: const Alignment(1.0, -1.0),
                 ),
               ),
               centerTitle: true,
@@ -144,14 +141,14 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
             decoration: BoxDecoration(
               image: DecorationImage(
                 fit: BoxFit.cover,
-                alignment: AlignmentDirectional(-1.0, 1.0),
+                alignment: const AlignmentDirectional(-1.0, 1.0),
                 image: Image.asset(
                   'assets/images/Background.png',
                 ).image,
               ),
             ),
             child: Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
+              padding: const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
               child: Column(
                 mainAxisSize: MainAxisSize.max,
                 children: [
@@ -166,22 +163,18 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
                     builder: (context, snapshot) {
                       // Customize what your widget looks like when it's loading.
                       if (!snapshot.hasData) {
-                        return Center(
+                        return const Center(
                           child: SizedBox(
                             width: 50.0,
                             height: 50.0,
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                FlutterFlowTheme.of(context).primary,
-                              ),
-                            ),
+                            child: SizedBox.shrink(),
                           ),
                         );
                       }
                       List<EnseignesRecord> listViewEnseignesRecordList =
                           snapshot.data!;
                       if (listViewEnseignesRecordList.isEmpty) {
-                        return Center(
+                        return const Center(
                           child: AddEnseigneBtnWidget(),
                         );
                       }
@@ -191,7 +184,7 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
                         shrinkWrap: true,
                         scrollDirection: Axis.vertical,
                         itemCount: listViewEnseignesRecordList.length,
-                        separatorBuilder: (_, __) => SizedBox(height: 10.0),
+                        separatorBuilder: (_, __) => const SizedBox(height: 10.0),
                         itemBuilder: (context, listViewIndex) {
                           final listViewEnseignesRecord =
                               listViewEnseignesRecordList[listViewIndex];
@@ -232,7 +225,7 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
                                     flex: 1,
                                     child: Container(
                                       height: 120.0,
-                                      decoration: BoxDecoration(),
+                                      decoration: const BoxDecoration(),
                                       child: FutureBuilder<List<ImagesRecord>>(
                                         future: queryImagesRecordOnce(
                                           parent:
@@ -242,19 +235,12 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
                                         builder: (context, snapshot) {
                                           // Customize what your widget looks like when it's loading.
                                           if (!snapshot.hasData) {
-                                            return Center(
+                                            return const Center(
                                               child: SizedBox(
                                                 width: 50.0,
                                                 height: 50.0,
                                                 child:
-                                                    CircularProgressIndicator(
-                                                  valueColor:
-                                                      AlwaysStoppedAnimation<
-                                                          Color>(
-                                                    FlutterFlowTheme.of(context)
-                                                        .primary,
-                                                  ),
-                                                ),
+                                                    SizedBox.shrink(),
                                               ),
                                             );
                                           }
@@ -275,9 +261,9 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
                                                 BorderRadius.circular(8.0),
                                             child: CachedNetworkImage(
                                               fadeInDuration:
-                                                  Duration(milliseconds: 500),
+                                                  const Duration(milliseconds: 500),
                                               fadeOutDuration:
-                                                  Duration(milliseconds: 500),
+                                                  const Duration(milliseconds: 500),
                                               imageUrl: imageImagesRecord!.url,
                                               fit: BoxFit.cover,
                                             ),
@@ -289,7 +275,7 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
                                   Expanded(
                                     flex: 2,
                                     child: Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                      padding: const EdgeInsetsDirectional.fromSTEB(
                                           10.0, 0.0, 0.0, 0.0),
                                       child: Column(
                                         mainAxisSize: MainAxisSize.max,
@@ -423,20 +409,12 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
                                                         (context, snapshot) {
                                                       // Customize what your widget looks like when it's loading.
                                                       if (!snapshot.hasData) {
-                                                        return Center(
+                                                        return const Center(
                                                           child: SizedBox(
                                                             width: 50.0,
                                                             height: 50.0,
                                                             child:
-                                                                CircularProgressIndicator(
-                                                              valueColor:
-                                                                  AlwaysStoppedAnimation<
-                                                                      Color>(
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .primary,
-                                                              ),
-                                                            ),
+                                                                SizedBox.shrink(),
                                                           ),
                                                         );
                                                       }
@@ -481,9 +459,9 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
                                                   ),
                                                 ],
                                               ),
-                                            ].divide(SizedBox(height: 5.0)),
+                                            ].divide(const SizedBox(height: 5.0)),
                                           ),
-                                        ].divide(SizedBox(height: 5.0)),
+                                        ].divide(const SizedBox(height: 5.0)),
                                       ),
                                     ),
                                   ),
@@ -495,7 +473,7 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
                       );
                     },
                   ),
-                ].divide(SizedBox(height: 20.0)),
+                ].divide(const SizedBox(height: 20.0)),
               ),
             ),
           ),
@@ -504,3 +482,4 @@ class _SelectedEnseignesForAddGameCommercantPageWidgetState
     );
   }
 }
+

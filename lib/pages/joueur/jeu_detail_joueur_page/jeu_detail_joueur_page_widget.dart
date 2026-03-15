@@ -1,23 +1,18 @@
-import '/auth/firebase_auth/auth_util.dart';
+﻿import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
-import '/backend/schema/structs/index.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
-import '/components/update_horaire_card_widget.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
+import '/utils/create_account_to_play_dialog.dart';
+import '/utils/share_links.dart';
+import '/widgets/proxiplay_network_image.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
-import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'jeu_detail_joueur_page_model.dart';
@@ -47,6 +42,32 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
+  bool _hasUnlimitedAccess(UsersRecord? user, DateTime now) {
+    if (isGuestOrAnonymous || user == null) {
+      return false;
+    }
+    final allGamesAccessUntil = user.allGamesAccessUntil;
+    return allGamesAccessUntil != null && allGamesAccessUntil.isAfter(now);
+  }
+
+  bool _hasNoRemainingParts(UsersRecord? user, DateTime now) {
+    if (isGuestOrAnonymous) {
+      return false;
+    }
+    return valueOrDefault(user?.remainingPart, 0) <= 0 &&
+        !_hasUnlimitedAccess(user, now);
+  }
+
+  String _formatEuros(num? value) {
+    final amount = value ?? 0;
+    if (amount % 1 == 0) {
+      return '${amount.toInt()} €';
+    }
+    var text = amount.toStringAsFixed(2);
+    text = text.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+    return '${text.replaceAll('.', ',')} €';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -66,50 +87,64 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<ParticipantsDetailsRecord>>(
-      future: queryParticipantsDetailsRecordOnce(
-        parent: widget!.gameDoc?.reference,
-        queryBuilder: (participantsDetailsRecord) =>
-            participantsDetailsRecord.where(
-          'user_id',
-          isEqualTo: currentUserReference,
-        ),
-        singleRecord: true,
-      ),
+      future: (widget.gameDoc?.reference == null || currentUserReference == null)
+          ? Future.value(const <ParticipantsDetailsRecord>[])
+          : queryParticipantsDetailsRecordOnce(
+              parent: widget.gameDoc?.reference,
+              queryBuilder: (participantsDetailsRecord) =>
+                  participantsDetailsRecord.where(
+                'user_id',
+                isEqualTo: currentUserReference,
+              ),
+              singleRecord: true,
+            ).catchError((_) => <ParticipantsDetailsRecord>[]),
       builder: (context, snapshot) {
         // Customize what your widget looks like when it's loading.
-        if (!snapshot.hasData) {
+        if (!snapshot.hasData && !snapshot.hasError) {
           return Scaffold(
             backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-            body: Center(
+            body: const Center(
               child: SizedBox(
                 width: 50.0,
                 height: 50.0,
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    FlutterFlowTheme.of(context).primary,
-                  ),
-                ),
+                child: SizedBox.shrink(),
               ),
             ),
           );
         }
         List<ParticipantsDetailsRecord>
-            jeuDetailJoueurPageParticipantsDetailsRecordList = snapshot.data!;
+            jeuDetailJoueurPageParticipantsDetailsRecordList =
+                snapshot.data ?? const <ParticipantsDetailsRecord>[];
         final jeuDetailJoueurPageParticipantsDetailsRecord =
             jeuDetailJoueurPageParticipantsDetailsRecordList.isNotEmpty
                 ? jeuDetailJoueurPageParticipantsDetailsRecordList.first
                 : null;
-        final endDate = widget!.gameDoc?.endDate;
+        final now = getCurrentTimestamp;
+        final lastPlay = jeuDetailJoueurPageParticipantsDetailsRecord?.lastPlay;
+        final hasPlayedToday = lastPlay != null &&
+            lastPlay.year == now.year &&
+            lastPlay.month == now.month &&
+            lastPlay.day == now.day;
+        final hasPlayedBefore = lastPlay != null && !hasPlayedToday;
+        final noRemainingParts = _hasNoRemainingParts(currentUserDocument, now);
+        final endDate = widget.gameDoc?.endDate;
         final endWindowEnd = endDate?.add(const Duration(hours: 48));
         final isWithinEndWindow = endDate != null &&
             getCurrentTimestamp.isAfter(endDate) &&
             (endWindowEnd != null &&
                 getCurrentTimestamp.isBefore(endWindowEnd));
         final hasWinnerAnnouncement = isWithinEndWindow &&
-            (widget!.gameDoc?.hasWinner ?? false) &&
-            (widget!.gameDoc?.mainPrizeWinner != null);
+            (widget.gameDoc?.hasWinner ?? false) &&
+            (widget.gameDoc?.mainPrizeWinner != null);
         final hasMainPrize = (widget.gameDoc?.prizeValue ?? 0) > 0;
         final secondaryPrizes = widget.gameDoc?.secondaryPrizes ?? const [];
+        final secondaryPrizeCount = secondaryPrizes.fold<int>(0, (total, item) {
+          final countValue = item['count'];
+          final parsedCount = countValue is num
+              ? countValue.toInt()
+              : int.tryParse((countValue ?? '').toString()) ?? 0;
+          return total + (parsedCount > 0 ? parsedCount : 0);
+        });
         final hasSecondaryPrizeEntries = secondaryPrizes.any((item) {
           final countValue = item['count'];
           final parsedCount = countValue is num
@@ -125,7 +160,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final hasSecondaryPrizeContent =
             hasSecondaryPrizeEntries || hasSecondaryPrizeDescriptionText;
         final leftActionVisible = (() {
-          final isGuest = currentUserUid == null || currentUserUid == '';
+          final isGuest = currentUserUid == '';
           if (isGuest) return true;
           final endDate = widget.gameDoc?.endDate;
           final isGameOpen = endDate != null
@@ -150,82 +185,83 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
               elevation: 0,
               leadingWidth: 60.0,
               leading: Padding(
-                padding: EdgeInsets.only(left: 16.0),
+                padding: const EdgeInsets.only(left: 16.0),
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.9),
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(12.0),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.1),
                         blurRadius: 10.0,
-                        offset: Offset(0, 2),
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
                   child: IconButton(
-                                  icon: Icon(
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints.tightFor(width: 48.0, height: 48.0),
+                    icon: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       color: FlutterFlowTheme.of(context).primaryText,
                       size: 18.0,
-                                  ),
-                                  onPressed: () async {
-                                    context.pop();
-                                  },
-                                ),
+                    ),
+                    onPressed: () async {
+                      context.pop();
+                    },
+                  ),
                               ),
               ),
               centerTitle: true,
-              title: Container(
-                height: 40.0,
-                child: Image.asset(
-                  'assets/images/logo_D_secondaire.png',
+              title: Padding(
+                padding: const EdgeInsets.only(right: 20.0),
+                child: SizedBox(
                   height: 40.0,
-                  fit: BoxFit.contain,
+                  child: Image.asset(
+                    'assets/images/logo_D_secondaire.png',
+                    height: 40.0,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
               actions: [
                                   Builder(
                                     builder: (context) {
-                    if (currentUserUid != null && currentUserUid != '') {
+                    if (currentUserUid != '') {
                       return StreamBuilder<List<FavoriteGamesRecord>>(
                                           stream: queryFavoriteGamesRecord(
                                             parent: currentUserReference,
                           queryBuilder: (favoriteGamesRecord) =>
                                                     favoriteGamesRecord.where(
                                               'game_id',
-                            isEqualTo: widget!.gameDoc?.reference,
+                            isEqualTo: widget.gameDoc?.reference,
                                             ),
                                             singleRecord: true,
                                           ),
                                           builder: (context, snapshot) {
                                             if (!snapshot.hasData) {
                             return Padding(
-                              padding: EdgeInsets.only(right: 8.0),
+                              padding: const EdgeInsets.only(right: 8.0),
                               child: Container(
-                                width: 40.0,
-                                height: 40.0,
+                                width: 48.0,
+                                height: 48.0,
                                 decoration: BoxDecoration(
                                   color: Colors.white.withOpacity(0.9),
-                                  shape: BoxShape.circle,
+                                  borderRadius: BorderRadius.circular(12.0),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.1),
                                       blurRadius: 10.0,
-                                      offset: Offset(0, 2),
+                                      offset: const Offset(0, 2),
                                     ),
                                   ],
                                 ),
-                                child: Center(
+                                child: const Center(
                                                 child: SizedBox(
                                     width: 18.0,
                                     height: 18.0,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.0,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        FlutterFlowTheme.of(context).primary,
-                                      ),
-                                    ),
+                                    child: SizedBox.shrink(),
                                                     ),
                                                   ),
                                                 ),
@@ -237,23 +273,25 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     : null;
 
                           return Padding(
-                            padding: EdgeInsets.only(right: 8.0),
+                            padding: const EdgeInsets.only(right: 8.0),
                             child: Container(
-                              width: 40.0,
-                              height: 40.0,
+                              width: 48.0,
+                              height: 48.0,
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.9),
-                                shape: BoxShape.circle,
+                                borderRadius: BorderRadius.circular(12.0),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.1),
                                     blurRadius: 10.0,
-                                    offset: Offset(0, 2),
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
                               child: IconButton(
                                 padding: EdgeInsets.zero,
+                                constraints:
+                                    const BoxConstraints.tightFor(width: 48.0, height: 48.0),
                                                     icon: Icon(
                                   favoriteGame != null
                                       ? Icons.favorite_rounded
@@ -271,14 +309,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                         .createDoc(currentUserReference!)
                                                           .set({
                                                         ...createFavoriteGamesRecordData(
-                                        gameId: widget!.gameDoc?.reference,
+                                        gameId: widget.gameDoc?.reference,
                                       ),
                                       ...mapToFirestore({
                                         'added_at': FieldValue.serverTimestamp(),
                                       }),
                                     });
 
-                                    await widget!.gameDoc!.reference.update({
+                                    await widget.gameDoc!.reference.update({
                                       ...mapToFirestore({
                                         'favorites': FieldValue.increment(1),
                                       }),
@@ -293,41 +331,44 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                           },
                                         );
                                       } else {
-                      return SizedBox.shrink();
+                      return const SizedBox.shrink();
                                       }
                                     },
                                   ),
                 Padding(
-                  padding: EdgeInsets.only(right: 16.0),
-                  child: Container(
-                    width: 40.0,
-                    height: 40.0,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10.0,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                                      icon: Icon(
-                        Icons.share_rounded,
-                        color: FlutterFlowTheme.of(context).primaryText,
-                        size: 20.0,
+                  padding: const EdgeInsets.only(right: 16.0),
+                  child: IconButton(
+                                      padding: EdgeInsets.zero,
+                                      style: IconButton.styleFrom(
+                                        backgroundColor:
+                                            FlutterFlowTheme.of(context).primary,
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size(48.0, 48.0),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12.0),
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.share_rounded,
+                                        size: 22.0,
                                       ),
                                       onPressed: () async {
                                         await Share.share(
-                                          'proxiplay://proxiplay.com/shareJeuPage?gameDoc=${widget!.gameDoc?.reference.id}&enseigneDoc=${widget!.enseigneDoc?.reference.id}',
-                          sharePositionOrigin: getWidgetBoundingBox(context),
+                                          buildAppShareText(
+                                            title:
+                                                '${widget.gameDoc?.name ?? 'ce jeu'} sur ProxiPlay',
+                                            description: widget.enseigneDoc?.name
+                                                        .trim()
+                                                        .isNotEmpty ==
+                                                    true
+                                                ? 'Disponible chez ${widget.enseigneDoc!.name}.'
+                                                : null,
+                                          ),
+                                          sharePositionOrigin:
+                                              getWidgetBoundingBox(context),
                                         );
                                       },
                                     ),
-                                  ),
                 ),
               ],
             ),
@@ -356,19 +397,19 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                             // Hero Image Section
-                            Image.network(
-                              widget!.gameDoc!.photo,
+                            ProxiplayNetworkImage(
+                              imageUrl: widget.gameDoc!.photo,
                               width: double.infinity,
                               height: 320.0,
                               fit: BoxFit.cover,
                             ),
                             // Main Content Card (White) - Overlapping using Transform
                             Transform.translate(
-                              offset: Offset(0, -30.0),
+                              offset: const Offset(0, -30.0),
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.only(
+                                  borderRadius: const BorderRadius.only(
                                     topLeft: Radius.circular(30.0),
                                     topRight: Radius.circular(30.0),
                                   ),
@@ -376,7 +417,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.05),
                                       blurRadius: 30.0,
-                                      offset: Offset(0, -5),
+                                      offset: const Offset(0, -5),
                                       spreadRadius: 0,
                                     ),
                                   ],
@@ -384,7 +425,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                 child: Padding(
                                 padding: EdgeInsetsDirectional.fromSTEB(
                                     24.0, 
-                                    (widget!.gameDoc?.description ?? '').trim().isEmpty ? 0.0 : 32.0, 
+                                    (widget.gameDoc?.description ?? '').trim().isEmpty ? 0.0 : 32.0, 
                                     24.0, 
                                     24.0
                                   ),
@@ -394,94 +435,15 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                   children: [
                                     // Game Title
                                     Text(
-                                      widget!.gameDoc!.name ?? 'Jeu', 
+                                      widget.gameDoc!.name, 
                                       style: GoogleFonts.inter(
-                                        fontSize:  widget!.gameDoc!.name.isEmpty ? 0.0 : 28.0,
+                                        fontSize:  widget.gameDoc!.name.isEmpty ? 0.0 : 28.0,
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFF1A1A1A),
+                                        color: const Color(0xFF1A1A1A),
                                         letterSpacing: -0.5,
                                       ),
                                     ),
-                                    SizedBox(height: (widget!.gameDoc?.description ?? '').trim().isEmpty ? 12.0 : 16.0),
-                                    // Modern Badges Row
-                                    Wrap(
-                                      spacing: 8.0,
-                                      runSpacing: 8.0,
-                                      children: [
-                                        if (widget!.gameDoc!.prizeValue != null && widget!.gameDoc!.prizeValue! > 0)
-                                    Container(
-                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                      decoration: BoxDecoration(
-                                              color: Color(0xFFFFF4E6),
-                                              borderRadius: BorderRadius.circular(12.0),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(Icons.emoji_events_rounded, size: 16.0, color: Color(0xFFFF9500)),
-                                                SizedBox(width: 6.0),
-                                                Text(
-                                                  '${widget!.gameDoc!.prizeValue}€',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 13.0,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Color(0xFFFF9500),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        if ((widget.enseigneDoc?.city ?? '')
-                                            .trim()
-                                            .isNotEmpty)
-                                      Container(
-                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                        decoration: BoxDecoration(
-                                              color: Color(0xFFF0F9FF),
-                                              borderRadius: BorderRadius.circular(12.0),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                Icon(Icons.location_on_outlined, size: 16.0, color: Color(0xFF3B82F6)),
-                                                SizedBox(width: 6.0),
-                                                  Text(
-                                                  widget.enseigneDoc?.city ?? '',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 13.0,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Color(0xFF3B82F6),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        if (widget!.enseigneDoc != null)
-                                          Container(
-                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                            decoration: BoxDecoration(
-                                              color: Color(0xFFF0FDF4),
-                                              borderRadius: BorderRadius.circular(12.0),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(Icons.store_rounded, size: 16.0, color: Color(0xFF10B981)),
-                                                SizedBox(width: 6.0),
-                                                  Text(
-                                                  widget!.enseigneDoc!.name ?? '',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 13.0,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Color(0xFF10B981),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    SizedBox(height: (widget!.gameDoc?.description ?? '').trim().isEmpty ? 16.0 : 24.0),
+                                    SizedBox(height: (widget.gameDoc?.description ?? '').trim().isEmpty ? 16.0 : 24.0),
                                     // Action Buttons Column
                                     Column(
                                       children: [
@@ -490,45 +452,47 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                       // child:
                                          Builder(
                                         builder: (context) {
-                                          if (currentUserUid != null &&
-                                              currentUserUid != '') {
+                                          if (currentUserUid != '') {
                                             return Builder(
                                               builder: (context) {
-                                                if (widget!.gameDoc
+                                                if (widget.gameDoc
                                                         ?.prohibitedForMinors ??
                                                     false) {
                                                   return Builder(
                                                     builder: (context) {
-                                                      if (functions.isAdult(
-                                                          currentUserDocument!
-                                                              .birthday!)) {
+                                                      if (isGuestOrAnonymous ||
+                                                          ((currentUserDocument
+                                                                      ?.birthday !=
+                                                                  null) &&
+                                                              functions.isAdult(
+                                                                  currentUserDocument!
+                                                                      .birthday!))) {
                                                         return Visibility(
-                                                          visible: widget!
+                                                          visible: widget
                                                                   .gameDoc!
                                                                   .endDate! >
                                                               getCurrentTimestamp,
                                                           child: FFButtonWidget(
-                                                            onPressed: ((widget!
+                                                            onPressed: ((widget
                                                                             .gameDoc!
                                                                             .endDate! <
                                                                         getCurrentTimestamp) ||
-                                                                    ((jeuDetailJoueurPageParticipantsDetailsRecord !=
-                                                                            null) &&
-                                                                        (jeuDetailJoueurPageParticipantsDetailsRecord!.lastPlay! >=
-                                                                            getCurrentTimestamp)) ||
-                                                                    (valueOrDefault(
-                                                                            currentUserDocument?.remainingPart,
-                                                                            0) <=
-                                                                        0))
+                                                                    hasPlayedToday ||
+                                                                    noRemainingParts)
                                                                 ? null
                                                                 : () async {
+                                                                    if (isGuestOrAnonymous) {
+                                                                      await showCreateAccountToPlayDialog(
+                                                                          context);
+                                                                      return;
+                                                                    }
                                                                     try {
                                                                       final result = await FirebaseFunctions
                                                                           .instance
                                                                           .httpsCallable(
                                                                               'participateInGameTransaction')
                                                                           .call({
-                                                                        "gameRef": widget!
+                                                                        "gameRef": widget
                                                                             .gameDoc!
                                                                             .reference
                                                                             .id,
@@ -548,6 +512,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     } on FirebaseFunctionsException catch (error) {
                                                                       _model.cloudFunction3sn =
                                                                           ParticipateInGameTransactionCloudFunctionCallResponse(
+                                                                        data: createResultParticipationGameStruct(
+                                                                          message: error.message ??
+                                                                              "Erreur (${error.code})",
+                                                                        ),
                                                                         errorCode:
                                                                             error.code,
                                                                         succeeded:
@@ -555,6 +523,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       );
                                                                     }
 
+                                                                    if (!context.mounted) {
+                                                                      return;
+                                                                    }
                                                                     if (_model
                                                                         .cloudFunction3sn!
                                                                         .succeeded!) {
@@ -566,7 +537,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                             {
                                                                           'game':
                                                                               serializeParam(
-                                                                            widget!.gameDoc,
+                                                                            widget.gameDoc,
                                                                             ParamType.Document,
                                                                           ),
                                                                           'resultParticipation':
@@ -578,7 +549,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         extra: <String,
                                                                             dynamic>{
                                                                           'game':
-                                                                              widget!.gameDoc,
+                                                                              widget.gameDoc,
                                                                         },
                                                                       );
                                                                     } else {
@@ -590,11 +561,15 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                           return WebViewAware(
                                                                             child:
                                                                                 AlertDialog(
-                                                                              title: Text(_model.cloudFunction3sn!.data!.message),
+                                                                              title: Text(
+                                                                                _model.cloudFunction3sn?.data?.message.isNotEmpty == true
+                                                                                    ? _model.cloudFunction3sn!.data!.message
+                                                                                    : "Une erreur est survenue (${_model.cloudFunction3sn?.errorCode ?? 'inconnue'}).",
+                                                                              ),
                                                                               actions: [
                                                                                 TextButton(
                                                                                   onPressed: () => Navigator.pop(alertDialogContext),
-                                                                                  child: Text('Ok'),
+                                                                                  child: const Text('Ok'),
                                                                                 ),
                                                                               ],
                                                                             ),
@@ -607,31 +582,24 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         () {});
                                                                   },
                                                             text: () {
-                                                              if (valueOrDefault(
-                                                                      currentUserDocument
-                                                                          ?.remainingPart,
-                                                                      0) <=
-                                                                  0) {
+                                                              final noRemainingPartsLive =
+                                                                  _hasNoRemainingParts(
+                                                                currentUserDocument,
+                                                                getCurrentTimestamp,
+                                                              );
+                                                              if (noRemainingPartsLive) {
                                                                 return 'Vous n\'avez plus de parties';
-                                                              } else if (widget!
+                                                              } else if (widget
                                                                       .gameDoc!
                                                                       .endDate! <
                                                                   getCurrentTimestamp) {
-                                                                return 'Le jeu est terminé';
-                                                              } else if ((jeuDetailJoueurPageParticipantsDetailsRecord !=
-                                                                      null) &&
-                                                                  (jeuDetailJoueurPageParticipantsDetailsRecord!
-                                                                          .lastPlay! >=
-                                                                      getCurrentTimestamp)) {
-                                                                return 'Vous avez déjà joué';
-                                                              } else if ((jeuDetailJoueurPageParticipantsDetailsRecord !=
-                                                                      null) &&
-                                                                  (jeuDetailJoueurPageParticipantsDetailsRecord!
-                                                                          .lastPlay! <
-                                                                      getCurrentTimestamp)) {
+                                                                return 'Le jeu est termin\u00E9';
+                                                              } else if (hasPlayedToday) {
+                                                                return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
+                                                              } else if (hasPlayedBefore) {
                                                                 return 'Rejouer';
                                                               } else {
-                                                                return 'Participer';
+                                                                return 'Jouer';
                                                               }
                                                             }(),
                                                             options:
@@ -640,10 +608,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   .infinity,
                                                                   height: 56.0,
                                                               padding:
-                                                                  EdgeInsets
+                                                                  const EdgeInsets
                                                                       .all(0.0),
                                                               iconPadding:
-                                                                  EdgeInsetsDirectional
+                                                                  const EdgeInsetsDirectional
                                                                       .fromSTEB(
                                                                           0.0,
                                                                           0.0,
@@ -695,35 +663,37 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   );
                                                 } else {
                                                   return Visibility(
-                                                    visible: widget!
+                                                    visible: widget
                                                             .gameDoc!.endDate! >
                                                         getCurrentTimestamp,
                                                     child: AuthUserStreamWidget(
-                                                      builder: (context) =>
-                                                          FFButtonWidget(
-                                                        onPressed: ((widget!
+                                                      builder: (context) {
+                                                        final noRemainingPartsLive =
+                                                            _hasNoRemainingParts(
+                                                          currentUserDocument,
+                                                          getCurrentTimestamp,
+                                                        );
+                                                        return FFButtonWidget(
+                                                          onPressed: ((widget
                                                                         .gameDoc!
                                                                         .endDate! <
                                                                     getCurrentTimestamp) ||
-                                                                ((jeuDetailJoueurPageParticipantsDetailsRecord !=
-                                                                        null) &&
-                                                                    (jeuDetailJoueurPageParticipantsDetailsRecord!
-                                                                            .lastPlay! >=
-                                                                        getCurrentTimestamp)) ||
-                                                                (valueOrDefault(
-                                                                        currentUserDocument
-                                                                            ?.remainingPart,
-                                                                        0) <=
-                                                                    0))
+                                                                hasPlayedToday ||
+                                                                noRemainingPartsLive)
                                                             ? null
                                                             : () async {
+                                                                if (isGuestOrAnonymous) {
+                                                                  await showCreateAccountToPlayDialog(
+                                                                      context);
+                                                                  return;
+                                                                }
                                                                 try {
                                                                   final result = await FirebaseFunctions
                                                                       .instance
                                                                       .httpsCallable(
                                                                           'participateInGameTransaction')
                                                                       .call({
-                                                                    "gameRef": widget!
+                                                                    "gameRef": widget
                                                                         .gameDoc!
                                                                         .reference
                                                                         .id,
@@ -746,6 +716,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 } on FirebaseFunctionsException catch (error) {
                                                                   _model.cloudFunction3sn2 =
                                                                       ParticipateInGameTransactionCloudFunctionCallResponse(
+                                                                    data: createResultParticipationGameStruct(
+                                                                      message: error.message ??
+                                                                          "Erreur (${error.code})",
+                                                                    ),
                                                                     errorCode:
                                                                         error
                                                                             .code,
@@ -754,6 +728,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   );
                                                                 }
 
+                                                                if (!context.mounted) {
+                                                                  return;
+                                                                }
                                                                 if (_model
                                                                     .cloudFunction3sn2!
                                                                     .succeeded!) {
@@ -765,7 +742,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         {
                                                                       'game':
                                                                           serializeParam(
-                                                                        widget!
+                                                                        widget
                                                                             .gameDoc,
                                                                         ParamType
                                                                             .Document,
@@ -781,7 +758,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     }.withoutNulls,
                                                                     extra: <String,
                                                                         dynamic>{
-                                                                      'game': widget!
+                                                                      'game': widget
                                                                           .gameDoc,
                                                                     },
                                                                   );
@@ -792,17 +769,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     builder:
                                                                         (alertDialogContext) {
                                                                       return WebViewAware(
-                                                                        child:
-                                                                            AlertDialog(
-                                                                          title: Text(_model
-                                                                              .cloudFunction3sn2!
-                                                                              .data!
-                                                                              .message),
-                                                                          actions: [
-                                                                            TextButton(
-                                                                              onPressed: () => Navigator.pop(alertDialogContext),
-                                                                              child: Text('Ok'),
-                                                                            ),
+                                                                            child:
+                                                                                AlertDialog(
+                                                                              title: Text(
+                                                                                _model.cloudFunction3sn2?.data?.message.isNotEmpty == true
+                                                                                    ? _model.cloudFunction3sn2!.data!.message
+                                                                                    : "Une erreur est survenue (${_model.cloudFunction3sn2?.errorCode ?? 'inconnue'}).",
+                                                                              ),
+                                                                              actions: [
+                                                                                TextButton(
+                                                                                  onPressed: () => Navigator.pop(alertDialogContext),
+                                                                                  child: const Text('Ok'),
+                                                                                ),
                                                                           ],
                                                                         ),
                                                                       );
@@ -813,72 +791,61 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 safeSetState(
                                                                     () {});
                                                               },
-                                                        text: () {
-                                                          if (valueOrDefault(
-                                                                  currentUserDocument
-                                                                      ?.remainingPart,
-                                                                  0) <=
-                                                              0) {
-                                                            return 'Vous n\'avez plus de parties';
-                                                          } else if (widget!
-                                                                  .gameDoc!
-                                                                  .endDate! <
-                                                              getCurrentTimestamp) {
-                                                            return 'Le jeu est terminé';
-                                                          } else if ((jeuDetailJoueurPageParticipantsDetailsRecord !=
-                                                                  null) &&
-                                                              (jeuDetailJoueurPageParticipantsDetailsRecord!
-                                                                      .lastPlay! >=
-                                                                  getCurrentTimestamp)) {
-                                                            return 'Vous avez déjà joué';
-                                                          } else if ((jeuDetailJoueurPageParticipantsDetailsRecord !=
-                                                                  null) &&
-                                                              (jeuDetailJoueurPageParticipantsDetailsRecord!
-                                                                      .lastPlay! <
-                                                                  getCurrentTimestamp)) {
-                                                                return '🎫 Rejouer';
-                                                          } else {
-                                                            return 'Participer';
-                                                          }
-                                                        }(),
-                                                        options:
-                                                            FFButtonOptions(
-                                                          width:
-                                                              double.infinity,
-                                                              height: 56.0,
-                                                          padding:
-                                                              EdgeInsets.all(
-                                                                      0.0),
-                                                          iconPadding:
-                                                              EdgeInsetsDirectional
-                                                                  .fromSTEB(
-                                                                      0.0,
-                                                                      0.0,
-                                                                      0.0,
-                                                                      0.0),
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .primary,
-                                                          textStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .titleMedium
-                                                                  .override(
-                                                                    font: GoogleFonts
-                                                                            .inter(
-                                                                          fontWeight: FontWeight.w600,
-                                                                        ),
-                                                                        color: Colors.white,
-                                                                    letterSpacing:
+                                                          text: () {
+                                                            if (noRemainingPartsLive) {
+                                                              return 'Vous n\'avez plus de parties';
+                                                            } else if (widget
+                                                                    .gameDoc!
+                                                                    .endDate! <
+                                                                getCurrentTimestamp) {
+                                                              return 'Le jeu est termin\u00E9';
+                                                            } else if (hasPlayedToday) {
+                                                              return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
+                                                            } else if (hasPlayedBefore) {
+                                                              return 'Rejouer';
+                                                            } else {
+                                                              return 'Jouer';
+                                                            }
+                                                          }(),
+                                                          options:
+                                                              FFButtonOptions(
+                                                            width:
+                                                                double.infinity,
+                                                            height: 56.0,
+                                                            padding:
+                                                                const EdgeInsets.all(
+                                                                    0.0),
+                                                            iconPadding:
+                                                                const EdgeInsetsDirectional
+                                                                    .fromSTEB(
                                                                         0.0,
-                                                                      ),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                          16.0),
-                                                              elevation: 4.0,
-                                                        ),
-                                                      ),
+                                                                        0.0,
+                                                                        0.0,
+                                                                        0.0),
+                                                            color: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .primary,
+                                                            textStyle:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .titleMedium
+                                                                    .override(
+                                                                      font: GoogleFonts
+                                                                              .inter(
+                                                                            fontWeight: FontWeight.w600,
+                                                                          ),
+                                                                      color: Colors.white,
+                                                                      letterSpacing:
+                                                                          0.0,
+                                                                    ),
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        16.0),
+                                                            elevation: 4.0,
+                                                          ),
+                                                        );
+                                                      },
                                                     ),
                                                   );
                                                 }
@@ -887,21 +854,16 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                           } else {
                                             return FFButtonWidget(
                                               onPressed: () async {
-                                                if (Navigator.of(context)
-                                                    .canPop()) {
-                                                  context.pop();
-                                                }
-                                                context.pushNamed(
-                                                    InscriptionPageWidget
-                                                        .routeName);
+                                                await showCreateAccountToPlayDialog(
+                                                    context);
                                               },
-                                              text: 'Créer un compte',
+                                              text: 'Jouer',
                                               options: FFButtonOptions(
                                                 width: double.infinity,
                                                     height: 56.0,
-                                                padding: EdgeInsets.all(0.0),
+                                                padding: const EdgeInsets.all(0.0),
                                                 iconPadding:
-                                                    EdgeInsetsDirectional
+                                                    const EdgeInsetsDirectional
                                                         .fromSTEB(
                                                             0.0, 0.0, 0.0, 0.0),
                                                 color:
@@ -929,7 +891,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                     ),
                                         // if (leftActionVisible)
 
-                                          SizedBox(height: 12.0),
+                                          const SizedBox(height: 12.0),
                                         SizedBox(
                                           // width: 220.0,
                                           child: InkWell(
@@ -943,18 +905,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               .routeName,
                                           queryParameters: {
                                             'enseigneDoc': serializeParam(
-                                              widget!.enseigneDoc,
+                                              widget.enseigneDoc,
                                               ParamType.Document,
                                             ),
                                           }.withoutNulls,
                                           extra: <String, dynamic>{
-                                            'enseigneDoc': widget!.enseigneDoc,
+                                            'enseigneDoc': widget.enseigneDoc,
                                           },
                                         );
                                       },
                                       child: Container(
-                                                constraints: BoxConstraints(minHeight: 56.0),
-                                                padding: EdgeInsets.symmetric(
+                                                constraints: const BoxConstraints(minHeight: 56.0),
+                                                padding: const EdgeInsets.symmetric(
                                                   horizontal: 12.0,
                                                   vertical: 8.0,
                                                 ),
@@ -969,7 +931,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     BoxShadow(
                                                       color: Colors.black.withOpacity(0.05),
                                                       blurRadius: 10.0,
-                                                      offset: Offset(0, 2),
+                                                      offset: const Offset(0, 2),
                                                     ),
                                                   ],
                                                 ),
@@ -981,11 +943,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       color: FlutterFlowTheme.of(context).primary,
                                                       size: 20.0,
                                                     ),
-                                                    SizedBox(width: 8.0),
+                                                    const SizedBox(width: 8.0),
                                                     Flexible(
                                                       child: Text(
                                                         //  here name of the store
-                                                        widget!.enseigneDoc!.name ?? '',
+                                                        widget.enseigneDoc?.name ??
+                                                            'Enseigne partenaire',
                                                         maxLines: 2,
                                                         softWrap: true,
                                                         overflow: TextOverflow.ellipsis,
@@ -1005,13 +968,13 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                         ),
                                       ],
                                     ),
-                                    SizedBox(height: 24.0),
+                                    const SizedBox(height: 24.0),
                                     // Winner Announcement Section
                                     if (hasWinnerAnnouncement)
                                       Container(
                                         width: double.infinity,
-                                        margin: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 24.0),
-                                        padding: EdgeInsets.all(20.0),
+                                        margin: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 24.0),
+                                        padding: const EdgeInsets.all(20.0),
                                         decoration: BoxDecoration(
                                           gradient: LinearGradient(
                                             begin: Alignment.topLeft,
@@ -1029,11 +992,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                         ),
                                         child: Padding(
                                           padding:
-                                              EdgeInsetsDirectional.fromSTEB(
+                                              const EdgeInsetsDirectional.fromSTEB(
                                                   16.0, 16.0, 16.0, 16.0),
                                           child: FutureBuilder<UsersRecord>(
                                             future: UsersRecord.getDocumentOnce(
-                                                widget!
+                                                widget
                                                     .gameDoc!.mainPrizeWinner!),
                                             builder: (context, snapshot) {
                                               final winnerName =
@@ -1045,7 +1008,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             children: [
                                               if (winnerName.isNotEmpty)
                                                     // Text(
-                                                    //   'Félicitations à $winnerName de ${snapshot.data!.city} !',
+                                                    //   'FÃ©licitations Ã  $winnerName de ${snapshot.data!.city} !',
                                                     //   textAlign:
                                                     //       TextAlign.center,
                                                     //   style:
@@ -1081,7 +1044,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     //           ),
                                                     // ),
                                                   Text(textAlign: TextAlign.center,
-                                                    'Félicitations à $winnerName de ${snapshot.data!.city} !',
+                                                    'F\u00E9licitations \u00E0 $winnerName de ${snapshot.data!.city} !',
                                                   style: FlutterFlowTheme.of(
                                                           context)
                                                         .titleMedium
@@ -1114,7 +1077,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                 ),
                                                   
                                               Text(
-                                                    'Le jeu est terminé. Revenez bientôt pour découvrir les prochains jeux !',
+                                                    'Le jeu est termin\u00E9. Revenez bient\u00F4t pour d\u00E9couvrir les prochains jeux !',
                                                     textAlign: TextAlign.center,
                                                     style: FlutterFlowTheme.of(
                                                             context)
@@ -1149,19 +1112,19 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   .fontStyle,
                                                         ),
                                               ),
-                                            ].divide(SizedBox(height: 8.0)),
+                                            ].divide(const SizedBox(height: 8.0)),
                                               );
                                             },
                                           ),
                                         ),
                                       ),
-                                    if ((widget!.gameDoc?.description ?? '')
+                                    if ((widget.gameDoc?.description ?? '')
                                         .trim()
                                         .isNotEmpty)
                                     Container(
                                       width: double.infinity,
-                                        margin: EdgeInsets.only(bottom: 16.0),
-                                        padding: EdgeInsets.all(20.0),
+                                        margin: const EdgeInsets.only(bottom: 16.0),
+                                        padding: const EdgeInsets.all(20.0),
                                       decoration: BoxDecoration(
                                           color: Colors.white,
                                           borderRadius: BorderRadius.circular(24.0),
@@ -1169,7 +1132,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             BoxShadow(
                                               color: Colors.black.withOpacity(0.05),
                                               blurRadius: 20.0,
-                                              offset: Offset(0, 4),
+                                              offset: const Offset(0, 4),
                                               spreadRadius: 0,
                                             ),
                                           ],
@@ -1180,12 +1143,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               CrossAxisAlignment.start,
                                                       children: [
                                                         Text(
-                                              widget!.gameDoc!.description
+                                              widget.gameDoc!.description
                                                   .trim(),
                                               style: GoogleFonts.inter(
                                                 fontSize: 15.0,
                                                 fontWeight: FontWeight.w400,
-                                                color: Color(0xFF4B5563),
+                                                color: const Color(0xFF4B5563),
                                                 height: 1.6,
                                                 letterSpacing: 0.0,
                                               ),
@@ -1194,7 +1157,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                         ),
                                       ),
                                     // Store Information Section
-                                    // if (widget!.enseigneDoc != null)
+                                    // if (widget.enseigneDoc != null)
                                     //   Column(
                                     //     mainAxisSize: MainAxisSize.max,
                                     //     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1217,7 +1180,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                           //     ],
                                           //   ),
                                           //   child: Text(
-                                          //     widget!.enseigneDoc!.name ?? '',
+                                          //     widget.enseigneDoc!.name,
                                           //     style: GoogleFonts.inter(
                                           //       fontSize: 22.0,
                                           //       fontWeight: FontWeight.bold,
@@ -1234,7 +1197,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                           //                 List<ImagesRecord>>()
                                           //               ..complete(
                                           //                   queryImagesRecordOnce(
-                                          //                 parent: widget!
+                                          //                 parent: widget
                                           //                     .enseigneDoc
                                           //                     ?.reference,
                                           //                 limit: 5,
@@ -1249,15 +1212,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                           //             width: 40.0,
                                           //             height: 40.0,
                                           //             child:
-                                          //                 CircularProgressIndicator(
-                                          //               valueColor:
-                                          //                   AlwaysStoppedAnimation<
-                                          //                       Color>(
-                                          //                 FlutterFlowTheme.of(
-                                          //                         context)
-                                          //                     .primary,
-                                          //               ),
-                                          //               ),
+                                          //                 const SizedBox.shrink(),
                                           //             ),
                                           //           ),
                                           //         );
@@ -1267,7 +1222,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                           //           snapshot.data!;
 
                                           //     if (rowImagesRecordList.isEmpty) {
-                                          //       return SizedBox.shrink();
+                                          //       return const SizedBox.shrink();
                                           //     }
 
                                           //     return Container(
@@ -1324,14 +1279,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                     // ),
                                     Builder(
                                       builder: (context) {
-                                        if (widget!.enseigneDoc != null) {
+                                        if (widget.enseigneDoc != null) {
                                           return Column(
                                             mainAxisSize: MainAxisSize.max,
                                             children: [
                                               // Website Link Card
                                               if (!functions
                                                   .checkValueIsEmpty(
-                                                      widget!
+                                                      widget
                                                           .enseigneDoc!
                                                           .siteWebUrl))
                                                 // Container(
@@ -1359,7 +1314,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                 //     hoverColor: Colors.transparent,
                                                 //     highlightColor: Colors.transparent,
                                                 //     onTap: () async {
-                                                //       await launchURL(widget!
+                                                //       await launchURL(widget
                                                 //           .enseigneDoc!
                                                 //           .siteWebUrl);
                                                 //     },
@@ -1412,7 +1367,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                 //                 ),
                                                 //                 SizedBox(height: 4.0),
                                                 //                 Text(
-                                                //                   widget!
+                                                //                   widget
                                                 //                       .enseigneDoc!
                                                 //                       .siteWebUrl,
                                                 //                   style: GoogleFonts.inter(
@@ -1448,13 +1403,13 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                 
                                               // Social Media Links
                                               // if (!functions.checkValueIsEmpty(
-                                              //         widget!.enseigneDoc!
+                                              //         widget.enseigneDoc!
                                               //             .facebookLink) ||
                                               //     !functions.checkValueIsEmpty(
-                                              //         widget!.enseigneDoc!
+                                              //         widget.enseigneDoc!
                                               //             .twitterLink) ||
                                               //     !functions.checkValueIsEmpty(
-                                              //         widget!.enseigneDoc!
+                                              //         widget.enseigneDoc!
                                               //             .instagramLink))
                                               //   Container(
                                               //       width: double.infinity,
@@ -1477,7 +1432,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               //       runSpacing: 12.0,
                                               //           children: [
                                               //             if (!functions
-                                              //             .checkValueIsEmpty(widget!
+                                              //             .checkValueIsEmpty(widget
                                               //                         .enseigneDoc!
                                               //                 .facebookLink))
                                               //                     InkWell(
@@ -1486,7 +1441,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               //             hoverColor: Colors.transparent,
                                               //             highlightColor: Colors.transparent,
                                               //             onTap: () async {
-                                              //                         await launchURL(widget!
+                                              //                         await launchURL(widget
                                               //                             .enseigneDoc!
                                               //                   .facebookLink);
                                               //             },
@@ -1518,7 +1473,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               //                 ),
                                               //               ),
                                               //             if (!functions
-                                              //                 .checkValueIsEmpty(widget!
+                                              //                 .checkValueIsEmpty(widget
                                               //                     .enseigneDoc!
                                               //                     .instagramLink))
                                               //                     InkWell(
@@ -1527,7 +1482,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               //             hoverColor: Colors.transparent,
                                               //             highlightColor: Colors.transparent,
                                               //             onTap: () async {
-                                              //                         await launchURL(widget!
+                                              //                         await launchURL(widget
                                               //                             .enseigneDoc!
                                               //                             .instagramLink);
                                               //                       },
@@ -1559,7 +1514,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               //                 ),
                                               //               ),
                                               //             if (!functions
-                                              //                 .checkValueIsEmpty(widget!
+                                              //                 .checkValueIsEmpty(widget
                                               //                     .enseigneDoc!
                                               //                     .twitterLink))
                                               //                     InkWell(
@@ -1568,7 +1523,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               //             hoverColor: Colors.transparent,
                                               //             highlightColor: Colors.transparent,
                                               //             onTap: () async {
-                                              //                         await launchURL(widget!
+                                              //                         await launchURL(widget
                                               //                             .enseigneDoc!
                                               //                             .twitterLink);
                                               //                       },
@@ -1605,7 +1560,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               FutureBuilder<
                                                   List<HorairesRecord>>(
                                                 future: queryHorairesRecordOnce(
-                                                  parent: widget!
+                                                  parent: widget
                                                       .enseigneDoc?.reference,
                                                   queryBuilder:
                                                       (horairesRecord) =>
@@ -1615,36 +1570,24 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                 builder: (context, snapshot) {
                                                   // Customize what your widget looks like when it's loading.
                                                   if (!snapshot.hasData) {
-                                                    return Center(
+                                                    return const Center(
                                                       child: SizedBox(
                                                         width: 50.0,
                                                         height: 50.0,
                                                         child:
-                                                            CircularProgressIndicator(
-                                                          valueColor:
-                                                              AlwaysStoppedAnimation<
-                                                                  Color>(
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .primary,
-                                                          ),
-                                                        ),
+                                                            SizedBox.shrink(),
                                                       ),
                                                     );
                                                   }
-                                                  List<HorairesRecord>
-                                                      containerHorairesRecordList =
-                                                      snapshot.data!;
-
-                                                  return Container(
-                                                    decoration: BoxDecoration(),
+return Container(
+                                                    decoration: const BoxDecoration(),
                                                   );
                                                 },
                                               ),
                                               FutureBuilder<
                                                   List<HorairesRecord>>(
                                                 future: queryHorairesRecordOnce(
-                                                  parent: widget!
+                                                  parent: widget
                                                       .enseigneDoc?.reference,
                                                   queryBuilder:
                                                       (horairesRecord) =>
@@ -1654,20 +1597,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                 builder: (context, snapshot) {
                                                   // Customize what your widget looks like when it's loading.
                                                   if (!snapshot.hasData) {
-                                                    return Center(
+                                                    return const Center(
                                                       child: SizedBox(
                                                         width: 50.0,
                                                         height: 50.0,
                                                         child:
-                                                            CircularProgressIndicator(
-                                                          valueColor:
-                                                              AlwaysStoppedAnimation<
-                                                                  Color>(
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .primary,
-                                                          ),
-                                                        ),
+                                                            SizedBox.shrink(),
                                                       ),
                                                     );
                                                   }
@@ -1866,7 +1801,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   //                                         );
                                                   //                                       } else {
                                                   //                                         return Text(
-                                                  //                                           'Fermé',
+                                                  //                                           'FermÃ©',
                                                   //                                           textAlign: TextAlign.right,
                                                   //                                           style: GoogleFonts.inter(
                                                   //                                             fontSize: 14.0,
@@ -1900,14 +1835,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                       Container(
                                         width: double.infinity,
                                         margin:
-                                            EdgeInsets.only(bottom: 16.0),
-                                        padding: EdgeInsets.all(16.0),
+                                            const EdgeInsets.only(bottom: 16.0),
+                                        padding: const EdgeInsets.all(16.0),
                                         decoration: BoxDecoration(
                                           color: Colors.white,
                                                             borderRadius:
                                               BorderRadius.circular(20.0),
                                           border: Border.all(
-                                            color: Color(0xFFE5E7EB),
+                                            color: const Color(0xFFE5E7EB),
                                             width: 1.0,
                                           ),
                                           boxShadow: [
@@ -1915,7 +1850,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               color: Colors.black
                                                   .withOpacity(0.04),
                                               blurRadius: 12.0,
-                                              offset: Offset(0, 2),
+                                              offset: const Offset(0, 2),
                                             ),
                                           ],
                                         ),
@@ -1924,7 +1859,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               CrossAxisAlignment.start,
                                                               children: [
                                             // Text(
-                                            //   'Lots à gagner',
+                                            //   'Lots Ã  gagner',
                                             //   style: GoogleFonts.inter(
                                             //     fontSize: 22.0,
                                             //     fontWeight: FontWeight.w700,
@@ -1934,15 +1869,15 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             // ),
                                             // SizedBox(height: 12.0),
                                                                 Text(
-                                      widget!.gameDoc!.name ?? 'Jeu', 
+                                      widget.gameDoc!.name, 
                                       style: GoogleFonts.inter(
-                                        fontSize:  widget!.gameDoc!.name.isEmpty ? 0.0 : 23.0,
+                                        fontSize:  widget.gameDoc!.name.isEmpty ? 0.0 : 23.0,
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFF111827),
+                                        color: const Color(0xFF111827),
                                         letterSpacing: -0.5,
                                       ),
                                     ),
-                                    SizedBox(height: 12.0),
+                                    const SizedBox(height: 12.0),
                                             if (hasMainPrize)
                                               Row(
                                                 crossAxisAlignment:
@@ -1961,19 +1896,19 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                             fontSize: 14.0,
                                                             fontWeight:
                                                                 FontWeight.w700,
-                                                            color: Color(
+                                                            color: const Color(
                                                                 0xFF111827),
                                                           ),
                                                         ),
-                                                        SizedBox(height: 2.0),
+                                                        const SizedBox(height: 2.0),
                                                         Text(
-                                                          '${widget.gameDoc?.prizeValue ?? 0} €',
+                                                          _formatEuros(widget.gameDoc?.prizeValue),
                                                           style: GoogleFonts
                                                               .inter(
                                                             fontSize: 13.0,
                                                             fontWeight:
                                                                 FontWeight.w500,
-                                                            color: Color(
+                                                            color: const Color(
                                                                 0xFF374151),
                                                           ),
                                                         ),
@@ -1982,11 +1917,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   ),
                                                                                 Container(
                                                     padding:
-                                                        EdgeInsets.symmetric(
+                                                        const EdgeInsets.symmetric(
                                                             horizontal: 10.0,
                                                             vertical: 4.0),
                                                                               decoration: BoxDecoration(
-                                                      color: Color(0xFFFFF4E6),
+                                                      color: const Color(0xFFFFF4E6),
                                                       borderRadius:
                                                           BorderRadius
                                                               .circular(20.0),
@@ -1999,14 +1934,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color:
-                                                            Color(0xFFFF9500),
+                                                            const Color(0xFFFF9500),
                                                       ),
                                                     ),
                                                   ),
                                                 ],
                                               ),
                                             if (hasSecondaryPrizeContent)
-                                              SizedBox(height: 10.0),
+                                              const SizedBox(height: 10.0),
                                             if (hasSecondaryPrizeContent)
                                               Row(
                                                 crossAxisAlignment:
@@ -2019,20 +1954,22 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                               .start,
                                                       children: [
                                                         Text(
-                                                          'Gains immédiats',
+                                                          secondaryPrizeCount > 0
+                                                              ? '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} secondaire${secondaryPrizeCount > 1 ? 's' : ''}'
+                                                              : 'Lots secondaires',
                                                           style: GoogleFonts
                                                               .inter(
                                                             fontSize: 14.0,
                                                             fontWeight:
-                                                                FontWeight.w700,
-                                                            color: Color(
+                                                                FontWeight.w500,
+                                                            color: const Color(
                                                                 0xFF111827),
                                                           ),
                                                         ),
                                                         if (hasSecondaryPrizeDescriptionText)
                                                           Padding(
                                                             padding:
-                                                                EdgeInsets.only(
+                                                                const EdgeInsets.only(
                                                                     top: 2.0),
                                                             child: Text(
                                                               secondaryPrizeDescription,
@@ -2042,7 +1979,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w500,
-                                                                color: Color(
+                                                                color: const Color(
                                                                     0xFF374151),
                                                               ),
                                                             ),
@@ -2052,24 +1989,24 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   ),
                                                   Container(
                                                     padding:
-                                                        EdgeInsets.symmetric(
+                                                        const EdgeInsets.symmetric(
                                                             horizontal: 10.0,
                                                             vertical: 4.0),
                                                     decoration: BoxDecoration(
-                                                      color: Color(0xFFEAFBF2),
+                                                      color: const Color(0xFFEAFBF2),
                                                       borderRadius:
                                                           BorderRadius
                                                               .circular(20.0),
                                                     ),
                                                     child: Text(
-                                                      'Gains immédiats',
+                                                      'Gains imm\u00E9diats',
                                                       style:
                                                           GoogleFonts.inter(
                                                         fontSize: 11.0,
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color:
-                                                            Color(0xFF10B981),
+                                                            const Color(0xFF10B981),
                                                       ),
                                                     ),
                                                   ),
@@ -2082,14 +2019,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               Container(
                                                 width: double.infinity,
                                                 margin:
-                                                    EdgeInsets.only(bottom: 16.0),
-                                                padding: EdgeInsets.all(16.0),
+                                                    const EdgeInsets.only(bottom: 16.0),
+                                                padding: const EdgeInsets.all(16.0),
                                                 decoration: BoxDecoration(
                                                   color: Colors.white,
                                                   borderRadius:
                                                       BorderRadius.circular(20.0),
                                                   border: Border.all(
-                                                    color: Color(0xFFE5E7EB),
+                                                    color: const Color(0xFFE5E7EB),
                                                     width: 1.0,
                                                   ),
                                                   boxShadow: [
@@ -2097,7 +2034,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       color: Colors.black
                                                           .withOpacity(0.04),
                                                       blurRadius: 12.0,
-                                                      offset: Offset(0, 2),
+                                                      offset: const Offset(0, 2),
                                                     ),
                                                   ],
                                                 ),
@@ -2109,38 +2046,38 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                                       children: [
                                                     
                                                                                                         Text(
-                                                      'Règles du jeu',
+                                                      'R\u00E8gles du jeu',
                                                       style: GoogleFonts.inter(
                                                         fontSize: 20.0,
                                                         fontWeight:
                                                             FontWeight.w700,
                                                         color:
-                                                            Color(0xFF1F2937),
+                                                            const Color(0xFF1F2937),
                                                       ),
                                                     ),
-                                                    SizedBox(height: 12.0),
+                                                    const SizedBox(height: 12.0),
                                                     Row(
                                                       crossAxisAlignment:
                                                           CrossAxisAlignment
                                                               .start,
                                                       children: [
-                                                        Icon(
+                                                        const Icon(
                                                           Icons
                                                               .access_time_rounded,
                                                           size: 16.0,
                                                           color: Color(0xFF6B7280),
                                                         ),
-                                                        SizedBox(width: 8.0),
+                                                        const SizedBox(width: 8.0),
                                                         Expanded(
                                                           child: Text(
-                                                            'Début du jeu le ${widget!.gameDoc?.startDate != null ? dateTimeFormat("d/M/y", widget!.gameDoc!.startDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
+                                                            'D\u00E9but du jeu le ${widget.gameDoc?.startDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.startDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
                                                             style: GoogleFonts
                                                                 .inter(
                                                               fontSize: 13.0,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w500,
-                                                              color: Color(
+                                                              color: const Color(
                                                                   0xFF374151),
                                                               height: 1.35,
                                                             ),
@@ -2148,29 +2085,29 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                                         ),
                                                                                                       ],
                                                     ),
-                                                    SizedBox(height: 8.0),
+                                                    const SizedBox(height: 8.0),
                                                     Row(
                                                       crossAxisAlignment:
                                                           CrossAxisAlignment
                                                               .start,
                                                       children: [
-                                                        Icon(
+                                                        const Icon(
                                                           Icons
                                                               .pan_tool_alt_rounded,
                                                           size: 16.0,
                                                           color: Color(0xFF6B7280),
                                                         ),
-                                                        SizedBox(width: 8.0),
+                                                        const SizedBox(width: 8.0),
                                                         Expanded(
                                                           child: Text(
-                                                            'Grattez la zone ci-dessus pour découvrir si vous avez gagné',
+                                                            'Grattez la zone ci-dessus pour d\u00E9couvrir si vous avez gagn\u00E9',
                                                             style: GoogleFonts
                                                                 .inter(
                                                               fontSize: 13.0,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w500,
-                                                              color: Color(
+                                                              color: const Color(
                                                                   0xFF374151),
                                                               height: 1.35,
                                                             ),
@@ -2178,38 +2115,62 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                     ),
                                                                                   ],
                                                                                 ),
-                                                    SizedBox(height: 8.0),
+                                                    const SizedBox(height: 8.0),
                                                if (hasMainPrize)       Row(
                                                       crossAxisAlignment:
                                                           CrossAxisAlignment
                                                               .start,
                                                       children: [
-                                                       Icon(
+                                                       const Icon(
                                                           Icons
                                                               .card_giftcard_rounded,
                                                           size: 16.0,
                                                           color: Color(0xFF6B7280),
                                                         ),
-                                                        SizedBox(width: 8.0),
+                                                        const SizedBox(width: 8.0),
                                                       
                                                         Expanded(
-                                                          child: Text(
-                                                            'Le lot principal sera attribué par tirage au sort le ${widget!.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget!.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
-                                                            style: GoogleFonts
-                                                                .inter(
-                                                              fontSize: 13.0,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                              color: Color(
-                                                                  0xFF374151),
-                                                              height: 1.35,
-                                                            ),
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Text(
+                                                                'Le lot principal sera attribu\u00E9 par tirage au sort le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
+                                                                style:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontSize: 13.0,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w500,
+                                                                  color: const Color(
+                                                                      0xFF374151),
+                                                                  height: 1.35,
+                                                                ),
+                                                              ),
+                                                              const SizedBox(
+                                                                  height: 4.0),
+                                                              Text(
+                                                                'Plus vous participez, plus vous augmentez vos chances lors du tirage au sort',
+                                                                style:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontSize: 13.0,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w500,
+                                                                  color: const Color(
+                                                                      0xFF374151),
+                                                                  height: 1.35,
+                                                                ),
+                                                              ),
+                                                            ],
                                                           ),
                                                         ),
                                                       ],
                                                     ),
-                                                    SizedBox(height: 8.0),
+                                                    const SizedBox(height: 8.0),
                                                  
                                                  if (hasSecondaryPrizeContent)
                                                     Row(
@@ -2217,23 +2178,25 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                           CrossAxisAlignment
                                                               .start,
                                                       children: [
-                                                        Icon(
+                                                        const Icon(
                                                           Icons
                                                               .emoji_events_outlined,
                                                           size: 16.0,
                                                           color: Color(0xFF6B7280),
                                                         ),
-                                                        SizedBox(width: 8.0),
+                                                        const SizedBox(width: 8.0),
                                                         Expanded(
                                                           child: Text(
-                                                            'De nombreux lots secondaires sont à gagner instantanément',
+                                                            secondaryPrizeCount > 0
+                                                                ? '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} secondaire${secondaryPrizeCount > 1 ? 's' : ''} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} à gagner instantanément'
+                                                                : 'Des lots secondaires sont à gagner instantanément',
                                                             style: GoogleFonts
                                                                 .inter(
                                                               fontSize: 13.0,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w500,
-                                                              color: Color(
+                                                              color: const Color(
                                                                   0xFF374151),
                                                               height: 1.35,
                                                         ),
@@ -2244,7 +2207,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   ],
                                                 ),
                                               ),
-                                            ].divide(SizedBox(height: 10.0)),
+                                            ].divide(const SizedBox(height: 10.0)),
                                           );
                                         } else {
                                           return Container(
@@ -2257,7 +2220,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   BorderRadius.circular(20.0),
                                             ),
                                             child: Padding(
-                                              padding: EdgeInsets.all(10.0),
+                                              padding: const EdgeInsets.all(10.0),
                                               child: Column(
                                                 mainAxisSize: MainAxisSize.max,
                                                 children: [
@@ -2294,7 +2257,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                         ),
                                                   ),
                                                 ].divide(
-                                                    SizedBox(height: 10.0)),
+                                                    const SizedBox(height: 10.0)),
                                               ),
                                             ),
                                           );
@@ -2313,7 +2276,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                     wrapWithModel(
                       model: _model.customNavBarJoueurModel,
                       updateCallback: () => safeSetState(() {}),
-                      child: CustomNavBarJoueurWidget(),
+                      child: const CustomNavBarJoueurWidget(),
                     ),
                   ],
                 ),
@@ -2325,3 +2288,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     );
   }
 }
+
+
+
+
+

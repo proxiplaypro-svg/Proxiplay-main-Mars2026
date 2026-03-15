@@ -5,23 +5,23 @@ class MaintenanceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       backgroundColor: Colors.white, // Ou ta couleur de marque
       body: Padding(
-        padding: const EdgeInsets.all(30.0),
+        padding: EdgeInsets.all(30.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Tu peux remplacer l'Icon par une Image.asset('assets/images/logo.png')
-            const Icon(Icons.build_circle_outlined, size: 80, color: Colors.orange),
-            const SizedBox(height: 20),
-            const Text(
+            Icon(Icons.build_circle_outlined, size: 80, color: Colors.orange),
+            SizedBox(height: 20),
+            Text(
               "Maintenance en cours",
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 10),
-            const Text(
+            SizedBox(height: 10),
+            Text(
               "Nous améliorons Proxiplay pour vous. L'application sera de retour très bientôt.",
               style: TextStyle(fontSize: 16, color: Colors.grey),
               textAlign: TextAlign.center,

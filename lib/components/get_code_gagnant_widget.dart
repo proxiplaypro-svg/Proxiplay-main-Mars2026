@@ -1,10 +1,8 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'get_code_gagnant_model.dart';
 export 'get_code_gagnant_model.dart';
 
@@ -48,7 +46,7 @@ class _GetCodeGagnantWidgetState extends State<GetCodeGagnantWidget> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.transparent,
       ),
       child: Card(
@@ -59,7 +57,7 @@ class _GetCodeGagnantWidgetState extends State<GetCodeGagnantWidget> {
           borderRadius: BorderRadius.circular(12.0),
         ),
         child: Padding(
-          padding: EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 16.0),
+          padding: const EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 16.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -68,7 +66,7 @@ class _GetCodeGagnantWidgetState extends State<GetCodeGagnantWidget> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    widget!.title!,
+                    widget.title!,
                     textAlign: TextAlign.center,
                     style: FlutterFlowTheme.of(context).headlineSmall.override(
                           font: GoogleFonts.interTight(
@@ -101,7 +99,7 @@ class _GetCodeGagnantWidgetState extends State<GetCodeGagnantWidget> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    widget!.description!,
+                    widget.description!,
                     textAlign: TextAlign.center,
                     style: FlutterFlowTheme.of(context).titleMedium.override(
                           font: GoogleFonts.interTight(
@@ -117,7 +115,7 @@ class _GetCodeGagnantWidgetState extends State<GetCodeGagnantWidget> {
                               .fontStyle,
                         ),
                   ),
-                ].divide(SizedBox(height: 8.0)),
+                ].divide(const SizedBox(height: 8.0)),
               ),
               Container(
                 width: double.infinity,
@@ -138,9 +136,9 @@ class _GetCodeGagnantWidgetState extends State<GetCodeGagnantWidget> {
                     options: FFButtonOptions(
                       width: 100.0,
                       height: 40.0,
-                      padding: EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.all(8.0),
                       iconPadding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
                       color: FlutterFlowTheme.of(context).primary,
                       textStyle:
                           FlutterFlowTheme.of(context).bodyMedium.override(
@@ -162,16 +160,16 @@ class _GetCodeGagnantWidgetState extends State<GetCodeGagnantWidget> {
                                     .fontStyle,
                               ),
                       elevation: 0.0,
-                      borderSide: BorderSide(
+                      borderSide: const BorderSide(
                         color: Colors.transparent,
                         width: 1.0,
                       ),
                       borderRadius: BorderRadius.circular(20.0),
                     ),
                   ),
-                ].divide(SizedBox(width: 12.0)),
+                ].divide(const SizedBox(width: 12.0)),
               ),
-            ].divide(SizedBox(height: 16.0)),
+            ].divide(const SizedBox(height: 16.0)),
           ),
         ),
       ),

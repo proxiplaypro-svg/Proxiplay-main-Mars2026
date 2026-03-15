@@ -1,22 +1,17 @@
-import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
-import '/backend/schema/structs/index.dart';
 import '/flutter_flow/flutter_flow_choice_chips.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
-import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
-import 'package:provider/provider.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'update_enseigne_commercant_page_model.dart';
 export 'update_enseigne_commercant_page_model.dart';
@@ -58,44 +53,44 @@ class _UpdateEnseigneCommercantPageWidgetState
     logFirebaseEvent('screen_view',
         parameters: {'screen_name': 'UpdateEnseigneCommercantPage'});
     _model.textFieldNameTextController ??=
-        TextEditingController(text: widget!.enseigneDocument?.name);
+        TextEditingController(text: widget.enseigneDocument?.name);
     _model.textFieldNameFocusNode ??= FocusNode();
 
     _model.textFieldDescriptionTextController ??=
-        TextEditingController(text: widget!.enseigneDocument?.description);
+        TextEditingController(text: widget.enseigneDocument?.description);
     _model.textFieldDescriptionFocusNode ??= FocusNode();
 
     _model.textFieldPhoneTextController ??=
-        TextEditingController(text: widget!.enseigneDocument?.phoneNumber);
+        TextEditingController(text: widget.enseigneDocument?.phoneNumber);
     _model.textFieldPhoneFocusNode ??= FocusNode();
 
     _model.textFieldPhoneMask = MaskTextInputFormatter(mask: '## ## ## ## ##');
     _model.textFieldAdresseTextController ??=
-        TextEditingController(text: widget!.enseigneDocument?.address);
+        TextEditingController(text: widget.enseigneDocument?.address);
     _model.textFieldAdresseFocusNode ??= FocusNode();
 
     _model.textFieldCodeTextController ??=
-        TextEditingController(text: widget!.enseigneDocument?.areaCode);
+        TextEditingController(text: widget.enseigneDocument?.areaCode);
     _model.textFieldCodeFocusNode ??= FocusNode();
 
     _model.textFieldCityTextController ??=
-        TextEditingController(text: widget!.enseigneDocument?.city);
+        TextEditingController(text: widget.enseigneDocument?.city);
     _model.textFieldCityFocusNode ??= FocusNode();
 
     _model.textFieldSiteWebTextController ??=
-        TextEditingController(text: widget!.enseigneDocument?.siteWebUrl);
+        TextEditingController(text: widget.enseigneDocument?.siteWebUrl);
     _model.textFieldSiteWebFocusNode ??= FocusNode();
 
     _model.textFieldInstTextController ??=
-        TextEditingController(text: widget!.enseigneDocument?.instagramLink);
+        TextEditingController(text: widget.enseigneDocument?.instagramLink);
     _model.textFieldInstFocusNode ??= FocusNode();
 
     _model.textFieldFacebookTextController ??=
-        TextEditingController(text: widget!.enseigneDocument?.facebookLink);
+        TextEditingController(text: widget.enseigneDocument?.facebookLink);
     _model.textFieldFacebookFocusNode ??= FocusNode();
 
     _model.textFieldTwitterTextController ??=
-        TextEditingController(text: widget!.enseigneDocument?.twitterLink);
+        TextEditingController(text: widget.enseigneDocument?.twitterLink);
     _model.textFieldTwitterFocusNode ??= FocusNode();
   }
 
@@ -132,14 +127,14 @@ class _UpdateEnseigneCommercantPageWidgetState
               context.safePop();
             },
           ),
-          actions: [],
+          actions: const [],
           flexibleSpace: FlexibleSpaceBar(
             background: ClipRRect(
               borderRadius: BorderRadius.circular(8.0),
               child: Image.asset(
                 'assets/images/Background.png',
                 fit: BoxFit.cover,
-                alignment: Alignment(1.0, -1.0),
+                alignment: const Alignment(1.0, -1.0),
               ),
             ),
           ),
@@ -152,7 +147,7 @@ class _UpdateEnseigneCommercantPageWidgetState
             decoration: BoxDecoration(
               image: DecorationImage(
                 fit: BoxFit.cover,
-                alignment: AlignmentDirectional(-1.0, 1.0),
+                alignment: const AlignmentDirectional(-1.0, 1.0),
                 image: Image.asset(
                   'assets/images/Background.png',
                 ).image,
@@ -162,7 +157,7 @@ class _UpdateEnseigneCommercantPageWidgetState
               key: _model.formKey,
               autovalidateMode: AutovalidateMode.disabled,
               child: Padding(
-                padding: EdgeInsets.all(20.0),
+                padding: const EdgeInsets.all(20.0),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.max,
@@ -181,7 +176,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                             borderRadius: BorderRadius.circular(16.0),
                           ),
                           child: Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 20.0, 20.0, 20.0, 20.0),
                             child: Column(
                               mainAxisSize: MainAxisSize.max,
@@ -265,28 +260,28 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                   .fontStyle,
                                         ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     errorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedErrorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
@@ -378,28 +373,28 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                   .fontStyle,
                                         ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     errorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedErrorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
@@ -491,28 +486,28 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                   .fontStyle,
                                         ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     errorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedErrorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
@@ -550,7 +545,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                       .asValidator(context),
                                   inputFormatters: [_model.textFieldPhoneMask],
                                 ),
-                              ].divide(SizedBox(height: 16.0)),
+                              ].divide(const SizedBox(height: 16.0)),
                             ),
                           ),
                         ),
@@ -569,7 +564,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                             borderRadius: BorderRadius.circular(16.0),
                           ),
                           child: Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 20.0, 20.0, 20.0, 20.0),
                             child: Column(
                               mainAxisSize: MainAxisSize.max,
@@ -653,28 +648,28 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                   .fontStyle,
                                         ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     errorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedErrorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
@@ -776,7 +771,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -784,7 +779,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                 BorderRadius.circular(8.0),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -792,7 +787,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                 BorderRadius.circular(8.0),
                                           ),
                                           errorBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -801,7 +796,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                           ),
                                           focusedErrorBorder:
                                               OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -906,7 +901,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -914,7 +909,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                 BorderRadius.circular(8.0),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -922,7 +917,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                 BorderRadius.circular(8.0),
                                           ),
                                           errorBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -931,7 +926,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                           ),
                                           focusedErrorBorder:
                                               OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -972,9 +967,9 @@ class _UpdateEnseigneCommercantPageWidgetState
                                             .asValidator(context),
                                       ),
                                     ),
-                                  ].divide(SizedBox(width: 16.0)),
+                                  ].divide(const SizedBox(width: 16.0)),
                                 ),
-                              ].divide(SizedBox(height: 16.0)),
+                              ].divide(const SizedBox(height: 16.0)),
                             ),
                           ),
                         ),
@@ -989,7 +984,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                             AddHoraireCommercantPageWidget.routeName,
                             queryParameters: {
                               'enseigneRef': serializeParam(
-                                widget!.enseigneDocument?.reference,
+                                widget.enseigneDocument?.reference,
                                 ParamType.DocumentReference,
                               ),
                               'created': serializeParam(
@@ -998,7 +993,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                               ),
                             }.withoutNulls,
                             extra: <String, dynamic>{
-                              kTransitionInfoKey: TransitionInfo(
+                              kTransitionInfoKey: const TransitionInfo(
                                 hasTransition: true,
                                 transitionType: PageTransitionType.rightToLeft,
                               ),
@@ -1019,7 +1014,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                               borderRadius: BorderRadius.circular(16.0),
                             ),
                             child: Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   20.0, 20.0, 20.0, 20.0),
                               child: Column(
                                 mainAxisSize: MainAxisSize.max,
@@ -1063,7 +1058,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                       ),
                                     ],
                                   ),
-                                ].divide(SizedBox(height: 16.0)),
+                                ].divide(const SizedBox(height: 16.0)),
                               ),
                             ),
                           ),
@@ -1079,12 +1074,12 @@ class _UpdateEnseigneCommercantPageWidgetState
                             PhotoEnseigneCommercantPageWidget.routeName,
                             queryParameters: {
                               'enseigneRef': serializeParam(
-                                widget!.enseigneDocument?.reference,
+                                widget.enseigneDocument?.reference,
                                 ParamType.DocumentReference,
                               ),
                             }.withoutNulls,
                             extra: <String, dynamic>{
-                              kTransitionInfoKey: TransitionInfo(
+                              kTransitionInfoKey: const TransitionInfo(
                                 hasTransition: true,
                                 transitionType: PageTransitionType.rightToLeft,
                               ),
@@ -1105,7 +1100,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                               borderRadius: BorderRadius.circular(16.0),
                             ),
                             child: Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   20.0, 20.0, 20.0, 20.0),
                               child: Column(
                                 mainAxisSize: MainAxisSize.max,
@@ -1149,7 +1144,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                       ),
                                     ],
                                   ),
-                                ].divide(SizedBox(height: 16.0)),
+                                ].divide(const SizedBox(height: 16.0)),
                               ),
                             ),
                           ),
@@ -1169,7 +1164,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                             borderRadius: BorderRadius.circular(16.0),
                           ),
                           child: Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 20.0, 20.0, 20.0, 20.0),
                             child: Column(
                               mainAxisSize: MainAxisSize.max,
@@ -1206,7 +1201,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                     borderRadius: BorderRadius.circular(8.0),
                                   ),
                                   child: Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                    padding: const EdgeInsetsDirectional.fromSTEB(
                                         16.0, 16.0, 16.0, 16.0),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
@@ -1322,15 +1317,15 @@ class _UpdateEnseigneCommercantPageWidgetState
                                           controller: _model
                                                   .choiceChipsValueController ??=
                                               FormFieldController<List<String>>(
-                                            widget!.enseigneDocument?.category,
+                                            widget.enseigneDocument?.category,
                                           ),
                                           wrapped: true,
                                         ),
-                                      ].divide(SizedBox(height: 12.0)),
+                                      ].divide(const SizedBox(height: 12.0)),
                                     ),
                                   ),
                                 ),
-                              ].divide(SizedBox(height: 16.0)),
+                              ].divide(const SizedBox(height: 16.0)),
                             ),
                           ),
                         ),
@@ -1349,7 +1344,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                             borderRadius: BorderRadius.circular(16.0),
                           ),
                           child: Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 20.0, 20.0, 20.0, 20.0),
                             child: Column(
                               mainAxisSize: MainAxisSize.max,
@@ -1433,28 +1428,28 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                   .fontStyle,
                                         ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     errorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedErrorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
@@ -1551,28 +1546,28 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                   .fontStyle,
                                         ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     errorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedErrorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
@@ -1669,28 +1664,28 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                   .fontStyle,
                                         ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     errorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedErrorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
@@ -1787,28 +1782,28 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                   .fontStyle,
                                         ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     errorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
                                       borderRadius: BorderRadius.circular(8.0),
                                     ),
                                     focusedErrorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 1.0,
                                       ),
@@ -1850,14 +1845,14 @@ class _UpdateEnseigneCommercantPageWidgetState
                                       .textFieldTwitterTextControllerValidator
                                       .asValidator(context),
                                 ),
-                              ].divide(SizedBox(height: 16.0)),
+                              ].divide(const SizedBox(height: 16.0)),
                             ),
                           ),
                         ),
                       ),
                       FFButtonWidget(
                         onPressed: () async {
-                          await widget!.enseigneDocument!.reference.update({
+                          await widget.enseigneDocument!.reference.update({
                             ...createEnseignesRecordData(
                               name: _model.textFieldNameTextController.text,
                               address:
@@ -1888,9 +1883,9 @@ class _UpdateEnseigneCommercantPageWidgetState
                         options: FFButtonOptions(
                           width: MediaQuery.sizeOf(context).width * 1.0,
                           height: 50.0,
-                          padding: EdgeInsetsDirectional.fromSTEB(
+                          padding: const EdgeInsetsDirectional.fromSTEB(
                               0.0, 0.0, 0.0, 0.0),
-                          iconPadding: EdgeInsetsDirectional.fromSTEB(
+                          iconPadding: const EdgeInsetsDirectional.fromSTEB(
                               0.0, 0.0, 0.0, 0.0),
                           color: FlutterFlowTheme.of(context).primary,
                           textStyle:
@@ -1924,19 +1919,19 @@ class _UpdateEnseigneCommercantPageWidgetState
                                   builder: (alertDialogContext) {
                                     return WebViewAware(
                                       child: AlertDialog(
-                                        title: Text('Supprimer l\'enseigne'),
-                                        content: Text(
+                                        title: const Text('Supprimer l\'enseigne'),
+                                        content: const Text(
                                             'Êtes-vous sûr de vouloir supprimer votre enseigne'),
                                         actions: [
                                           TextButton(
                                             onPressed: () => Navigator.pop(
                                                 alertDialogContext, false),
-                                            child: Text('Annuler'),
+                                            child: const Text('Annuler'),
                                           ),
                                           TextButton(
                                             onPressed: () => Navigator.pop(
                                                 alertDialogContext, true),
-                                            child: Text('Confirmer'),
+                                            child: const Text('Confirmer'),
                                           ),
                                         ],
                                       ),
@@ -1946,14 +1941,14 @@ class _UpdateEnseigneCommercantPageWidgetState
                                 false;
                             if (confirmDialogResponse) {
                               await actions.deleteEnseigneImages(
-                                widget!.enseigneDocument!.reference,
+                                widget.enseigneDocument!.reference,
                               );
                               try {
                                 final result = await FirebaseFunctions.instance
                                     .httpsCallable('deleteEnseigneAndGames')
                                     .call({
                                   "enseignePath":
-                                      widget!.enseigneDocument!.reference.id,
+                                      widget.enseigneDocument!.reference.id,
                                 });
                                 _model.resultCloudFunction =
                                     DeleteEnseigneAndGamesCloudFunctionCallResponse(
@@ -1976,11 +1971,11 @@ class _UpdateEnseigneCommercantPageWidgetState
                           options: FFButtonOptions(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             height: 50.0,
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 0.0),
-                            iconPadding: EdgeInsetsDirectional.fromSTEB(
+                            iconPadding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 0.0),
-                            color: Color(0xFFBD2930),
+                            color: const Color(0xFFBD2930),
                             textStyle: FlutterFlowTheme.of(context)
                                 .titleSmall
                                 .override(
@@ -2005,7 +2000,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                             borderRadius: BorderRadius.circular(25.0),
                           ),
                         ),
-                    ].divide(SizedBox(height: 24.0)),
+                    ].divide(const SizedBox(height: 24.0)),
                   ),
                 ),
               ),

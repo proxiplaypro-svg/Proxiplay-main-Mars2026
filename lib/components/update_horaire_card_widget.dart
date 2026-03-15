@@ -1,15 +1,9 @@
-import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'update_horaire_card_model.dart';
 export 'update_horaire_card_model.dart';
 
@@ -40,8 +34,8 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
     super.initState();
     _model = createModel(context, () => UpdateHoraireCardModel());
 
-    _model.switchDayValue = widget!.day!.isOpen;
-    _model.switchCoupureMidiValue = widget!.day!.isFullDay;
+    _model.switchDayValue = widget.day!.isOpen;
+    _model.switchCoupureMidiValue = widget.day!.isFullDay;
   }
 
   @override
@@ -66,7 +60,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
           borderRadius: BorderRadius.circular(8.0),
         ),
         child: Padding(
-          padding: EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(20.0),
           child: Column(
             mainAxisSize: MainAxisSize.max,
             children: [
@@ -75,7 +69,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    widget!.day!.day!.name,
+                    widget.day!.day!.name,
                     style: FlutterFlowTheme.of(context).bodyLarge.override(
                           font: GoogleFonts.inter(
                             fontWeight: FontWeight.w600,
@@ -138,18 +132,18 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                   .fontStyle,
                             ),
                       ),
-                    ].divide(SizedBox(width: 10.0)),
+                    ].divide(const SizedBox(width: 10.0)),
                   ),
                   Switch(
                     value: _model.switchDayValue!,
                     onChanged: (newValue) async {
-                      safeSetState(() => _model.switchDayValue = newValue!);
+                      safeSetState(() => _model.switchDayValue = newValue);
                     },
-                    activeColor: FlutterFlowTheme.of(context).primary,
-                    activeTrackColor: Color(0xFFC4C4C4),
+                    activeThumbColor: FlutterFlowTheme.of(context).primary,
+                    activeTrackColor: const Color(0xFFC4C4C4),
                     inactiveTrackColor:
                         FlutterFlowTheme.of(context).secondaryText,
-                    inactiveThumbColor: Color(0xFF8C82E7),
+                    inactiveThumbColor: const Color(0xFF8C82E7),
                   ),
                 ],
               ),
@@ -163,7 +157,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                         borderRadius: BorderRadius.circular(8.0),
                       ),
                       child: Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
                             12.0, 12.0, 12.0, 12.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
@@ -229,21 +223,21 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                     .fontStyle,
                                           ),
                                     ),
-                                  ].divide(SizedBox(width: 10.0)),
+                                  ].divide(const SizedBox(width: 10.0)),
                                 ),
                                 Switch(
                                   value: _model.switchCoupureMidiValue!,
                                   onChanged: (newValue) async {
                                     safeSetState(() => _model
-                                        .switchCoupureMidiValue = newValue!);
+                                        .switchCoupureMidiValue = newValue);
                                   },
-                                  activeColor:
+                                  activeThumbColor:
                                       FlutterFlowTheme.of(context).primary,
-                                  activeTrackColor: Color(0xFFC4C4C4),
+                                  activeTrackColor: const Color(0xFFC4C4C4),
                                   inactiveTrackColor:
                                       FlutterFlowTheme.of(context)
                                           .secondaryText,
-                                  inactiveThumbColor: Color(0xFF8C82E7),
+                                  inactiveThumbColor: const Color(0xFF8C82E7),
                                 ),
                               ],
                             ),
@@ -304,11 +298,11 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                     highlightColor:
                                                         Colors.transparent,
                                                     onTap: () async {
-                                                      final _datePicked1Time =
+                                                      final datePicked1Time =
                                                           await showTimePicker(
                                                         context: context,
                                                         initialTime: TimeOfDay
-                                                            .fromDateTime((widget!
+                                                            .fromDateTime((widget
                                                                     .day
                                                                     ?.openingMorning ??
                                                                 DateTime
@@ -375,26 +369,26 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                           );
                                                         },
                                                       );
-                                                      if (_datePicked1Time !=
+                                                      if (datePicked1Time !=
                                                           null) {
                                                         safeSetState(() {
                                                           _model.datePicked1 =
                                                               DateTime(
-                                                            (widget!.day?.openingMorning ??
+                                                            (widget.day?.openingMorning ??
                                                                     DateTime
                                                                         .now())
                                                                 .year,
-                                                            (widget!.day?.openingMorning ??
+                                                            (widget.day?.openingMorning ??
                                                                     DateTime
                                                                         .now())
                                                                 .month,
-                                                            (widget!.day?.openingMorning ??
+                                                            (widget.day?.openingMorning ??
                                                                     DateTime
                                                                         .now())
                                                                 .day,
-                                                            _datePicked1Time
+                                                            datePicked1Time
                                                                 .hour,
-                                                            _datePicked1Time
+                                                            datePicked1Time
                                                                 .minute,
                                                           );
                                                         });
@@ -403,7 +397,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                           null) {
                                                         safeSetState(() {
                                                           _model.datePicked1 =
-                                                              widget!.day
+                                                              widget.day
                                                                   ?.openingMorning;
                                                         });
                                                       }
@@ -420,7 +414,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                       ),
                                                       child: Padding(
                                                         padding:
-                                                            EdgeInsetsDirectional
+                                                            const EdgeInsetsDirectional
                                                                 .fromSTEB(
                                                                     12.0,
                                                                     16.0,
@@ -442,7 +436,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                                       null
                                                                   ? dateTimeFormat(
                                                                       "Hm",
-                                                                      widget!
+                                                                      widget
                                                                           .day!
                                                                           .openingMorning!,
                                                                       locale: FFLocalizations.of(
@@ -484,7 +478,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                                         .fontStyle,
                                                                   ),
                                                             ),
-                                                          ].divide(SizedBox(
+                                                          ].divide(const SizedBox(
                                                               width: 8.0)),
                                                         ),
                                                       ),
@@ -533,11 +527,11 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                     highlightColor:
                                                         Colors.transparent,
                                                     onTap: () async {
-                                                      final _datePicked2Time =
+                                                      final datePicked2Time =
                                                           await showTimePicker(
                                                         context: context,
                                                         initialTime: TimeOfDay
-                                                            .fromDateTime((widget!
+                                                            .fromDateTime((widget
                                                                     .day
                                                                     ?.closingMorning ??
                                                                 DateTime
@@ -604,26 +598,26 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                           );
                                                         },
                                                       );
-                                                      if (_datePicked2Time !=
+                                                      if (datePicked2Time !=
                                                           null) {
                                                         safeSetState(() {
                                                           _model.datePicked2 =
                                                               DateTime(
-                                                            (widget!.day?.closingMorning ??
+                                                            (widget.day?.closingMorning ??
                                                                     DateTime
                                                                         .now())
                                                                 .year,
-                                                            (widget!.day?.closingMorning ??
+                                                            (widget.day?.closingMorning ??
                                                                     DateTime
                                                                         .now())
                                                                 .month,
-                                                            (widget!.day?.closingMorning ??
+                                                            (widget.day?.closingMorning ??
                                                                     DateTime
                                                                         .now())
                                                                 .day,
-                                                            _datePicked2Time
+                                                            datePicked2Time
                                                                 .hour,
-                                                            _datePicked2Time
+                                                            datePicked2Time
                                                                 .minute,
                                                           );
                                                         });
@@ -632,7 +626,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                           null) {
                                                         safeSetState(() {
                                                           _model.datePicked2 =
-                                                              widget!.day
+                                                              widget.day
                                                                   ?.closingMorning;
                                                         });
                                                       }
@@ -649,7 +643,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                       ),
                                                       child: Padding(
                                                         padding:
-                                                            EdgeInsetsDirectional
+                                                            const EdgeInsetsDirectional
                                                                 .fromSTEB(
                                                                     12.0,
                                                                     16.0,
@@ -671,7 +665,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                                       null
                                                                   ? dateTimeFormat(
                                                                       "Hm",
-                                                                      widget!
+                                                                      widget
                                                                           .day!
                                                                           .closingMorning!,
                                                                       locale: FFLocalizations.of(
@@ -713,16 +707,16 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                                         .fontStyle,
                                                                   ),
                                                             ),
-                                                          ].divide(SizedBox(
+                                                          ].divide(const SizedBox(
                                                               width: 8.0)),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-                                              ].divide(SizedBox(width: 16.0)),
+                                              ].divide(const SizedBox(width: 16.0)),
                                             ),
-                                          ].divide(SizedBox(height: 8.0)),
+                                          ].divide(const SizedBox(height: 8.0)),
                                         ),
                                         Column(
                                           mainAxisSize: MainAxisSize.max,
@@ -772,11 +766,11 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                     highlightColor:
                                                         Colors.transparent,
                                                     onTap: () async {
-                                                      final _datePicked3Time =
+                                                      final datePicked3Time =
                                                           await showTimePicker(
                                                         context: context,
                                                         initialTime: TimeOfDay
-                                                            .fromDateTime((widget!
+                                                            .fromDateTime((widget
                                                                     .day
                                                                     ?.openingAfternoon ??
                                                                 DateTime
@@ -843,26 +837,26 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                           );
                                                         },
                                                       );
-                                                      if (_datePicked3Time !=
+                                                      if (datePicked3Time !=
                                                           null) {
                                                         safeSetState(() {
                                                           _model.datePicked3 =
                                                               DateTime(
-                                                            (widget!.day?.openingAfternoon ??
+                                                            (widget.day?.openingAfternoon ??
                                                                     DateTime
                                                                         .now())
                                                                 .year,
-                                                            (widget!.day?.openingAfternoon ??
+                                                            (widget.day?.openingAfternoon ??
                                                                     DateTime
                                                                         .now())
                                                                 .month,
-                                                            (widget!.day?.openingAfternoon ??
+                                                            (widget.day?.openingAfternoon ??
                                                                     DateTime
                                                                         .now())
                                                                 .day,
-                                                            _datePicked3Time
+                                                            datePicked3Time
                                                                 .hour,
-                                                            _datePicked3Time
+                                                            datePicked3Time
                                                                 .minute,
                                                           );
                                                         });
@@ -871,7 +865,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                           null) {
                                                         safeSetState(() {
                                                           _model.datePicked3 =
-                                                              widget!.day
+                                                              widget.day
                                                                   ?.openingAfternoon;
                                                         });
                                                       }
@@ -888,7 +882,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                       ),
                                                       child: Padding(
                                                         padding:
-                                                            EdgeInsetsDirectional
+                                                            const EdgeInsetsDirectional
                                                                 .fromSTEB(
                                                                     12.0,
                                                                     16.0,
@@ -910,7 +904,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                                       null
                                                                   ? dateTimeFormat(
                                                                       "Hm",
-                                                                      widget!
+                                                                      widget
                                                                           .day!
                                                                           .openingAfternoon!,
                                                                       locale: FFLocalizations.of(
@@ -952,7 +946,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                                         .fontStyle,
                                                                   ),
                                                             ),
-                                                          ].divide(SizedBox(
+                                                          ].divide(const SizedBox(
                                                               width: 8.0)),
                                                         ),
                                                       ),
@@ -1001,11 +995,11 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                     highlightColor:
                                                         Colors.transparent,
                                                     onTap: () async {
-                                                      final _datePicked4Time =
+                                                      final datePicked4Time =
                                                           await showTimePicker(
                                                         context: context,
                                                         initialTime: TimeOfDay
-                                                            .fromDateTime((widget!
+                                                            .fromDateTime((widget
                                                                     .day
                                                                     ?.closingAfternoon ??
                                                                 DateTime
@@ -1072,26 +1066,26 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                           );
                                                         },
                                                       );
-                                                      if (_datePicked4Time !=
+                                                      if (datePicked4Time !=
                                                           null) {
                                                         safeSetState(() {
                                                           _model.datePicked4 =
                                                               DateTime(
-                                                            (widget!.day?.closingAfternoon ??
+                                                            (widget.day?.closingAfternoon ??
                                                                     DateTime
                                                                         .now())
                                                                 .year,
-                                                            (widget!.day?.closingAfternoon ??
+                                                            (widget.day?.closingAfternoon ??
                                                                     DateTime
                                                                         .now())
                                                                 .month,
-                                                            (widget!.day?.closingAfternoon ??
+                                                            (widget.day?.closingAfternoon ??
                                                                     DateTime
                                                                         .now())
                                                                 .day,
-                                                            _datePicked4Time
+                                                            datePicked4Time
                                                                 .hour,
-                                                            _datePicked4Time
+                                                            datePicked4Time
                                                                 .minute,
                                                           );
                                                         });
@@ -1100,7 +1094,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                           null) {
                                                         safeSetState(() {
                                                           _model.datePicked4 =
-                                                              widget!.day
+                                                              widget.day
                                                                   ?.closingAfternoon;
                                                         });
                                                       }
@@ -1117,7 +1111,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                       ),
                                                       child: Padding(
                                                         padding:
-                                                            EdgeInsetsDirectional
+                                                            const EdgeInsetsDirectional
                                                                 .fromSTEB(
                                                                     12.0,
                                                                     16.0,
@@ -1139,7 +1133,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                                       null
                                                                   ? dateTimeFormat(
                                                                       "Hm",
-                                                                      widget!
+                                                                      widget
                                                                           .day!
                                                                           .closingAfternoon!,
                                                                       locale: FFLocalizations.of(
@@ -1181,16 +1175,16 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                                         .fontStyle,
                                                                   ),
                                                             ),
-                                                          ].divide(SizedBox(
+                                                          ].divide(const SizedBox(
                                                               width: 8.0)),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-                                              ].divide(SizedBox(width: 16.0)),
+                                              ].divide(const SizedBox(width: 16.0)),
                                             ),
-                                          ].divide(SizedBox(height: 8.0)),
+                                          ].divide(const SizedBox(height: 8.0)),
                                         ),
                                       ],
                                     ),
@@ -1219,11 +1213,11 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                     highlightColor:
                                                         Colors.transparent,
                                                     onTap: () async {
-                                                      final _datePicked5Time =
+                                                      final datePicked5Time =
                                                           await showTimePicker(
                                                         context: context,
                                                         initialTime: TimeOfDay
-                                                            .fromDateTime((widget!
+                                                            .fromDateTime((widget
                                                                     .day
                                                                     ?.openingDay ??
                                                                 DateTime
@@ -1290,26 +1284,26 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                           );
                                                         },
                                                       );
-                                                      if (_datePicked5Time !=
+                                                      if (datePicked5Time !=
                                                           null) {
                                                         safeSetState(() {
                                                           _model.datePicked5 =
                                                               DateTime(
-                                                            (widget!.day?.openingDay ??
+                                                            (widget.day?.openingDay ??
                                                                     DateTime
                                                                         .now())
                                                                 .year,
-                                                            (widget!.day?.openingDay ??
+                                                            (widget.day?.openingDay ??
                                                                     DateTime
                                                                         .now())
                                                                 .month,
-                                                            (widget!.day?.openingDay ??
+                                                            (widget.day?.openingDay ??
                                                                     DateTime
                                                                         .now())
                                                                 .day,
-                                                            _datePicked5Time
+                                                            datePicked5Time
                                                                 .hour,
-                                                            _datePicked5Time
+                                                            datePicked5Time
                                                                 .minute,
                                                           );
                                                         });
@@ -1318,7 +1312,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                           null) {
                                                         safeSetState(() {
                                                           _model.datePicked5 =
-                                                              widget!.day
+                                                              widget.day
                                                                   ?.openingDay;
                                                         });
                                                       }
@@ -1335,7 +1329,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                       ),
                                                       child: Padding(
                                                         padding:
-                                                            EdgeInsetsDirectional
+                                                            const EdgeInsetsDirectional
                                                                 .fromSTEB(
                                                                     12.0,
                                                                     16.0,
@@ -1357,7 +1351,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                                       null
                                                                   ? dateTimeFormat(
                                                                       "Hm",
-                                                                      widget!
+                                                                      widget
                                                                           .day!
                                                                           .openingDay!,
                                                                       locale: FFLocalizations.of(
@@ -1399,7 +1393,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                                         .fontStyle,
                                                                   ),
                                                             ),
-                                                          ].divide(SizedBox(
+                                                          ].divide(const SizedBox(
                                                               width: 8.0)),
                                                         ),
                                                       ),
@@ -1448,11 +1442,11 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                     highlightColor:
                                                         Colors.transparent,
                                                     onTap: () async {
-                                                      final _datePicked6Time =
+                                                      final datePicked6Time =
                                                           await showTimePicker(
                                                         context: context,
                                                         initialTime: TimeOfDay
-                                                            .fromDateTime((widget!
+                                                            .fromDateTime((widget
                                                                     .day
                                                                     ?.closingDay ??
                                                                 DateTime
@@ -1519,26 +1513,26 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                           );
                                                         },
                                                       );
-                                                      if (_datePicked6Time !=
+                                                      if (datePicked6Time !=
                                                           null) {
                                                         safeSetState(() {
                                                           _model.datePicked6 =
                                                               DateTime(
-                                                            (widget!.day?.closingDay ??
+                                                            (widget.day?.closingDay ??
                                                                     DateTime
                                                                         .now())
                                                                 .year,
-                                                            (widget!.day?.closingDay ??
+                                                            (widget.day?.closingDay ??
                                                                     DateTime
                                                                         .now())
                                                                 .month,
-                                                            (widget!.day?.closingDay ??
+                                                            (widget.day?.closingDay ??
                                                                     DateTime
                                                                         .now())
                                                                 .day,
-                                                            _datePicked6Time
+                                                            datePicked6Time
                                                                 .hour,
-                                                            _datePicked6Time
+                                                            datePicked6Time
                                                                 .minute,
                                                           );
                                                         });
@@ -1547,7 +1541,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                           null) {
                                                         safeSetState(() {
                                                           _model.datePicked6 =
-                                                              widget!.day
+                                                              widget.day
                                                                   ?.closingDay;
                                                         });
                                                       }
@@ -1564,7 +1558,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                       ),
                                                       child: Padding(
                                                         padding:
-                                                            EdgeInsetsDirectional
+                                                            const EdgeInsetsDirectional
                                                                 .fromSTEB(
                                                                     12.0,
                                                                     16.0,
@@ -1586,7 +1580,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                                       null
                                                                   ? dateTimeFormat(
                                                                       "Hm",
-                                                                      widget!
+                                                                      widget
                                                                           .day!
                                                                           .closingDay!,
                                                                       locale: FFLocalizations.of(
@@ -1628,16 +1622,16 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                                                         .fontStyle,
                                                                   ),
                                                             ),
-                                                          ].divide(SizedBox(
+                                                          ].divide(const SizedBox(
                                                               width: 8.0)),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-                                              ].divide(SizedBox(width: 16.0)),
+                                              ].divide(const SizedBox(width: 16.0)),
                                             ),
-                                          ].divide(SizedBox(height: 8.0)),
+                                          ].divide(const SizedBox(height: 8.0)),
                                         ),
                                       ],
                                     ),
@@ -1645,7 +1639,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                                 }
                               },
                             ),
-                          ].divide(SizedBox(height: 8.0)),
+                          ].divide(const SizedBox(height: 8.0)),
                         ),
                       ),
                     );
@@ -1664,7 +1658,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                     if (_model.switchCoupureMidiValue!) {}
                   }
 
-                  await widget!.day!.reference.update(createHorairesRecordData(
+                  await widget.day!.reference.update(createHorairesRecordData(
                     openingMorning: _model.datePicked1,
                     closingMorning: _model.datePicked2,
                     openingAfternoon: _model.datePicked3,
@@ -1673,17 +1667,20 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                     closingDay: _model.datePicked6,
                     isFullDay: _model.switchCoupureMidiValue,
                     isOpen: _model.switchDayValue,
-                    day: widget!.day?.day,
+                    day: widget.day?.day,
                   ));
+                  if (!context.mounted) {
+                    return;
+                  }
                   Navigator.pop(context);
                 },
                 text: 'Metttre à jour',
                 options: FFButtonOptions(
                   width: double.infinity,
                   height: 40.0,
-                  padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
+                  padding: const EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
                   iconPadding:
-                      EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
+                      const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
                   color: FlutterFlowTheme.of(context).primary,
                   textStyle: FlutterFlowTheme.of(context).titleSmall.override(
                         font: GoogleFonts.interTight(
@@ -1704,7 +1701,7 @@ class _UpdateHoraireCardWidgetState extends State<UpdateHoraireCardWidget> {
                   borderRadius: BorderRadius.circular(8.0),
                 ),
               ),
-            ].divide(SizedBox(height: 12.0)),
+            ].divide(const SizedBox(height: 12.0)),
           ),
         ),
       ),

@@ -16,59 +16,50 @@
 	<string>ProxiPlay</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
-
 	<key>CFBundleShortVersionString</key>
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleURLTypes</key>
 	<array>
-        <dict>
-            <key>CFBundleTypeRole</key>
-            <string>Editor</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <!--FF_REVERSED_CLIENT_ID-->
-                
-            </array>
-        </dict>
-
-        <dict>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>CFBundleURLName</key>
-        <string>proxiplay.com</string>
-        <key>CFBundleURLSchemes</key>
-        <array>
-        <string>proxiplay</string>
-        </array>
-        </dict>
-    </array>
-    <key>FlutterDeepLinkingEnabled</key>
-    <true/>
-
-
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.337086897094-eclbdgjvlqu5bu0k5mbfa4bdljn7f0k2</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>proxiplay.com</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>proxiplay</string>
+			</array>
+		</dict>
+	</array>
+	<key>FlutterDeepLinkingEnabled</key>
+	<true/>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-
 	<key>NSCameraUsageDescription</key>
-    <string>Cette application nécessite l&#39;accès à votre caméra pour vous permettre de capturer et de sélectionner des images.</string>
+	<string>Cette application nécessite l'accès à votre caméra pour vous permettre de capturer des images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-    <string>Cette application nécessite l&#39;accès à votre bibliothèque de photos pour vous permettre de capturer et de sélectionner des images.</string>
+	<string>Cette application nécessite l'accès à votre photothèque pour vous permettre de sélectionner des images.</string>
 	<key>PermissionGroupNotification</key>
-    <string>Autorisez-vous cette application à envoyer des notifications ?</string>
+	<string>Autorisez-vous cette application à vous envoyer des notifications ?</string>
 	<key>NSUserTrackingUsageDescription</key>
-    <string>Vos données sont utilisées pour vous proposer des offres pertinentes de la part de nos commerçants partenaires et pour leur fournir des statistiques. Autoriser Proxiplay à suivre votre activité nous aide à financer notre service gratuit pour les joueurs. Vos données ne seront pas partagées avec des tiers sans votre consentement.</string>
-    <key>UIBackgroundModes</key>
-    <array>
-        <string>fetch</string>
-        <string>remote-notification</string>
-    </array>
-
-
-
+	<string>Vos données sont utilisées pour vous proposer des offres pertinentes de la part de nos commerçants partenaires et pour leur fournir des statistiques. Autoriser Proxiplay à suivre votre activité nous aide à financer notre service gratuit pour les joueurs. Vos données ne seront pas partagées avec des tiers sans votre consentement.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -88,7 +79,6 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
-
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

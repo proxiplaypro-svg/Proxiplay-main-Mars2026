@@ -75,6 +75,7 @@ exports.deleteCommercantAccount = functions.https.onCall(
         .firestore()
         .collection("users")
         .doc(commercantUid);
+      const userDocPath = userDocRef.path;
 
       // Sous-collection 'identity_documents' et ses images
       const identityDocsSnapshot = await userDocRef
@@ -98,11 +99,20 @@ exports.deleteCommercantAccount = functions.https.onCall(
 
       // 3.3. Suppression des enseignes de la collection de niveau supérieur et de leurs sous-collections
       const enseignesRef = admin.firestore().collection("enseignes");
-      const enseignesSnapshot = await enseignesRef
-        .where("owner", "==", commercantUid)
-        .get();
+      const [enseignesByRefSnapshot, enseignesByStringSnapshot] =
+        await Promise.all([
+          enseignesRef.where("owner", "==", userDocRef).get(),
+          // Backward compatibility: certains anciens documents peuvent stocker un string.
+          enseignesRef.where("owner", "==", userDocPath).get(),
+        ]);
+      const enseignesMap = new Map();
+      enseignesByRefSnapshot.docs.forEach((doc) => enseignesMap.set(doc.id, doc));
+      enseignesByStringSnapshot.docs.forEach((doc) =>
+        enseignesMap.set(doc.id, doc),
+      );
+      const enseignesDocs = [...enseignesMap.values()];
 
-      for (const doc of enseignesSnapshot.docs) {
+      for (const doc of enseignesDocs) {
         const enseigneDocRef = doc.ref;
 
         // Suppression de la sous-collection 'images' et des fichiers
@@ -125,11 +135,22 @@ exports.deleteCommercantAccount = functions.https.onCall(
       const deletionRequestsRef = admin
         .firestore()
         .collection("accountDeletionRequests");
-      const deletionRequestsSnapshot = await deletionRequestsRef
-        .where("merchant_id", "==", commercantUid)
-        .get();
-      if (!deletionRequestsSnapshot.empty) {
-        await deletionRequestsSnapshot.docs[0].ref.delete();
+      const [deletionRequestsByRefSnapshot, deletionRequestsByStringSnapshot] =
+        await Promise.all([
+          deletionRequestsRef.where("merchant_id", "==", userDocRef).get(),
+          // Backward compatibility: certains anciens documents peuvent stocker un string.
+          deletionRequestsRef.where("merchant_id", "==", commercantUid).get(),
+        ]);
+      const deletionRequestsMap = new Map();
+      deletionRequestsByRefSnapshot.docs.forEach((doc) =>
+        deletionRequestsMap.set(doc.id, doc),
+      );
+      deletionRequestsByStringSnapshot.docs.forEach((doc) =>
+        deletionRequestsMap.set(doc.id, doc),
+      );
+      const deletionRequestsDocs = [...deletionRequestsMap.values()];
+      for (const doc of deletionRequestsDocs) {
+        await doc.ref.delete();
       }
 
       // 4. Supprimer l'utilisateur de Firebase Authentication

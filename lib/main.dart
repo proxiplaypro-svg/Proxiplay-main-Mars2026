@@ -20,9 +20,10 @@ import 'backend/push_notifications/push_notifications_util.dart';
 import 'backend/firebase/firebase_config.dart';
 import 'flutter_flow/flutter_flow_util.dart';
 import 'flutter_flow/internationalization.dart';
-import 'flutter_flow/nav/nav.dart';
 import 'flutter_flow/permissions_util.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'utils/perf_trace.dart';
+import 'utils/share_links.dart';
 
 import 'services/remote_config_service.dart';
 import 'pages/status_screens/maintenance_screen.dart';
@@ -32,34 +33,34 @@ import 'pages/status_screens/update_required_screen.dart';
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await initFirebase();
   await FirebasePersistenceManager().initializePersistence();
-  debugPrint('FCM: background message id=${message.messageId}');
 }
 
 void main() async {
+  PerfTrace.log('APP_START');
   WidgetsFlutterBinding.ensureInitialized();
   GoRouter.optionURLReflectsImperativeAPIs = true;
   usePathUrlStrategy();
 
   await initFirebase();
+
+  final appState = FFAppState(); // Initialize FFAppState
+  await appState.initializePersistedState();
+  runApp(ChangeNotifierProvider(
+    create: (context) => appState,
+    child: const MyApp(),
+  ));
+
   if (!kIsWeb) {
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   }
 
-  // Start initial custom actions code
-  await actions.lockOrientationScreen();
-  await actions.appTracking();
-  // End initial custom actions code
-
-  final appState = FFAppState(); // Initialize FFAppState
-  await appState.initializePersistedState();
-
-  runApp(ChangeNotifierProvider(
-    create: (context) => appState,
-    child: MyApp(),
-  ));
+  unawaited(actions.lockOrientationScreen());
+  unawaited(actions.appTracking());
 }
 
 class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
   // This widget is the root of your application.
   @override
   State<MyApp> createState() => _MyAppState();
@@ -80,6 +81,8 @@ class _MyAppState extends State<MyApp> {
   bool _isUpdateRequired = false;
 
   StreamSubscription<BaseAuthUser>? _userStreamSub;
+  VoidCallback? _routerReferralListener;
+  String? _lastReferralLocation;
 
   String getRoute([RouteMatch? routeMatch]) {
     final RouteMatch lastMatch =
@@ -105,29 +108,35 @@ class _MyAppState extends State<MyApp> {
 
     _appStateNotifier = AppStateNotifier.instance;
     _router = createRouter(_appStateNotifier);
+    _routerReferralListener = () {
+      _capturePendingReferralCodeFromRouter(source: 'warm_start');
+    };
+    _router.routerDelegate.addListener(_routerReferralListener!);
     userStream = proxiPlayFirebaseUserStream();
     _userStreamSub = userStream.listen((user) {
       _appStateNotifier.update(user);
     });
     jwtTokenStream.listen((_) {});
 
-    // Vérification au démarrage (Fonctionne sur Web et Mobile)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _capturePendingReferralCodeFromRouter(source: 'cold_start');
+    });
+
+    // VÃ©rification au dÃ©marrage (Fonctionne sur Web et Mobile)
     _checkRemoteConfig();
 
     // Request notification permission on Android 13+ at startup.
     Future.delayed(const Duration(milliseconds: 1500), () async {
       if (!kIsWeb && Platform.isAndroid) {
         final status = await notificationsPermission.status;
-        debugPrint('Android notification permission status: $status');
         if (status.isDenied || status.isRestricted) {
-          final result = await notificationsPermission.request();
-          debugPrint('Android notification permission result: $result');
+          await notificationsPermission.request();
         }
       }
     });
 
     // --- CORRECTION WEB ---
-    // On n'active l'écouteur temps réel QUE si nous ne sommes PAS sur le Web.
+    // On n'active l'Ã©couteur temps rÃ©el QUE si nous ne sommes PAS sur le Web.
     if (!kIsWeb) {
       FirebaseRemoteConfig.instance.onConfigUpdated.listen((event) async {
         await FirebaseRemoteConfig.instance.activate();
@@ -137,7 +146,6 @@ class _MyAppState extends State<MyApp> {
             _checkRemoteConfig();
           });
         }
-        debugPrint("Mise à jour Remote Config appliquée en temps réel.");
       });
     }
     // -----------------------
@@ -150,24 +158,75 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> _checkRemoteConfig() async {
     final remoteService = RemoteConfigService();
+    var maintenance = false;
+    var updateNeeded = false;
 
-    // Initialisation
-    await remoteService.initialize();
+    try {
+      // Prevent startup lock if Remote Config/network stalls.
+      await remoteService
+          .initialize()
+          .timeout(const Duration(seconds: 8));
 
-    bool maintenance = remoteService.isMaintenanceMode;
-    bool updateNeeded = false;
+      maintenance = remoteService.isMaintenanceMode;
+      if (!maintenance) {
+        updateNeeded = remoteService.isUpdateRequired();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isMaintenance = maintenance;
+          _isUpdateRequired = updateNeeded;
+          _isLoadingConfig = false;
+        });
+      }
+    }
+  }
 
-    if (!maintenance) {
-      updateNeeded = remoteService.isUpdateRequired();
+  void _capturePendingReferralCodeFromRouter({required String source}) {
+    if (!mounted) {
+      return;
+    }
+    if (currentUserUid.isNotEmpty && !isGuestOrAnonymous) {
+      debugPrint(
+        '[ReferralDebug][LinkCapture] source=$source '
+        'skippedBecauseUserAlreadyAuthenticated uid=$currentUserUid',
+      );
+      return;
     }
 
-    if (mounted) {
-      setState(() {
-        _isMaintenance = maintenance;
-        _isUpdateRequired = updateNeeded;
-        _isLoadingConfig = false;
-      });
+    final location = _router.getCurrentLocation();
+    final isNewLocation = _lastReferralLocation != location;
+    if (isNewLocation) {
+      debugPrint(
+        '[ReferralDebug][LinkCapture] source=$source rawLocation=$location',
+      );
+      _lastReferralLocation = location;
     }
+    final uri = Uri.tryParse(location);
+    final referralCode = extractReferralCodeFromUri(uri);
+    if (referralCode == null || referralCode.isEmpty) {
+      if (isNewLocation) {
+        debugPrint(
+          '[ReferralDebug][LinkCapture] source=$source noReferralCodeFound',
+        );
+      }
+      return;
+    }
+    debugPrint(
+      '[ReferralDebug][LinkCapture] source=$source '
+      'extractedReferralCode=$referralCode',
+    );
+    if (FFAppState().pendingReferralCode == referralCode) {
+      debugPrint(
+        '[ReferralDebug][LinkCapture] source=$source '
+        'referralCodeAlreadyStored=$referralCode',
+      );
+      return;
+    }
+
+    FFAppState().update(() {
+      FFAppState().pendingReferralCode = referralCode;
+    });
   }
 
   @override
@@ -175,6 +234,9 @@ class _MyAppState extends State<MyApp> {
     authUserSub.cancel();
     fcmTokenSub.cancel();
     _userStreamSub?.cancel();
+    if (_routerReferralListener != null) {
+      _router.routerDelegate.removeListener(_routerReferralListener!);
+    }
     super.dispose();
   }
 
@@ -190,11 +252,11 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     // 1. Chargement
     if (_isLoadingConfig) {
-      return MaterialApp(
+      return const MaterialApp(
           debugShowCheckedModeBanner: false,
-          home: const Scaffold(
+          home: Scaffold(
               backgroundColor: Colors.white,
-              body: const Center(child: CircularProgressIndicator())));
+              body: SizedBox.shrink()));
     }
 
     // 2. Blocage Maintenance
@@ -205,7 +267,7 @@ class _MyAppState extends State<MyApp> {
       );
     }
 
-    // 3. Blocage Mise à jour requise
+    // 3. Blocage Mise Ã  jour requise
     if (_isUpdateRequired) {
       return const MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -244,6 +306,12 @@ class _MyAppState extends State<MyApp> {
       },
       theme: ThemeData(
         brightness: Brightness.light,
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
+          color: Colors.transparent,
+          circularTrackColor: Colors.transparent,
+          linearTrackColor: Colors.transparent,
+          refreshBackgroundColor: Colors.transparent,
+        ),
       ),
       themeMode: _themeMode,
       routerConfig: _router,

@@ -366,15 +366,23 @@ export const registerReferralAcceptance = functions
     const campaign = await loadCampaign();
     const referralRef = referralQuery.docs[0].ref;
     const acceptanceResult = await db.runTransaction(async (transaction) => {
-      const [referralSnap, inviteeUserSnap] = await Promise.all([
+      const [referralSnap, inviteeUserSnap, existingInviteeReferralSnap] =
+          await Promise.all([
         transaction.get(referralRef),
         transaction.get(refs.user(auth.uid)),
+        transaction.get(refs.referrals().where('inviteeUid', '==', auth.uid).limit(1)),
       ]);
       const referral = referralSnap.data() as ReferralRecord;
       if (referral.inviterUid === auth.uid) {
         throw new functions.https.HttpsError(
           'failed-precondition',
           'Self-referrals are not allowed.',
+        );
+      }
+      if (!existingInviteeReferralSnap.empty) {
+        throw new functions.https.HttpsError(
+          'already-exists',
+          'A referral has already been used for this account.',
         );
       }
       if (referral.status !== 'pending' || referral.inviteeUid) {
@@ -573,3 +581,4 @@ export const adminGetSharePromoStats = functions
         .slice(0, 10),
     };
   });
+

@@ -2,10 +2,8 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'informational_dialog_custom_model.dart';
 export 'informational_dialog_custom_model.dart';
 
@@ -53,11 +51,11 @@ class _InformationalDialogCustomWidgetState
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.transparent,
       ),
       child: Padding(
-        padding: EdgeInsetsDirectional.fromSTEB(24.0, 0.0, 24.0, 0.0),
+        padding: const EdgeInsetsDirectional.fromSTEB(24.0, 0.0, 24.0, 0.0),
         child: Material(
           color: Colors.transparent,
           elevation: 1.0,
@@ -71,13 +69,13 @@ class _InformationalDialogCustomWidgetState
               borderRadius: BorderRadius.circular(16.0),
             ),
             child: Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(24.0, 24.0, 24.0, 24.0),
+              padding: const EdgeInsetsDirectional.fromSTEB(24.0, 24.0, 24.0, 24.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    widget!.title!,
+                    widget.title!,
                     textAlign: TextAlign.center,
                     style: FlutterFlowTheme.of(context).headlineSmall.override(
                           font: GoogleFonts.interTight(
@@ -98,7 +96,7 @@ class _InformationalDialogCustomWidgetState
                         ),
                   ),
                   Text(
-                    widget!.body!,
+                    widget.body!,
                     textAlign: TextAlign.center,
                     style: FlutterFlowTheme.of(context).bodyMedium.override(
                           font: GoogleFonts.inter(
@@ -120,7 +118,7 @@ class _InformationalDialogCustomWidgetState
                   ),
                   Builder(
                     builder: (context) {
-                      if (widget!.action == null) {
+                      if (widget.action == null) {
                         return FFButtonWidget(
                           onPressed: () async {
                             Navigator.pop(context);
@@ -129,8 +127,8 @@ class _InformationalDialogCustomWidgetState
                           options: FFButtonOptions(
                             width: double.infinity,
                             height: 50.0,
-                            padding: EdgeInsets.all(8.0),
-                            iconPadding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsets.all(8.0),
+                            iconPadding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 0.0),
                             color: FlutterFlowTheme.of(context).primary,
                             textStyle: FlutterFlowTheme.of(context)
@@ -154,7 +152,7 @@ class _InformationalDialogCustomWidgetState
                                       .fontStyle,
                                 ),
                             elevation: 0.0,
-                            borderSide: BorderSide(
+                            borderSide: const BorderSide(
                               color: Colors.transparent,
                               width: 1.0,
                             ),
@@ -175,8 +173,8 @@ class _InformationalDialogCustomWidgetState
                           options: FFButtonOptions(
                             width: double.infinity,
                             height: 50.0,
-                            padding: EdgeInsets.all(8.0),
-                            iconPadding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsets.all(8.0),
+                            iconPadding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 0.0),
                             color: FlutterFlowTheme.of(context).primary,
                             textStyle: FlutterFlowTheme.of(context)
@@ -200,7 +198,7 @@ class _InformationalDialogCustomWidgetState
                                       .fontStyle,
                                 ),
                             elevation: 0.0,
-                            borderSide: BorderSide(
+                            borderSide: const BorderSide(
                               color: Colors.transparent,
                               width: 1.0,
                             ),
@@ -210,7 +208,7 @@ class _InformationalDialogCustomWidgetState
                       }
                     },
                   ),
-                ].divide(SizedBox(height: 24.0)),
+                ].divide(const SizedBox(height: 24.0)),
               ),
             ),
           ),

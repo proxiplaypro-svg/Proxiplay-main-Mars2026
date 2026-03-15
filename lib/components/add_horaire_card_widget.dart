@@ -1,15 +1,10 @@
-import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'add_horaire_card_model.dart';
 export 'add_horaire_card_model.dart';
@@ -56,7 +51,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
   @override
   Widget build(BuildContext context) {
     return Visibility(
-      visible: widget!.listDay!.length > 0,
+      visible: widget.listDay!.isNotEmpty,
       child: Material(
         color: Colors.transparent,
         elevation: 1.0,
@@ -70,7 +65,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
             borderRadius: BorderRadius.circular(8.0),
           ),
           child: Padding(
-            padding: EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(20.0),
             child: Column(
               mainAxisSize: MainAxisSize.max,
               children: [
@@ -112,10 +107,10 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                 .bodyMedium
                                 .fontStyle,
                           ),
-                      duration: Duration(milliseconds: 600),
+                      duration: const Duration(milliseconds: 600),
                       curve: Curves.easeInOut,
                       child: Text(
-                        widget!.listDay!.firstOrNull!.name,
+                        widget.listDay!.firstOrNull!.name,
                       ),
                     ),
                   ],
@@ -169,18 +164,18 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                         .fontStyle,
                                   ),
                         ),
-                      ].divide(SizedBox(width: 10.0)),
+                      ].divide(const SizedBox(width: 10.0)),
                     ),
                     Switch(
                       value: _model.switchDayValue!,
                       onChanged: (newValue) async {
-                        safeSetState(() => _model.switchDayValue = newValue!);
+                        safeSetState(() => _model.switchDayValue = newValue);
                       },
-                      activeColor: FlutterFlowTheme.of(context).primary,
-                      activeTrackColor: Color(0xFFC4C4C4),
+                      activeThumbColor: FlutterFlowTheme.of(context).primary,
+                      activeTrackColor: const Color(0xFFC4C4C4),
                       inactiveTrackColor:
                           FlutterFlowTheme.of(context).secondaryText,
-                      inactiveThumbColor: Color(0xFF8C82E7),
+                      inactiveThumbColor: const Color(0xFF8C82E7),
                     ),
                   ],
                 ),
@@ -194,7 +189,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                           borderRadius: BorderRadius.circular(8.0),
                         ),
                         child: Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(
+                          padding: const EdgeInsetsDirectional.fromSTEB(
                               12.0, 12.0, 12.0, 12.0),
                           child: Column(
                             mainAxisSize: MainAxisSize.max,
@@ -261,21 +256,21 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                       .fontStyle,
                                             ),
                                       ),
-                                    ].divide(SizedBox(width: 10.0)),
+                                    ].divide(const SizedBox(width: 10.0)),
                                   ),
                                   Switch(
                                     value: _model.switchCoupureMidiValue!,
                                     onChanged: (newValue) async {
                                       safeSetState(() => _model
-                                          .switchCoupureMidiValue = newValue!);
+                                          .switchCoupureMidiValue = newValue);
                                     },
-                                    activeColor:
+                                    activeThumbColor:
                                         FlutterFlowTheme.of(context).primary,
-                                    activeTrackColor: Color(0xFFC4C4C4),
+                                    activeTrackColor: const Color(0xFFC4C4C4),
                                     inactiveTrackColor:
                                         FlutterFlowTheme.of(context)
                                             .secondaryText,
-                                    inactiveThumbColor: Color(0xFF8C82E7),
+                                    inactiveThumbColor: const Color(0xFF8C82E7),
                                   ),
                                 ],
                               ),
@@ -338,7 +333,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                       highlightColor:
                                                           Colors.transparent,
                                                       onTap: () async {
-                                                        final _datePicked1Time =
+                                                        final datePicked1Time =
                                                             await showTimePicker(
                                                           context: context,
                                                           initialTime: TimeOfDay
@@ -404,7 +399,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                             );
                                                           },
                                                         );
-                                                        if (_datePicked1Time !=
+                                                        if (datePicked1Time !=
                                                             null) {
                                                           safeSetState(() {
                                                             _model.datePicked1 =
@@ -415,9 +410,9 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                                   .month,
                                                               getCurrentTimestamp
                                                                   .day,
-                                                              _datePicked1Time
+                                                              datePicked1Time
                                                                   .hour,
-                                                              _datePicked1Time
+                                                              datePicked1Time
                                                                   .minute,
                                                             );
                                                           });
@@ -443,7 +438,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                         ),
                                                         child: Padding(
                                                           padding:
-                                                              EdgeInsetsDirectional
+                                                              const EdgeInsetsDirectional
                                                                   .fromSTEB(
                                                                       12.0,
                                                                       16.0,
@@ -500,7 +495,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                                           .fontStyle,
                                                                     ),
                                                               ),
-                                                            ].divide(SizedBox(
+                                                            ].divide(const SizedBox(
                                                                 width: 8.0)),
                                                           ),
                                                         ),
@@ -550,7 +545,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                       highlightColor:
                                                           Colors.transparent,
                                                       onTap: () async {
-                                                        final _datePicked2Time =
+                                                        final datePicked2Time =
                                                             await showTimePicker(
                                                           context: context,
                                                           initialTime: TimeOfDay
@@ -616,7 +611,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                             );
                                                           },
                                                         );
-                                                        if (_datePicked2Time !=
+                                                        if (datePicked2Time !=
                                                             null) {
                                                           safeSetState(() {
                                                             _model.datePicked2 =
@@ -627,9 +622,9 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                                   .month,
                                                               getCurrentTimestamp
                                                                   .day,
-                                                              _datePicked2Time
+                                                              datePicked2Time
                                                                   .hour,
-                                                              _datePicked2Time
+                                                              datePicked2Time
                                                                   .minute,
                                                             );
                                                           });
@@ -655,7 +650,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                         ),
                                                         child: Padding(
                                                           padding:
-                                                              EdgeInsetsDirectional
+                                                              const EdgeInsetsDirectional
                                                                   .fromSTEB(
                                                                       12.0,
                                                                       16.0,
@@ -712,16 +707,16 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                                           .fontStyle,
                                                                     ),
                                                               ),
-                                                            ].divide(SizedBox(
+                                                            ].divide(const SizedBox(
                                                                 width: 8.0)),
                                                           ),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
-                                                ].divide(SizedBox(width: 16.0)),
+                                                ].divide(const SizedBox(width: 16.0)),
                                               ),
-                                            ].divide(SizedBox(height: 8.0)),
+                                            ].divide(const SizedBox(height: 8.0)),
                                           ),
                                           Column(
                                             mainAxisSize: MainAxisSize.max,
@@ -772,7 +767,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                       highlightColor:
                                                           Colors.transparent,
                                                       onTap: () async {
-                                                        final _datePicked3Time =
+                                                        final datePicked3Time =
                                                             await showTimePicker(
                                                           context: context,
                                                           initialTime: TimeOfDay
@@ -838,7 +833,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                             );
                                                           },
                                                         );
-                                                        if (_datePicked3Time !=
+                                                        if (datePicked3Time !=
                                                             null) {
                                                           safeSetState(() {
                                                             _model.datePicked3 =
@@ -849,9 +844,9 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                                   .month,
                                                               getCurrentTimestamp
                                                                   .day,
-                                                              _datePicked3Time
+                                                              datePicked3Time
                                                                   .hour,
-                                                              _datePicked3Time
+                                                              datePicked3Time
                                                                   .minute,
                                                             );
                                                           });
@@ -877,7 +872,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                         ),
                                                         child: Padding(
                                                           padding:
-                                                              EdgeInsetsDirectional
+                                                              const EdgeInsetsDirectional
                                                                   .fromSTEB(
                                                                       12.0,
                                                                       16.0,
@@ -934,7 +929,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                                           .fontStyle,
                                                                     ),
                                                               ),
-                                                            ].divide(SizedBox(
+                                                            ].divide(const SizedBox(
                                                                 width: 8.0)),
                                                           ),
                                                         ),
@@ -984,7 +979,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                       highlightColor:
                                                           Colors.transparent,
                                                       onTap: () async {
-                                                        final _datePicked4Time =
+                                                        final datePicked4Time =
                                                             await showTimePicker(
                                                           context: context,
                                                           initialTime: TimeOfDay
@@ -1050,7 +1045,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                             );
                                                           },
                                                         );
-                                                        if (_datePicked4Time !=
+                                                        if (datePicked4Time !=
                                                             null) {
                                                           safeSetState(() {
                                                             _model.datePicked4 =
@@ -1061,9 +1056,9 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                                   .month,
                                                               getCurrentTimestamp
                                                                   .day,
-                                                              _datePicked4Time
+                                                              datePicked4Time
                                                                   .hour,
-                                                              _datePicked4Time
+                                                              datePicked4Time
                                                                   .minute,
                                                             );
                                                           });
@@ -1089,7 +1084,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                         ),
                                                         child: Padding(
                                                           padding:
-                                                              EdgeInsetsDirectional
+                                                              const EdgeInsetsDirectional
                                                                   .fromSTEB(
                                                                       12.0,
                                                                       16.0,
@@ -1146,16 +1141,16 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                                           .fontStyle,
                                                                     ),
                                                               ),
-                                                            ].divide(SizedBox(
+                                                            ].divide(const SizedBox(
                                                                 width: 8.0)),
                                                           ),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
-                                                ].divide(SizedBox(width: 16.0)),
+                                                ].divide(const SizedBox(width: 16.0)),
                                               ),
-                                            ].divide(SizedBox(height: 8.0)),
+                                            ].divide(const SizedBox(height: 8.0)),
                                           ),
                                         ],
                                       ),
@@ -1185,7 +1180,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                       highlightColor:
                                                           Colors.transparent,
                                                       onTap: () async {
-                                                        final _datePicked5Time =
+                                                        final datePicked5Time =
                                                             await showTimePicker(
                                                           context: context,
                                                           initialTime: TimeOfDay
@@ -1251,7 +1246,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                             );
                                                           },
                                                         );
-                                                        if (_datePicked5Time !=
+                                                        if (datePicked5Time !=
                                                             null) {
                                                           safeSetState(() {
                                                             _model.datePicked5 =
@@ -1262,9 +1257,9 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                                   .month,
                                                               getCurrentTimestamp
                                                                   .day,
-                                                              _datePicked5Time
+                                                              datePicked5Time
                                                                   .hour,
-                                                              _datePicked5Time
+                                                              datePicked5Time
                                                                   .minute,
                                                             );
                                                           });
@@ -1290,7 +1285,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                         ),
                                                         child: Padding(
                                                           padding:
-                                                              EdgeInsetsDirectional
+                                                              const EdgeInsetsDirectional
                                                                   .fromSTEB(
                                                                       12.0,
                                                                       16.0,
@@ -1347,7 +1342,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                                           .fontStyle,
                                                                     ),
                                                               ),
-                                                            ].divide(SizedBox(
+                                                            ].divide(const SizedBox(
                                                                 width: 8.0)),
                                                           ),
                                                         ),
@@ -1397,7 +1392,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                       highlightColor:
                                                           Colors.transparent,
                                                       onTap: () async {
-                                                        final _datePicked6Time =
+                                                        final datePicked6Time =
                                                             await showTimePicker(
                                                           context: context,
                                                           initialTime: TimeOfDay
@@ -1463,7 +1458,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                             );
                                                           },
                                                         );
-                                                        if (_datePicked6Time !=
+                                                        if (datePicked6Time !=
                                                             null) {
                                                           safeSetState(() {
                                                             _model.datePicked6 =
@@ -1474,9 +1469,9 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                                   .month,
                                                               getCurrentTimestamp
                                                                   .day,
-                                                              _datePicked6Time
+                                                              datePicked6Time
                                                                   .hour,
-                                                              _datePicked6Time
+                                                              datePicked6Time
                                                                   .minute,
                                                             );
                                                           });
@@ -1502,7 +1497,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                         ),
                                                         child: Padding(
                                                           padding:
-                                                              EdgeInsetsDirectional
+                                                              const EdgeInsetsDirectional
                                                                   .fromSTEB(
                                                                       12.0,
                                                                       16.0,
@@ -1559,16 +1554,16 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                                                           .fontStyle,
                                                                     ),
                                                               ),
-                                                            ].divide(SizedBox(
+                                                            ].divide(const SizedBox(
                                                                 width: 8.0)),
                                                           ),
                                                         ),
                                                       ),
                                                     ),
                                                   ),
-                                                ].divide(SizedBox(width: 16.0)),
+                                                ].divide(const SizedBox(width: 16.0)),
                                               ),
-                                            ].divide(SizedBox(height: 8.0)),
+                                            ].divide(const SizedBox(height: 8.0)),
                                           ),
                                         ],
                                       ),
@@ -1576,7 +1571,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                                   }
                                 },
                               ),
-                            ].divide(SizedBox(height: 8.0)),
+                            ].divide(const SizedBox(height: 8.0)),
                           ),
                         ),
                       );
@@ -1604,14 +1599,14 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                             builder: (alertDialogContext) {
                               return WebViewAware(
                                 child: AlertDialog(
-                                  title: Text('Veuillez choisir une heure'),
+                                  title: const Text('Veuillez choisir une heure'),
                                   content:
-                                      Text('Heure de début du matin manquant'),
+                                      const Text('Heure de début du matin manquant'),
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.pop(alertDialogContext),
-                                      child: Text('Ok'),
+                                      child: const Text('Ok'),
                                     ),
                                   ],
                                 ),
@@ -1626,14 +1621,14 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                             builder: (alertDialogContext) {
                               return WebViewAware(
                                 child: AlertDialog(
-                                  title: Text('Veuillez choisir une heure'),
+                                  title: const Text('Veuillez choisir une heure'),
                                   content:
-                                      Text('Heure de fin de matinée manquant'),
+                                      const Text('Heure de fin de matinée manquant'),
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.pop(alertDialogContext),
-                                      child: Text('Ok'),
+                                      child: const Text('Ok'),
                                     ),
                                   ],
                                 ),
@@ -1648,14 +1643,14 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                             builder: (alertDialogContext) {
                               return WebViewAware(
                                 child: AlertDialog(
-                                  title: Text('Veuillez choisir une heure'),
-                                  content: Text(
+                                  title: const Text('Veuillez choisir une heure'),
+                                  content: const Text(
                                       'Heure de début d\'après-midi manquant'),
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.pop(alertDialogContext),
-                                      child: Text('Ok'),
+                                      child: const Text('Ok'),
                                     ),
                                   ],
                                 ),
@@ -1670,14 +1665,14 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                             builder: (alertDialogContext) {
                               return WebViewAware(
                                 child: AlertDialog(
-                                  title: Text('Veuillez choisir une heure'),
-                                  content: Text(
+                                  title: const Text('Veuillez choisir une heure'),
+                                  content: const Text(
                                       'Heure de fin d\'après-midi manquant'),
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.pop(alertDialogContext),
-                                      child: Text('Ok'),
+                                      child: const Text('Ok'),
                                     ),
                                   ],
                                 ),
@@ -1697,14 +1692,14 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                             builder: (alertDialogContext) {
                               return WebViewAware(
                                 child: AlertDialog(
-                                  title: Text('Veuillez choisir une heure'),
-                                  content: Text(
+                                  title: const Text('Veuillez choisir une heure'),
+                                  content: const Text(
                                       'Heure de début de journée manquant'),
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.pop(alertDialogContext),
-                                      child: Text('Ok'),
+                                      child: const Text('Ok'),
                                     ),
                                   ],
                                 ),
@@ -1719,14 +1714,14 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                             builder: (alertDialogContext) {
                               return WebViewAware(
                                 child: AlertDialog(
-                                  title: Text('Veuillez choisir une heure'),
+                                  title: const Text('Veuillez choisir une heure'),
                                   content:
-                                      Text('Heure de fin de journée manquant'),
+                                      const Text('Heure de fin de journée manquant'),
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.pop(alertDialogContext),
-                                      child: Text('Ok'),
+                                      child: const Text('Ok'),
                                     ),
                                   ],
                                 ),
@@ -1739,8 +1734,8 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                     }
 
                     await HorairesRecord.createDoc(
-                      widget!.enseigneRef!,
-                      id: widget!.listDay!.firstOrNull!.name,
+                      widget.enseigneRef!,
+                      id: widget.listDay!.firstOrNull!.name,
                     ).set({
                       ...createHorairesRecordData(
                         openingMorning: _model.datePicked1,
@@ -1751,7 +1746,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                         closingDay: _model.datePicked6,
                         isFullDay: _model.switchCoupureMidiValue,
                         isOpen: _model.switchDayValue,
-                        day: widget!.listDay?.firstOrNull,
+                        day: widget.listDay?.firstOrNull,
                       ),
                       ...mapToFirestore(
                         {
@@ -1765,9 +1760,9 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                     width: double.infinity,
                     height: 40.0,
                     padding:
-                        EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
+                        const EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
                     iconPadding:
-                        EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
+                        const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
                     color: FlutterFlowTheme.of(context).primary,
                     textStyle: FlutterFlowTheme.of(context).titleSmall.override(
                           font: GoogleFonts.interTight(
@@ -1790,7 +1785,7 @@ class _AddHoraireCardWidgetState extends State<AddHoraireCardWidget> {
                     borderRadius: BorderRadius.circular(8.0),
                   ),
                 ),
-              ].divide(SizedBox(height: 12.0)),
+              ].divide(const SizedBox(height: 12.0)),
             ),
           ),
         ),

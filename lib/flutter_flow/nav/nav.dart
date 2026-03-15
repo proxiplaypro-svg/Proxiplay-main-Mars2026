@@ -1,23 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:page_transition/page_transition.dart';
 import 'package:provider/provider.dart';
-import 'package:proxi_play/pages/admin/admin_push_notifications_page/admin_push_notifications_page_widget.dart';
-import 'package:proxi_play/pages/admin/admin_push_notifications_history_page/admin_push_notifications_history_page_widget.dart';
 import '/backend/backend.dart';
-import '/backend/schema/structs/index.dart';
 import '/backend/schema/enums/enums.dart';
 
-import '/auth/base_auth_user_provider.dart';
 
 import '/backend/push_notifications/push_notifications_handler.dart'
     show PushNotificationsHandler;
 import '/auth/firebase_auth/auth_util.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import 'serialization_util.dart';
 
 import '/index.dart';
 
@@ -47,8 +40,9 @@ class AppStateNotifier extends ChangeNotifier {
   bool notifyOnAuthChange = true;
 
   bool get loading => user == null || showSplashImage;
-  bool get loggedIn => user?.loggedIn ?? false;
-  bool get initiallyLoggedIn => initialUser?.loggedIn ?? false;
+  bool get loggedIn => (user?.loggedIn ?? false) || FFAppState().isGuest;
+  bool get initiallyLoggedIn =>
+      (initialUser?.loggedIn ?? false) || FFAppState().isGuest;
   bool get shouldRedirect => loggedIn && _redirectLocation != null;
 
   String getRedirectLocation() => _redirectLocation!;
@@ -83,33 +77,33 @@ class AppStateNotifier extends ChangeNotifier {
 
 GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
       initialLocation: '/',
-      debugLogDiagnostics: true,
+      debugLogDiagnostics: false,
       refreshListenable: appStateNotifier,
       navigatorKey: appNavigatorKey,
       errorBuilder: (context, state) =>
-          appStateNotifier.loggedIn ? LoginPageWidget() : LoginPageWidget(),
+          appStateNotifier.loggedIn ? const LoginPageWidget() : const LoginPageWidget(),
       routes: [
         FFRoute(
           name: '_initialize',
           path: '/',
           builder: (context, _) =>
-              appStateNotifier.loggedIn ? LoginPageWidget() : LoginPageWidget(),
+              appStateNotifier.loggedIn ? const LoginPageWidget() : const LoginPageWidget(),
           routes: [
             FFRoute(
               name: HomeJoueurPageWidget.routeName,
               path: HomeJoueurPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => HomeJoueurPageWidget(),
+              builder: (context, params) => const HomeJoueurPageWidget(),
             ),
             FFRoute(
               name: LoginPageWidget.routeName,
               path: LoginPageWidget.routePath,
-              builder: (context, params) => LoginPageWidget(),
+              builder: (context, params) => const LoginPageWidget(),
             ),
             FFRoute(
               name: InscriptionPageWidget.routeName,
               path: InscriptionPageWidget.routePath,
-              builder: (context, params) => InscriptionPageWidget(),
+              builder: (context, params) => const InscriptionPageWidget(),
             ),
             FFRoute(
               name: InscriptionInformationsPageWidget.routeName,
@@ -117,56 +111,72 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               // This page writes to the current user's Firestore doc; it should
               // only be reachable when authenticated.
               requireAuth: true,
-              builder: (context, params) => InscriptionInformationsPageWidget(),
+              builder: (context, params) => const InscriptionInformationsPageWidget(),
             ),
             FFRoute(
               name: ResetPasswordWidget.routeName,
               path: ResetPasswordWidget.routePath,
-              builder: (context, params) => ResetPasswordWidget(),
+              builder: (context, params) => const ResetPasswordWidget(),
             ),
             FFRoute(
               name: HomeCommercantPageWidget.routeName,
               path: HomeCommercantPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => HomeCommercantPageWidget(),
+              builder: (context, params) => const HomeCommercantPageWidget(),
             ),
             FFRoute(
               name: JeuxCommercantPageWidget.routeName,
               path: JeuxCommercantPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => JeuxCommercantPageWidget(),
+              builder: (context, params) => const JeuxCommercantPageWidget(),
             ),
             FFRoute(
               name: StatCommercantPageWidget.routeName,
               path: StatCommercantPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => StatCommercantPageWidget(),
+              builder: (context, params) => const StatCommercantPageWidget(),
             ),
             FFRoute(
               name: ProfilCommercantPageWidget.routeName,
               path: ProfilCommercantPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => ProfilCommercantPageWidget(),
+              builder: (context, params) => const ProfilCommercantPageWidget(),
             ),
             FFRoute(
               name: ProfilJoueurPageWidget.routeName,
               path: ProfilJoueurPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => ProfilJoueurPageWidget(),
+              builder: (context, params) => const ProfilJoueurPageWidget(),
             ),
             FFRoute(
               name: HomeAdminPageWidget.routeName,
               path: HomeAdminPageWidget.routePath,
               requireAuth: true,
               requireAdmin: true,
-              builder: (context, params) => HomeAdminPageWidget(),
+              builder: (context, params) => const HomeAdminPageWidget(),
+            ),
+            FFRoute(
+              name: ValidationCommercantsAdminPageWidget.routeName,
+              path: ValidationCommercantsAdminPageWidget.routePath,
+              requireAuth: true,
+              requireAdmin: true,
+              builder: (context, params) =>
+                  const ValidationCommercantsAdminPageWidget(),
+            ),
+            FFRoute(
+              name: AnimationsPromotionsAdminPageWidget.routeName,
+              path: AnimationsPromotionsAdminPageWidget.routePath,
+              requireAuth: true,
+              requireAdmin: true,
+              builder: (context, params) =>
+                  const AnimationsPromotionsAdminPageWidget(),
             ),
             FFRoute(
               name: AdminPushNotificationsPageWidget.routeName,
               path: AdminPushNotificationsPageWidget.routePath,
               requireAuth: true,
               requireAdmin: true,
-              builder: (context, params) => AdminPushNotificationsPageWidget(),
+              builder: (context, params) => const AdminPushNotificationsPageWidget(),
             ),
             FFRoute(
               name: AdminPushNotificationsHistoryPageWidget.routeName,
@@ -174,7 +184,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               requireAuth: true,
               requireAdmin: true,
               builder: (context, params) =>
-                  AdminPushNotificationsHistoryPageWidget(),
+                  const AdminPushNotificationsHistoryPageWidget(),
             ),
             FFRoute(
               name: JeuDetailCommercantPageWidget.routeName,
@@ -200,53 +210,53 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: MesEnseignesCommercantPageWidget.routeName,
               path: MesEnseignesCommercantPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => MesEnseignesCommercantPageWidget(),
+              builder: (context, params) => const MesEnseignesCommercantPageWidget(),
             ),
             FFRoute(
               name: FavorisJoueurPageWidget.routeName,
               path: FavorisJoueurPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => FavorisJoueurPageWidget(),
+              builder: (context, params) => const FavorisJoueurPageWidget(),
             ),
             FFRoute(
               name: EnseigneJoueurPageWidget.routeName,
               path: EnseigneJoueurPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => EnseigneJoueurPageWidget(),
+              builder: (context, params) => const EnseigneJoueurPageWidget(),
             ),
             FFRoute(
               name: InscriptionIdentityCardPageWidget.routeName,
               path: InscriptionIdentityCardPageWidget.routePath,
-              builder: (context, params) => InscriptionIdentityCardPageWidget(),
+              builder: (context, params) => const InscriptionIdentityCardPageWidget(),
             ),
             FFRoute(
               name: InscriptionIdentityPhotoPageWidget.routeName,
               path: InscriptionIdentityPhotoPageWidget.routePath,
               builder: (context, params) =>
-                  InscriptionIdentityPhotoPageWidget(),
+                  const InscriptionIdentityPhotoPageWidget(),
             ),
             FFRoute(
               name: WaitingValidationPageWidget.routeName,
               path: WaitingValidationPageWidget.routePath,
-              builder: (context, params) => WaitingValidationPageWidget(),
+              builder: (context, params) => const WaitingValidationPageWidget(),
             ),
             FFRoute(
               name: EditCommercantPageWidget.routeName,
               path: EditCommercantPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => EditCommercantPageWidget(),
+              builder: (context, params) => const EditCommercantPageWidget(),
             ),
             FFRoute(
               name: EditJoueurPageWidget.routeName,
               path: EditJoueurPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => EditJoueurPageWidget(),
+              builder: (context, params) => const EditJoueurPageWidget(),
             ),
             FFRoute(
               name: AddEnseigneCommercantPageWidget.routeName,
               path: AddEnseigneCommercantPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => AddEnseigneCommercantPageWidget(),
+              builder: (context, params) => const AddEnseigneCommercantPageWidget(),
             ),
             FFRoute(
               name: AddHoraireCommercantPageWidget.routeName,
@@ -308,6 +318,10 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
                   'enseigne',
                   ParamType.String,
                 ),
+                templateGame: params.getParam(
+                  'templateGame',
+                  ParamType.Document,
+                ),
               ),
             ),
             FFRoute(
@@ -315,7 +329,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               path: SelectedEnseignesForAddGameCommercantPageWidget.routePath,
               requireAuth: true,
               builder: (context, params) =>
-                  SelectedEnseignesForAddGameCommercantPageWidget(),
+                  const SelectedEnseignesForAddGameCommercantPageWidget(),
             ),
             FFRoute(
               name: JeuDetailJoueurPageWidget.routeName,
@@ -356,13 +370,13 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: RejetInscriptionPageWidget.routeName,
               path: RejetInscriptionPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => RejetInscriptionPageWidget(),
+              builder: (context, params) => const RejetInscriptionPageWidget(),
             ),
             FFRoute(
               name: LotsJoueurPageWidget.routeName,
               path: LotsJoueurPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => LotsJoueurPageWidget(),
+              builder: (context, params) => const LotsJoueurPageWidget(),
             ),
             FFRoute(
               name: LotDetailJoueurPageWidget.routeName,
@@ -457,7 +471,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: AboCommercantPageWidget.routeName,
               path: AboCommercantPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => AboCommercantPageWidget(),
+              builder: (context, params) => const AboCommercantPageWidget(),
             ),
             FFRoute(
               name:
@@ -466,24 +480,24 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
                   SelectedAutoEnseignesForAddGameCommercantPageWidget.routePath,
               requireAuth: true,
               builder: (context, params) =>
-                  SelectedAutoEnseignesForAddGameCommercantPageWidget(),
+                  const SelectedAutoEnseignesForAddGameCommercantPageWidget(),
             ),
             FFRoute(
               name: ContactPageWidget.routeName,
               path: ContactPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => ContactPageWidget(),
+              builder: (context, params) => const ContactPageWidget(),
             ),
             FFRoute(
               name: DeleteCommAdminPageWidget.routeName,
               path: DeleteCommAdminPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => DeleteCommAdminPageWidget(),
+              builder: (context, params) => const DeleteCommAdminPageWidget(),
             ),
             FFRoute(
               name: LegalPageWidget.routeName,
               path: LegalPageWidget.routePath,
-              builder: (context, params) => LegalPageWidget(),
+              builder: (context, params) => const LegalPageWidget(),
             )
           ].map((r) => r.toRoute(appStateNotifier)).toList(),
         ),
@@ -554,7 +568,7 @@ extension GoRouterExtensions on GoRouter {
       !ignoreRedirect && appState.hasRedirect();
   void clearRedirectLocation() => appState.clearRedirectLocation();
   void setRedirectLocationIfUnset(String location) =>
-      appState.updateNotifyOnAuthChange(false);
+      appState.setRedirectLocationIfUnset(location);
 }
 
 extension _GoRouterStateExtensions on GoRouterState {
@@ -753,7 +767,7 @@ class TransitionInfo {
   final Duration duration;
   final Alignment? alignment;
 
-  static TransitionInfo appDefault() => TransitionInfo(hasTransition: false);
+  static TransitionInfo appDefault() => const TransitionInfo(hasTransition: false);
 }
 
 class RootPageContext {

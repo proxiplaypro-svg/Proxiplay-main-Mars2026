@@ -33,5 +33,34 @@ abstract class BaseAuthUser {
   String? get phoneNumber => authUserInfo.phoneNumber;
 }
 
+class GuestAuthUser extends BaseAuthUser {
+  GuestAuthUser();
+
+  @override
+  bool get loggedIn => true;
+
+  @override
+  bool get emailVerified => false;
+
+  @override
+  AuthUserInfo get authUserInfo => const AuthUserInfo();
+
+  @override
+  Future delete() =>
+      Future.error(UnimplementedError('Guest user cannot be deleted'));
+
+  @override
+  Future sendEmailVerification() => Future.error(
+      UnimplementedError('Guest user cannot send email verification'));
+
+  @override
+  Future updateEmail(String email) =>
+      Future.error(UnimplementedError('Guest user cannot update email'));
+
+  @override
+  Future updatePassword(String newPassword) =>
+      Future.error(UnimplementedError('Guest user cannot update password'));
+}
+
 BaseAuthUser? currentUser;
 bool get loggedIn => currentUser?.loggedIn ?? false;

@@ -5,18 +5,14 @@ import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
-import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
-import 'package:provider/provider.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'edit_joueur_page_model.dart';
 export 'edit_joueur_page_model.dart';
 
-/// il me faut un champ non modifiable nom, prenom et pseudo et des champs
+/// il me faut un champ non modifiable nom, prenom et des champs
 /// modifiable pour le numéro de telephone, mail et ville
 class EditJoueurPageWidget extends StatefulWidget {
   const EditJoueurPageWidget({super.key});
@@ -47,10 +43,6 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
     _model.textController2 ??= TextEditingController(
         text: valueOrDefault(currentUserDocument?.firstName, ''));
     _model.textFieldFocusNode2 ??= FocusNode();
-
-    _model.textController3 ??= TextEditingController(
-        text: valueOrDefault(currentUserDocument?.pseudo, ''));
-    _model.textFieldFocusNode3 ??= FocusNode();
 
     _model.textFieldMailTextController ??=
         TextEditingController(text: currentUserEmail);
@@ -92,14 +84,14 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
           key: scaffoldKey,
           backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
           appBar: PreferredSize(
-            preferredSize: Size.fromHeight(100.0),
+            preferredSize: const Size.fromHeight(100.0),
             child: AppBar(
               backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
               automaticallyImplyLeading: false,
-              actions: [],
+              actions: const [],
               flexibleSpace: FlexibleSpaceBar(
                 title: Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
+                  padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
                   child: Column(
                     mainAxisSize: MainAxisSize.max,
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -107,12 +99,12 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                     children: [
                       Padding(
                         padding:
-                            EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 8.0),
+                            const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 8.0),
                         child: Row(
                           mainAxisSize: MainAxisSize.max,
                           children: [
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   12.0, 0.0, 0.0, 0.0),
                               child: FlutterFlowIconButton(
                                 borderColor: Colors.transparent,
@@ -131,7 +123,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   4.0, 0.0, 0.0, 0.0),
                               child: Text(
                                 'Modifier votre profil',
@@ -170,7 +162,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                   child: Image.asset(
                     'assets/images/Background.png',
                     fit: BoxFit.cover,
-                    alignment: Alignment(1.0, -1.0),
+                    alignment: const Alignment(1.0, -1.0),
                   ),
                 ),
                 centerTitle: true,
@@ -185,7 +177,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
               decoration: BoxDecoration(
                 image: DecorationImage(
                   fit: BoxFit.cover,
-                  alignment: AlignmentDirectional(-1.0, 1.0),
+                  alignment: const AlignmentDirectional(-1.0, 1.0),
                   image: Image.asset(
                     'assets/images/Background.png',
                   ).image,
@@ -198,7 +190,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                   Expanded(
                     child: Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
                       child: SingleChildScrollView(
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
@@ -210,7 +202,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                 borderRadius: BorderRadius.circular(12.0),
                               ),
                               child: Padding(
-                                padding: EdgeInsets.all(16.0),
+                                padding: const EdgeInsets.all(16.0),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.max,
                                   children: [
@@ -276,7 +268,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -284,7 +276,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                 BorderRadius.circular(8.0),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -292,7 +284,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                 BorderRadius.circular(8.0),
                                           ),
                                           errorBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -301,7 +293,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                           ),
                                           focusedErrorBorder:
                                               OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -380,7 +372,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -388,7 +380,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                 BorderRadius.circular(8.0),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -396,7 +388,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                 BorderRadius.circular(8.0),
                                           ),
                                           errorBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -405,7 +397,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                           ),
                                           focusedErrorBorder:
                                               OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -448,110 +440,6 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                             .asValidator(context),
                                       ),
                                     ),
-                                    AuthUserStreamWidget(
-                                      builder: (context) => TextFormField(
-                                        controller: _model.textController3,
-                                        focusNode: _model.textFieldFocusNode3,
-                                        autofocus: false,
-                                        readOnly: true,
-                                        obscureText: false,
-                                        decoration: InputDecoration(
-                                          hintText: 'Pseudo',
-                                          hintStyle: FlutterFlowTheme.of(
-                                                  context)
-                                              .bodyMedium
-                                              .override(
-                                                font: GoogleFonts.inter(
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontStyle,
-                                                ),
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                              ),
-                                          enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
-                                              color: Color(0x00000000),
-                                              width: 1.0,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                          ),
-                                          focusedBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
-                                              color: Color(0x00000000),
-                                              width: 1.0,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                          ),
-                                          errorBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
-                                              color: Color(0x00000000),
-                                              width: 1.0,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                          ),
-                                          focusedErrorBorder:
-                                              OutlineInputBorder(
-                                            borderSide: BorderSide(
-                                              color: Color(0x00000000),
-                                              width: 1.0,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                          ),
-                                          filled: true,
-                                          fillColor:
-                                              FlutterFlowTheme.of(context)
-                                                  .fieldBg,
-                                        ),
-                                        style: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .override(
-                                              font: GoogleFonts.inter(
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                              ),
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .secondaryText,
-                                              letterSpacing: 0.0,
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                        validator: _model
-                                            .textController3Validator
-                                            .asValidator(context),
-                                      ),
-                                    ),
                                     TextFormField(
                                       controller:
                                           _model.textFieldMailTextController,
@@ -585,7 +473,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                       .fontStyle,
                                             ),
                                         enabledBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -593,7 +481,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -601,7 +489,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         errorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -609,7 +497,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedErrorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -654,7 +542,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                           .textFieldMailTextControllerValidator
                                           .asValidator(context),
                                     ),
-                                  ].divide(SizedBox(height: 8.0)),
+                                  ].divide(const SizedBox(height: 8.0)),
                                 ),
                               ),
                             ),
@@ -665,7 +553,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                 borderRadius: BorderRadius.circular(12.0),
                               ),
                               child: Padding(
-                                padding: EdgeInsets.all(16.0),
+                                padding: const EdgeInsets.all(16.0),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.max,
                                   children: [
@@ -702,7 +590,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                         focusNode:
                                             _model.textFieldPhoneFocusNode,
                                         autofocus: false,
-                                        autofillHints: [
+                                        autofillHints: const [
                                           AutofillHints.telephoneNumber
                                         ],
                                         obscureText: false,
@@ -735,7 +623,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -743,7 +631,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                 BorderRadius.circular(8.0),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -751,7 +639,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                 BorderRadius.circular(8.0),
                                           ),
                                           errorBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -760,7 +648,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                           ),
                                           focusedErrorBorder:
                                               OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -846,7 +734,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -854,7 +742,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                 BorderRadius.circular(8.0),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -862,7 +750,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                 BorderRadius.circular(8.0),
                                           ),
                                           errorBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -871,7 +759,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                           ),
                                           focusedErrorBorder:
                                               OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -917,9 +805,9 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                       ),
                                     ),
                                     Align(
-                                      alignment: AlignmentDirectional(0.0, 0.1),
+                                      alignment: const AlignmentDirectional(0.0, 0.1),
                                       child: Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                        padding: const EdgeInsetsDirectional.fromSTEB(
                                             12.0, 10.0, 12.0, 0.0),
                                         child: FFButtonWidget(
                                           onPressed: () async {
@@ -929,7 +817,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                 .isEmpty) {
                                               ScaffoldMessenger.of(context)
                                                   .showSnackBar(
-                                                SnackBar(
+                                                const SnackBar(
                                                   content: Text(
                                                     'Email required!',
                                                   ),
@@ -964,10 +852,10 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                             width: 270.0,
                                             height: 50.0,
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     0.0, 0.0, 0.0, 0.0),
                                             iconPadding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     0.0, 0.0, 0.0, 0.0),
                                             color: FlutterFlowTheme.of(context)
                                                 .primary,
@@ -1001,7 +889,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                           .fontStyle,
                                                 ),
                                             elevation: 0.0,
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Colors.transparent,
                                               width: 1.0,
                                             ),
@@ -1011,7 +899,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                         ),
                                       ),
                                     ),
-                                  ].divide(SizedBox(height: 8.0)),
+                                  ].divide(const SizedBox(height: 8.0)),
                                 ),
                               ),
                             ),
@@ -1025,7 +913,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                 key: _model.formKey,
                                 autovalidateMode: AutovalidateMode.disabled,
                                 child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
+                                  padding: const EdgeInsetsDirectional.fromSTEB(
                                       16.0, 16.0, 16.0, 16.0),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.max,
@@ -1092,7 +980,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -1100,7 +988,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                 BorderRadius.circular(8.0),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -1108,7 +996,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                 BorderRadius.circular(8.0),
                                           ),
                                           errorBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -1117,7 +1005,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                           ),
                                           focusedErrorBorder:
                                               OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -1211,7 +1099,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                         .fontStyle,
                                               ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -1219,7 +1107,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                 BorderRadius.circular(8.0),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -1227,7 +1115,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                 BorderRadius.circular(8.0),
                                           ),
                                           errorBorder: OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -1236,7 +1124,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                           ),
                                           focusedErrorBorder:
                                               OutlineInputBorder(
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Color(0x00000000),
                                               width: 1.0,
                                             ),
@@ -1295,10 +1183,10 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                       ),
                                       Align(
                                         alignment:
-                                            AlignmentDirectional(0.0, 0.1),
+                                            const AlignmentDirectional(0.0, 0.1),
                                         child: Padding(
                                           padding:
-                                              EdgeInsetsDirectional.fromSTEB(
+                                              const EdgeInsetsDirectional.fromSTEB(
                                                   12.0, 10.0, 12.0, 0.0),
                                           child: FFButtonWidget(
                                             onPressed: () async {
@@ -1328,16 +1216,16 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                       (alertDialogContext) {
                                                     return WebViewAware(
                                                       child: AlertDialog(
-                                                        title: Text(
+                                                        title: const Text(
                                                             'Mot de passe mis à jours'),
-                                                        content: Text(
+                                                        content: const Text(
                                                             'Votre mot de passe à bien été modifié'),
                                                         actions: [
                                                           TextButton(
                                                             onPressed: () =>
                                                                 Navigator.pop(
                                                                     alertDialogContext),
-                                                            child: Text('Ok'),
+                                                            child: const Text('Ok'),
                                                           ),
                                                         ],
                                                       ),
@@ -1351,16 +1239,16 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                       (alertDialogContext) {
                                                     return WebViewAware(
                                                       child: AlertDialog(
-                                                        title: Text(
+                                                        title: const Text(
                                                             'Mauvaise saisie des mots de passe'),
-                                                        content: Text(
+                                                        content: const Text(
                                                             'L\'un des mots de passe ne correspond pas à l\'autre'),
                                                         actions: [
                                                           TextButton(
                                                             onPressed: () =>
                                                                 Navigator.pop(
                                                                     alertDialogContext),
-                                                            child: Text('Ok'),
+                                                            child: const Text('Ok'),
                                                           ),
                                                         ],
                                                       ),
@@ -1373,9 +1261,9 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                             options: FFButtonOptions(
                                               width: 270.0,
                                               height: 50.0,
-                                              padding: EdgeInsetsDirectional
+                                              padding: const EdgeInsetsDirectional
                                                   .fromSTEB(0.0, 0.0, 0.0, 0.0),
-                                              iconPadding: EdgeInsetsDirectional
+                                              iconPadding: const EdgeInsetsDirectional
                                                   .fromSTEB(0.0, 0.0, 0.0, 0.0),
                                               color:
                                                   FlutterFlowTheme.of(context)
@@ -1411,7 +1299,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                                             .fontStyle,
                                                   ),
                                               elevation: 0.0,
-                                              borderSide: BorderSide(
+                                              borderSide: const BorderSide(
                                                 color: Colors.transparent,
                                                 width: 1.0,
                                               ),
@@ -1421,12 +1309,12 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                                           ),
                                         ),
                                       ),
-                                    ].divide(SizedBox(height: 8.0)),
+                                    ].divide(const SizedBox(height: 8.0)),
                                   ),
                                 ),
                               ),
                             ),
-                          ].divide(SizedBox(height: 10.0)),
+                          ].divide(const SizedBox(height: 10.0)),
                         ),
                       ),
                     ),
@@ -1434,7 +1322,7 @@ class _EditJoueurPageWidgetState extends State<EditJoueurPageWidget> {
                   wrapWithModel(
                     model: _model.customNavBarJoueurModel,
                     updateCallback: () => safeSetState(() {}),
-                    child: CustomNavBarJoueurWidget(
+                    child: const CustomNavBarJoueurWidget(
                       indexActive: 4,
                     ),
                   ),

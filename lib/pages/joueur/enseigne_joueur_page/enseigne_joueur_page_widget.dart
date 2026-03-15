@@ -1,13 +1,12 @@
-import '/backend/backend.dart';
-import '/app_constants.dart';
+﻿import '/backend/backend.dart';
 import '/components/app_bar_joueur_widget.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/widgets/proxiplay_network_image.dart';
 import 'dart:async';
-import 'dart:ui';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
@@ -79,29 +78,29 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
           resizeToAvoidBottomInset: false,
           backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
           appBar: PreferredSize(
-            preferredSize: Size.fromHeight(100.0),
+            preferredSize: const Size.fromHeight(100.0),
             child: AppBar(
               backgroundColor: Colors.transparent,
               automaticallyImplyLeading: false,
-              actions: [],
+              actions: const [],
               flexibleSpace: FlexibleSpaceBar(
                 title: wrapWithModel(
                   model: _model.appBarJoueurModel,
                   updateCallback: () => safeSetState(() {}),
-                  child: AppBarJoueurWidget(),
+                  child: const AppBarJoueurWidget(),
                 ),
                 background: ClipRRect(
                   borderRadius: BorderRadius.circular(8.0),
                   child: Image.asset(
                     'assets/images/Background.png',
                     fit: BoxFit.cover,
-                    alignment: Alignment(1.0, -1.0),
+                    alignment: const Alignment(1.0, -1.0),
                   ),
                 ),
                 centerTitle: true,
                 expandedTitleScale: 1.0,
                 titlePadding:
-                    EdgeInsetsDirectional.fromSTEB(20.0, 30.0, 20.0, 0.0),
+                    const EdgeInsetsDirectional.fromSTEB(20.0, 30.0, 20.0, 0.0),
               ),
             ),
           ),
@@ -124,9 +123,9 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                   Expanded(
                     child: Container(
                       height: double.infinity,
-                      decoration: BoxDecoration(),
+                      decoration: const BoxDecoration(),
                       child: Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
                             20.0, 30.0, 20.0, 0.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
@@ -135,7 +134,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                           children: [
                             Container(
                               width: double.infinity,
-                              decoration: BoxDecoration(),
+                              decoration: const BoxDecoration(),
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: FlutterFlowTheme.of(context).fieldBg,
@@ -148,7 +147,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                   ),
                                 ),
                                 child: Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
+                                  padding: const EdgeInsetsDirectional.fromSTEB(
                                       8.0, 8.0, 8.0, 8.0),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.max,
@@ -178,7 +177,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                               TextSearchItem
                                                                   .fromTerms(
                                                                       record, [
-                                                            record.name!
+                                                            record.name
                                                           ]),
                                                         )
                                                         .toList(),
@@ -199,7 +198,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                           },
                                           autofocus: false,
                                           obscureText: false,
-                                          decoration: InputDecoration(
+                                          decoration: const InputDecoration(
                                             alignLabelWithHint: false,
                                             hintText:
                                                 'Rechercher un point de vente',
@@ -261,7 +260,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                             _model.searchActive = false;
                                           },
                                         ),
-                                    ].divide(SizedBox(width: 8.0)),
+                                    ].divide(const SizedBox(width: 8.0)),
                                   ),
                                 ),
                               ),
@@ -269,14 +268,14 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                             if (_model.searchActive)
                               Expanded(
                                 child: Container(
-                                  decoration: BoxDecoration(),
+                                  decoration: const BoxDecoration(),
                                   child: Builder(
                                     builder: (context) {
                                       final search =
                                           _model.simpleSearchResults.toList();
                                       if (search.isEmpty) {
-                                        return ListEmptyComponentWidget(
-                                          title: 'Aucun résultat',
+                                        return const ListEmptyComponentWidget(
+                                          title: 'Aucun rÃ©sultat',
                                           description: ' ',
                                         );
                                       }
@@ -287,7 +286,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                         scrollDirection: Axis.vertical,
                                         itemCount: search.length,
                                         separatorBuilder: (_, __) =>
-                                            SizedBox(height: 10.0),
+                                            const SizedBox(height: 10.0),
                                         itemBuilder: (context, searchIndex) {
                                           final searchItem =
                                               search[searchIndex];
@@ -309,7 +308,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                 extra: <String, dynamic>{
                                                   'enseigneDoc': searchItem,
                                                   kTransitionInfoKey:
-                                                      TransitionInfo(
+                                                      const TransitionInfo(
                                                     hasTransition: true,
                                                     transitionType:
                                                         PageTransitionType.fade,
@@ -335,7 +334,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                     child: Container(
                                                       height: 130.0,
                                                       decoration:
-                                                          BoxDecoration(),
+                                                          const BoxDecoration(),
                                                       child: FutureBuilder<
                                                           List<ImagesRecord>>(
                                                         future:
@@ -349,20 +348,12 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                           // Customize what your widget looks like when it's loading.
                                                           if (!snapshot
                                                               .hasData) {
-                                                            return Center(
+                                                            return const Center(
                                                               child: SizedBox(
                                                                 width: 50.0,
                                                                 height: 50.0,
                                                                 child:
-                                                                    CircularProgressIndicator(
-                                                                  valueColor:
-                                                                      AlwaysStoppedAnimation<
-                                                                          Color>(
-                                                                    FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                  ),
-                                                                ),
+                                                                    SizedBox.shrink(),
                                                               ),
                                                             );
                                                           }
@@ -387,9 +378,10 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                     .circular(
                                                                         8.0),
                                                             child:
-                                                                Image.network(
-                                                              imageImagesRecord!
-                                                                  .url,
+                                                                ProxiplayNetworkImage(
+                                                              imageUrl:
+                                                                  imageImagesRecord!
+                                                                      .url,
                                                               fit: BoxFit.cover,
                                                             ),
                                                           );
@@ -401,7 +393,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                     flex: 2,
                                                     child: Padding(
                                                       padding:
-                                                          EdgeInsetsDirectional
+                                                          const EdgeInsetsDirectional
                                                               .fromSTEB(
                                                                   10.0,
                                                                   0.0,
@@ -502,7 +494,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                       // Customize what your widget looks like when it's loading.
                                                                       if (!snapshot
                                                                           .hasData) {
-                                                                        return Center(
+                                                                        return const Center(
                                                                           child:
                                                                               SizedBox(
                                                                             width:
@@ -510,11 +502,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                             height:
                                                                                 50.0,
                                                                             child:
-                                                                                CircularProgressIndicator(
-                                                                              valueColor: AlwaysStoppedAnimation<Color>(
-                                                                                FlutterFlowTheme.of(context).primary,
-                                                                              ),
-                                                                            ),
+                                                                                SizedBox.shrink(),
                                                                           ),
                                                                         );
                                                                       }
@@ -580,9 +568,6 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                 ],
                                                               ),
                                                               if (searchItem
-                                                                          .siteWebUrl !=
-                                                                      null &&
-                                                                  searchItem
                                                                           .siteWebUrl !=
                                                                       '')
                                                                 Row(
@@ -659,10 +644,10 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                   ),
                                                                 ],
                                                               ),
-                                                            ].divide(SizedBox(
+                                                            ].divide(const SizedBox(
                                                                 height: 5.0)),
                                                           ),
-                                                        ].divide(SizedBox(
+                                                        ].divide(const SizedBox(
                                                             height: 5.0)),
                                                       ),
                                                     ),
@@ -680,7 +665,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                             if (!_model.searchActive)
                               Expanded(
                                 child: Container(
-                                  decoration: BoxDecoration(),
+                                  decoration: const BoxDecoration(),
                                   child: Builder(
                                     builder: (context) {
                                       final catgeorie =
@@ -708,20 +693,12 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                               builder: (context, snapshot) {
                                                 // Customize what your widget looks like when it's loading.
                                                 if (!snapshot.hasData) {
-                                                  return Center(
+                                                  return const Center(
                                                     child: SizedBox(
                                                       width: 50.0,
                                                       height: 50.0,
                                                       child:
-                                                          CircularProgressIndicator(
-                                                        valueColor:
-                                                            AlwaysStoppedAnimation<
-                                                                Color>(
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .primary,
-                                                        ),
-                                                      ),
+                                                          SizedBox.shrink(),
                                                     ),
                                                   );
                                                 }
@@ -730,12 +707,10 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                     snapshot.data!;
 
                                                 return Container(
-                                                  decoration: BoxDecoration(),
+                                                  decoration: const BoxDecoration(),
                                                   child: Visibility(
                                                     visible:
-                                                        containerEnseignesRecordList
-                                                                .length !=
-                                                            0,
+                                                        containerEnseignesRecordList.isNotEmpty,
                                                     child: Column(
                                                       mainAxisSize:
                                                           MainAxisSize.max,
@@ -778,7 +753,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                               double.infinity,
                                                           height: 310.0,
                                                           decoration:
-                                                              BoxDecoration(),
+                                                              const BoxDecoration(),
                                                           child: Builder(
                                                             builder: (context) {
                                                               final enseigne =
@@ -798,7 +773,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                         .length,
                                                                 separatorBuilder: (_,
                                                                         __) =>
-                                                                    SizedBox(
+                                                                    const SizedBox(
                                                                         width:
                                                                             10.0),
                                                                 itemBuilder:
@@ -873,7 +848,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                             Container(
                                                                               width: 200.0,
                                                                               height: 200.0,
-                                                                              decoration: BoxDecoration(),
+                                                                              decoration: const BoxDecoration(),
                                                                               child: FutureBuilder<List<ImagesRecord>>(
                                                                                 future: queryImagesRecordOnce(
                                                                                   parent: enseigneItem.reference,
@@ -882,15 +857,11 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                                 builder: (context, snapshot) {
                                                                                   // Customize what your widget looks like when it's loading.
                                                                                   if (!snapshot.hasData) {
-                                                                                    return Center(
+                                                                                    return const Center(
                                                                                       child: SizedBox(
                                                                                         width: 50.0,
                                                                                         height: 50.0,
-                                                                                        child: CircularProgressIndicator(
-                                                                                          valueColor: AlwaysStoppedAnimation<Color>(
-                                                                                            FlutterFlowTheme.of(context).primary,
-                                                                                          ),
-                                                                                        ),
+                                                                                        child: SizedBox.shrink(),
                                                                                       ),
                                                                                     );
                                                                                   }
@@ -902,14 +873,14 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                                   final imageImagesRecord = imageImagesRecordList.isNotEmpty ? imageImagesRecordList.first : null;
 
                                                                                   return ClipRRect(
-                                                                                    borderRadius: BorderRadius.only(
+                                                                                    borderRadius: const BorderRadius.only(
                                                                                       bottomLeft: Radius.circular(0.0),
                                                                                       bottomRight: Radius.circular(0.0),
                                                                                       topLeft: Radius.circular(20.0),
                                                                                       topRight: Radius.circular(20.0),
                                                                                     ),
-                                                                                    child: Image.network(
-                                                                                      imageImagesRecord!.url,
+                                                                                    child: ProxiplayNetworkImage(
+                                                                                      imageUrl: imageImagesRecord!.url,
                                                                                       fit: BoxFit.cover,
                                                                                     ),
                                                                                   );
@@ -918,11 +889,11 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                             ),
                                                                             Expanded(
                                                                               child: Padding(
-                                                                                padding: EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 0.0),
+                                                                                padding: const EdgeInsetsDirectional.fromSTEB(10.0, 0.0, 0.0, 0.0),
                                                                                 child: Container(
-                                                                                  decoration: BoxDecoration(),
+                                                                                  decoration: const BoxDecoration(),
                                                                                   child: Padding(
-                                                                                    padding: EdgeInsets.all(4.0),
+                                                                                    padding: const EdgeInsets.all(4.0),
                                                                                     child: Column(
                                                                                       mainAxisSize: MainAxisSize.max,
                                                                                       mainAxisAlignment: MainAxisAlignment.start,
@@ -947,8 +918,8 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                                               Container(
                                                                                                 width: 25.0,
                                                                                                 height: 25.0,
-                                                                                                decoration: BoxDecoration(),
-                                                                                                alignment: AlignmentDirectional(-1.0, 0.0),
+                                                                                                decoration: const BoxDecoration(),
+                                                                                                alignment: const AlignmentDirectional(-1.0, 0.0),
                                                                                                 child: FaIcon(
                                                                                                   FontAwesomeIcons.piggyBank,
                                                                                                   color: FlutterFlowTheme.of(context).primaryText,
@@ -982,15 +953,11 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                                                 builder: (context, snapshot) {
                                                                                                   // Customize what your widget looks like when it's loading.
                                                                                                   if (!snapshot.hasData) {
-                                                                                                    return Center(
+                                                                                                    return const Center(
                                                                                                       child: SizedBox(
                                                                                                         width: 50.0,
                                                                                                         height: 50.0,
-                                                                                                        child: CircularProgressIndicator(
-                                                                                                          valueColor: AlwaysStoppedAnimation<Color>(
-                                                                                                            FlutterFlowTheme.of(context).primary,
-                                                                                                          ),
-                                                                                                        ),
+                                                                                                        child: SizedBox.shrink(),
                                                                                                       ),
                                                                                                     );
                                                                                                   }
@@ -1023,8 +990,8 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                                               Container(
                                                                                                 width: 25.0,
                                                                                                 height: 25.0,
-                                                                                                decoration: BoxDecoration(),
-                                                                                                alignment: AlignmentDirectional(-1.0, 0.0),
+                                                                                                decoration: const BoxDecoration(),
+                                                                                                alignment: const AlignmentDirectional(-1.0, 0.0),
                                                                                                 child: Icon(
                                                                                                   Icons.place_sharp,
                                                                                                   color: FlutterFlowTheme.of(context).primaryText,
@@ -1046,7 +1013,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                                             ],
                                                                                           ),
                                                                                         ),
-                                                                                      ].divide(SizedBox(height: 10.0)).addToStart(SizedBox(height: 10.0)),
+                                                                                      ].divide(const SizedBox(height: 10.0)).addToStart(const SizedBox(height: 10.0)),
                                                                                     ),
                                                                                   ),
                                                                                 ),
@@ -1062,21 +1029,21 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                             },
                                                           ),
                                                         ),
-                                                      ].divide(SizedBox(
+                                                      ].divide(const SizedBox(
                                                           height: 5.0)),
                                                     ),
                                                   ),
                                                 );
                                               },
                                             );
-                                          }).divide(SizedBox(height: 15.0)),
+                                          }).divide(const SizedBox(height: 15.0)),
                                         ),
                                       );
                                     },
                                   ),
                                 ),
                               ),
-                          ].divide(SizedBox(height: 10.0)),
+                          ].divide(const SizedBox(height: 10.0)),
                         ),
                       ),
                     ),
@@ -1087,7 +1054,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                     wrapWithModel(
                       model: _model.customNavBarJoueurModel,
                       updateCallback: () => safeSetState(() {}),
-                      child: CustomNavBarJoueurWidget(
+                      child: const CustomNavBarJoueurWidget(
                         indexActive: 3,
                       ),
                     ),
@@ -1100,3 +1067,4 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
     );
   }
 }
+

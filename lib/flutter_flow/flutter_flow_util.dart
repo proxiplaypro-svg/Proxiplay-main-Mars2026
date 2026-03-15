@@ -14,7 +14,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../main.dart';
 
-import 'lat_lng.dart';
 
 export 'keep_alive_wrapper.dart';
 export 'lat_lng.dart';
@@ -446,17 +445,6 @@ void showSnackbar(
     SnackBar(
       content: Row(
         children: [
-          if (loading)
-            Padding(
-              padding: EdgeInsetsDirectional.only(end: 10.0),
-              child: Container(
-                height: 20,
-                width: 20,
-                child: const CircularProgressIndicator(
-                  color: Colors.white,
-                ),
-              ),
-            ),
           Text(message),
         ],
       ),

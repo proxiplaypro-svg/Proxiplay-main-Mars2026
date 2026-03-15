@@ -6,18 +6,13 @@
 
 import 'package:share_plus/share_plus.dart';
 
+import '/utils/share_links.dart';
+
 Future shareAppStoreLink() async {
-  // Add your function code here!
-  //   // Remplacez ces liens par les vrais liens de votre application sur les stores
-  const String androidAppStoreLink =
-      'https://play.google.com/store/apps/details?id=votre.package.name';
-  const String iosAppStoreLink =
-      'https://apps.apple.com/fr/app/idVOTREAPPPLEID'; // Remplacez VOTREAPPPLEID par l'ID de votre app
+  final shareText = buildAppShareText(
+    title: 'Decouvrez ProxiPlay',
+    description: 'Rejoignez-moi sur ProxiPlay avec ce lien.',
+  );
 
-  // Le message de partage inclut directement les deux liens
-  const String shareText = "Découvrez ma super application !\n\n"
-      "Android: $androidAppStoreLink\n"
-      "iOS: $iosAppStoreLink";
-
-  await Share.share(shareText, subject: 'Partage de mon application');
+  await Share.share(shareText, subject: 'Partage de ProxiPlay');
 }

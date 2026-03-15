@@ -7,16 +7,11 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/upload_data.dart';
-import 'dart:math';
-import 'dart:ui';
 import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'inscription_identity_card_page_model.dart';
 export 'inscription_identity_card_page_model.dart';
 
@@ -63,8 +58,8 @@ class _InscriptionIdentityCardPageWidgetState
             curve: Curves.bounceOut,
             delay: 0.0.ms,
             duration: 300.0.ms,
-            begin: Offset(0.6, 1.0),
-            end: Offset(1.0, 1.0),
+            begin: const Offset(0.6, 1.0),
+            end: const Offset(1.0, 1.0),
           ),
         ],
       ),
@@ -83,8 +78,8 @@ class _InscriptionIdentityCardPageWidgetState
             curve: Curves.easeInOut,
             delay: 100.0.ms,
             duration: 400.0.ms,
-            begin: Offset(0.0, 30.0),
-            end: Offset(0.0, 0.0),
+            begin: const Offset(0.0, 30.0),
+            end: const Offset(0.0, 0.0),
           ),
         ],
       ),
@@ -125,9 +120,9 @@ class _InscriptionIdentityCardPageWidgetState
                         FlutterFlowTheme.of(context).error,
                         FlutterFlowTheme.of(context).tertiary
                       ],
-                      stops: [0.0, 0.5, 1.0],
-                      begin: AlignmentDirectional(-1.0, -1.0),
-                      end: AlignmentDirectional(1.0, 1.0),
+                      stops: const [0.0, 0.5, 1.0],
+                      begin: const AlignmentDirectional(-1.0, -1.0),
+                      end: const AlignmentDirectional(1.0, 1.0),
                     ),
                   ),
                   child: Container(
@@ -136,17 +131,17 @@ class _InscriptionIdentityCardPageWidgetState
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Color(0x00FFFFFF),
+                          const Color(0x00FFFFFF),
                           FlutterFlowTheme.of(context).secondaryBackground
                         ],
-                        stops: [0.0, 1.0],
-                        begin: AlignmentDirectional(0.0, -1.0),
-                        end: AlignmentDirectional(0, 1.0),
+                        stops: const [0.0, 1.0],
+                        begin: const AlignmentDirectional(0.0, -1.0),
+                        end: const AlignmentDirectional(0, 1.0),
                       ),
                     ),
                     child: Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -169,7 +164,7 @@ class _InscriptionIdentityCardPageWidgetState
                           ).animateOnPageLoad(
                               animationsMap['containerOnPageLoadAnimation']!),
                           Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 12.0, 0.0, 0.0),
                             child: Text(
                               'Information compémentaire',
@@ -201,14 +196,14 @@ class _InscriptionIdentityCardPageWidgetState
                   ),
                 ),
                 Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
+                  padding: const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
                   child: Column(
                     mainAxisSize: MainAxisSize.max,
                     children: [
                       Align(
-                        alignment: AlignmentDirectional(-1.0, 0.0),
+                        alignment: const AlignmentDirectional(-1.0, 0.0),
                         child: Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(
+                          padding: const EdgeInsetsDirectional.fromSTEB(
                               0.0, 0.0, 0.0, 10.0),
                           child: Text(
                             'photo de la carte d\'identité du représentant:',
@@ -234,13 +229,11 @@ class _InscriptionIdentityCardPageWidgetState
                           ),
                         ),
                       ),
-                      if (_model.uploadedLocalFile_uploadDataIdentityCard !=
-                              null &&
-                          (_model.uploadedLocalFile_uploadDataIdentityCard.bytes
+                      if ((_model.uploadedLocalFile_uploadDataIdentityCard.bytes
                                   ?.isNotEmpty ??
                               false))
                         Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(
+                          padding: const EdgeInsetsDirectional.fromSTEB(
                               0.0, 0.0, 0.0, 16.0),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8.0),
@@ -256,7 +249,7 @@ class _InscriptionIdentityCardPageWidgetState
                         ),
                       Padding(
                         padding:
-                            EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
+                            const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
                         child: FFButtonWidget(
                           onPressed: () async {
                             final selectedMedia =
@@ -305,9 +298,9 @@ class _InscriptionIdentityCardPageWidgetState
                           options: FFButtonOptions(
                             width: double.infinity,
                             height: 40.0,
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 16.0, 0.0, 16.0, 0.0),
-                            iconPadding: EdgeInsetsDirectional.fromSTEB(
+                            iconPadding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 0.0),
                             color: FlutterFlowTheme.of(context).primary,
                             textStyle: FlutterFlowTheme.of(context)
@@ -337,12 +330,10 @@ class _InscriptionIdentityCardPageWidgetState
                       ),
                       Padding(
                         padding:
-                            EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
+                            const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
                         child: FFButtonWidget(
                           onPressed:
-                              (_model.uploadedLocalFile_uploadDataIdentityCard ==
-                                          null ||
-                                      (_model.uploadedLocalFile_uploadDataIdentityCard
+                              ((_model.uploadedLocalFile_uploadDataIdentityCard
                                               .bytes?.isEmpty ??
                                           true))
                                   ? null
@@ -433,12 +424,13 @@ class _InscriptionIdentityCardPageWidgetState
                                         accountStatus:
                                             AccountStatus.pendingIdentityPhoto,
                                       ));
+                                      if (!context.mounted) return;
 
                                       context.pushNamed(
                                         InscriptionIdentityPhotoPageWidget
                                             .routeName,
                                         extra: <String, dynamic>{
-                                          kTransitionInfoKey: TransitionInfo(
+                                          kTransitionInfoKey: const TransitionInfo(
                                             hasTransition: true,
                                             transitionType:
                                                 PageTransitionType.fade,
@@ -453,9 +445,9 @@ class _InscriptionIdentityCardPageWidgetState
                           options: FFButtonOptions(
                             width: double.infinity,
                             height: 40.0,
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 16.0, 0.0, 16.0, 0.0),
-                            iconPadding: EdgeInsetsDirectional.fromSTEB(
+                            iconPadding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 0.0),
                             color: FlutterFlowTheme.of(context).primary,
                             textStyle: FlutterFlowTheme.of(context)

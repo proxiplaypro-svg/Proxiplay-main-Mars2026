@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "337086897094",
+    "project_id": "proxi-play-odzp2e",
+    "storage_bucket": "proxi-play-odzp2e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:337086897094:android:2b0e389e68cb7ad42bb0c7",
+        "android_client_info": {
+          "package_name": "com.proxiplay.proxiplay"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "337086897094-bcdbcuo2u1udqutpqv44jjfign6kr907.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.proxiplay.proxiplay",
+            "certificate_hash": "9bbb3186b2189ef16d8f272bdab59362c395cbb4"
+          }
+        },
+        {
+          "client_id": "337086897094-49ng00g9hh5iecvmui6b7fc10qmvodot.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmHXWsaD3UDvmYOX3aSFGT-rgf_lrBiQY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "337086897094-49ng00g9hh5iecvmui6b7fc10qmvodot.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "337086897094-eclbdgjvlqu5bu0k5mbfa4bdljn7f0k2.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.proxiplay.proxiplay",
+                "app_store_id": "6753818573"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

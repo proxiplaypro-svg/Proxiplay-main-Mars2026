@@ -1,0 +1,445 @@
+import '/flutter_flow/app_styles.dart';
+import '/flutter_flow/flutter_flow_theme.dart';
+import '/widgets/proxiplay_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+class GameCard extends StatefulWidget {
+  const GameCard({
+    super.key,
+    required this.title,
+    required this.imageUrl,
+    required this.storeName,
+    required this.city,
+    required this.prizeText,
+    required this.endDateText,
+    this.badgeText,
+    this.winnerText,
+    this.width,
+    this.height,
+    this.imageHeight,
+    this.onTap,
+    this.desaturateImage = false,
+    this.fitContent = true,
+    this.winnerMaxLines = 1,
+    this.isFinished = false,
+    this.finishedInfoText = 'Jeu termin\u00E9',
+  });
+
+  final String title;
+  final String imageUrl;
+  final String storeName;
+  final String city;
+  final String prizeText;
+  final String endDateText;
+  final String? badgeText;
+  final String? winnerText;
+  final double? width;
+  final double? height;
+  final double? imageHeight;
+  final VoidCallback? onTap;
+  final bool desaturateImage;
+  final bool fitContent;
+  final int winnerMaxLines;
+  final bool isFinished;
+  final String finishedInfoText;
+
+  @override
+  State<GameCard> createState() => _GameCardState();
+}
+
+class _GameCardState extends State<GameCard> {
+  static const _pressDuration = Duration(milliseconds: 180);
+  static const _tapDelay = Duration(milliseconds: 150);
+
+  bool _isPressed = false;
+
+  void _handleTapDown(TapDownDetails _) {
+    if (widget.onTap == null) return;
+    if (!_isPressed) {
+      setState(() => _isPressed = true);
+    }
+  }
+
+  void _handleTapUp(TapUpDetails _) {
+    if (widget.onTap == null) return;
+    if (_isPressed) {
+      setState(() => _isPressed = false);
+    }
+  }
+
+  void _handleTapCancel() {
+    if (widget.onTap == null) return;
+    if (_isPressed) {
+      setState(() => _isPressed = false);
+    }
+  }
+
+  Future<void> _handleTap() async {
+    final onTap = widget.onTap;
+    if (onTap == null) return;
+    await Future.delayed(_tapDelay);
+    if (!mounted) return;
+    onTap();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final effectiveDesaturate = widget.desaturateImage || widget.isFinished;
+    final effectiveBadge =
+        widget.badgeText ?? (widget.isFinished ? 'Jeu termin\u00E9' : null);
+    final hasPrize = _hasVisibleText(widget.prizeText);
+    final responsiveWidth = (screenWidth * 0.58).clamp(188.0, 248.0);
+    final computedWidth = widget.width ?? responsiveWidth;
+    final responsiveImageHeight = (computedWidth * 0.50).clamp(84.0, 116.0);
+    final effectiveImageHeight = widget.imageHeight ??
+        (widget.isFinished
+            ? AppStyles.finishedGameImageHeight
+            : responsiveImageHeight);
+    final baseHeight = widget.isFinished
+        ? AppStyles.finishedGameListHeight
+        : AppStyles.gameCardHeight;
+    final effectiveHeight = widget.height ??
+        (baseHeight +
+            ((widget.width == double.infinity && !widget.isFinished) ? 8.0 : 0.0));
+    final cardRadius = BorderRadius.circular(AppStyles.gameCardRadius);
+
+    return SizedBox(
+      width: computedWidth,
+      height: effectiveHeight,
+      child: AnimatedContainer(
+        duration: _pressDuration,
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.translationValues(0.0, _isPressed ? 6.0 : 0.0, 0.0),
+        decoration: BoxDecoration(
+          borderRadius: cardRadius,
+          border: Border.all(
+            color: _isPressed ? Colors.red : Colors.transparent,
+            width: 2.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: _isPressed ? 0.04 : 0.08),
+              blurRadius: _isPressed ? 6.0 : 16.0,
+              offset: Offset(0.0, _isPressed ? 2.0 : 6.0),
+            ),
+          ],
+        ),
+        child: AnimatedScale(
+          scale: _isPressed ? 0.92 : 1.0,
+          duration: _pressDuration,
+          curve: Curves.easeOutCubic,
+          child: AnimatedOpacity(
+            opacity: _isPressed ? 0.85 : 1.0,
+            duration: _pressDuration,
+            curve: Curves.easeOutCubic,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: cardRadius,
+                splashColor:
+                    FlutterFlowTheme.of(context).primary.withValues(alpha: 0.20),
+                highlightColor:
+                    FlutterFlowTheme.of(context).primary.withValues(alpha: 0.10),
+                onTapDown: widget.onTap != null ? _handleTapDown : null,
+                onTapUp: widget.onTap != null ? _handleTapUp : null,
+                onTapCancel: widget.onTap != null ? _handleTapCancel : null,
+                onTap: widget.onTap != null ? _handleTap : null,
+                child: ClipRRect(
+                  borderRadius: cardRadius,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: widget.isFinished
+                          ? Colors.white
+                          : FlutterFlowTheme.of(context).secondaryBackground,
+                    ),
+                    child: Stack(
+                      children: [
+                        Column(
+                          mainAxisSize: MainAxisSize.max,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              height: effectiveImageHeight,
+                              child: effectiveDesaturate
+                                  ? ColorFiltered(
+                                      colorFilter: ColorFilter.mode(
+                                        Colors.grey.withValues(alpha: 0.9),
+                                        BlendMode.saturation,
+                                      ),
+                                      child: ProxiplayNetworkImage(
+                                        imageUrl: widget.imageUrl,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : ProxiplayNetworkImage(
+                                      imageUrl: widget.imageUrl,
+                                      fit: BoxFit.cover,
+                                    ),
+                            ),
+                            Expanded(child: _buildContent(context)),
+                          ],
+                        ),
+                        if (effectiveBadge != null && effectiveBadge.isNotEmpty)
+                          Positioned(
+                            left: 0.0,
+                            top: 0.0,
+                            child: Container(
+                              padding: AppStyles.gameCardBadgePadding,
+                              decoration: const BoxDecoration(
+                                color: AppStyles.gameCardBadgeColor,
+                                borderRadius: BorderRadius.only(
+                                  bottomRight: Radius.circular(18.0),
+                                ),
+                              ),
+                              child: Text(
+                                _normalizeText(effectiveBadge),
+                                style: FlutterFlowTheme.of(context)
+                                    .bodyMedium
+                                    .override(
+                                      font: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w800,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .fontStyle,
+                                      ),
+                                      color: Colors.white,
+                                      fontSize: AppStyles.gameCardBadgeSize,
+                                      letterSpacing: 0.0,
+                                    ),
+                              ),
+                            ),
+                          ),
+                        if (hasPrize)
+                          Positioned(
+                            left: 8.0,
+                            top: effectiveImageHeight - 16.0,
+                            child: Container(
+                              padding: AppStyles.gameCardPriceBadgePadding,
+                              decoration: BoxDecoration(
+                                color: AppStyles.gameCardPriceBadgeColor,
+                                borderRadius: BorderRadius.circular(16.0),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 8.0,
+                                    offset: const Offset(0.0, 2.0),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                _formatPriceText(widget.prizeText),
+                                style: FlutterFlowTheme.of(context)
+                                    .bodyMedium
+                                    .override(
+                                      font: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w800,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .fontStyle,
+                                      ),
+                                      color: Colors.white,
+                                      fontSize: AppStyles.gameCardPriceBadgeSize,
+                                      letterSpacing: 0.0,
+                                    ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    final effectiveWinnerMaxLines = widget.isFinished ? 2 : widget.winnerMaxLines;
+    final rowSpacing = widget.isFinished ? 6.0 : 4.0;
+    final hasPrize = _hasVisibleText(widget.prizeText);
+    final titleTopSpacing = hasPrize ? 8.0 : 0.0;
+    final contentPadding = (!widget.isFinished && hasPrize)
+        ? const EdgeInsets.fromLTRB(10.0, 8.0, 10.0, 4.0)
+        : AppStyles.gameCardContentPadding;
+    return Container(
+      color: widget.isFinished ? Colors.white : Colors.transparent,
+      child: Padding(
+        padding: contentPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (titleTopSpacing > 0.0) SizedBox(height: titleTopSpacing),
+            Text(
+              _normalizeText(widget.title),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: FlutterFlowTheme.of(context).bodyMedium.override(
+                    font: GoogleFonts.inter(
+                      fontWeight: FontWeight.w700,
+                      fontStyle:
+                          FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                    ),
+                    fontSize: AppStyles.gameCardTitleSize,
+                    color: Colors.black,
+                    letterSpacing: 0.0,
+                  ),
+            ),
+            SizedBox(height: rowSpacing),
+            _infoRow(
+              Icons.store_sharp,
+              widget.storeName,
+              context,
+              fontWeight: FontWeight.w700,
+            ),
+            SizedBox(height: rowSpacing),
+            _infoRow(Icons.place_sharp, widget.city, context),
+            if (!hasPrize) SizedBox(height: rowSpacing),
+            if (!hasPrize) _infoRow(Icons.euro, widget.prizeText, context),
+            SizedBox(height: rowSpacing),
+            _infoRow(Icons.date_range, widget.endDateText, context),
+            if (widget.isFinished &&
+                (widget.winnerText == null || widget.winnerText!.isEmpty))
+              Padding(
+                padding: const EdgeInsets.only(top: 3.0),
+                child:
+                    _infoRow(Icons.info_outline, widget.finishedInfoText, context),
+              ),
+            if (widget.winnerText != null && widget.winnerText!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppStyles.gameCardWinnerBackground,
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  padding: AppStyles.gameCardWinnerPadding,
+                  child: Text(
+                    _normalizeText(widget.winnerText!),
+                    maxLines: effectiveWinnerMaxLines,
+                    overflow: TextOverflow.ellipsis,
+                    style: FlutterFlowTheme.of(context).bodySmall.override(
+                          font: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            fontStyle: FlutterFlowTheme.of(context)
+                                .bodySmall
+                                .fontStyle,
+                          ),
+                          color: AppStyles.gameCardWinnerText,
+                          letterSpacing: 0.0,
+                        ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoRow(
+    IconData icon,
+    String text,
+    BuildContext context, {
+    FontWeight? fontWeight,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1.0),
+          child: Icon(icon, size: 18.0, color: const Color(0xFF26235C)),
+        ),
+        const SizedBox(width: 8.0),
+        Expanded(
+          child: Text(
+            _normalizeText(text),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: FlutterFlowTheme.of(context).bodySmall.override(
+                  font: GoogleFonts.inter(
+                    fontWeight:
+                        fontWeight ??
+                            FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                    fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                  ),
+                  color: const Color(0xFF26235C),
+                  fontSize: AppStyles.gameCardBodySize,
+                  letterSpacing: 0.0,
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool _hasVisibleText(String? value) {
+    return value != null && value.trim().isNotEmpty;
+  }
+
+  String _formatPriceText(String value) {
+    final normalized = _normalizeText(value).trim();
+    final match =
+        RegExp(r'^(\d+)(?:[.,](\d{1,2}))?\s*€?$').firstMatch(normalized);
+    if (match == null) {
+      return normalized;
+    }
+    final euros = match.group(1)!;
+    final decimals = match.group(2);
+    if (decimals == null || int.tryParse(decimals) == 0) {
+      return '$euros €';
+    }
+    final trimmedDecimals = decimals.replaceFirst(RegExp(r'0+$'), '');
+    return '$euros,$trimmedDecimals €';
+  }
+
+  String _normalizeText(String value) {
+    return value
+        .replaceAll('â‚¬', '\u20AC')
+        .replaceAll('Ã©', '\u00E9')
+        .replaceAll('Ã¨', '\u00E8')
+        .replaceAll('Ãª', '\u00EA')
+        .replaceAll('Ã«', '\u00EB')
+        .replaceAll('Ã ', '\u00E0')
+        .replaceAll('Ã¢', '\u00E2')
+        .replaceAll('Ã¹', '\u00F9')
+        .replaceAll('Ã»', '\u00FB')
+        .replaceAll('Ã´', '\u00F4')
+        .replaceAll('Ã®', '\u00EE')
+        .replaceAll('Ã¯', '\u00EF')
+        .replaceAll('Ã‡', '\u00C7')
+        .replaceAll('Ã§', '\u00E7')
+        .replaceAll('Ã€', '\u00C0')
+        .replaceAll('Ã‰', '\u00C9')
+        .replaceAll('Ã”', '\u00D4')
+        .replaceAll('â€™', '\'')
+        .replaceAll('\uFFFD', '');
+  }
+}
+
+class GameCardWidget extends GameCard {
+  const GameCardWidget({
+    super.key,
+    required super.title,
+    required super.imageUrl,
+    required super.storeName,
+    required super.city,
+    required super.prizeText,
+    required super.endDateText,
+    super.badgeText,
+    super.winnerText,
+    super.width,
+    super.height,
+    super.imageHeight,
+    super.onTap,
+    super.desaturateImage,
+    super.fitContent,
+    super.winnerMaxLines,
+    super.isFinished,
+    super.finishedInfoText,
+  });
+}

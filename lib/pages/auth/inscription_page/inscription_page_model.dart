@@ -1,22 +1,8 @@
-import '/auth/firebase_auth/auth_util.dart';
-import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
-import '/flutter_flow/flutter_flow_animations.dart';
-import '/flutter_flow/flutter_flow_button_tabbar.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:math';
-import 'dart:ui';
 import '/index.dart';
 import 'inscription_page_widget.dart' show InscriptionPageWidget;
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 
 class InscriptionPageModel extends FlutterFlowModel<InscriptionPageWidget> {
   ///  Local state fields for this page.
@@ -91,6 +77,11 @@ class InscriptionPageModel extends FlutterFlowModel<InscriptionPageWidget> {
 
   // State field(s) for CheckboxJoueur widget.
   bool? checkboxJoueurValue;
+  // State field(s) for referralCodeJoueur widget.
+  FocusNode? referralCodeJoueurFocusNode;
+  TextEditingController? referralCodeJoueurTextController;
+  String? Function(BuildContext, String?)?
+      referralCodeJoueurTextControllerValidator;
   // State field(s) for emailAddressCommercant widget.
   FocusNode? emailAddressCommercantFocusNode;
   TextEditingController? emailAddressCommercantTextController;
@@ -145,6 +136,11 @@ class InscriptionPageModel extends FlutterFlowModel<InscriptionPageWidget> {
 
   // State field(s) for CheckboxCommercant widget.
   bool? checkboxCommercantValue;
+  // State field(s) for referralCodeCommercant widget.
+  FocusNode? referralCodeCommercantFocusNode;
+  TextEditingController? referralCodeCommercantTextController;
+  String? Function(BuildContext, String?)?
+      referralCodeCommercantTextControllerValidator;
   // State field(s) for professionalCategory widget.
   String? professionalCategoryValue;
 
@@ -179,6 +175,8 @@ class InscriptionPageModel extends FlutterFlowModel<InscriptionPageWidget> {
 
     passwordConfirmJoueurFocusNode?.dispose();
     passwordConfirmJoueurTextController?.dispose();
+    referralCodeJoueurFocusNode?.dispose();
+    referralCodeJoueurTextController?.dispose();
 
     emailAddressCommercantFocusNode?.dispose();
     emailAddressCommercantTextController?.dispose();
@@ -188,5 +186,7 @@ class InscriptionPageModel extends FlutterFlowModel<InscriptionPageWidget> {
 
     passwordConfirmCommercantFocusNode?.dispose();
     passwordConfirmCommercantTextController?.dispose();
+    referralCodeCommercantFocusNode?.dispose();
+    referralCodeCommercantTextController?.dispose();
   }
 }

@@ -1,21 +1,18 @@
-import '/backend/backend.dart';
+﻿import '/backend/backend.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
-import '/backend/schema/structs/index.dart';
 import '/components/custom_nav_bar_admin_widget.dart';
 import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
-import 'package:provider/provider.dart';
 import 'delete_comm_admin_page_model.dart';
 export 'delete_comm_admin_page_model.dart';
 
-/// page pour admin gérer la suppression des profils commercant
+/// page pour admin gÃ©rer la suppression des profils commercant
 class DeleteCommAdminPageWidget extends StatefulWidget {
   const DeleteCommAdminPageWidget({super.key});
 
@@ -62,7 +59,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
           backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
           automaticallyImplyLeading: false,
           title: Text(
-            'Gestion des Profils Commerçants',
+            'Gestion des Profils CommerÃ§ants',
             style: FlutterFlowTheme.of(context).headlineMedium.override(
                   font: GoogleFonts.interTight(
                     fontWeight: FontWeight.w600,
@@ -77,7 +74,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                       FlutterFlowTheme.of(context).headlineMedium.fontStyle,
                 ),
           ),
-          actions: [],
+          actions: const [],
           centerTitle: true,
           elevation: 2.0,
         ),
@@ -93,7 +90,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                     mainAxisSize: MainAxisSize.max,
                     children: [
                       Padding(
-                        padding: EdgeInsets.all(20.0),
+                        padding: const EdgeInsets.all(20.0),
                         child: PagedListView<DocumentSnapshot<Object?>?,
                             AccountDeletionRequestsRecord>(
                           pagingController: _model.setListViewController(
@@ -108,31 +105,23 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                           builderDelegate: PagedChildBuilderDelegate<
                               AccountDeletionRequestsRecord>(
                             // Customize what your widget looks like when it's loading the first page.
-                            firstPageProgressIndicatorBuilder: (_) => Center(
+                            firstPageProgressIndicatorBuilder: (_) => const Center(
                               child: SizedBox(
                                 width: 50.0,
                                 height: 50.0,
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    FlutterFlowTheme.of(context).primary,
-                                  ),
-                                ),
+                                child: SizedBox.shrink(),
                               ),
                             ),
                             // Customize what your widget looks like when it's loading another page.
-                            newPageProgressIndicatorBuilder: (_) => Center(
+                            newPageProgressIndicatorBuilder: (_) => const Center(
                               child: SizedBox(
                                 width: 50.0,
                                 height: 50.0,
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    FlutterFlowTheme.of(context).primary,
-                                  ),
-                                ),
+                                child: SizedBox.shrink(),
                               ),
                             ),
                             noItemsFoundIndicatorBuilder: (_) =>
-                                ListEmptyComponentWidget(
+                                const ListEmptyComponentWidget(
                               title: 'Liste vide',
                               description: 'Aucune demande de suppression',
                             ),
@@ -141,7 +130,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                   _model.listViewPagingController!
                                       .itemList![listViewIndex];
                               return Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 16.0),
                                 child: FutureBuilder<UsersRecord>(
                                   future: UsersRecord.getDocumentOnce(
@@ -150,17 +139,11 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                   builder: (context, snapshot) {
                                     // Customize what your widget looks like when it's loading.
                                     if (!snapshot.hasData) {
-                                      return Center(
+                                      return const Center(
                                         child: SizedBox(
                                           width: 50.0,
                                           height: 50.0,
-                                          child: CircularProgressIndicator(
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                              FlutterFlowTheme.of(context)
-                                                  .primary,
-                                            ),
-                                          ),
+                                          child: SizedBox.shrink(),
                                         ),
                                       );
                                     }
@@ -172,7 +155,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                       decoration: BoxDecoration(
                                         color: FlutterFlowTheme.of(context)
                                             .secondaryBackground,
-                                        boxShadow: [
+                                        boxShadow: const [
                                           BoxShadow(
                                             blurRadius: 4.0,
                                             color: Color(0x20000000),
@@ -186,7 +169,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                             BorderRadius.circular(8.0),
                                       ),
                                       child: Padding(
-                                        padding: EdgeInsets.all(16.0),
+                                        padding: const EdgeInsets.all(16.0),
                                         child: FutureBuilder<int>(
                                           future: queryGamesRecordCount(
                                             queryBuilder: (gamesRecord) =>
@@ -210,20 +193,12 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                           builder: (context, snapshot) {
                                             // Customize what your widget looks like when it's loading.
                                             if (!snapshot.hasData) {
-                                              return Center(
+                                              return const Center(
                                                 child: SizedBox(
                                                   width: 50.0,
                                                   height: 50.0,
                                                   child:
-                                                      CircularProgressIndicator(
-                                                    valueColor:
-                                                        AlwaysStoppedAnimation<
-                                                            Color>(
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .primary,
-                                                    ),
-                                                  ),
+                                                      SizedBox.shrink(),
                                                 ),
                                               );
                                             }
@@ -235,18 +210,18 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 Padding(
-                                                  padding: EdgeInsets.all(12.0),
+                                                  padding: const EdgeInsets.all(12.0),
                                                   child: Container(
                                                     width: double.infinity,
                                                     decoration: BoxDecoration(
-                                                      color: Color(0xFFF5F5F5),
+                                                      color: const Color(0xFFF5F5F5),
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                               8.0),
                                                     ),
                                                     child: Padding(
                                                       padding:
-                                                          EdgeInsets.all(12.0),
+                                                          const EdgeInsets.all(12.0),
                                                       child: Row(
                                                         mainAxisSize:
                                                             MainAxisSize.max,
@@ -260,7 +235,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                                     .max,
                                                             children: [
                                                               Padding(
-                                                                padding: EdgeInsetsDirectional
+                                                                padding: const EdgeInsetsDirectional
                                                                     .fromSTEB(
                                                                         12.0,
                                                                         0.0,
@@ -353,7 +328,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                       .alternate,
                                                 ),
                                                 Padding(
-                                                  padding: EdgeInsetsDirectional
+                                                  padding: const EdgeInsetsDirectional
                                                       .fromSTEB(
                                                           16.0, 8.0, 16.0, 0.0),
                                                   child: Container(
@@ -366,7 +341,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                       children: [
                                                         Padding(
                                                           padding:
-                                                              EdgeInsetsDirectional
+                                                              const EdgeInsetsDirectional
                                                                   .fromSTEB(
                                                                       0.0,
                                                                       8.0,
@@ -457,7 +432,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                   ],
                                                 ),
                                                 Padding(
-                                                  padding: EdgeInsetsDirectional
+                                                  padding: const EdgeInsetsDirectional
                                                       .fromSTEB(16.0, 16.0,
                                                           16.0, 0.0),
                                                   child: Row(
@@ -469,7 +444,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                     children: [
                                                       Padding(
                                                         padding:
-                                                            EdgeInsetsDirectional
+                                                            const EdgeInsetsDirectional
                                                                 .fromSTEB(
                                                                     8.0,
                                                                     0.0,
@@ -486,20 +461,20 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                               FFButtonOptions(
                                                             height: 40.0,
                                                             padding:
-                                                                EdgeInsetsDirectional
+                                                                const EdgeInsetsDirectional
                                                                     .fromSTEB(
                                                                         16.0,
                                                                         0.0,
                                                                         16.0,
                                                                         0.0),
                                                             iconPadding:
-                                                                EdgeInsetsDirectional
+                                                                const EdgeInsetsDirectional
                                                                     .fromSTEB(
                                                                         0.0,
                                                                         0.0,
                                                                         0.0,
                                                                         0.0),
-                                                            color: Color(
+                                                            color: const Color(
                                                                 0x15FF5963),
                                                             textStyle:
                                                                 FlutterFlowTheme.of(
@@ -582,14 +557,14 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                               FFButtonOptions(
                                                             height: 40.0,
                                                             padding:
-                                                                EdgeInsetsDirectional
+                                                                const EdgeInsetsDirectional
                                                                     .fromSTEB(
                                                                         16.0,
                                                                         0.0,
                                                                         16.0,
                                                                         0.0),
                                                             iconPadding:
-                                                                EdgeInsetsDirectional
+                                                                const EdgeInsetsDirectional
                                                                     .fromSTEB(
                                                                         0.0,
                                                                         0.0,
@@ -663,7 +638,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
               wrapWithModel(
                 model: _model.customNavBarAdminModel,
                 updateCallback: () => safeSetState(() {}),
-                child: CustomNavBarAdminWidget(
+                child: const CustomNavBarAdminWidget(
                   indexActive: 2,
                 ),
               ),
@@ -674,3 +649,4 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
     );
   }
 }
+

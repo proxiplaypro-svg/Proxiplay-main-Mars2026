@@ -5,9 +5,7 @@ import '/components/delete_confirmation_account_widget.dart';
 import '/components/informational_dialog_custom_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import 'dart:ui';
 import '/index.dart';
-import '/app_state.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
@@ -69,7 +67,7 @@ class _ProfilCommercantPageWidgetState
                 borderRadius: BorderRadius.circular(12.0),
               ),
               child: Padding(
-                padding: EdgeInsets.all(10.0),
+                padding: const EdgeInsets.all(10.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.max,
                   children: [
@@ -96,18 +94,18 @@ class _ProfilCommercantPageWidgetState
                                 ),
                       ),
                     ),
-                  ].divide(SizedBox(height: 10.0)),
+                  ].divide(const SizedBox(height: 10.0)),
                 ),
               ),
             ),
-            actions: [],
+            actions: const [],
             flexibleSpace: FlexibleSpaceBar(
               background: ClipRRect(
                 borderRadius: BorderRadius.circular(8.0),
                 child: Image.asset(
                   'assets/images/Background.png',
                   fit: BoxFit.cover,
-                  alignment: Alignment(1.0, -1.0),
+                  alignment: const Alignment(1.0, -1.0),
                 ),
               ),
             ),
@@ -119,7 +117,7 @@ class _ProfilCommercantPageWidgetState
               decoration: BoxDecoration(
                 image: DecorationImage(
                   fit: BoxFit.cover,
-                  alignment: AlignmentDirectional(-1.0, 1.0),
+                  alignment: const AlignmentDirectional(-1.0, 1.0),
                   image: Image.asset(
                     'assets/images/Background.png',
                   ).image,
@@ -132,7 +130,7 @@ class _ProfilCommercantPageWidgetState
                   Expanded(
                     child: Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 0.0),
                       child: SingleChildScrollView(
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
@@ -140,7 +138,7 @@ class _ProfilCommercantPageWidgetState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   16.0, 16.0, 0.0, 0.0),
                               child: Text(
                                 'Mon compte',
@@ -163,7 +161,7 @@ class _ProfilCommercantPageWidgetState
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 12.0, 0.0, 0.0),
                               child: InkWell(
                                 splashColor: Colors.transparent,
@@ -184,7 +182,7 @@ class _ProfilCommercantPageWidgetState
                                     shape: BoxShape.rectangle,
                                   ),
                                   child: Padding(
-                                    padding: EdgeInsets.all(8.0),
+                                    padding: const EdgeInsets.all(8.0),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.max,
                                       children: [
@@ -197,7 +195,7 @@ class _ProfilCommercantPageWidgetState
                                         Expanded(
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     12.0, 0.0, 0.0, 0.0),
                                             child: Text(
                                               'Mes informations',
@@ -234,7 +232,7 @@ class _ProfilCommercantPageWidgetState
                                         ),
                                         Align(
                                           alignment:
-                                              AlignmentDirectional(0.9, 0.0),
+                                              const AlignmentDirectional(0.9, 0.0),
                                           child: Icon(
                                             Icons.arrow_forward_ios,
                                             color: FlutterFlowTheme.of(context)
@@ -249,7 +247,7 @@ class _ProfilCommercantPageWidgetState
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 12.0, 0.0, 0.0),
                               child: InkWell(
                                 splashColor: Colors.transparent,
@@ -271,7 +269,7 @@ class _ProfilCommercantPageWidgetState
                                     shape: BoxShape.rectangle,
                                   ),
                                   child: Padding(
-                                    padding: EdgeInsets.all(8.0),
+                                    padding: const EdgeInsets.all(8.0),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.max,
                                       children: [
@@ -284,7 +282,7 @@ class _ProfilCommercantPageWidgetState
                                         Expanded(
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     12.0, 0.0, 0.0, 0.0),
                                             child: Text(
                                               'Mon point de vente',
@@ -321,7 +319,7 @@ class _ProfilCommercantPageWidgetState
                                         ),
                                         Align(
                                           alignment:
-                                              AlignmentDirectional(0.9, 0.0),
+                                              const AlignmentDirectional(0.9, 0.0),
                                           child: Icon(
                                             Icons.arrow_forward_ios,
                                             color: FlutterFlowTheme.of(context)
@@ -336,7 +334,7 @@ class _ProfilCommercantPageWidgetState
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 12.0, 0.0, 0.0),
                               child: InkWell(
                                 splashColor: Colors.transparent,
@@ -362,7 +360,7 @@ class _ProfilCommercantPageWidgetState
                                     shape: BoxShape.rectangle,
                                   ),
                                   child: Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                    padding: const EdgeInsetsDirectional.fromSTEB(
                                         8.0, 8.0, 8.0, 8.0),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.max,
@@ -376,7 +374,7 @@ class _ProfilCommercantPageWidgetState
                                         Expanded(
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     12.0, 0.0, 12.0, 0.0),
                                             child: Text(
                                               'Se déconnecter',
@@ -429,7 +427,7 @@ class _ProfilCommercantPageWidgetState
                             ),
                             Builder(
                               builder: (context) => Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 12.0, 0.0, 0.0),
                                 child: InkWell(
                                   splashColor: Colors.transparent,
@@ -477,7 +475,7 @@ class _ProfilCommercantPageWidgetState
                                               backgroundColor:
                                                   Colors.transparent,
                                               alignment:
-                                                  AlignmentDirectional(0.0, 0.0)
+                                                  const AlignmentDirectional(0.0, 0.0)
                                                       .resolve(
                                                           Directionality.of(
                                                               context)),
@@ -514,7 +512,7 @@ class _ProfilCommercantPageWidgetState
                                                             backgroundColor:
                                                                 Colors
                                                                     .transparent,
-                                                            alignment: AlignmentDirectional(
+                                                            alignment: const AlignmentDirectional(
                                                                     0.0, 0.0)
                                                                 .resolve(
                                                                     Directionality.of(
@@ -562,7 +560,7 @@ class _ProfilCommercantPageWidgetState
                                               backgroundColor:
                                                   Colors.transparent,
                                               alignment:
-                                                  AlignmentDirectional(0.0, 0.0)
+                                                  const AlignmentDirectional(0.0, 0.0)
                                                       .resolve(
                                                           Directionality.of(
                                                               context)),
@@ -597,7 +595,7 @@ class _ProfilCommercantPageWidgetState
                                             elevation: 0,
                                             insetPadding: EdgeInsets.zero,
                                             backgroundColor: Colors.transparent,
-                                            alignment: AlignmentDirectional(
+                                            alignment: const AlignmentDirectional(
                                                     0.0, 0.0)
                                                 .resolve(
                                                     Directionality.of(context)),
@@ -637,7 +635,7 @@ class _ProfilCommercantPageWidgetState
                                       shape: BoxShape.rectangle,
                                     ),
                                     child: Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                      padding: const EdgeInsetsDirectional.fromSTEB(
                                           8.0, 8.0, 8.0, 8.0),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.max,
@@ -650,7 +648,7 @@ class _ProfilCommercantPageWidgetState
                                           ),
                                           Expanded(
                                             child: Padding(
-                                              padding: EdgeInsetsDirectional
+                                              padding: const EdgeInsetsDirectional
                                                   .fromSTEB(
                                                       12.0, 0.0, 12.0, 0.0),
                                               child: Text(
@@ -704,7 +702,7 @@ class _ProfilCommercantPageWidgetState
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   16.0, 30.0, 0.0, 0.0),
                               child: Text(
                                 'Proxiplay',
@@ -727,7 +725,7 @@ class _ProfilCommercantPageWidgetState
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 12.0, 0.0, 0.0),
                               child: InkWell(
                                 splashColor: Colors.transparent,
@@ -748,7 +746,7 @@ class _ProfilCommercantPageWidgetState
                                     shape: BoxShape.rectangle,
                                   ),
                                   child: Padding(
-                                    padding: EdgeInsets.all(8.0),
+                                    padding: const EdgeInsets.all(8.0),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.max,
                                       children: [
@@ -761,7 +759,7 @@ class _ProfilCommercantPageWidgetState
                                         Expanded(
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     12.0, 0.0, 0.0, 0.0),
                                             child: Text(
                                               'Nous contacter',
@@ -798,7 +796,7 @@ class _ProfilCommercantPageWidgetState
                                         ),
                                         Align(
                                           alignment:
-                                              AlignmentDirectional(0.9, 0.0),
+                                              const AlignmentDirectional(0.9, 0.0),
                                           child: Icon(
                                             Icons.arrow_forward_ios,
                                             color: FlutterFlowTheme.of(context)
@@ -813,7 +811,7 @@ class _ProfilCommercantPageWidgetState
                               ),
                             ),
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 12.0, 0.0, 0.0),
                               child: InkWell(
                                 splashColor: Colors.transparent,
@@ -833,7 +831,7 @@ class _ProfilCommercantPageWidgetState
                                     shape: BoxShape.rectangle,
                                   ),
                                   child: Padding(
-                                    padding: EdgeInsets.all(8.0),
+                                    padding: const EdgeInsets.all(8.0),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.max,
                                       children: [
@@ -846,7 +844,7 @@ class _ProfilCommercantPageWidgetState
                                         Expanded(
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     12.0, 0.0, 0.0, 0.0),
                                             child: Text(
                                               'Mentions légales',
@@ -901,7 +899,7 @@ class _ProfilCommercantPageWidgetState
                   wrapWithModel(
                     model: _model.customNavBarCommercant2Model,
                     updateCallback: () => safeSetState(() {}),
-                    child: CustomNavBarCommercant2Widget(
+                    child: const CustomNavBarCommercant2Widget(
                       indexActive: 4,
                     ),
                   ),

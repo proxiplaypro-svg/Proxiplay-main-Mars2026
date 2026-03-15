@@ -2,12 +2,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../base_auth_user_provider.dart';
+import '../../app_state.dart';
 
 export '../base_auth_user_provider.dart';
 
 class ProxiPlayFirebaseUser extends BaseAuthUser {
   ProxiPlayFirebaseUser(this.user);
   User? user;
+  @override
   bool get loggedIn => user != null;
 
   @override
@@ -24,11 +26,7 @@ class ProxiPlayFirebaseUser extends BaseAuthUser {
 
   @override
   Future? updateEmail(String email) async {
-    try {
-      await user?.updateEmail(email);
-    } catch (_) {
-      await user?.verifyBeforeUpdateEmail(email);
-    }
+    await user?.verifyBeforeUpdateEmail(email);
   }
 
   @override
@@ -71,7 +69,9 @@ Stream<BaseAuthUser> proxiPlayFirebaseUserStream() => FirebaseAuth.instance
             : Stream.value(user))
         .map<BaseAuthUser>(
       (user) {
-        currentUser = ProxiPlayFirebaseUser(user);
+        currentUser = user == null && FFAppState().isGuest
+            ? GuestAuthUser()
+            : ProxiPlayFirebaseUser(user);
         return currentUser!;
       },
     );

@@ -1,6 +1,5 @@
-import 'dart:async';
+﻿import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
@@ -223,20 +222,16 @@ class _AdminPushNotificationsPageWidgetState
     // Check if user is actually authenticated
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      print('ERROR: No authenticated user found!');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Not authenticated. Please log in again.')),
       );
       return;
     }
-    print('Auth user: ${user.uid}, email: ${user.email}');
 
     // Force token refresh to ensure we have a valid token
     try {
-      final token = await user.getIdToken(true);
-      print('Got fresh token: ${token?.substring(0, 20)}...');
+      await user.getIdToken(true);
     } catch (e) {
-      print('Token refresh error: $e');
     }
 
     final scheduledMs = _model.scheduleEnabled && _model.scheduledAt != null
@@ -262,7 +257,6 @@ class _AdminPushNotificationsPageWidgetState
         ? _selectedUsers.keys.toList()
         : <String>[];
 
-    print('Calling createAdminPushNotification...');
     final res = await makeCloudCall('createAdminPushNotification', {
       'title': _model.titleController.text.trim(),
       'body': _model.bodyController.text.trim(),
@@ -275,7 +269,6 @@ class _AdminPushNotificationsPageWidgetState
       'repeatCount': _model.repeatEnabled ? repeatCount : null,
     }.withoutNulls);
 
-    print('Cloud call result: $res');
     final ok = res['ok'] == true;
     final id = res['id']?.toString();
     if (!mounted) return;
@@ -294,7 +287,7 @@ class _AdminPushNotificationsPageWidgetState
       return;
     }
 
-    // Immediate send: show queued → succeeded/failed once the trigger updates the doc.
+    // Immediate send: show queued â†’ succeeded/failed once the trigger updates the doc.
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Message queued...')),
     );
@@ -565,7 +558,7 @@ class _AdminPushNotificationsPageWidgetState
                 borderRadius: BorderRadius.circular(12),
                 child: _searchMode
                     ? (_searchLoading
-                        ? const Center(child: CircularProgressIndicator())
+                        ? const Center(child: SizedBox.shrink())
                         : () {
                             final filtered = _searchResults
                                 .where(_matchesAudienceFilter)
@@ -587,9 +580,9 @@ class _AdminPushNotificationsPageWidgetState
                                   ? _userTile(item)
                                   : const SizedBox.shrink(),
                           firstPageProgressIndicatorBuilder: (_) =>
-                              const Center(child: CircularProgressIndicator()),
+                              const Center(child: SizedBox.shrink()),
                           newPageProgressIndicatorBuilder: (_) =>
-                              const Center(child: CircularProgressIndicator()),
+                              const Center(child: SizedBox.shrink()),
                           noItemsFoundIndicatorBuilder: (_) =>
                               const Center(child: Text('No users.')),
                           firstPageErrorIndicatorBuilder: (_) => Center(
@@ -693,9 +686,9 @@ class _AdminPushNotificationsPageWidgetState
                       FFButtonWidget(
                         onPressed: _model.isUploadingImage ? null : _pickAndUploadImage,
                         text: _model.isUploadingImage ? 'Uploading...' : 'Upload',
-                        options: FFButtonOptions(
+                        options: const FFButtonOptions(
                           height: 44,
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          padding: EdgeInsets.symmetric(horizontal: 14),
                         ),
                       ),
                     ],
@@ -724,12 +717,14 @@ class _AdminPushNotificationsPageWidgetState
                             initialDate: now,
                           );
                           if (date == null) return;
+                          if (!mounted) return;
                           final time = await showTimePicker(
                             context: context,
                             initialTime: TimeOfDay.fromDateTime(
                                 now.add(const Duration(minutes: 5))),
                           );
                           if (time == null) return;
+                          if (!mounted) return;
                           final dt = DateTime(
                             date.year,
                             date.month,
@@ -811,7 +806,7 @@ class _AdminPushNotificationsPageWidgetState
     // Guard: only admins should see this page (wait for user doc to load).
     if (currentUserDocument == null && loggedIn) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: Center(child: SizedBox.shrink()),
       );
     }
     if (currentUserDocument?.userRole != Roles.admin) {
@@ -918,7 +913,6 @@ class _AdminPushNotificationsPageWidgetState
     );
   }
 }
-
 
 
 

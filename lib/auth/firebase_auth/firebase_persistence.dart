@@ -36,7 +36,6 @@ class FirebasePersistenceManager {
         await currentUser.reload();
       }
     } catch (e) {
-      print('Error initializing Firebase persistence: $e');
     }
   }
 
@@ -48,7 +47,6 @@ class FirebasePersistenceManager {
     try {
       await FirebaseAuth.instance.signOut();
     } catch (e) {
-      print('Error clearing persistent session: $e');
     }
   }
 

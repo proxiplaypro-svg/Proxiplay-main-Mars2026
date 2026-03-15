@@ -4,12 +4,9 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../auth_manager.dart';
-import '../base_auth_user_provider.dart';
-import '../../flutter_flow/flutter_flow_util.dart';
+import '../../app_state.dart';
 
 import '/backend/backend.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:stream_transform/stream_transform.dart';
 import 'anonymous_auth.dart';
 import 'apple_auth.dart';
 import 'email_auth.dart';
@@ -60,6 +57,7 @@ class FirebaseAuthManager extends AuthManager
 
   @override
   Future signOut() {
+    FFAppState().isGuest = false;
     return FirebaseAuth.instance.signOut();
   }
 
@@ -67,15 +65,17 @@ class FirebaseAuthManager extends AuthManager
   Future deleteUser(BuildContext context) async {
     try {
       if (!loggedIn) {
-        print('Error: delete user attempted with no logged in user!');
         return;
       }
       await currentUser?.delete();
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
+        if (!context.mounted) {
+          return;
+        }
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
               content: Text(
                   'Too long since most recent sign in. Sign in again before deleting your account.')),
         );
@@ -90,16 +90,18 @@ class FirebaseAuthManager extends AuthManager
   }) async {
     try {
       if (!loggedIn) {
-        print('Error: update email attempted with no logged in user!');
         return;
       }
       await currentUser?.updateEmail(email);
       await updateUserDocument(email: email);
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
+        if (!context.mounted) {
+          return;
+        }
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
               content: Text(
                   'Too long since most recent sign in. Sign in again before updating your email.')),
         );
@@ -107,19 +109,20 @@ class FirebaseAuthManager extends AuthManager
     }
   }
 
-  @override
   Future updatePassword({
     required String newPassword,
     required BuildContext context,
   }) async {
     try {
       if (!loggedIn) {
-        print('Error: update password attempted with no logged in user!');
         return;
       }
       await currentUser?.updatePassword(newPassword);
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
+        if (!context.mounted) {
+          return;
+        }
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: ${e.message!}')),
@@ -136,14 +139,20 @@ class FirebaseAuthManager extends AuthManager
     try {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
     } on FirebaseAuthException catch (e) {
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: ${e.message!}')),
       );
       return null;
     }
+    if (!context.mounted) {
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Password reset email sent')),
+      const SnackBar(content: Text('Password reset email sent')),
     );
   }
 
@@ -238,7 +247,7 @@ class FirebaseAuthManager extends AuthManager
     await FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: phoneNumber,
       timeout:
-          Duration(seconds: 0), // Skips Android's default auto-verification
+          const Duration(seconds: 0), // Skips Android's default auto-verification
       verificationCompleted: (phoneAuthCredential) async {
         await FirebaseAuth.instance.signInWithCredential(phoneAuthCredential);
         phoneAuthManager.update(() {
@@ -306,6 +315,7 @@ class FirebaseAuthManager extends AuthManager
     String authProvider,
   ) async {
     try {
+      FFAppState().isGuest = false;
       final userCredential = await signInFunc();
       if (userCredential?.user != null) {
         await maybeCreateUser(userCredential!.user!);
@@ -321,6 +331,9 @@ class FirebaseAuthManager extends AuthManager
           'Error: The supplied auth credential is incorrect, malformed or has expired',
         _ => 'Error: ${e.message!}',
       };
+      if (!context.mounted) {
+        return null;
+      }
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMsg)),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'flutter_flow/flutter_flow_util.dart';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 class FFAppState extends ChangeNotifier {
   static FFAppState _instance = FFAppState._internal();
@@ -18,8 +19,16 @@ class FFAppState extends ChangeNotifier {
 
   Future initializePersistedState() async {
     prefs = await SharedPreferences.getInstance();
+    _prefsReady = true;
     _safeInit(() {
       _isMineur = prefs.getBool('ff_isMineur') ?? _isMineur;
+      _isGuest = prefs.getBool('ff_isGuest') ?? _isGuest;
+      _pendingReferralCode =
+          prefs.getString('ff_pendingReferralCode') ?? _pendingReferralCode;
+      debugPrint(
+        '[ReferralDebug][AppState] initialized pendingReferralCode='
+        '${_pendingReferralCode.isEmpty ? '<empty>' : _pendingReferralCode}',
+      );
     });
   }
 
@@ -29,6 +38,7 @@ class FFAppState extends ChangeNotifier {
   }
 
   late SharedPreferences prefs;
+  bool _prefsReady = false;
 
   int _pageIndex = 0;
   int get pageIndex => _pageIndex;
@@ -69,7 +79,9 @@ class FFAppState extends ChangeNotifier {
   bool get isMineur => _isMineur;
   set isMineur(bool value) {
     _isMineur = value;
-    prefs.setBool('ff_isMineur', value);
+    if (_prefsReady) {
+      prefs.setBool('ff_isMineur', value);
+    }
   }
 
   // Non-persisted: used to avoid UI "flash" during logout navigation.
@@ -77,6 +89,41 @@ class FFAppState extends ChangeNotifier {
   bool get isLoggingOut => _isLoggingOut;
   set isLoggingOut(bool value) {
     _isLoggingOut = value;
+  }
+
+  bool _isGuest = false;
+  bool get isGuest => _isGuest;
+  set isGuest(bool value) {
+    _isGuest = value;
+    if (_prefsReady) {
+      prefs.setBool('ff_isGuest', value);
+    }
+  }
+
+  String _pendingReferralCode = '';
+  String get pendingReferralCode => _pendingReferralCode;
+  set pendingReferralCode(String value) {
+    _pendingReferralCode = value.trim().toUpperCase();
+    debugPrint(
+      '[ReferralDebug][AppState] saving pendingReferralCode='
+      '${_pendingReferralCode.isEmpty ? '<empty>' : _pendingReferralCode}',
+    );
+    if (_prefsReady) {
+      prefs.setString('ff_pendingReferralCode', _pendingReferralCode);
+    }
+  }
+
+  bool get hasPendingReferralCode => _pendingReferralCode.isNotEmpty;
+
+  void clearPendingReferralCode() {
+    debugPrint(
+      '[ReferralDebug][AppState] clearing pendingReferralCode='
+      '${_pendingReferralCode.isEmpty ? '<empty>' : _pendingReferralCode}',
+    );
+    _pendingReferralCode = '';
+    if (_prefsReady) {
+      prefs.remove('ff_pendingReferralCode');
+    }
   }
 }
 

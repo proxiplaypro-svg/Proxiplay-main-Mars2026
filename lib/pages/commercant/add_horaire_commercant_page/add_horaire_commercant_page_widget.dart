@@ -1,14 +1,11 @@
-import '/backend/backend.dart';
+﻿import '/backend/backend.dart';
 import '/components/update_horaire_card_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'add_horaire_commercant_page_model.dart';
 export 'add_horaire_commercant_page_model.dart';
@@ -19,7 +16,7 @@ class AddHoraireCommercantPageWidget extends StatefulWidget {
     super.key,
     required this.enseigneRef,
     bool? created,
-  }) : this.created = created ?? false;
+  }) : created = created ?? false;
 
   final DocumentReference? enseigneRef;
   final bool created;
@@ -58,7 +55,7 @@ class _AddHoraireCommercantPageWidgetState
   Widget build(BuildContext context) {
     return StreamBuilder<List<HorairesRecord>>(
       stream: queryHorairesRecord(
-        parent: widget!.enseigneRef,
+        parent: widget.enseigneRef,
         queryBuilder: (horairesRecord) => horairesRecord.orderBy('order'),
       ),
       builder: (context, snapshot) {
@@ -66,15 +63,11 @@ class _AddHoraireCommercantPageWidgetState
         if (!snapshot.hasData) {
           return Scaffold(
             backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-            body: Center(
+            body: const Center(
               child: SizedBox(
                 width: 50.0,
                 height: 50.0,
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    FlutterFlowTheme.of(context).primary,
-                  ),
-                ),
+                child: SizedBox.shrink(),
               ),
             ),
           );
@@ -96,7 +89,7 @@ class _AddHoraireCommercantPageWidgetState
                 backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
                 automaticallyImplyLeading: false,
                 leading: Visibility(
-                  visible: widget!.created == false,
+                  visible: widget.created == false,
                   child: InkWell(
                     splashColor: Colors.transparent,
                     focusColor: Colors.transparent,
@@ -133,14 +126,14 @@ class _AddHoraireCommercantPageWidgetState
                             .fontStyle,
                       ),
                 ),
-                actions: [],
+                actions: const [],
                 flexibleSpace: FlexibleSpaceBar(
                   background: ClipRRect(
                     borderRadius: BorderRadius.circular(8.0),
                     child: Image.asset(
                       'assets/images/Background.png',
                       fit: BoxFit.cover,
-                      alignment: Alignment(1.0, -1.0),
+                      alignment: const Alignment(1.0, -1.0),
                     ),
                   ),
                 ),
@@ -154,7 +147,7 @@ class _AddHoraireCommercantPageWidgetState
                   decoration: BoxDecoration(
                     image: DecorationImage(
                       fit: BoxFit.cover,
-                      alignment: AlignmentDirectional(-1.0, 1.0),
+                      alignment: const AlignmentDirectional(-1.0, 1.0),
                       image: Image.asset(
                         'assets/images/Background.png',
                       ).image,
@@ -162,14 +155,14 @@ class _AddHoraireCommercantPageWidgetState
                   ),
                   child: Padding(
                     padding:
-                        EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 50.0),
+                        const EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 50.0),
                     child: SingleChildScrollView(
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Définissez les horaires d\'ouverture pour chaque jour de la semaine',
+                            'DÃ©finissez les horaires d\'ouverture pour chaque jour de la semaine',
                             style: FlutterFlowTheme.of(context)
                                 .bodyMedium
                                 .override(
@@ -192,7 +185,7 @@ class _AddHoraireCommercantPageWidgetState
                                       .fontStyle,
                                 ),
                           ),
-                          if ((widget!.created == true) &&
+                          if ((widget.created == true) &&
                               (addHoraireCommercantPageHorairesRecordList
                                       .length <
                                   7))
@@ -201,7 +194,7 @@ class _AddHoraireCommercantPageWidgetState
                                 context.goNamed(
                                   MesEnseignesCommercantPageWidget.routeName,
                                   extra: <String, dynamic>{
-                                    kTransitionInfoKey: TransitionInfo(
+                                    kTransitionInfoKey: const TransitionInfo(
                                       hasTransition: true,
                                       transitionType: PageTransitionType.fade,
                                       duration: Duration(milliseconds: 0),
@@ -213,9 +206,9 @@ class _AddHoraireCommercantPageWidgetState
                               options: FFButtonOptions(
                                 width: double.infinity,
                                 height: 40.0,
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     16.0, 0.0, 16.0, 0.0),
-                                iconPadding: EdgeInsetsDirectional.fromSTEB(
+                                iconPadding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 0.0),
                                 color: FlutterFlowTheme.of(context)
                                     .primaryBackground,
@@ -248,7 +241,7 @@ class _AddHoraireCommercantPageWidgetState
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
                             ),
-                          if ((widget!.created == true) &&
+                          if ((widget.created == true) &&
                               (addHoraireCommercantPageHorairesRecordList
                                       .length >=
                                   7))
@@ -257,7 +250,7 @@ class _AddHoraireCommercantPageWidgetState
                                 context.goNamed(
                                   MesEnseignesCommercantPageWidget.routeName,
                                   extra: <String, dynamic>{
-                                    kTransitionInfoKey: TransitionInfo(
+                                    kTransitionInfoKey: const TransitionInfo(
                                       hasTransition: true,
                                       transitionType: PageTransitionType.fade,
                                       duration: Duration(milliseconds: 0),
@@ -269,9 +262,9 @@ class _AddHoraireCommercantPageWidgetState
                               options: FFButtonOptions(
                                 width: double.infinity,
                                 height: 40.0,
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     16.0, 0.0, 16.0, 0.0),
-                                iconPadding: EdgeInsetsDirectional.fromSTEB(
+                                iconPadding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 0.0),
                                 color: FlutterFlowTheme.of(context).primary,
                                 textStyle: FlutterFlowTheme.of(context)
@@ -302,9 +295,9 @@ class _AddHoraireCommercantPageWidgetState
                             thickness: 2.0,
                             color: FlutterFlowTheme.of(context).alternate,
                           ),
-                          if (widget!.created)
+                          if (widget.created)
                             Align(
-                              alignment: AlignmentDirectional(0.0, 0.0),
+                              alignment: const AlignmentDirectional(0.0, 0.0),
                               child: Text(
                                 'Liste des horaires',
                                 style: FlutterFlowTheme.of(context)
@@ -348,14 +341,14 @@ class _AddHoraireCommercantPageWidgetState
                                   scrollDirection: Axis.vertical,
                                   itemCount: addHoraireCommercantPageVar.length,
                                   separatorBuilder: (_, __) =>
-                                      SizedBox(height: 10.0),
+                                      const SizedBox(height: 10.0),
                                   itemBuilder: (context,
                                       addHoraireCommercantPageVarIndex) {
                                     final addHoraireCommercantPageVarItem =
                                         addHoraireCommercantPageVar[
                                             addHoraireCommercantPageVarIndex];
                                     return Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                      padding: const EdgeInsetsDirectional.fromSTEB(
                                           8.0, 0.0, 8.0, 0.0),
                                       child: InkWell(
                                         splashColor: Colors.transparent,
@@ -382,7 +375,7 @@ class _AddHoraireCommercantPageWidgetState
                                                     padding:
                                                         MediaQuery.viewInsetsOf(
                                                             context),
-                                                    child: Container(
+                                                    child: SizedBox(
                                                       height: MediaQuery.sizeOf(
                                                                   context)
                                                               .height *
@@ -408,7 +401,7 @@ class _AddHoraireCommercantPageWidgetState
                                           ),
                                           child: Padding(
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     8.0, 8.0, 8.0, 8.0),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.max,
@@ -577,7 +570,7 @@ class _AddHoraireCommercantPageWidgetState
                                                           );
                                                         } else {
                                                           return Text(
-                                                            'Fermé',
+                                                            'FermÃ©',
                                                             style: FlutterFlowTheme
                                                                     .of(context)
                                                                 .bodyMedium
@@ -618,7 +611,7 @@ class _AddHoraireCommercantPageWidgetState
                                                       size: 20.0,
                                                     ),
                                                   ].divide(
-                                                      SizedBox(width: 10.0)),
+                                                      const SizedBox(width: 10.0)),
                                                 ),
                                               ],
                                             ),
@@ -631,7 +624,7 @@ class _AddHoraireCommercantPageWidgetState
                               },
                             ),
                           ),
-                        ].divide(SizedBox(height: 24.0)),
+                        ].divide(const SizedBox(height: 24.0)),
                       ),
                     ),
                   ),
@@ -644,3 +637,4 @@ class _AddHoraireCommercantPageWidgetState
     );
   }
 }
+

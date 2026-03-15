@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 
 import '/backend/schema/util/firestore_util.dart';
-import '/backend/schema/util/schema_util.dart';
 import '/backend/schema/enums/enums.dart';
 
 import 'index.dart';
@@ -11,9 +10,9 @@ import '/flutter_flow/flutter_flow_util.dart';
 
 class GamesRecord extends FirestoreRecord {
   GamesRecord._(
-    DocumentReference reference,
-    Map<String, dynamic> data,
-  ) : super(reference, data) {
+    super.reference,
+    super.data,
+  ) {
     _initializeFields();
   }
 
@@ -58,8 +57,8 @@ class GamesRecord extends FirestoreRecord {
   bool hasVisiblePublic() => _visiblePublic != null;
 
   // "prize_value" field.
-  int? _prizeValue;
-  int get prizeValue => _prizeValue ?? 0;
+  double? _prizeValue;
+  double get prizeValue => _prizeValue ?? 0.0;
   bool hasPrizeValue() => _prizeValue != null;
 
   // "game_type" field.
@@ -127,7 +126,7 @@ class GamesRecord extends FirestoreRecord {
     _createBy = snapshotData['create_by'] as DocumentReference?;
     _createdTime = snapshotData['created_time'] as DateTime?;
     _visiblePublic = snapshotData['visible_public'] as bool?;
-    _prizeValue = castToType<int>(snapshotData['prize_value']);
+    _prizeValue = castToType<double>(snapshotData['prize_value']);
     _gameType = snapshotData['game_type'] is GameType
         ? snapshotData['game_type']
         : deserializeEnum<GameType>(snapshotData['game_type']);
@@ -187,7 +186,7 @@ Map<String, dynamic> createGamesRecordData({
   DocumentReference? createBy,
   DateTime? createdTime,
   bool? visiblePublic,
-  int? prizeValue,
+  num? prizeValue,
   GameType? gameType,
   String? photo,
   String? secondaryPrizeDescription,

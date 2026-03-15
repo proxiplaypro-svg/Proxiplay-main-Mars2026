@@ -1,16 +1,33 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
     function isAdmin() {
-      return request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userRole == 'admin';
+      return isSignedIn() &&
+        (
+          request.auth.token.admin == true ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_role == 'admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userRole == 'admin'
+        );
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isOwnerRef(userRef) {
+      return isSignedIn() &&
+        userRef == /databases/$(database)/documents/users/$(request.auth.uid);
     }
 
     match /users/{document} {
-      allow create: if request.auth.uid == document;
+      allow create: if isSelf(document) || isAdmin();
       allow read: if request.auth != null;
-      allow write: if request.auth != null;
-      allow delete: if request.auth.uid == document;
+      allow update: if isSelf(document) || isAdmin();
+      allow delete: if isSelf(document) || isAdmin();
     }
 
     match /users/{parent}/favorite_games/{document} {
@@ -21,17 +38,25 @@ service cloud.firestore {
     }
 
     match /enseignes/{document} {
-      allow create: if request.auth != null;
+      allow create: if isAdmin() ||
+        (
+          isSignedIn() &&
+          ('owner' in request.resource.data) &&
+          isOwnerRef(request.resource.data.owner)
+        );
       allow read: if true;
-      allow write: if request.auth != null;
-      allow delete: if resource.data.owner == /databases/$(database)/documents/users/$(request.auth.uid);
+      allow update: if isAdmin() || isOwnerRef(resource.data.owner);
+      allow delete: if isAdmin() || isOwnerRef(resource.data.owner);
     }
 
     match /games/{document} {
-      allow create: if request.auth != null;
+      allow create: if request.auth != null &&
+        (request.resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid) || isAdmin());
       allow read: if true;
-      allow write: if true;
-      allow delete: if resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid);
+      allow update: if isAdmin() ||
+        resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid);
+      allow delete: if isAdmin() ||
+        resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid);
     }
 
     match /users/{parent}/favorite_enseignes/{document} {
@@ -116,22 +141,19 @@ service cloud.firestore {
 
 
     match /games/{parent}/winners/{document} {
-      allow create: if request.auth != null;
-      allow read: if true;
-      allow write: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow create, update, delete: if false;
+      allow read: if isSignedIn();
     }
 
     match /{path=**}/winners/{document} {
-      allow read: if true;
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
     }
 
 
     match /prizes/{document} {
-      allow create: if request.auth != null;
+      allow create, update, delete: if false;
       allow read: if true;
-      allow write: if request.auth != null;
-      allow delete: if request.auth != null;
     }
 
     match /users/{parent}/notifications/{document} {
@@ -142,34 +164,31 @@ service cloud.firestore {
     }
 
     match /games/{parent}/participants_details/{document} {
-      allow create: if true;
-      allow read: if true;
-      allow write: if false;
-      allow delete: if false;
+      allow create, update, delete: if false;
+      allow read: if isSignedIn();
     }
 
     match /{path=**}/participants_details/{document} {
-      allow read: if true;
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
     }
 
 
     match /games/{parent}/instant_winners/{document} {
-      allow create: if true;
-      allow read: if true;
-      allow write: if false;
-      allow delete: if false;
+      allow create, update, delete: if false;
+      allow read: if isSignedIn();
     }
 
     match /{path=**}/instant_winners/{document} {
-      allow read: if true;
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
     }
 
 
     match /accountDeletionRequests/{document} {
-      allow create: if true;
-      allow read: if true;
-      allow write: if false;
-      allow delete: if false;
+      allow create: if isSelf(document);
+      allow read: if isSelf(document) || isAdmin();
+      allow update, delete: if false;
     }
 
     match /ff_push_notifications/{document} {
@@ -177,6 +196,35 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if request.auth != null;
       allow delete: if request.auth != null;
+    }
+
+    match /app_config/share_promo {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /referrals/{referralId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && (
+          resource.data.inviterUid == request.auth.uid ||
+          resource.data.inviteeUid == request.auth.uid
+        ));
+      allow create, update, delete: if false;
+    }
+
+    match /users/{uid}/private/share_state {
+      allow read: if isSelf(uid) || isAdmin();
+      allow write: if false;
+    }
+
+    match /reward_events/{eventId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /admin_stats/share_promo {
+      allow read: if isAdmin();
+      allow write: if false;
     }
   }
 }

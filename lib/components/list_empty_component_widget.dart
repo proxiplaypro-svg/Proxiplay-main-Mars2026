@@ -1,10 +1,7 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'list_empty_component_model.dart';
 export 'list_empty_component_model.dart';
 
@@ -51,7 +48,7 @@ class _ListEmptyComponentWidgetState extends State<ListEmptyComponentWidget> {
     return Container(
       width: double.infinity,
       height: double.infinity,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.transparent,
       ),
       child: Card(
@@ -61,7 +58,7 @@ class _ListEmptyComponentWidgetState extends State<ListEmptyComponentWidget> {
           borderRadius: BorderRadius.circular(12.0),
         ),
         child: Padding(
-          padding: EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 16.0),
+          padding: const EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 16.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -74,7 +71,7 @@ class _ListEmptyComponentWidgetState extends State<ListEmptyComponentWidget> {
               ),
               Text(
                 valueOrDefault<String>(
-                  widget!.title,
+                  widget.title,
                   'Liste vide',
                 ),
                 style: FlutterFlowTheme.of(context).headlineSmall.override(
@@ -95,7 +92,7 @@ class _ListEmptyComponentWidgetState extends State<ListEmptyComponentWidget> {
               ),
               Text(
                 valueOrDefault<String>(
-                  widget!.description,
+                  widget.description,
                   'Votre liste est actuellement vide',
                 ),
                 style: FlutterFlowTheme.of(context).bodyMedium.override(
@@ -113,7 +110,7 @@ class _ListEmptyComponentWidgetState extends State<ListEmptyComponentWidget> {
                           FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                     ),
               ),
-            ].divide(SizedBox(height: 12.0)),
+            ].divide(const SizedBox(height: 12.0)),
           ),
         ),
       ),

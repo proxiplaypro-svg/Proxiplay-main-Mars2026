@@ -17,6 +17,7 @@ export const campaignId = 'share_promo';
 export const defaultReferralExpirationDays = 14;
 export const rewardAccessTimeZone = 'Europe/Paris';
 export const pushNotificationsCollection = 'ff_push_notifications';
+export const sharePromoOneLinkBase = 'https://onelink.to/jx4ee7';
 
 // Firestore doc paths must have an even number of segments.
 export const paths = {
@@ -215,12 +216,9 @@ export async function generateUniqueInviteCode(): Promise<string> {
 }
 
 export function buildShareLink(inviteCode: string): string {
-  const configuredBase =
-    process.env.SHARE_PROMO_APP_URL ?? 'https://proxiplay.app/share';
-  const separator = configuredBase.includes('?') ? '&' : '?';
-  return `${configuredBase}${separator}inviteCode=${encodeURIComponent(
-    inviteCode,
-  )}`;
+  const baseUri = new URL(sharePromoOneLinkBase);
+  baseUri.searchParams.set('ref', inviteCode);
+  return baseUri.toString();
 }
 
 export function buildShareMessage(
@@ -522,3 +520,5 @@ export async function queueUserPushNotification({
     created_by: createdBy,
   });
 }
+
+

@@ -5,7 +5,6 @@ import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -48,9 +47,6 @@ class _InscriptionInformationsPageWidgetState
     _model.prenomTextController ??= TextEditingController();
     _model.prenomFocusNode ??= FocusNode();
 
-    _model.pseudoTextController ??= TextEditingController();
-    _model.pseudoFocusNode ??= FocusNode();
-
     _model.villeTextController ??= TextEditingController();
     _model.villeFocusNode ??= FocusNode();
 
@@ -74,8 +70,8 @@ class _InscriptionInformationsPageWidgetState
             curve: Curves.bounceOut,
             delay: 0.0.ms,
             duration: 300.0.ms,
-            begin: Offset(0.6, 1.0),
-            end: Offset(1.0, 1.0),
+            begin: const Offset(0.6, 1.0),
+            end: const Offset(1.0, 1.0),
           ),
         ],
       ),
@@ -94,8 +90,8 @@ class _InscriptionInformationsPageWidgetState
             curve: Curves.easeInOut,
             delay: 100.0.ms,
             duration: 400.0.ms,
-            begin: Offset(0.0, 30.0),
-            end: Offset(0.0, 0.0),
+            begin: const Offset(0.0, 30.0),
+            end: const Offset(0.0, 0.0),
           ),
         ],
       ),
@@ -137,19 +133,34 @@ class _InscriptionInformationsPageWidgetState
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                        16.0, 12.0, 0.0, 0.0),
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      color: FlutterFlowTheme.of(context).primary,
+                      onPressed: () async {
+                        if (Navigator.of(context).canPop()) {
+                          context.pop();
+                        } else {
+                          context.goNamed(InscriptionPageWidget.routeName);
+                        }
+                      },
+                    ),
+                  ),
                   Container(
                     width: double.infinity,
-                    decoration: BoxDecoration(),
+                    decoration: const BoxDecoration(),
                     child: Container(
                       width: 100.0,
                       height: 200.0,
-                      decoration: BoxDecoration(),
+                      decoration: const BoxDecoration(),
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 16.0),
                             child: Container(
                               width: 226.0,
@@ -170,7 +181,7 @@ class _InscriptionInformationsPageWidgetState
                                 animationsMap['containerOnPageLoadAnimation']!),
                           ),
                           Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 16.0, 0.0, 16.0),
                             child: Text(
                               'Informations complémentaires',
@@ -206,20 +217,20 @@ class _InscriptionInformationsPageWidgetState
                     autovalidateMode: AutovalidateMode.disabled,
                     child: Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
                         children: [
                           Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 16.0),
-                            child: Container(
+                            child: SizedBox(
                               width: double.infinity,
                               child: TextFormField(
                                 controller: _model.nomTextController,
                                 focusNode: _model.nomFocusNode,
-                                autofocus: false,
-                                autofillHints: [AutofillHints.name],
+                                autofocus: true,
+                                autofillHints: const [AutofillHints.name],
                                 obscureText: false,
                                 decoration: InputDecoration(
                                   labelText: 'Nom',
@@ -247,7 +258,7 @@ class _InscriptionInformationsPageWidgetState
                                             .fontStyle,
                                       ),
                                   enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
+                                    borderSide: const BorderSide(
                                       color: Color(0x00000000),
                                       width: 2.0,
                                     ),
@@ -278,7 +289,7 @@ class _InscriptionInformationsPageWidgetState
                                   filled: true,
                                   fillColor:
                                       FlutterFlowTheme.of(context).fieldBg,
-                                  contentPadding: EdgeInsets.all(24.0),
+                                  contentPadding: const EdgeInsets.all(24.0),
                                 ),
                                 style: FlutterFlowTheme.of(context)
                                     .bodyMedium
@@ -307,14 +318,14 @@ class _InscriptionInformationsPageWidgetState
                             ),
                           ),
                           Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 16.0),
-                            child: Container(
+                            child: SizedBox(
                               width: double.infinity,
                               child: TextFormField(
                                 controller: _model.prenomTextController,
                                 focusNode: _model.prenomFocusNode,
-                                autofocus: true,
+                                autofocus: false,
                                 obscureText: false,
                                 decoration: InputDecoration(
                                   labelText: 'Prénom',
@@ -342,7 +353,7 @@ class _InscriptionInformationsPageWidgetState
                                             .fontStyle,
                                       ),
                                   enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
+                                    borderSide: const BorderSide(
                                       color: Color(0x00000000),
                                       width: 2.0,
                                     ),
@@ -373,7 +384,7 @@ class _InscriptionInformationsPageWidgetState
                                   filled: true,
                                   fillColor:
                                       FlutterFlowTheme.of(context).fieldBg,
-                                  contentPadding: EdgeInsets.all(24.0),
+                                  contentPadding: const EdgeInsets.all(24.0),
                                 ),
                                 style: FlutterFlowTheme.of(context)
                                     .bodyMedium
@@ -402,7 +413,7 @@ class _InscriptionInformationsPageWidgetState
                             ),
                           ),
                           Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 16.0),
                             child: Container(
                               height: 60.0,
@@ -411,7 +422,7 @@ class _InscriptionInformationsPageWidgetState
                                 borderRadius: BorderRadius.circular(8.0),
                               ),
                               child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     24.0, 0.0, 25.0, 0.0),
                                 child: InkWell(
                                   splashColor: Colors.transparent,
@@ -419,7 +430,7 @@ class _InscriptionInformationsPageWidgetState
                                   hoverColor: Colors.transparent,
                                   highlightColor: Colors.transparent,
                                   onTap: () async {
-                                    final _datePickedDate =
+                                    final datePickedDate =
                                         await showDatePicker(
                                       context: context,
                                       initialDate: getCurrentTimestamp,
@@ -473,12 +484,12 @@ class _InscriptionInformationsPageWidgetState
                                       },
                                     );
 
-                                    if (_datePickedDate != null) {
+                                    if (datePickedDate != null) {
                                       safeSetState(() {
                                         _model.datePicked = DateTime(
-                                          _datePickedDate.year,
-                                          _datePickedDate.month,
-                                          _datePickedDate.day,
+                                          datePickedDate.year,
+                                          datePickedDate.month,
+                                          datePickedDate.day,
                                         );
                                       });
                                     } else if (_model.datePicked != null) {
@@ -525,7 +536,7 @@ class _InscriptionInformationsPageWidgetState
                                               ),
                                         ),
                                       Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                        padding: const EdgeInsetsDirectional.fromSTEB(
                                             0.0, 0.0, 0.0, 1.0),
                                         child: Text(
                                           dateTimeFormat(
@@ -567,12 +578,12 @@ class _InscriptionInformationsPageWidgetState
                               ),
                             ),
                           ),
-                          if (currentUserDocument?.userRole == Roles.joueur)
+                          if (false)
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 0.0, 0.0, 16.0),
                               child: AuthUserStreamWidget(
-                                builder: (context) => Container(
+                                builder: (context) => SizedBox(
                                   width: double.infinity,
                                   child: TextFormField(
                                     controller: _model.pseudoTextController,
@@ -608,7 +619,7 @@ class _InscriptionInformationsPageWidgetState
                                                     .fontStyle,
                                           ),
                                       enabledBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
+                                        borderSide: const BorderSide(
                                           color: Color(0x00000000),
                                           width: 2.0,
                                         ),
@@ -645,7 +656,7 @@ class _InscriptionInformationsPageWidgetState
                                       filled: true,
                                       fillColor:
                                           FlutterFlowTheme.of(context).fieldBg,
-                                      contentPadding: EdgeInsets.all(24.0),
+                                      contentPadding: const EdgeInsets.all(24.0),
                                     ),
                                     style: FlutterFlowTheme.of(context)
                                         .bodyMedium
@@ -681,10 +692,10 @@ class _InscriptionInformationsPageWidgetState
                             ),
                           if (currentUserDocument?.userRole == Roles.joueur)
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 0.0, 0.0, 16.0),
                               child: AuthUserStreamWidget(
-                                builder: (context) => Container(
+                                builder: (context) => SizedBox(
                                   width: double.infinity,
                                   child: TextFormField(
                                     controller: _model.villeTextController,
@@ -719,7 +730,7 @@ class _InscriptionInformationsPageWidgetState
                                                     .fontStyle,
                                           ),
                                       enabledBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
+                                        borderSide: const BorderSide(
                                           color: Color(0x00000000),
                                           width: 2.0,
                                         ),
@@ -756,7 +767,7 @@ class _InscriptionInformationsPageWidgetState
                                       filled: true,
                                       fillColor:
                                           FlutterFlowTheme.of(context).fieldBg,
-                                      contentPadding: EdgeInsets.all(24.0),
+                                      contentPadding: const EdgeInsets.all(24.0),
                                     ),
                                     style: FlutterFlowTheme.of(context)
                                         .bodyMedium
@@ -791,15 +802,15 @@ class _InscriptionInformationsPageWidgetState
                               ),
                             ),
                           Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 16.0),
-                            child: Container(
+                            child: SizedBox(
                               width: double.infinity,
                               child: TextFormField(
                                 controller: _model.telephoneTextController,
                                 focusNode: _model.telephoneFocusNode,
                                 autofocus: false,
-                                autofillHints: [AutofillHints.telephoneNumber],
+                                autofillHints: const [AutofillHints.telephoneNumber],
                                 obscureText: false,
                                 decoration: InputDecoration(
                                   labelText: 'Numéro du téléphone',
@@ -827,7 +838,7 @@ class _InscriptionInformationsPageWidgetState
                                             .fontStyle,
                                       ),
                                   enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
+                                    borderSide: const BorderSide(
                                       color: Color(0x00000000),
                                       width: 2.0,
                                     ),
@@ -858,7 +869,7 @@ class _InscriptionInformationsPageWidgetState
                                   filled: true,
                                   fillColor:
                                       FlutterFlowTheme.of(context).fieldBg,
-                                  contentPadding: EdgeInsets.all(24.0),
+                                  contentPadding: const EdgeInsets.all(24.0),
                                 ),
                                 style: FlutterFlowTheme.of(context)
                                     .bodyMedium
@@ -890,9 +901,9 @@ class _InscriptionInformationsPageWidgetState
                             ),
                           ),
                           Align(
-                            alignment: AlignmentDirectional(0.0, 0.0),
+                            alignment: const AlignmentDirectional(0.0, 0.0),
                             child: Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 0.0, 0.0, 20.0),
                               child: FFButtonWidget(
                                 onPressed: () async {
@@ -925,7 +936,6 @@ class _InscriptionInformationsPageWidgetState
                                         _model.telephoneTextController.text,
                                     firstName: _model.prenomTextController.text,
                                     lastName: _model.nomTextController.text,
-                                    pseudo: _model.pseudoTextController.text,
                                     accountStatus:
                                         currentUserDocument?.userRole ==
                                                 Roles.commercant
@@ -948,9 +958,9 @@ class _InscriptionInformationsPageWidgetState
                                 options: FFButtonOptions(
                                   width: double.infinity,
                                   height: 52.0,
-                                  padding: EdgeInsetsDirectional.fromSTEB(
+                                  padding: const EdgeInsetsDirectional.fromSTEB(
                                       0.0, 0.0, 0.0, 0.0),
-                                  iconPadding: EdgeInsetsDirectional.fromSTEB(
+                                  iconPadding: const EdgeInsetsDirectional.fromSTEB(
                                       0.0, 0.0, 0.0, 0.0),
                                   color: FlutterFlowTheme.of(context).primary,
                                   textStyle: FlutterFlowTheme.of(context)
@@ -976,7 +986,7 @@ class _InscriptionInformationsPageWidgetState
                                             .fontStyle,
                                       ),
                                   elevation: 0.0,
-                                  borderSide: BorderSide(
+                                  borderSide: const BorderSide(
                                     color: Colors.transparent,
                                     width: 1.0,
                                   ),

@@ -1,22 +1,18 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
-import '/app_constants.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_button_tabbar.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:math';
-import 'dart:ui';
 import '/index.dart';
-import 'package:flutter/gestures.dart';
+import '/services/share_promo_service.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'inscription_page_model.dart';
 export 'inscription_page_model.dart';
 
@@ -33,6 +29,10 @@ class InscriptionPageWidget extends StatefulWidget {
 class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     with TickerProviderStateMixin {
   late InscriptionPageModel _model;
+  final SharePromoService _sharePromoService = SharePromoService();
+  bool _isApplyingPendingReferralCode = false;
+  String? _lastAppliedReferralGuardKey;
+  String? _lastReferralErrorMessage;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -59,6 +59,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
 
     _model.passwordConfirmJoueurTextController ??= TextEditingController();
     _model.passwordConfirmJoueurFocusNode ??= FocusNode();
+    _model.referralCodeJoueurTextController ??= TextEditingController(
+      text: _initialReferralCodeValue,
+    );
+    _model.referralCodeJoueurFocusNode ??= FocusNode();
 
     _model.emailAddressCommercantTextController ??= TextEditingController();
     _model.emailAddressCommercantFocusNode ??= FocusNode();
@@ -68,6 +72,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
 
     _model.passwordConfirmCommercantTextController ??= TextEditingController();
     _model.passwordConfirmCommercantFocusNode ??= FocusNode();
+    _model.referralCodeCommercantTextController ??= TextEditingController(
+      text: _initialReferralCodeValue,
+    );
+    _model.referralCodeCommercantFocusNode ??= FocusNode();
 
     animationsMap.addAll({
       'containerOnPageLoadAnimation': AnimationInfo(
@@ -85,8 +93,8 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
             curve: Curves.bounceOut,
             delay: 0.0.ms,
             duration: 300.0.ms,
-            begin: Offset(0.6, 1.0),
-            end: Offset(1.0, 1.0),
+            begin: const Offset(0.6, 1.0),
+            end: const Offset(1.0, 1.0),
           ),
         ],
       ),
@@ -104,15 +112,15 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
             curve: Curves.easeInOut,
             delay: 200.0.ms,
             duration: 400.0.ms,
-            begin: Offset(0.0, 60.0),
-            end: Offset(0.0, 0.0),
+            begin: const Offset(0.0, 60.0),
+            end: const Offset(0.0, 0.0),
           ),
           TiltEffect(
             curve: Curves.easeInOut,
             delay: 200.0.ms,
             duration: 400.0.ms,
-            begin: Offset(-0.349, 0),
-            end: Offset(0, 0),
+            begin: const Offset(-0.349, 0),
+            end: const Offset(0, 0),
           ),
         ],
       ),
@@ -130,15 +138,15 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
             curve: Curves.easeInOut,
             delay: 200.0.ms,
             duration: 400.0.ms,
-            begin: Offset(0.0, 60.0),
-            end: Offset(0.0, 0.0),
+            begin: const Offset(0.0, 60.0),
+            end: const Offset(0.0, 0.0),
           ),
           TiltEffect(
             curve: Curves.easeInOut,
             delay: 200.0.ms,
             duration: 400.0.ms,
-            begin: Offset(-0.349, 0),
-            end: Offset(0, 0),
+            begin: const Offset(-0.349, 0),
+            end: const Offset(0, 0),
           ),
         ],
       ),
@@ -177,50 +185,82 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
               mainAxisSize: MainAxisSize.max,
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(),
-                  child: Container(
-                    width: 100.0,
-                    height: 200.0,
-                    decoration: BoxDecoration(),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.max,
+		              children: [
+		                Container(
+		                  width: double.infinity,
+		                  decoration: const BoxDecoration(),
+		                  child: Container(
+		                    width: 100.0,
+			                    height: 156.0,
+		                    decoration: const BoxDecoration(),
+		                    child: Stack(
+		                      children: [
+		                        Align(
+		                          alignment: const AlignmentDirectional(-1.0, 0.0),
+		                          child: Padding(
+		                            padding: const EdgeInsetsDirectional.fromSTEB(
+		                                16.0, 0.0, 0.0, 0.0),
+		                            child: IconButton(
+		                              icon: const Icon(Icons.arrow_back),
+		                              color: FlutterFlowTheme.of(context).primary,
+		                              onPressed: () async {
+		                                context.goNamed(LoginPageWidget.routeName);
+		                              },
+		                            ),
+		                          ),
+		                        ),
+			                        Padding(
+				                          padding: const EdgeInsetsDirectional.fromSTEB(
+				                              0.0, 36.0, 0.0, 0.0),
+			                          child: Column(
+			                          mainAxisSize: MainAxisSize.max,
+			                          mainAxisAlignment: MainAxisAlignment.center,
+			                          children: [
+			                            Align(
+		                              alignment: const AlignmentDirectional(0.0, 0.0),
+		                              child: Container(
+		                                width: 226.0,
+		                                height: 80.0,
+		                                decoration: BoxDecoration(
+		                                  borderRadius: BorderRadius.circular(16.0),
+		                                ),
+		                                child: ClipRRect(
+		                                  borderRadius: BorderRadius.circular(8.0),
+		                                  child: SvgPicture.asset(
+		                                    'assets/images/logo_D_secondaire_sans_html_avec_couleurs.svg',
+		                                    width: 200.0,
+		                                    height: 63.0,
+		                                    fit: BoxFit.fitWidth,
+		                                  ),
+		                                ),
+		                              ).animateOnPageLoad(
+		                                  animationsMap['containerOnPageLoadAnimation']!),
+		                            ),
+			                          ],
+			                        ),
+			                        ),
+		                      ],
+		                    ),
+		                  ),
+		                ),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final tabContentHeight =
+                          constraints.maxHeight > 560.0
+                              ? 560.0
+                              : constraints.maxHeight;
+                      return Center(
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
+                                24.0, 0.0, 24.0, 0.0),
+                            child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Align(
-                          alignment: AlignmentDirectional(0.0, 0.0),
-                          child: Container(
-                            width: 226.0,
-                            height: 80.0,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16.0),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8.0),
-                              child: SvgPicture.asset(
-                                'assets/images/logo_D_secondaire_sans_html_avec_couleurs.svg',
-                                width: 200.0,
-                                height: 63.0,
-                                fit: BoxFit.fitWidth,
-                              ),
-                            ),
-                          ).animateOnPageLoad(
-                              animationsMap['containerOnPageLoadAnimation']!),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
-                    child: Column(
-                      children: [
-                        Align(
-                          alignment: Alignment(0.0, 0),
+                          alignment: const Alignment(0.0, 0),
                           child: FlutterFlowButtonTabBar(
                             useToggleButtonStyle: true,
                             labelStyle: FlutterFlowTheme.of(context)
@@ -277,9 +317,9 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                             borderWidth: 0.0,
                             borderRadius: 8.0,
                             elevation: 0.0,
-                            buttonMargin: EdgeInsetsDirectional.fromSTEB(
+                            buttonMargin: const EdgeInsetsDirectional.fromSTEB(
                                 8.0, 0.0, 8.0, 0.0),
-                            tabs: [
+                            tabs: const [
                               Tab(
                                 text: 'Joueur',
                               ),
@@ -300,17 +340,18 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                             },
                           ),
                         ),
-                        Expanded(
+                        SizedBox(
+                          height: tabContentHeight,
                           child: TabBarView(
                             controller: _model.tabBarController,
                             children: [
                               Align(
-                                alignment: AlignmentDirectional(0.0, 0.0),
+                                alignment: const AlignmentDirectional(0.0, 0.0),
                                 child: Container(
                                   height: double.infinity,
-                                  decoration: BoxDecoration(),
+                                  decoration: const BoxDecoration(),
                                   child: Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
+                                    padding: const EdgeInsetsDirectional.fromSTEB(
                                         0.0, 16.0, 0.0, 16.0),
                                     child: SingleChildScrollView(
                                       child: Column(
@@ -328,10 +369,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                               mainAxisSize: MainAxisSize.max,
                                               children: [
                                                 Padding(
-                                                  padding: EdgeInsetsDirectional
+                                                  padding: const EdgeInsetsDirectional
                                                       .fromSTEB(
                                                           0.0, 0.0, 0.0, 16.0),
-                                                  child: Container(
+                                                  child: SizedBox(
                                                     width: double.infinity,
                                                     child: TextFormField(
                                                       controller: _model
@@ -339,7 +380,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                       focusNode: _model
                                                           .emailAddressJoueurFocusNode,
                                                       autofocus: false,
-                                                      autofillHints: [
+                                                      autofillHints: const [
                                                         AutofillHints.email
                                                       ],
                                                       obscureText: false,
@@ -380,7 +421,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                         enabledBorder:
                                                             OutlineInputBorder(
                                                           borderSide:
-                                                              BorderSide(
+                                                              const BorderSide(
                                                             color: Color(
                                                                 0x00000000),
                                                             width: 2.0,
@@ -438,7 +479,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     context)
                                                                 .fieldBg,
                                                         contentPadding:
-                                                            EdgeInsets.all(
+                                                            const EdgeInsets.all(
                                                                 24.0),
                                                         suffixIcon: Icon(
                                                           Icons.mail_rounded,
@@ -489,26 +530,24 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                   ),
                                                 ),
                                                 Padding(
-                                                  padding: EdgeInsetsDirectional
+                                                  padding: const EdgeInsetsDirectional
                                                       .fromSTEB(
                                                           0.0, 0.0, 0.0, 16.0),
-                                                  child: Container(
+                                                  child: SizedBox(
                                                     width: double.infinity,
                                                     child: TextFormField(
                                                       controller: _model
-                                                          .passwordJoueurTextController,
+                                                          .referralCodeJoueurTextController,
                                                       focusNode: _model
-                                                          .passwordJoueurFocusNode,
+                                                          .referralCodeJoueurFocusNode,
                                                       autofocus: false,
-                                                      autofillHints: [
-                                                        AutofillHints.password
-                                                      ],
-                                                      obscureText: !_model
-                                                          .passwordJoueurVisibility,
+                                                      textCapitalization:
+                                                          TextCapitalization
+                                                              .characters,
                                                       decoration:
                                                           InputDecoration(
                                                         labelText:
-                                                            'Mot de passe',
+                                                            'Code de parrainage',
                                                         labelStyle:
                                                             FlutterFlowTheme.of(
                                                                     context)
@@ -543,7 +582,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                         enabledBorder:
                                                             OutlineInputBorder(
                                                           borderSide:
-                                                              BorderSide(
+                                                              const BorderSide(
                                                             color: Color(
                                                                 0x00000000),
                                                             width: 2.0,
@@ -601,7 +640,162 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     context)
                                                                 .fieldBg,
                                                         contentPadding:
-                                                            EdgeInsets.all(
+                                                            const EdgeInsets.all(
+                                                                24.0),
+                                                      ),
+                                                      style:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodyMedium
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .fontStyle,
+                                                                ),
+                                                                color: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .primaryText,
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontWeight,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontStyle,
+                                                              ),
+                                                      onChanged:
+                                                          _persistReferralCodeInput,
+                                                      validator: _model
+                                                          .referralCodeJoueurTextControllerValidator
+                                                          .asValidator(context),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Padding(
+                                                  padding: const EdgeInsetsDirectional
+                                                      .fromSTEB(
+                                                          0.0, 0.0, 0.0, 16.0),
+                                                  child: SizedBox(
+                                                    width: double.infinity,
+                                                    child: TextFormField(
+                                                      controller: _model
+                                                          .passwordJoueurTextController,
+                                                      focusNode: _model
+                                                          .passwordJoueurFocusNode,
+                                                      autofocus: false,
+                                                      autofillHints: const [
+                                                        AutofillHints.password
+                                                      ],
+                                                      obscureText: !_model
+                                                          .passwordJoueurVisibility,
+                                                      decoration:
+                                                          InputDecoration(
+                                                        labelText:
+                                                            'Mot de passe',
+                                                        labelStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .labelMedium
+                                                                .override(
+                                                                  font:
+                                                                      GoogleFonts
+                                                                          .inter(
+                                                                    fontWeight: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .labelMedium
+                                                                        .fontWeight,
+                                                                    fontStyle: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .labelMedium
+                                                                        .fontStyle,
+                                                                  ),
+                                                                  color: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .fieldText,
+                                                                  letterSpacing:
+                                                                      0.0,
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .labelMedium
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .labelMedium
+                                                                      .fontStyle,
+                                                                ),
+                                                        enabledBorder:
+                                                            OutlineInputBorder(
+                                                          borderSide:
+                                                              const BorderSide(
+                                                            color: Color(
+                                                                0x00000000),
+                                                            width: 2.0,
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      12.0),
+                                                        ),
+                                                        focusedBorder:
+                                                            OutlineInputBorder(
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .primary,
+                                                            width: 2.0,
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      12.0),
+                                                        ),
+                                                        errorBorder:
+                                                            OutlineInputBorder(
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .error,
+                                                            width: 2.0,
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      12.0),
+                                                        ),
+                                                        focusedErrorBorder:
+                                                            OutlineInputBorder(
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .error,
+                                                            width: 2.0,
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      12.0),
+                                                        ),
+                                                        filled: true,
+                                                        fillColor:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .fieldBg,
+                                                        contentPadding:
+                                                            const EdgeInsets.all(
                                                                 24.0),
                                                         suffixIcon: InkWell(
                                                           onTap: () =>
@@ -665,10 +859,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                   ),
                                                 ),
                                                 Padding(
-                                                  padding: EdgeInsetsDirectional
+                                                  padding: const EdgeInsetsDirectional
                                                       .fromSTEB(
                                                           0.0, 0.0, 0.0, 16.0),
-                                                  child: Container(
+                                                  child: SizedBox(
                                                     width: double.infinity,
                                                     child: TextFormField(
                                                       controller: _model
@@ -676,7 +870,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                       focusNode: _model
                                                           .passwordConfirmJoueurFocusNode,
                                                       autofocus: false,
-                                                      autofillHints: [
+                                                      autofillHints: const [
                                                         AutofillHints.password
                                                       ],
                                                       obscureText: !_model
@@ -719,7 +913,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                         enabledBorder:
                                                             OutlineInputBorder(
                                                           borderSide:
-                                                              BorderSide(
+                                                              const BorderSide(
                                                             color: Color(
                                                                 0x00000000),
                                                             width: 2.0,
@@ -777,7 +971,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     context)
                                                                 .fieldBg,
                                                         contentPadding:
-                                                            EdgeInsets.all(
+                                                            const EdgeInsets.all(
                                                                 24.0),
                                                         suffixIcon: InkWell(
                                                           onTap: () =>
@@ -841,7 +1035,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                   ),
                                                 ),
                                                 Padding(
-                                                  padding: EdgeInsetsDirectional
+                                                  padding: const EdgeInsetsDirectional
                                                       .fromSTEB(
                                                           0.0, 0.0, 0.0, 16.0),
                                                   child: Row(
@@ -894,7 +1088,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                   width: 2,
                                                                   color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .primaryText!,
+                                                                      .primaryText,
                                                                 )
                                                               : null,
                                                           activeColor:
@@ -910,7 +1104,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                       Flexible(
                                                         child: Padding(
                                                           padding:
-                                                              EdgeInsetsDirectional
+                                                              const EdgeInsetsDirectional
                                                                   .fromSTEB(
                                                                       0.0,
                                                                       5.0,
@@ -933,7 +1127,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                             },
                                                             child: Container(
                                                               decoration:
-                                                                  BoxDecoration(),
+                                                                  const BoxDecoration(),
                                                               child: RichText(
                                                                 textScaler: MediaQuery.of(
                                                                         context)
@@ -960,7 +1154,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                                 FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                           ),
                                                                     ),
-                                                                    TextSpan(
+                                                                    const TextSpan(
                                                                       text: ' ',
                                                                       style:
                                                                           TextStyle(),
@@ -985,18 +1179,18 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                                 FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                           ),
                                                                     ),
-                                                                    TextSpan(
+                                                                    const TextSpan(
                                                                       text: ' ',
                                                                       style:
                                                                           TextStyle(),
                                                                     ),
-                                                                    TextSpan(
+                                                                    const TextSpan(
                                                                       text:
                                                                           'ainsi que notre',
                                                                       style:
                                                                           TextStyle(),
                                                                     ),
-                                                                    TextSpan(
+                                                                    const TextSpan(
                                                                       text: ' ',
                                                                       style:
                                                                           TextStyle(),
@@ -1055,11 +1249,11 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                 ),
                                                 Align(
                                                   alignment:
-                                                      AlignmentDirectional(
+                                                      const AlignmentDirectional(
                                                           0.0, 0.0),
                                                   child: Padding(
                                                     padding:
-                                                        EdgeInsetsDirectional
+                                                        const EdgeInsetsDirectional
                                                             .fromSTEB(0.0, 0.0,
                                                                 0.0, 16.0),
                                                     child: FFButtonWidget(
@@ -1089,7 +1283,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                 ScaffoldMessenger.of(
                                                                         context)
                                                                     .showSnackBar(
-                                                                  SnackBar(
+                                                                  const SnackBar(
                                                                     content:
                                                                         Text(
                                                                       'Passwords don\'t match!',
@@ -1098,7 +1292,18 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                 );
                                                                 return;
                                                               }
+                                                              _persistReferralCodeInput(
+                                                                _model
+                                                                    .referralCodeJoueurTextController
+                                                                    ?.text ??
+                                                                    '',
+                                                              );
 
+                                                              debugPrint(
+                                                                '[ReferralDebug][Signup] beforeCreateAccount '
+                                                                'role=joueur pendingReferralCode='
+                                                                '${FFAppState().pendingReferralCode.isEmpty ? '<empty>' : FFAppState().pendingReferralCode}',
+                                                              );
                                                               final user =
                                                                   await authManager
                                                                       .createAccountWithEmail(
@@ -1114,6 +1319,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                   null) {
                                                                 return;
                                                               }
+                                                              debugPrint(
+                                                                '[ReferralDebug][Signup] afterCreateAccount '
+                                                                'role=joueur uid=${user.uid}',
+                                                              );
 
                                                               await UsersRecord
                                                                   .collection
@@ -1128,6 +1337,17 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                         AccountStatus
                                                                             .pendingInfo,
                                                                   ));
+
+                                                              final referralApplied =
+                                                                  await _applyPendingReferralCodeIfNeeded();
+                                                              if (!referralApplied &&
+                                                                  (_lastReferralErrorMessage ??
+                                                                          '')
+                                                                      .isNotEmpty) {
+                                                                _showReferralErrorMessage(
+                                                                  _lastReferralErrorMessage!,
+                                                                );
+                                                              }
 
                                                               await authManager
                                                                   .sendEmailVerification();
@@ -1146,14 +1366,14 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                         width: double.infinity,
                                                         height: 52.0,
                                                         padding:
-                                                            EdgeInsetsDirectional
+                                                            const EdgeInsetsDirectional
                                                                 .fromSTEB(
                                                                     0.0,
                                                                     0.0,
                                                                     0.0,
                                                                     0.0),
                                                         iconPadding:
-                                                            EdgeInsetsDirectional
+                                                            const EdgeInsetsDirectional
                                                                 .fromSTEB(
                                                                     0.0,
                                                                     0.0,
@@ -1161,7 +1381,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     0.0),
                                                         color: FlutterFlowTheme
                                                                 .of(context)
-                                                            .primaryDisabled,
+                                                            .primary,
                                                         textStyle:
                                                             FlutterFlowTheme.of(
                                                                     context)
@@ -1192,7 +1412,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                       .fontStyle,
                                                                 ),
                                                         elevation: 0.0,
-                                                        borderSide: BorderSide(
+                                                        borderSide: const BorderSide(
                                                           color: Colors
                                                               .transparent,
                                                           width: 1.0,
@@ -1208,95 +1428,9 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                     ),
                                                   ),
                                                 ),
-                                                Divider(
-                                                  thickness: 2.0,
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .primary,
-                                                ),
-                                                Align(
-                                                  alignment:
-                                                      AlignmentDirectional(
-                                                          0.0, 0.0),
-                                                  child: Padding(
-                                                    padding:
-                                                        EdgeInsetsDirectional
-                                                            .fromSTEB(0.0, 16.0,
-                                                                0.0, 16.0),
-                                                    child: FFButtonWidget(
-                                                      onPressed: () async {
-                                                        context.goNamed(
-                                                            HomeJoueurPageWidget
-                                                                .routeName);
-                                                      },
-                                                      text:
-                                                          'Continuer sans inscription',
-                                                      options: FFButtonOptions(
-                                                        width: double.infinity,
-                                                        height: 52.0,
-                                                        padding:
-                                                            EdgeInsetsDirectional
-                                                                .fromSTEB(
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0),
-                                                        iconPadding:
-                                                            EdgeInsetsDirectional
-                                                                .fromSTEB(
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0),
-                                                        color:
-                                                            Color(0x006052EC),
-                                                        textStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .titleSmall
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .interTight(
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primary,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleSmall
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleSmall
-                                                                      .fontStyle,
-                                                                ),
-                                                        elevation: 0.0,
-                                                        borderSide: BorderSide(
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .primaryText,
-                                                          width: 1.0,
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(12.0),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
+	                                              ],
+	                                            ),
+	                                          ),
                                           Column(
                                             mainAxisSize: MainAxisSize.max,
                                             children: [
@@ -1304,11 +1438,12 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                 splashColor: Colors.transparent,
                                                 focusColor: Colors.transparent,
                                                 hoverColor: Colors.transparent,
-                                                highlightColor:
-                                                    Colors.transparent,
-                                                onTap: () async {
-                                                  context.safePop();
-                                                },
+	                                                highlightColor:
+	                                                    Colors.transparent,
+	                                                onTap: () async {
+	                                                  context.goNamed(
+	                                                      LoginPageWidget.routeName);
+	                                                },
                                                 child: Row(
                                                   mainAxisSize:
                                                       MainAxisSize.max,
@@ -1317,7 +1452,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                   children: [
                                                     Align(
                                                       alignment:
-                                                          AlignmentDirectional(
+                                                          const AlignmentDirectional(
                                                               0.0, 0.0),
                                                       child: Text(
                                                         'Déjà un compte ? ',
@@ -1355,7 +1490,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                     ),
                                                     Align(
                                                       alignment:
-                                                          AlignmentDirectional(
+                                                          const AlignmentDirectional(
                                                               0.0, 0.0),
                                                       child: Text(
                                                         ' Connexion',
@@ -1405,7 +1540,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                 ),
                               ),
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 16.0, 0.0, 16.0),
                                 child: SingleChildScrollView(
                                   child: Column(
@@ -1421,10 +1556,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                           mainAxisSize: MainAxisSize.max,
                                           children: [
                                             Padding(
-                                              padding: EdgeInsetsDirectional
+                                              padding: const EdgeInsetsDirectional
                                                   .fromSTEB(
                                                       0.0, 0.0, 0.0, 16.0),
-                                              child: Container(
+                                              child: SizedBox(
                                                 width: double.infinity,
                                                 child: TextFormField(
                                                   controller: _model
@@ -1432,7 +1567,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                   focusNode: _model
                                                       .emailAddressCommercantFocusNode,
                                                   autofocus: false,
-                                                  autofillHints: [
+                                                  autofillHints: const [
                                                     AutofillHints.email
                                                   ],
                                                   obscureText: false,
@@ -1472,7 +1607,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                         ),
                                                     enabledBorder:
                                                         OutlineInputBorder(
-                                                      borderSide: BorderSide(
+                                                      borderSide: const BorderSide(
                                                         color:
                                                             Color(0x00000000),
                                                         width: 2.0,
@@ -1526,7 +1661,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                 context)
                                                             .fieldBg,
                                                     contentPadding:
-                                                        EdgeInsets.all(24.0),
+                                                        const EdgeInsets.all(24.0),
                                                     suffixIcon: Icon(
                                                       Icons.mail_rounded,
                                                       color:
@@ -1576,13 +1711,13 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                 ),
                                               ),
                                             ),
-                                            Padding(
-                                              padding: EdgeInsetsDirectional
+                                            if (false) Padding(
+                                              padding: const EdgeInsetsDirectional
                                                   .fromSTEB(
                                                       0.0, 0.0, 0.0, 16.0),
                                               child: DropdownButtonFormField<
                                                   String>(
-                                                value: _model
+                                                initialValue: _model
                                                     .professionalCategoryValue,
                                                 items: FFAppConstants.Category.map(
                                                   (label) => DropdownMenuItem(
@@ -1595,8 +1730,6 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                             .professionalCategoryValue =
                                                         val),
                                                 decoration: InputDecoration(
-                                                  labelText:
-                                                      'Catégorie professionnelle',
                                                   labelStyle:
                                                       FlutterFlowTheme.of(context)
                                                           .labelMedium
@@ -1632,7 +1765,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                           ),
                                                   enabledBorder:
                                                       OutlineInputBorder(
-                                                    borderSide: BorderSide(
+                                                    borderSide: const BorderSide(
                                                       color: Color(0x00000000),
                                                       width: 2.0,
                                                     ),
@@ -1680,7 +1813,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                       FlutterFlowTheme.of(context)
                                                           .fieldBg,
                                                   contentPadding:
-                                                      EdgeInsets.all(24.0),
+                                                      const EdgeInsets.all(24.0),
                                                 ),
                                                 validator: (val) {
                                                   if (_model.userType ==
@@ -1694,10 +1827,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                               ),
                                             ),
                                             Padding(
-                                              padding: EdgeInsetsDirectional
+                                              padding: const EdgeInsetsDirectional
                                                   .fromSTEB(
                                                       0.0, 0.0, 0.0, 16.0),
-                                              child: Container(
+                                              child: SizedBox(
                                                 width: double.infinity,
                                                 child: TextFormField(
                                                   controller: _model
@@ -1705,7 +1838,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                   focusNode: _model
                                                       .passwordCommercantFocusNode,
                                                   autofocus: false,
-                                                  autofillHints: [
+                                                  autofillHints: const [
                                                     AutofillHints.password
                                                   ],
                                                   obscureText: !_model
@@ -1746,7 +1879,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                         ),
                                                     enabledBorder:
                                                         OutlineInputBorder(
-                                                      borderSide: BorderSide(
+                                                      borderSide: const BorderSide(
                                                         color:
                                                             Color(0x00000000),
                                                         width: 2.0,
@@ -1800,7 +1933,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                 context)
                                                             .fieldBg,
                                                     contentPadding:
-                                                        EdgeInsets.all(24.0),
+                                                        const EdgeInsets.all(24.0),
                                                     suffixIcon: InkWell(
                                                       onTap: () => safeSetState(
                                                         () => _model
@@ -1863,25 +1996,23 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                               ),
                                             ),
                                             Padding(
-                                              padding: EdgeInsetsDirectional
+                                              padding: const EdgeInsetsDirectional
                                                   .fromSTEB(
                                                       0.0, 0.0, 0.0, 16.0),
-                                              child: Container(
+                                              child: SizedBox(
                                                 width: double.infinity,
                                                 child: TextFormField(
                                                   controller: _model
-                                                      .passwordConfirmCommercantTextController,
+                                                      .referralCodeCommercantTextController,
                                                   focusNode: _model
-                                                      .passwordConfirmCommercantFocusNode,
+                                                      .referralCodeCommercantFocusNode,
                                                   autofocus: false,
-                                                  autofillHints: [
-                                                    AutofillHints.password
-                                                  ],
-                                                  obscureText: !_model
-                                                      .passwordConfirmCommercantVisibility,
+                                                  textCapitalization:
+                                                      TextCapitalization
+                                                          .characters,
                                                   decoration: InputDecoration(
                                                     labelText:
-                                                        'Confirmer le mot de passe',
+                                                        'Code de parrainage',
                                                     labelStyle: FlutterFlowTheme
                                                             .of(context)
                                                         .labelMedium
@@ -1916,7 +2047,8 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                         ),
                                                     enabledBorder:
                                                         OutlineInputBorder(
-                                                      borderSide: BorderSide(
+                                                      borderSide:
+                                                          const BorderSide(
                                                         color:
                                                             Color(0x00000000),
                                                         width: 2.0,
@@ -1970,7 +2102,158 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                 context)
                                                             .fieldBg,
                                                     contentPadding:
-                                                        EdgeInsets.all(24.0),
+                                                        const EdgeInsets.all(
+                                                            24.0),
+                                                  ),
+                                                  style: FlutterFlowTheme.of(
+                                                          context)
+                                                      .bodyMedium
+                                                      .override(
+                                                        font: GoogleFonts.inter(
+                                                          fontWeight:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .bodyMedium
+                                                                  .fontWeight,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .bodyMedium
+                                                                  .fontStyle,
+                                                        ),
+                                                        color:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .primaryText,
+                                                        letterSpacing: 0.0,
+                                                        fontWeight:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .bodyMedium
+                                                                .fontWeight,
+                                                        fontStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .bodyMedium
+                                                                .fontStyle,
+                                                      ),
+                                                  onChanged:
+                                                      _persistReferralCodeInput,
+                                                  validator: _model
+                                                      .referralCodeCommercantTextControllerValidator
+                                                      .asValidator(context),
+                                                ),
+                                              ),
+                                            ),
+                                            Padding(
+                                              padding: const EdgeInsetsDirectional
+                                                  .fromSTEB(
+                                                      0.0, 0.0, 0.0, 16.0),
+                                              child: SizedBox(
+                                                width: double.infinity,
+                                                child: TextFormField(
+                                                  controller: _model
+                                                      .passwordConfirmCommercantTextController,
+                                                  focusNode: _model
+                                                      .passwordConfirmCommercantFocusNode,
+                                                  autofocus: false,
+                                                  autofillHints: const [
+                                                    AutofillHints.password
+                                                  ],
+                                                  obscureText: !_model
+                                                      .passwordConfirmCommercantVisibility,
+                                                  decoration: InputDecoration(
+                                                    labelText:
+                                                        'Confirmer le mot de passe',
+                                                    labelStyle: FlutterFlowTheme
+                                                            .of(context)
+                                                        .labelMedium
+                                                        .override(
+                                                          font:
+                                                              GoogleFonts.inter(
+                                                            fontWeight:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .labelMedium
+                                                                    .fontWeight,
+                                                            fontStyle:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .labelMedium
+                                                                    .fontStyle,
+                                                          ),
+                                                          color: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .fieldText,
+                                                          letterSpacing: 0.0,
+                                                          fontWeight:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .labelMedium
+                                                                  .fontWeight,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .labelMedium
+                                                                  .fontStyle,
+                                                        ),
+                                                    enabledBorder:
+                                                        OutlineInputBorder(
+                                                      borderSide: const BorderSide(
+                                                        color:
+                                                            Color(0x00000000),
+                                                        width: 2.0,
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12.0),
+                                                    ),
+                                                    focusedBorder:
+                                                        OutlineInputBorder(
+                                                      borderSide: BorderSide(
+                                                        color:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .primary,
+                                                        width: 2.0,
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12.0),
+                                                    ),
+                                                    errorBorder:
+                                                        OutlineInputBorder(
+                                                      borderSide: BorderSide(
+                                                        color:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .error,
+                                                        width: 2.0,
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12.0),
+                                                    ),
+                                                    focusedErrorBorder:
+                                                        OutlineInputBorder(
+                                                      borderSide: BorderSide(
+                                                        color:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .error,
+                                                        width: 2.0,
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12.0),
+                                                    ),
+                                                    filled: true,
+                                                    fillColor:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .fieldBg,
+                                                    contentPadding:
+                                                        const EdgeInsets.all(24.0),
                                                     suffixIcon: InkWell(
                                                       onTap: () => safeSetState(
                                                         () => _model
@@ -2033,7 +2316,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                               ),
                                             ),
                                             Padding(
-                                              padding: EdgeInsetsDirectional
+                                              padding: const EdgeInsetsDirectional
                                                   .fromSTEB(
                                                       0.0, 0.0, 0.0, 16.0),
                                               child: Row(
@@ -2084,7 +2367,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                               width: 2,
                                                               color: FlutterFlowTheme
                                                                       .of(context)
-                                                                  .primaryText!,
+                                                                  .primaryText,
                                                             )
                                                           : null,
                                                       activeColor:
@@ -2100,7 +2383,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                   Flexible(
                                                     child: Padding(
                                                       padding:
-                                                          EdgeInsetsDirectional
+                                                          const EdgeInsetsDirectional
                                                               .fromSTEB(
                                                                   0.0,
                                                                   4.0,
@@ -2122,7 +2405,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                         },
                                                         child: Container(
                                                           decoration:
-                                                              BoxDecoration(),
+                                                              const BoxDecoration(),
                                                           child: RichText(
                                                             textScaler:
                                                                 MediaQuery.of(
@@ -2156,7 +2439,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                             .fontStyle,
                                                                       ),
                                                                 ),
-                                                                TextSpan(
+                                                                const TextSpan(
                                                                   text: ' ',
                                                                   style:
                                                                       TextStyle(),
@@ -2185,18 +2468,18 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                             .fontStyle,
                                                                       ),
                                                                 ),
-                                                                TextSpan(
+                                                                const TextSpan(
                                                                   text: ' ',
                                                                   style:
                                                                       TextStyle(),
                                                                 ),
-                                                                TextSpan(
+                                                                const TextSpan(
                                                                   text:
                                                                       'ainsi que notre',
                                                                   style:
                                                                       TextStyle(),
                                                                 ),
-                                                                TextSpan(
+                                                                const TextSpan(
                                                                   text: ' ',
                                                                   style:
                                                                       TextStyle(),
@@ -2262,10 +2545,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                               ),
                                             ),
                                             Align(
-                                              alignment: AlignmentDirectional(
+                                              alignment: const AlignmentDirectional(
                                                   0.0, 0.0),
                                               child: Padding(
-                                                padding: EdgeInsetsDirectional
+                                                padding: const EdgeInsetsDirectional
                                                     .fromSTEB(
                                                         0.0, 0.0, 0.0, 16.0),
                                                 child: FFButtonWidget(
@@ -2293,7 +2576,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                             ScaffoldMessenger
                                                                     .of(context)
                                                                 .showSnackBar(
-                                                              SnackBar(
+                                                              const SnackBar(
                                                                 content: Text(
                                                                   'Passwords don\'t match!',
                                                                 ),
@@ -2301,7 +2584,18 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                             );
                                                             return;
                                                           }
+                                                          _persistReferralCodeInput(
+                                                            _model
+                                                                    .referralCodeCommercantTextController
+                                                                    ?.text ??
+                                                                '',
+                                                          );
 
+                                                          debugPrint(
+                                                            '[ReferralDebug][Signup] beforeCreateAccount '
+                                                            'role=commercant pendingReferralCode='
+                                                            '${FFAppState().pendingReferralCode.isEmpty ? '<empty>' : FFAppState().pendingReferralCode}',
+                                                          );
                                                           final user =
                                                               await authManager
                                                                   .createAccountWithEmail(
@@ -2316,6 +2610,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                           if (user == null) {
                                                             return;
                                                           }
+                                                          debugPrint(
+                                                            '[ReferralDebug][Signup] afterCreateAccount '
+                                                            'role=commercant uid=${user.uid}',
+                                                          );
 
                                                           await UsersRecord
                                                               .collection
@@ -2334,6 +2632,17 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                         .pendingInfo,
                                                               ));
 
+                                                          final referralApplied =
+                                                              await _applyPendingReferralCodeIfNeeded();
+                                                          if (!referralApplied &&
+                                                              (_lastReferralErrorMessage ??
+                                                                      '')
+                                                                  .isNotEmpty) {
+                                                            _showReferralErrorMessage(
+                                                              _lastReferralErrorMessage!,
+                                                            );
+                                                          }
+
                                                           await authManager
                                                               .sendEmailVerification();
 
@@ -2350,16 +2659,16 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                     width: double.infinity,
                                                     height: 52.0,
                                                     padding:
-                                                        EdgeInsetsDirectional
+                                                        const EdgeInsetsDirectional
                                                             .fromSTEB(0.0, 0.0,
                                                                 0.0, 0.0),
                                                     iconPadding:
-                                                        EdgeInsetsDirectional
+                                                        const EdgeInsetsDirectional
                                                             .fromSTEB(0.0, 0.0,
                                                                 0.0, 0.0),
                                                     color: FlutterFlowTheme.of(
                                                             context)
-                                                        .primaryDisabled,
+                                                        .primary,
                                                     textStyle: FlutterFlowTheme
                                                             .of(context)
                                                         .titleSmall
@@ -2391,7 +2700,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                   .fontStyle,
                                                         ),
                                                     elevation: 0.0,
-                                                    borderSide: BorderSide(
+                                                    borderSide: const BorderSide(
                                                       color: Colors.transparent,
                                                       width: 1.0,
                                                     ),
@@ -2415,11 +2724,12 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                           InkWell(
                                             splashColor: Colors.transparent,
                                             focusColor: Colors.transparent,
-                                            hoverColor: Colors.transparent,
-                                            highlightColor: Colors.transparent,
-                                            onTap: () async {
-                                              context.pop();
-                                            },
+	                                            hoverColor: Colors.transparent,
+	                                            highlightColor: Colors.transparent,
+	                                            onTap: () async {
+	                                              context.goNamed(
+	                                                  LoginPageWidget.routeName);
+	                                            },
                                             child: Row(
                                               mainAxisSize: MainAxisSize.max,
                                               mainAxisAlignment:
@@ -2427,7 +2737,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                               children: [
                                                 Align(
                                                   alignment:
-                                                      AlignmentDirectional(
+                                                      const AlignmentDirectional(
                                                           0.0, 0.0),
                                                   child: Text(
                                                     'Déjà un compte ? ',
@@ -2465,7 +2775,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                 ),
                                                 Align(
                                                   alignment:
-                                                      AlignmentDirectional(
+                                                      const AlignmentDirectional(
                                                           0.0, 0.0),
                                                   child: Text(
                                                     ' Connexion',
@@ -2513,6 +2823,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                         ),
                       ],
                     ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -2522,4 +2836,139 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       ),
     );
   }
+
+  String get _initialReferralCodeValue => FFAppState().pendingReferralCode;
+
+  String _normalizedReferralCode(String? value) => value?.trim().toUpperCase() ?? '';
+
+  void _persistReferralCodeInput(String value) {
+    final normalizedValue = _normalizedReferralCode(value);
+    FFAppState().update(() {
+      if (normalizedValue.isEmpty) {
+        FFAppState().clearPendingReferralCode();
+      } else {
+        FFAppState().pendingReferralCode = normalizedValue;
+      }
+    });
+  }
+
+  String? _errorMessageForReferralFailure(FirebaseFunctionsException error) {
+    switch (error.code) {
+      case 'not-found':
+        return 'Ce code de parrainage est introuvable.';
+      case 'failed-precondition':
+        return 'Vous ne pouvez pas utiliser votre propre code de parrainage.';
+      case 'already-exists':
+        return 'Ce parrainage a deja ete utilise pour ce compte.';
+      case 'invalid-argument':
+        return 'Veuillez saisir un code de parrainage valide.';
+      default:
+        return 'Le code de parrainage n a pas pu etre applique pour le moment.';
+    }
+  }
+
+  void _showReferralErrorMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
+    );
+  }
+
+  Future<bool> _applyPendingReferralCodeIfNeeded() async {
+    final pendingReferralCode = FFAppState().pendingReferralCode.trim();
+    if (pendingReferralCode.isEmpty) {
+      debugPrint(
+        '[ReferralDebug][Signup] noPendingReferralCodeAtSignup',
+      );
+      _lastReferralErrorMessage = null;
+      return true;
+    }
+
+    debugPrint(
+      '[ReferralDebug][Signup] pendingReferralCodeAtSignup=$pendingReferralCode',
+    );
+
+    final currentUid = currentUserUid;
+    final referralGuardKey = '$currentUid::$pendingReferralCode';
+    if (_isApplyingPendingReferralCode ||
+        _lastAppliedReferralGuardKey == referralGuardKey) {
+      debugPrint(
+        '[ReferralDebug][Signup] skippedDuplicateReferralAcceptance '
+        'guardKey=$referralGuardKey',
+      );
+      _lastReferralErrorMessage = null;
+      return true;
+    }
+
+    _isApplyingPendingReferralCode = true;
+    _lastReferralErrorMessage = null;
+    _lastAppliedReferralGuardKey = referralGuardKey;
+    try {
+      debugPrint(
+        '[ReferralDebug][Signup] calling registerReferralAcceptance '
+        'inviteCode=$pendingReferralCode uid=$currentUid',
+      );
+      await _sharePromoService.registerReferralAcceptance(
+        inviteCode: pendingReferralCode,
+      );
+      debugPrint(
+        '[ReferralDebug][Signup] registerReferralAcceptance success '
+        'inviteCode=$pendingReferralCode uid=$currentUid',
+      );
+      FFAppState().update(() {
+        FFAppState().clearPendingReferralCode();
+      });
+      debugPrint(
+        '[ReferralDebug][Signup] pendingReferralCode clearedAfterSuccess',
+      );
+      return true;
+    } on FirebaseFunctionsException catch (error) {
+      _lastReferralErrorMessage = _errorMessageForReferralFailure(error);
+      const terminalErrorCodes = <String>{
+        'invalid-argument',
+        'not-found',
+        'already-exists',
+        'failed-precondition',
+      };
+      if (terminalErrorCodes.contains(error.code)) {
+        debugPrint(
+          '[ReferralDebug][Signup] registerReferralAcceptance terminalError '
+          'code=${error.code} message=${error.message ?? '<no-message>'}',
+        );
+        debugPrint(
+          '[ReferralDebug][Signup] pendingReferralCode preservedAfterTerminalError '
+          'value=$pendingReferralCode',
+        );
+      } else {
+        debugPrint(
+          '[ReferralDebug][Signup] registerReferralAcceptance retryableError '
+          'code=${error.code} message=${error.message ?? '<no-message>'}',
+        );
+        debugPrint(
+          '[ReferralDebug][Signup] pendingReferralCode preservedAfterError '
+          'value=$pendingReferralCode',
+        );
+      }
+      return false;
+    } catch (error) {
+      _lastReferralErrorMessage =
+          'Le code de parrainage n a pas pu etre applique pour le moment.';
+      debugPrint(
+        '[ReferralDebug][Signup] registerReferralAcceptance unexpectedError '
+        'error=$error',
+      );
+      debugPrint(
+        '[ReferralDebug][Signup] pendingReferralCode preservedAfterUnexpectedError '
+        'value=$pendingReferralCode',
+      );
+      return false;
+    } finally {
+      _isApplyingPendingReferralCode = false;
+    }
+  }
 }
+

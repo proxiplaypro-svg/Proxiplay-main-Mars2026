@@ -1,6 +1,5 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import 'dart:ui';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'custom_nav_bar_admin_model.dart';
@@ -47,12 +46,12 @@ class _CustomNavBarAdminWidgetState extends State<CustomNavBarAdminWidget> {
     return Container(
       width: double.infinity,
       height: 80.0,
-      decoration: BoxDecoration(),
+      decoration: const BoxDecoration(),
       child: Column(
         mainAxisSize: MainAxisSize.max,
         children: [
           Container(
-            decoration: BoxDecoration(),
+            decoration: const BoxDecoration(),
             child: Container(
               width: double.infinity,
               height: 80.0,
@@ -89,7 +88,7 @@ class _CustomNavBarAdminWidgetState extends State<CustomNavBarAdminWidget> {
                             context.pushNamed(
                               HomeAdminPageWidget.routeName,
                               extra: <String, dynamic>{
-                                kTransitionInfoKey: TransitionInfo(
+                                kTransitionInfoKey: const TransitionInfo(
                                   hasTransition: true,
                                   transitionType: PageTransitionType.fade,
                                   duration: Duration(milliseconds: 0),
@@ -107,7 +106,7 @@ class _CustomNavBarAdminWidgetState extends State<CustomNavBarAdminWidget> {
                           ),
                         ),
                       ),
-                    ].divide(SizedBox(height: 8.0)),
+                    ].divide(const SizedBox(height: 8.0)),
                   ),
                   Column(
                     mainAxisSize: MainAxisSize.min,
@@ -134,7 +133,7 @@ class _CustomNavBarAdminWidgetState extends State<CustomNavBarAdminWidget> {
                             context.pushNamed(
                               DeleteCommAdminPageWidget.routeName,
                               extra: <String, dynamic>{
-                                kTransitionInfoKey: TransitionInfo(
+                                kTransitionInfoKey: const TransitionInfo(
                                   hasTransition: true,
                                   transitionType: PageTransitionType.fade,
                                   duration: Duration(milliseconds: 0),
@@ -152,7 +151,7 @@ class _CustomNavBarAdminWidgetState extends State<CustomNavBarAdminWidget> {
                           ),
                         ),
                       ),
-                    ].divide(SizedBox(height: 8.0)),
+                    ].divide(const SizedBox(height: 8.0)),
                   ),
                 ],
               ),

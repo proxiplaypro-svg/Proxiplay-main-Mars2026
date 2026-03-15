@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 
 import '/backend/schema/util/firestore_util.dart';
-import '/backend/schema/util/schema_util.dart';
 import '/backend/schema/enums/enums.dart';
 
 import 'index.dart';
@@ -11,9 +10,9 @@ import '/flutter_flow/flutter_flow_util.dart';
 
 class UsersRecord extends FirestoreRecord {
   UsersRecord._(
-    DocumentReference reference,
-    Map<String, dynamic> data,
-  ) : super(reference, data) {
+    super.reference,
+    super.data,
+  ) {
     _initializeFields();
   }
 
@@ -50,7 +49,7 @@ class UsersRecord extends FirestoreRecord {
   // "pseudo" field.
   String? _pseudo;
   String get pseudo => _pseudo ?? '';
-  String get firstNameAndLastName => '${firstName} ${lastName}';
+  String get firstNameAndLastName => '$firstName $lastName';
   bool hasPseudo() => _pseudo != null;
 
   // "account_status" field.
@@ -98,6 +97,11 @@ class UsersRecord extends FirestoreRecord {
   String get professionalCategory => _professionalCategory ?? '';
   bool hasProfessionalCategory() => _professionalCategory != null;
 
+  // "allGamesAccessUntil" field.
+  DateTime? _allGamesAccessUntil;
+  DateTime? get allGamesAccessUntil => _allGamesAccessUntil;
+  bool hasAllGamesAccessUntil() => _allGamesAccessUntil != null;
+
   void _initializeFields() {
     _email = snapshotData['email'] as String?;
     _uid = snapshotData['uid'] as String?;
@@ -119,6 +123,7 @@ class UsersRecord extends FirestoreRecord {
     _partLastUpdate = snapshotData['part_last_update'] as DateTime?;
     _birthday = snapshotData['birthday'] as DateTime?;
     _professionalCategory = snapshotData['professional_category'] as String?;
+    _allGamesAccessUntil = snapshotData['allGamesAccessUntil'] as DateTime?;
   }
 
   static CollectionReference get collection =>
@@ -171,6 +176,7 @@ Map<String, dynamic> createUsersRecordData({
   DateTime? partLastUpdate,
   DateTime? birthday,
   String? professionalCategory,
+  DateTime? allGamesAccessUntil,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -190,6 +196,7 @@ Map<String, dynamic> createUsersRecordData({
       'part_last_update': partLastUpdate,
       'birthday': birthday,
       'professional_category': professionalCategory,
+      'allGamesAccessUntil': allGamesAccessUntil,
     }.withoutNulls,
   );
 
@@ -216,7 +223,8 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e1?.city == e2?.city &&
         e1?.partLastUpdate == e2?.partLastUpdate &&
         e1?.birthday == e2?.birthday &&
-        e1?.professionalCategory == e2?.professionalCategory;
+        e1?.professionalCategory == e2?.professionalCategory &&
+        e1?.allGamesAccessUntil == e2?.allGamesAccessUntil;
   }
 
   @override
@@ -236,7 +244,8 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e?.city,
         e?.partLastUpdate,
         e?.birthday,
-        e?.professionalCategory
+        e?.professionalCategory,
+        e?.allGamesAccessUntil
       ]);
 
   @override

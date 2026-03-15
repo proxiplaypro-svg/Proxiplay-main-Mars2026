@@ -1,10 +1,8 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'abo_commercant_page_model.dart';
 export 'abo_commercant_page_model.dart';
 
@@ -54,14 +52,14 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
         backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
         appBar: AppBar(
           automaticallyImplyLeading: true,
-          actions: [],
+          actions: const [],
           flexibleSpace: FlexibleSpaceBar(
             background: ClipRRect(
               borderRadius: BorderRadius.circular(8.0),
               child: Image.asset(
                 'assets/images/Background.png',
                 fit: BoxFit.cover,
-                alignment: Alignment(1.0, -1.0),
+                alignment: const Alignment(1.0, -1.0),
               ),
             ),
           ),
@@ -74,43 +72,43 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
             decoration: BoxDecoration(
               image: DecorationImage(
                 fit: BoxFit.cover,
-                alignment: AlignmentDirectional(-1.0, 1.0),
+                alignment: const AlignmentDirectional(-1.0, 1.0),
                 image: Image.asset(
                   'assets/images/Background.png',
                 ).image,
               ),
             ),
             child: Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(24.0, 0.0, 24.0, 24.0),
+              padding: const EdgeInsetsDirectional.fromSTEB(24.0, 0.0, 24.0, 24.0),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.max,
                   children: [
                     Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 48.0, 0.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(0.0, 48.0, 0.0, 0.0),
                       child: Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
                               FlutterFlowTheme.of(context).primary,
-                              Color(0x1A4B39EF)
+                              const Color(0x1A4B39EF)
                             ],
-                            stops: [0.05, 0.8],
-                            begin: AlignmentDirectional(1.0, 1.0),
-                            end: AlignmentDirectional(-1.0, -1.0),
+                            stops: const [0.05, 0.8],
+                            begin: const AlignmentDirectional(1.0, 1.0),
+                            end: const AlignmentDirectional(-1.0, -1.0),
                           ),
                           borderRadius: BorderRadius.circular(16.0),
                         ),
                         child: Padding(
-                          padding: EdgeInsets.all(24.0),
+                          padding: const EdgeInsets.all(24.0),
                           child: Column(
                             mainAxisSize: MainAxisSize.max,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 8.0),
                                 child: Text(
                                   'Abonnement Commerçant',
@@ -134,7 +132,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                 ),
                               ),
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 16.0),
                                 child: Text(
                                   'Créez des jeux engageants pour vos clients',
@@ -171,13 +169,13 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                     Container(),
                     Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 24.0, 0.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(0.0, 24.0, 0.0, 0.0),
                       child: Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
                           color:
                               FlutterFlowTheme.of(context).secondaryBackground,
-                          boxShadow: [
+                          boxShadow: const [
                             BoxShadow(
                               blurRadius: 10.0,
                               color: Color(0x1A000000),
@@ -190,7 +188,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                           borderRadius: BorderRadius.circular(16.0),
                         ),
                         child: Padding(
-                          padding: EdgeInsets.all(24.0),
+                          padding: const EdgeInsets.all(24.0),
                           child: Column(
                             mainAxisSize: MainAxisSize.max,
                             children: [
@@ -207,7 +205,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                       shape: BoxShape.circle,
                                     ),
                                     child: Align(
-                                      alignment: AlignmentDirectional(0.0, 0.0),
+                                      alignment: const AlignmentDirectional(0.0, 0.0),
                                       child: Icon(
                                         Icons.star_rate,
                                         color: FlutterFlowTheme.of(context)
@@ -220,7 +218,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                               ),
                               Container(),
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 16.0, 0.0, 8.0),
                                 child: Text(
                                   'Abonnement Annuel',
@@ -249,7 +247,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                 ),
                               ),
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 8.0),
                                 child: Text(
                                   '€299',
@@ -273,7 +271,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                 ),
                               ),
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 24.0),
                                 child: Text(
                                   'par an',
@@ -305,7 +303,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                               ),
                               Container(),
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 24.0),
                                 child: Container(
                                   width: double.infinity,
@@ -359,7 +357,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                               ),
                                         ),
                                       ),
-                                    ].divide(SizedBox(width: 12.0)),
+                                    ].divide(const SizedBox(width: 12.0)),
                                   ),
                                   Container(),
                                   Row(
@@ -401,7 +399,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                               ),
                                         ),
                                       ),
-                                    ].divide(SizedBox(width: 12.0)),
+                                    ].divide(const SizedBox(width: 12.0)),
                                   ),
                                   Container(),
                                   Row(
@@ -443,7 +441,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                               ),
                                         ),
                                       ),
-                                    ].divide(SizedBox(width: 12.0)),
+                                    ].divide(const SizedBox(width: 12.0)),
                                   ),
                                   Container(),
                                   Row(
@@ -485,7 +483,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                               ),
                                         ),
                                       ),
-                                    ].divide(SizedBox(width: 12.0)),
+                                    ].divide(const SizedBox(width: 12.0)),
                                   ),
                                   Container(),
                                   Row(
@@ -527,13 +525,13 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                               ),
                                         ),
                                       ),
-                                    ].divide(SizedBox(width: 12.0)),
+                                    ].divide(const SizedBox(width: 12.0)),
                                   ),
-                                ].divide(SizedBox(height: 16.0)),
+                                ].divide(const SizedBox(height: 16.0)),
                               ),
                               Container(),
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 32.0, 0.0, 0.0),
                                 child: FFButtonWidget(
                                   onPressed: () {
@@ -543,8 +541,8 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                   options: FFButtonOptions(
                                     width: double.infinity,
                                     height: 56.0,
-                                    padding: EdgeInsets.all(8.0),
-                                    iconPadding: EdgeInsetsDirectional.fromSTEB(
+                                    padding: const EdgeInsets.all(8.0),
+                                    iconPadding: const EdgeInsetsDirectional.fromSTEB(
                                         0.0, 0.0, 0.0, 0.0),
                                     color: FlutterFlowTheme.of(context).primary,
                                     textStyle: FlutterFlowTheme.of(context)
@@ -567,7 +565,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                                   .fontStyle,
                                         ),
                                     elevation: 0.0,
-                                    borderSide: BorderSide(
+                                    borderSide: const BorderSide(
                                       color: Colors.transparent,
                                       width: 1.0,
                                     ),
@@ -583,7 +581,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                     Container(),
                     Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 32.0, 0.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(0.0, 32.0, 0.0, 0.0),
                       child: Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
@@ -592,12 +590,12 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                           borderRadius: BorderRadius.circular(16.0),
                         ),
                         child: Padding(
-                          padding: EdgeInsets.all(24.0),
+                          padding: const EdgeInsets.all(24.0),
                           child: Column(
                             mainAxisSize: MainAxisSize.max,
                             children: [
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 16.0),
                                 child: Text(
                                   'Pourquoi choisir notre plateforme ?',
@@ -637,7 +635,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                         ),
                                         child: Align(
                                           alignment:
-                                              AlignmentDirectional(0.0, 0.0),
+                                              const AlignmentDirectional(0.0, 0.0),
                                           child: Icon(
                                             Icons.trending_up,
                                             color: FlutterFlowTheme.of(context)
@@ -716,7 +714,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                           ],
                                         ),
                                       ),
-                                    ].divide(SizedBox(width: 16.0)),
+                                    ].divide(const SizedBox(width: 16.0)),
                                   ),
                                   Container(),
                                   Row(
@@ -733,7 +731,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                         ),
                                         child: Align(
                                           alignment:
-                                              AlignmentDirectional(0.0, 0.0),
+                                              const AlignmentDirectional(0.0, 0.0),
                                           child: Icon(
                                             Icons.store,
                                             color: FlutterFlowTheme.of(context)
@@ -812,7 +810,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                           ],
                                         ),
                                       ),
-                                    ].divide(SizedBox(width: 16.0)),
+                                    ].divide(const SizedBox(width: 16.0)),
                                   ),
                                   Container(),
                                   Row(
@@ -829,7 +827,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                         ),
                                         child: Align(
                                           alignment:
-                                              AlignmentDirectional(0.0, 0.0),
+                                              const AlignmentDirectional(0.0, 0.0),
                                           child: Icon(
                                             Icons.insights,
                                             color: FlutterFlowTheme.of(context)
@@ -908,9 +906,9 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                           ],
                                         ),
                                       ),
-                                    ].divide(SizedBox(width: 16.0)),
+                                    ].divide(const SizedBox(width: 16.0)),
                                   ),
-                                ].divide(SizedBox(height: 16.0)),
+                                ].divide(const SizedBox(height: 16.0)),
                               ),
                             ],
                           ),
@@ -920,7 +918,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                     Container(),
                     Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 32.0, 0.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(0.0, 32.0, 0.0, 0.0),
                       child: Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
@@ -928,12 +926,12 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                           borderRadius: BorderRadius.circular(16.0),
                         ),
                         child: Padding(
-                          padding: EdgeInsets.all(24.0),
+                          padding: const EdgeInsets.all(24.0),
                           child: Row(
                             mainAxisSize: MainAxisSize.max,
                             children: [
                               Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     16.0, 0.0, 16.0, 0.0),
                                 child: Icon(
                                   Icons.support_agent,
@@ -995,7 +993,7 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                           ),
                                     ),
                                     Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                      padding: const EdgeInsetsDirectional.fromSTEB(
                                           0.0, 8.0, 0.0, 0.0),
                                       child: Text(
                                         'support@gameplatform.com',

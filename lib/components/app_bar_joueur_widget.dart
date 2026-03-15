@@ -1,12 +1,9 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'app_bar_joueur_model.dart';
 export 'app_bar_joueur_model.dart';
 
@@ -46,7 +43,7 @@ class _AppBarJoueurWidgetState extends State<AppBarJoueurWidget> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Padding(
-          padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 10.0),
+          padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 10.0),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8.0),
             child: SvgPicture.asset(
@@ -59,124 +56,102 @@ class _AppBarJoueurWidgetState extends State<AppBarJoueurWidget> {
         Flexible(
           child: Builder(
             builder: (context) {
-              if (currentUserUid != null && currentUserUid != '') {
+              if (currentUserUid != '') {
+                final remainingPart =
+                    valueOrDefault<int>(currentUserDocument?.remainingPart, 0);
                 return Container(
-                  width: 100.0,
                   decoration: BoxDecoration(
-                    color: FlutterFlowTheme.of(context).primary,
+                    color: remainingPart == 1
+                        ? const Color(0xFFA0134D)
+                        : FlutterFlowTheme.of(context).primary,
                     borderRadius: BorderRadius.circular(12.0),
                     border: Border.all(
                       width: 0.0,
                     ),
                   ),
                   child: Padding(
-                    padding: EdgeInsets.all(6.0),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
                     child: Container(
-                      decoration: BoxDecoration(),
+                      decoration: const BoxDecoration(),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Flexible(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.max,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                AuthUserStreamWidget(
-                                  builder: (context) => Text(
-                                    valueOrDefault(
-                                            currentUserDocument?.remainingPart,
-                                            0)
-                                        .toString(),
-                                    style: FlutterFlowTheme.of(context)
-                                        .titleMedium
-                                        .override(
-                                          font: GoogleFonts.interTight(
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .titleMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .titleMedium
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .alternate,
-                                          letterSpacing: 0.0,
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .titleMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .titleMedium
-                                                  .fontStyle,
-                                        ),
-                                  ),
-                                ),
-                                Text(
-                                  'parties',
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              AuthUserStreamWidget(
+                                builder: (context) => Text(
+                                  remainingPart.toString(),
                                   style: FlutterFlowTheme.of(context)
-                                      .labelMedium
+                                      .titleMedium
                                       .override(
-                                        font: GoogleFonts.inter(
+                                        font: GoogleFonts.interTight(
                                           fontWeight:
                                               FlutterFlowTheme.of(context)
-                                                  .labelMedium
+                                                  .titleMedium
                                                   .fontWeight,
                                           fontStyle:
                                               FlutterFlowTheme.of(context)
-                                                  .labelMedium
+                                                  .titleMedium
                                                   .fontStyle,
                                         ),
                                         color: FlutterFlowTheme.of(context)
                                             .alternate,
                                         letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
+                                        fontWeight:
+                                            FlutterFlowTheme.of(context)
+                                                .titleMedium
+                                                .fontWeight,
+                                        fontStyle:
+                                            FlutterFlowTheme.of(context)
+                                                .titleMedium
+                                                .fontStyle,
                                       ),
                                 ),
-                              ].divide(SizedBox(width: 4.0)),
-                            ),
+                              ),
+                              Text(
+                                remainingPart == 1
+                                    ? 'chance'
+                                    : 'chances',
+                                style: FlutterFlowTheme.of(context)
+                                    .labelMedium
+                                    .override(
+                                      font: GoogleFonts.inter(
+                                        fontWeight:
+                                            FlutterFlowTheme.of(context)
+                                                .labelMedium
+                                                .fontWeight,
+                                        fontStyle:
+                                            FlutterFlowTheme.of(context)
+                                                .labelMedium
+                                                .fontStyle,
+                                      ),
+                                      color:
+                                          FlutterFlowTheme.of(context).alternate,
+                                      letterSpacing: 0.0,
+                                      fontWeight: FlutterFlowTheme.of(context)
+                                          .labelMedium
+                                          .fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .labelMedium
+                                          .fontStyle,
+                                    ),
+                              ),
+                            ].divide(const SizedBox(width: 4.0)),
                           ),
-                          Text(
-                            'restantes',
-                            style: FlutterFlowTheme.of(context)
-                                .labelMedium
-                                .override(
-                                  font: GoogleFonts.inter(
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .fontStyle,
-                                  ),
-                                  color: FlutterFlowTheme.of(context).alternate,
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .fontStyle,
-                                ),
-                          ),
-                        ].divide(SizedBox(height: 0.0)),
+                        ],
                       ),
                     ),
                   ),
                 );
               } else {
                 return Container(
-                  decoration: BoxDecoration(),
+                  decoration: const BoxDecoration(),
                 );
               }
             },

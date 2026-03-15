@@ -1,13 +1,9 @@
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'partage_jeu_joueur_page_model.dart';
 export 'partage_jeu_joueur_page_model.dart';
 
@@ -49,17 +45,17 @@ class _PartageJeuJoueurPageWidgetState
         JeuDetailJoueurPageWidget.routeName,
         queryParameters: {
           'gameDoc': serializeParam(
-            widget!.gameDoc,
+            widget.gameDoc,
             ParamType.Document,
           ),
           'enseigneDoc': serializeParam(
-            widget!.enseigneDoc,
+            widget.enseigneDoc,
             ParamType.Document,
           ),
         }.withoutNulls,
         extra: <String, dynamic>{
-          'gameDoc': widget!.gameDoc,
-          'enseigneDoc': widget!.enseigneDoc,
+          'gameDoc': widget.gameDoc,
+          'enseigneDoc': widget.enseigneDoc,
         },
       );
     });

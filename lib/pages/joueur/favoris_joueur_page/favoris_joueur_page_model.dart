@@ -1,21 +1,11 @@
-import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/app_bar_joueur_widget.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
-import '/components/list_empty_component_widget.dart';
-import '/flutter_flow/flutter_flow_button_tabbar.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import '/index.dart';
 import 'favoris_joueur_page_widget.dart' show FavorisJoueurPageWidget;
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
-import 'package:provider/provider.dart';
 
 class FavorisJoueurPageModel extends FlutterFlowModel<FavorisJoueurPageWidget> {
   ///  State fields for stateful widgets in this page.
@@ -55,7 +45,9 @@ class FavorisJoueurPageModel extends FlutterFlowModel<FavorisJoueurPageWidget> {
   @override
   void dispose() {
     tabBarController?.dispose();
-    listViewStreamSubscriptions1.forEach((s) => s?.cancel());
+    for (var s in listViewStreamSubscriptions1) {
+      s?.cancel();
+    }
     listViewPagingController1?.dispose();
 
     listViewPagingController2?.dispose();

@@ -1,4 +1,4 @@
-import '/auth/firebase_auth/auth_util.dart';
+﻿import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/list_empty_component_widget.dart';
@@ -6,17 +6,14 @@ import '/flutter_flow/flutter_flow_expanded_image_view.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
+import '/widgets/proxiplay_loading_logo.dart';
+import '/widgets/proxiplay_network_image.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:page_transition/page_transition.dart';
-import 'package:provider/provider.dart';
 import 'enseigne_detail_joueur_page_model.dart';
 export 'enseigne_detail_joueur_page_model.dart';
 
@@ -43,6 +40,28 @@ class _EnseigneDetailJoueurPageWidgetState
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
+  bool _isGameVisibleForPlayer(GamesRecord game) {
+    final now = getCurrentTimestamp;
+    final endDate = game.endDate;
+    if (endDate == null || !endDate.isAfter(now)) {
+      return false;
+    }
+    final startDate = game.startDate;
+    if (startDate != null && now.isBefore(startDate)) {
+      return false;
+    }
+    return true;
+  }
+
+  String _formatPrizeLabel(GamesRecord game) {
+    final hasSecondaryPrizes = game.secondaryPrizes.isNotEmpty ||
+        game.secondaryPrizeDescription.trim().isNotEmpty;
+    if (game.prizeValue == 0 && hasSecondaryPrizes) {
+      return 'Gains immédiats';
+    }
+    return game.prizeValue.toString();
+  }
+
   String? _ensureHttpScheme(String? raw) {
     if (raw == null) return null;
     final s = raw.trim();
@@ -52,6 +71,95 @@ class _EnseigneDetailJoueurPageWidgetState
   }
 
   bool _hasWhitespace(String s) => RegExp(r'\s').hasMatch(s);
+
+  int _readFavoriteCounter(Map<String, dynamic> data) {
+    final dynamic raw = data['favoritesCount'] ??
+        data['favorites'] ??
+        data['favorisCount'] ??
+        data['favoris'] ??
+        data['stats_favorites'] ??
+        data['stats_favoris'];
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    if (raw is List) return raw.length;
+    if (raw is String) return int.tryParse(raw) ?? 0;
+    return 0;
+  }
+
+  Future<void> _addMerchantToFavorites(DocumentReference enseigneRef) async {
+    if (currentUserReference == null) return;
+    final favoriteRef =
+        FavoriteEnseignesRecord.createDoc(currentUserReference!, id: enseigneRef.id);
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final favoriteSnap = await transaction.get(favoriteRef);
+      if (favoriteSnap.exists) {
+        return;
+      }
+
+      final enseigneSnap = await transaction.get(enseigneRef);
+      final currentCount =
+          _readFavoriteCounter(enseigneSnap.data() as Map<String, dynamic>? ?? {});
+      final nextCount = currentCount + 1;
+
+      transaction.set(favoriteRef, {
+        ...createFavoriteEnseignesRecordData(
+          enseigneId: enseigneRef,
+        ),
+        ...mapToFirestore(
+          {
+            'added_at': FieldValue.serverTimestamp(),
+          },
+        ),
+      });
+
+      transaction.set(
+        enseigneRef,
+        {
+          'favoritesCount': nextCount,
+          'favorites': nextCount,
+          'favorisCount': nextCount,
+          'favoris': nextCount,
+          'stats_favorites': nextCount,
+          'stats_favoris': nextCount,
+        },
+        SetOptions(merge: true),
+      );
+    });
+  }
+
+  Future<void> _removeMerchantFromFavorites(
+    FavoriteEnseignesRecord favoriteRecord,
+  ) async {
+    final enseigneRef = favoriteRecord.enseigneId;
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final favoriteSnap = await transaction.get(favoriteRecord.reference);
+      if (!favoriteSnap.exists) {
+        return;
+      }
+
+      if (enseigneRef != null) {
+        final enseigneSnap = await transaction.get(enseigneRef);
+        final currentCount =
+            _readFavoriteCounter(enseigneSnap.data() as Map<String, dynamic>? ?? {});
+        final nextCount = (currentCount - 1).clamp(0, 1 << 30);
+        transaction.set(
+          enseigneRef,
+          {
+            'favoritesCount': nextCount,
+            'favorites': nextCount,
+            'favorisCount': nextCount,
+            'favoris': nextCount,
+            'stats_favorites': nextCount,
+            'stats_favoris': nextCount,
+          },
+          SetOptions(merge: true),
+        );
+      }
+
+      transaction.delete(favoriteRecord.reference);
+    });
+  }
 
   bool _looksLikeUrl(String s) {
     final lower = s.toLowerCase();
@@ -201,14 +309,14 @@ class _EnseigneDetailJoueurPageWidgetState
           key: scaffoldKey,
           backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
           appBar: PreferredSize(
-            preferredSize: Size.fromHeight(100.0),
+            preferredSize: const Size.fromHeight(100.0),
             child: AppBar(
               backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
               automaticallyImplyLeading: false,
-              actions: [],
+              actions: const [],
               flexibleSpace: FlexibleSpaceBar(
                 title: Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
+                  padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
                   child: Column(
                     mainAxisSize: MainAxisSize.max,
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -216,12 +324,12 @@ class _EnseigneDetailJoueurPageWidgetState
                     children: [
                       Padding(
                         padding:
-                            EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 12.0, 8.0),
+                            const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 12.0, 8.0),
                         child: Row(
                           mainAxisSize: MainAxisSize.max,
                           children: [
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   12.0, 0.0, 0.0, 0.0),
                               child: Container(
                                 width: 44.0,
@@ -233,7 +341,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.08),
                                       blurRadius: 10.0,
-                                      offset: Offset(0, 2),
+                                      offset: const Offset(0, 2),
                                     ),
                                   ],
                                 ),
@@ -265,8 +373,7 @@ class _EnseigneDetailJoueurPageWidgetState
                             ),
                             Builder(
                               builder: (context) {
-                                if (currentUserUid != null &&
-                                    currentUserUid != '') {
+                                if (currentUserUid != '') {
                                   return StreamBuilder<
                                       List<FavoriteEnseignesRecord>>(
                                     stream: queryFavoriteEnseignesRecord(
@@ -275,24 +382,18 @@ class _EnseigneDetailJoueurPageWidgetState
                                           favoriteEnseignesRecord.where(
                                         'enseigne_id',
                                         isEqualTo:
-                                            widget!.enseigneDoc?.reference,
+                                            widget.enseigneDoc?.reference,
                                       ),
                                       singleRecord: true,
                                     ),
                                     builder: (context, snapshot) {
                                       // Customize what your widget looks like when it's loading.
                                       if (!snapshot.hasData) {
-                                        return Center(
+                                        return const Center(
                                           child: SizedBox(
                                             width: 50.0,
                                             height: 50.0,
-                                            child: CircularProgressIndicator(
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                FlutterFlowTheme.of(context)
-                                                    .primary,
-                                              ),
-                                            ),
+                                            child: ProxiplayLoadingLogo(size: 42.0),
                                           ),
                                         );
                                       }
@@ -314,28 +415,20 @@ class _EnseigneDetailJoueurPageWidgetState
                                               borderRadius: 8.0,
                                               buttonSize: 40.0,
                                               icon: Icon(
-                                                Icons.star_border,
+                                                Icons.favorite_border_rounded,
                                                 color:
                                                     FlutterFlowTheme.of(context)
                                                         .error,
                                                 size: 24.0,
                                               ),
                                               onPressed: () async {
-                                                await FavoriteEnseignesRecord
-                                                        .createDoc(
-                                                            currentUserReference!)
-                                                    .set({
-                                                  ...createFavoriteEnseignesRecordData(
-                                                    enseigneId: widget!
-                                                        .enseigneDoc?.reference,
-                                                  ),
-                                                  ...mapToFirestore(
-                                                    {
-                                                      'added_at': FieldValue
-                                                          .serverTimestamp(),
-                                                    },
-                                                  ),
-                                                });
+                                                final enseigneRef =
+                                                    widget.enseigneDoc?.reference;
+                                                if (enseigneRef == null) {
+                                                  return;
+                                                }
+                                                await _addMerchantToFavorites(
+                                                    enseigneRef);
                                                 safeSetState(() => _model
                                                         .firestoreRequestCompleter =
                                                     null);
@@ -348,16 +441,16 @@ class _EnseigneDetailJoueurPageWidgetState
                                               borderRadius: 8.0,
                                               buttonSize: 40.0,
                                               icon: Icon(
-                                                Icons.star,
+                                                Icons.favorite_rounded,
                                                 color:
                                                     FlutterFlowTheme.of(context)
                                                         .error,
                                                 size: 24.0,
                                               ),
                                               onPressed: () async {
-                                                await conditionalBuilderFavoriteEnseignesRecord!
-                                                    .reference
-                                                    .delete();
+                                                await _removeMerchantFromFavorites(
+                                                  conditionalBuilderFavoriteEnseignesRecord,
+                                                );
                                               },
                                             );
                                           }
@@ -367,7 +460,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                   );
                                 } else {
                                   return Container(
-                                    decoration: BoxDecoration(),
+                                    decoration: const BoxDecoration(),
                                   );
                                 }
                               },
@@ -383,7 +476,7 @@ class _EnseigneDetailJoueurPageWidgetState
                   child: Image.asset(
                     'assets/images/Background.png',
                     fit: BoxFit.cover,
-                    alignment: Alignment(1.0, -1.0),
+                    alignment: const Alignment(1.0, -1.0),
                   ),
                 ),
                 centerTitle: true,
@@ -395,7 +488,7 @@ class _EnseigneDetailJoueurPageWidgetState
           body: SafeArea(
             top: true,
             child: Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 // gradient: LinearGradient(
                 //   begin: Alignment.topCenter,
                 //   end: Alignment.bottomCenter,
@@ -412,14 +505,14 @@ class _EnseigneDetailJoueurPageWidgetState
                   Expanded(
                     child: Padding(
                       padding:
-                          EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
+                          const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
                       child: SingleChildScrollView(
                         primary: false,
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
-                            Container(
+                            SizedBox(
                               width: double.infinity,
                               // decoration: BoxDecoration(
                               //   color: Colors.white,
@@ -433,33 +526,59 @@ class _EnseigneDetailJoueurPageWidgetState
                               //   ],
                               // ),
                               child: Padding(
-                                padding: EdgeInsets.all(16.0),
+                                padding: const EdgeInsets.all(16.0),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      widget!.enseigneDoc!.name,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 32.0,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF23255E),
-                                        letterSpacing: -0.3,
-                                      ),
+                                      widget.enseigneDoc!.name,
+                                      style: FlutterFlowTheme.of(context)
+                                          .headlineSmall
+                                          .override(
+                                            font: GoogleFonts.interTight(
+                                              fontWeight: FontWeight.w700,
+                                              fontStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .headlineSmall
+                                                      .fontStyle,
+                                            ),
+                                            color: const Color(0xFF23255E),
+                                            letterSpacing: 0.0,
+                                            fontWeight: FontWeight.w700,
+                                            fontStyle:
+                                                FlutterFlowTheme.of(context)
+                                                    .headlineSmall
+                                                    .fontStyle,
+                                          ),
                                     ),
                                     if (!functions.checkValueIsEmpty(
-                                        widget!.enseigneDoc!.city))
+                                        widget.enseigneDoc!.city))
                                       Padding(
                                         padding:
-                                            EdgeInsetsDirectional.fromSTEB(
+                                            const EdgeInsetsDirectional.fromSTEB(
                                                 0.0, 6.0, 0.0, 0.0),
                                         child: Text(
-                                          widget!.enseigneDoc!.city,
-                                          style: GoogleFonts.inter(
-                                            fontSize: 16.0,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF6B70A7),
-                                          ),
+                                          widget.enseigneDoc!.city,
+                                          style: FlutterFlowTheme.of(context)
+                                              .labelLarge
+                                              .override(
+                                                font: GoogleFonts.inter(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontStyle:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .labelLarge
+                                                          .fontStyle,
+                                                ),
+                                                color: const Color(0xFF6B70A7),
+                                                letterSpacing: 0.0,
+                                                fontWeight: FontWeight.w600,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .labelLarge
+                                                        .fontStyle,
+                                              ),
                                         ),
                                       ),
                                   ],
@@ -475,36 +594,29 @@ class _EnseigneDetailJoueurPageWidgetState
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.06),
                                     blurRadius: 14.0,
-                                    offset: Offset(0, 4),
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
                               child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     16.0, 16.0, 16.0, 16.0),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.max,
                                   children: [
                                     FutureBuilder<List<ImagesRecord>>(
                                       future: queryImagesRecordOnce(
-                                        parent: widget!.enseigneDoc?.reference,
+                                        parent: widget.enseigneDoc?.reference,
                                         limit: 5,
                                       ),
                                       builder: (context, snapshot) {
                                         // Customize what your widget looks like when it's loading.
                                         if (!snapshot.hasData) {
-                                          return Center(
+                                          return const Center(
                                             child: SizedBox(
                                               width: 50.0,
                                               height: 50.0,
-                                              child: CircularProgressIndicator(
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                        Color>(
-                                                  FlutterFlowTheme.of(context)
-                                                      .primary,
-                                                ),
-                                              ),
+                                              child: ProxiplayLoadingLogo(size: 42.0),
                                             ),
                                           );
                                         }
@@ -512,7 +624,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                             snapshot.data!;
 
                                         final descriptionText =
-                                            widget!.enseigneDoc!.description;
+                                            widget.enseigneDoc!.description;
                                         final hasDescription =
                                             !functions.checkValueIsEmpty(
                                                 descriptionText);
@@ -540,7 +652,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                                       color: Colors.black
                                                           .withOpacity(0.10),
                                                       blurRadius: 16.0,
-                                                      offset: Offset(0, 4),
+                                                      offset: const Offset(0, 4),
                                                     ),
                                                   ],
                                                 ),
@@ -562,8 +674,11 @@ class _EnseigneDetailJoueurPageWidgetState
                                                                 .fade,
                                                         child:
                                                             FlutterFlowExpandedImageView(
-                                                          image: Image.network(
-                                                            rowImagesRecord.url,
+                                                          image:
+                                                              ProxiplayNetworkImage(
+                                                            imageUrl:
+                                                                rowImagesRecord
+                                                                    .url,
                                                             fit: BoxFit.contain,
                                                           ),
                                                           allowRotation: false,
@@ -583,8 +698,10 @@ class _EnseigneDetailJoueurPageWidgetState
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                               20.0),
-                                                      child: Image.network(
-                                                        rowImagesRecord.url,
+                                                      child:
+                                                          ProxiplayNetworkImage(
+                                                        imageUrl:
+                                                            rowImagesRecord.url,
                                                         width: double.infinity,
                                                         height: 200.0,
                                                         fit: BoxFit.cover,
@@ -593,7 +710,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                                   ),
                                                 ),
                                               ),
-                                              SizedBox(height: 16.0),
+                                              const SizedBox(height: 16.0),
                                               Text(
                                                 descriptionText,
                                                 style: GoogleFonts.inter(
@@ -601,7 +718,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                                   height: 1.6,
                                                   fontWeight:
                                                       FontWeight.w400,
-                                                  color: Color(0xFF2D3250),
+                                                  color: const Color(0xFF2D3250),
                                                   letterSpacing: 0.2,
                                                 ),
                                               ),
@@ -654,7 +771,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                                                         0.10),
                                                                 blurRadius: 16.0,
                                                                 offset:
-                                                                    Offset(0, 4),
+                                                                    const Offset(0, 4),
                                                               ),
                                                             ],
                                                           ),
@@ -708,10 +825,12 @@ class _EnseigneDetailJoueurPageWidgetState
                                                                         .circular(
                                                                             20.0),
                                                                 child:
-                                                                    Image.network(
-                                                                  rowImagesRecord
-                                                                      .url,
-                                                                  width: imageWidth,
+                                                                    ProxiplayNetworkImage(
+                                                                  imageUrl:
+                                                                      rowImagesRecord
+                                                                          .url,
+                                                                  width:
+                                                                      imageWidth,
                                                                   height: 200.0,
                                                                   fit: BoxFit
                                                                       .cover,
@@ -720,13 +839,13 @@ class _EnseigneDetailJoueurPageWidgetState
                                                             ),
                                                           ),
                                                         );
-                                                      }).divide(SizedBox(
+                                                      }).divide(const SizedBox(
                                                               width: 10.0)),
                                                     ),
                                                   ),
                                                   if (rowImagesRecordList.length > 1)
                                                     Padding(
-                                                      padding: EdgeInsetsDirectional.fromSTEB(0.0, 12.0, 0.0, 0.0),
+                                                      padding: const EdgeInsetsDirectional.fromSTEB(0.0, 12.0, 0.0, 0.0),
                                                       child: Row(
                                                         mainAxisAlignment: MainAxisAlignment.center,
                                                         children: List.generate(
@@ -737,11 +856,11 @@ class _EnseigneDetailJoueurPageWidgetState
                                                             return Container(
                                                               width: isActive ? 8.0 : 6.0,
                                                               height: isActive ? 8.0 : 6.0,
-                                                              margin: EdgeInsets.symmetric(horizontal: 4.0),
+                                                              margin: const EdgeInsets.symmetric(horizontal: 4.0),
                                                               decoration: BoxDecoration(
                                                                 color: isActive 
-                                                                    ? Color(0xFF6B70A7)
-                                                                    : Color(0xFF6B70A7).withOpacity(0.3),
+                                                                    ? const Color(0xFF6B70A7)
+                                                                    : const Color(0xFF6B70A7).withOpacity(0.3),
                                                                 shape: BoxShape.circle,
                                                               ),
                                                             );
@@ -760,7 +879,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                                     fontSize: 16.0,
                                                     height: 1.6,
                                                     fontWeight: FontWeight.w400,
-                                                    color: Color(0xFF2D3250),
+                                                    color: const Color(0xFF2D3250),
                                                     letterSpacing: 0.2,
                                                   ),
                                                 ),
@@ -773,7 +892,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                 ),
                               ),
                             ),
-                            Container(
+                            SizedBox(
                               width: double.infinity,
                               // decoration: BoxDecoration(
                               //   color: Colors.white,
@@ -787,20 +906,20 @@ class _EnseigneDetailJoueurPageWidgetState
                               //   ],
                               // ),
                               child: Padding(
-                                padding: EdgeInsets.all(5.0),
+                                padding: const EdgeInsets.all(5.0),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.max,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Container(
                                       width: double.infinity,
-                                      padding: EdgeInsets.all(14.0),
+                                      padding: const EdgeInsets.all(14.0),
                                       decoration: BoxDecoration(
                                         color: Colors.white,
                                         borderRadius:
                                             BorderRadius.circular(14.0),
                                         border: Border.all(
-                                          color: Color(0xFFE3E8F7),
+                                          color: const Color(0xFFE3E8F7),
                                           width: 1.0,
                                         ),
                                       ),
@@ -824,7 +943,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                               size: 20.0,
                                             ),
                                           ),
-                                          SizedBox(width: 12.0),
+                                          const SizedBox(width: 12.0),
 
                                           Expanded(
   child: InkWell(
@@ -845,13 +964,13 @@ class _EnseigneDetailJoueurPageWidgetState
       await launchURL(mapUrl);
     },
     child: Text(
-      '${widget!.enseigneDoc?.city} · ${widget!.enseigneDoc?.address}',
+      '${widget.enseigneDoc?.city} \u00B7 ${widget.enseigneDoc?.address}',
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: GoogleFonts.inter(
         fontSize: 15.0,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF3B3F74),
+        color: const Color(0xFF3B3F74),
       ),
     ),
   ),
@@ -859,7 +978,7 @@ class _EnseigneDetailJoueurPageWidgetState
 
                                           // Expanded(
                                           //   child: Text(
-                                          //     '${widget!.enseigneDoc?.city} · ${widget!.enseigneDoc?.address}',
+                                          //     '${widget!.enseigneDoc?.city} \u00B7 ${widget!.enseigneDoc?.address}',
                                           //     maxLines: 2,
                                           //     overflow: TextOverflow.ellipsis,
                                           //     style: GoogleFonts.inter(
@@ -879,17 +998,17 @@ class _EnseigneDetailJoueurPageWidgetState
                                       highlightColor: Colors.transparent,
                                       onTap: () async {
                                         await launchURL(
-                                            'tel:${widget!.enseigneDoc!.phoneNumber}');
+                                            'tel:${widget.enseigneDoc!.phoneNumber}');
                                       },
                                       child: Container(
                                         width: double.infinity,
-                                        padding: EdgeInsets.all(14.0),
+                                        padding: const EdgeInsets.all(14.0),
                                         decoration: BoxDecoration(
                                           color: Colors.white,
                                           borderRadius:
                                               BorderRadius.circular(14.0),
                                           border: Border.all(
-                                            color: Color(0xFFE3E8F7),
+                                            color: const Color(0xFFE3E8F7),
                                             width: 1.0,
                                           ),
                                         ),
@@ -915,14 +1034,14 @@ class _EnseigneDetailJoueurPageWidgetState
                                                 size: 20.0,
                                               ),
                                             ),
-                                            SizedBox(width: 12.0),
+                                            const SizedBox(width: 12.0),
                                             Expanded(
                                               child: Text(
-                                                widget!.enseigneDoc!.phoneNumber,
+                                                widget.enseigneDoc!.phoneNumber,
                                                 style: GoogleFonts.inter(
                                                   fontSize: 15.0,
                                                   fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF3B3F74),
+                                                  color: const Color(0xFF3B3F74),
                                                 ),
                                               ),
                                             ),
@@ -938,19 +1057,19 @@ class _EnseigneDetailJoueurPageWidgetState
                                       ),
                                     ),
                                   ]
-                                      .divide(SizedBox(height: 12.0))
-                                      .around(SizedBox(height: 6.0)),
+                                      .divide(const SizedBox(height: 12.0))
+                                      .around(const SizedBox(height: 6.0)),
                                 ),
                               ),
                             ),
                             if (!functions.checkValueIsEmpty(
-                                    widget!.enseigneDoc!.facebookLink) ||
+                                    widget.enseigneDoc!.facebookLink) ||
                                 !functions.checkValueIsEmpty(
-                                    widget!.enseigneDoc!.twitterLink) ||
+                                    widget.enseigneDoc!.twitterLink) ||
                                 !functions.checkValueIsEmpty(
-                                    widget!.enseigneDoc!.siteWebUrl) ||
+                                    widget.enseigneDoc!.siteWebUrl) ||
                                 !functions.checkValueIsEmpty(
-                                    widget!.enseigneDoc!.instagramLink))
+                                    widget.enseigneDoc!.instagramLink))
                               Container(
                                 width: double.infinity,
                                 decoration: BoxDecoration(
@@ -960,12 +1079,12 @@ class _EnseigneDetailJoueurPageWidgetState
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.06),
                                       blurRadius: 14.0,
-                                      offset: Offset(0, 4),
+                                      offset: const Offset(0, 4),
                                     ),
                                   ],
                                 ),
                                 child: Padding(
-                                  padding: EdgeInsets.all(16.0),
+                                  padding: const EdgeInsets.all(16.0),
                                   child: 
                                   
                                      Column(
@@ -974,15 +1093,15 @@ class _EnseigneDetailJoueurPageWidgetState
                                       children: [
                                         
                                     
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    mainAxisSize: MainAxisSize.max,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
+                                  Wrap(
+                                    spacing: 8.0,
+                                    runSpacing: 8.0,
+                                    alignment: WrapAlignment.center,
+                                    runAlignment: WrapAlignment.center,
                                     children: [
                                       
                                       if (!functions.checkValueIsEmpty(
-                                          widget!.enseigneDoc!.siteWebUrl))
+                                          widget.enseigneDoc!.siteWebUrl))
                                         InkWell(
                                           splashColor: Colors.transparent,
                                           focusColor: Colors.transparent,
@@ -995,31 +1114,24 @@ class _EnseigneDetailJoueurPageWidgetState
                                             await launchURL(link);
                                           },
                                           child: Container(
-                                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                                            decoration: BoxDecoration(
-                                                              color: Color(0xFF1DA1F2).withOpacity(0.1),
-                                                              borderRadius: BorderRadius.circular(12.0),
-                                                            ),
-                                                            child: Row(
-                                                              mainAxisSize: MainAxisSize.min,
-                                                              children: [
-                                                                FaIcon(
-                                                                  FontAwesomeIcons.globe,
-                                                                  color: Color(0xFF1DA1F2),
-                                                                  size: 18.0,
-                                                                ),
-                                                                SizedBox(width: 6.0),
-                                                                Text(
-                                                                  'WEBSITE',
-                                                                  style: GoogleFonts.inter(
-                                                                    fontSize: 13.0,
-                                                                    fontWeight: FontWeight.w600,
-                                                                    color: Color(0xFF1DA1F2),
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
+                                            width: 48.0,
+                                            height: 48.0,
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(24.0),
+                                              border: Border.all(
+                                                color: Colors.black87,
+                                                width: 1.4,
+                                              ),
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: const Icon(
+                                              Icons.language_rounded,
+                                              color: Colors.black87,
+                                              size: 24.0,
+                                            ),
+                                          ),
                                           // child: Container(
                                           //   width: double.infinity,
                                           //   padding: EdgeInsets.all(14.0),
@@ -1082,7 +1194,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                           // ),
                                         ),
                                       if (!functions.checkValueIsEmpty(
-                                          widget!.enseigneDoc!.facebookLink ))
+                                          widget.enseigneDoc!.facebookLink ))
                                      InkWell(
                                                           splashColor: Colors.transparent,
                                                           focusColor: Colors.transparent,
@@ -1099,35 +1211,31 @@ class _EnseigneDetailJoueurPageWidgetState
                                                             await launchURL(link);
                                                           },
                                                           child: Container(
-                                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                                            decoration: BoxDecoration(
-                                                              color: Color(0xFF1877F2).withOpacity(0.1),
-                                                              borderRadius: BorderRadius.circular(12.0),
+                                                            width: 48.0,
+                                                            height: 48.0,
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color: const Color(
+                                                                  0xFF4267B2),
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          24.0),
                                                             ),
-                                                              child: Row(
-                                                              mainAxisSize: MainAxisSize.min,
-                                                                children: [
-                                                                  Icon(
-                                                                  Icons.facebook,
-                                                                  color: Color(0xFF1877F2),
-                                                                  size: 18.0,
-                                                                ),
-                                                                SizedBox(width: 6.0),
-                                                                Text(
-                                                                  'Facebook',
-                                                                  style: GoogleFonts.inter(
-                                                                    fontSize: 13.0,
-                                                                    fontWeight: FontWeight.w600,
-                                                                    color: Color(0xFF1877F2),
-                                                                  ),
-                                                                ),
-                                                              ],
+                                                            alignment:
+                                                                Alignment.center,
+                                                            child: const FaIcon(
+                                                              FontAwesomeIcons
+                                                                  .facebookF,
+                                                              color:
+                                                                  Colors.white,
+                                                              size: 24.0,
                                                             ),
-                                                              ),
+                                                          ),
                                                             ),
                                                             // instagram link
                                       if (!functions.checkValueIsEmpty(
-                                          widget!.enseigneDoc!.instagramLink))
+                                          widget.enseigneDoc!.instagramLink))
                                        InkWell(
                                                           splashColor: Colors.transparent,
                                                           focusColor: Colors.transparent,
@@ -1147,48 +1255,60 @@ class _EnseigneDetailJoueurPageWidgetState
                                                                       //     .instagramLink);
                                                                     },
                                                           child: Container(
-                                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                                            decoration: BoxDecoration(
-                                                              color: Color(0xFFE4405F).withOpacity(0.1),
-                                                              borderRadius: BorderRadius.circular(12.0),
-                                                            ),
-                                                            child: Row(
-                                                              mainAxisSize: MainAxisSize.min,
-                                                              children: [
-                                                                FaIcon(
-                                                                  FontAwesomeIcons.instagram,
-                                                                  color: Color(0xFFE4405F),
-                                                                  size: 18.0,
-                                                                ),
-                                                                SizedBox(width: 6.0),
-                                                                Text(
-                                                                  'Instagram',
-                                                                  style: GoogleFonts.inter(
-                                                                    fontSize: 13.0,
-                                                                    fontWeight: FontWeight.w600,
-                                                                    color: Color(0xFFE4405F),
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
+                                                            width: 48.0,
+                                                            height: 48.0,
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          12.0),
+                                                              gradient:
+                                                                  const LinearGradient(
+                                                                begin: Alignment(
+                                                                    -1.0, -1.0),
+                                                                end: Alignment(
+                                                                    1.0, 1.0),
+                                                                colors: [
+                                                                  Color(
+                                                                      0xFFFEDA75),
+                                                                  Color(
+                                                                      0xFFFA7E1E),
+                                                                  Color(
+                                                                      0xFFD62976),
+                                                                  Color(
+                                                                      0xFF962FBF),
+                                                                  Color(
+                                                                      0xFF4F5BD5),
+                                                                ],
                                                               ),
+                                                            ),
+                                                            alignment:
+                                                                Alignment.center,
+                                                            child: const FaIcon(
+                                                              FontAwesomeIcons
+                                                                  .instagram,
+                                                              color:
+                                                                  Colors.white,
+                                                              size: 24.0,
+                                                            ),
+                                                          ),
                                                             ),
                                   
 
 
                                         
-                                    ]
-                                        .divide(SizedBox(height: 12.0))
-                                        .around(SizedBox(height: 12.0)),
+                                    ],
                                   ),
 
-SizedBox(height: 1.0),
+const SizedBox(height: 1.0),
 
                                   // Social Media Links
-                                  Row(
-                                    mainAxisSize: MainAxisSize.max,
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                  Wrap(
+                                    spacing: 8.0,
+                                    runSpacing: 8.0,
+                                    alignment: WrapAlignment.center,
+                                    runAlignment: WrapAlignment.center,
                                     children: [
 
                                   
@@ -1196,7 +1316,7 @@ SizedBox(height: 1.0),
 
                                       // Twitter
                                           if (!functions.checkValueIsEmpty(
-                                          widget!.enseigneDoc!.twitterLink))
+                                          widget.enseigneDoc!.twitterLink))
                                           InkWell(
                                                           splashColor: Colors.transparent,
                                                           focusColor: Colors.transparent,
@@ -1213,26 +1333,26 @@ SizedBox(height: 1.0),
                                                             await launchURL(link);
                                                                     },
                                                           child: Container(
-                                                            padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
                                                             decoration: BoxDecoration(
-                                                              color: Color(0xFF1DA1F2).withOpacity(0.1),
+                                                              color: const Color(0xFF1DA1F2).withOpacity(0.1),
                                                               borderRadius: BorderRadius.circular(12.0),
                                                             ),
                                                             child: Row(
                                                               mainAxisSize: MainAxisSize.min,
                                                               children: [
-                                                                FaIcon(
+                                                                const FaIcon(
                                                                   FontAwesomeIcons.twitter,
                                                                   color: Color(0xFF1DA1F2),
                                                                   size: 18.0,
                                                                 ),
-                                                                SizedBox(width: 6.0),
+                                                                const SizedBox(width: 6.0),
                                                                 Text(
                                                                   'Twitter',
                                                                   style: GoogleFonts.inter(
                                                                     fontSize: 13.0,
                                                                     fontWeight: FontWeight.w600,
-                                                                    color: Color(0xFF1DA1F2),
+                                                                    color: const Color(0xFF1DA1F2),
                                                                   ),
                                                                 ),
                                                               ],
@@ -1256,12 +1376,12 @@ SizedBox(height: 1.0),
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.06),
                                     blurRadius: 14.0,
-                                    offset: Offset(0, 4),
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
                               child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     16.0, 16.0, 16.0, 16.0),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.max,
@@ -1299,7 +1419,7 @@ SizedBox(height: 1.0),
                                               Completer<List<HorairesRecord>>()
                                                 ..complete(
                                                     queryHorairesRecordOnce(
-                                                  parent: widget!
+                                                  parent: widget
                                                       .enseigneDoc?.reference,
                                                   queryBuilder:
                                                       (horairesRecord) =>
@@ -1310,18 +1430,11 @@ SizedBox(height: 1.0),
                                       builder: (context, snapshot) {
                                         // Customize what your widget looks like when it's loading.
                                         if (!snapshot.hasData) {
-                                          return Center(
+                                          return const Center(
                                             child: SizedBox(
                                               width: 50.0,
                                               height: 50.0,
-                                              child: CircularProgressIndicator(
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                        Color>(
-                                                  FlutterFlowTheme.of(context)
-                                                      .primary,
-                                                ),
-                                              ),
+                                              child: ProxiplayLoadingLogo(size: 42.0),
                                             ),
                                           );
                                         }
@@ -1338,7 +1451,7 @@ SizedBox(height: 1.0),
                                                 columnHorairesRecordList[
                                                     columnIndex];
                                             return Padding(
-                                              padding: EdgeInsetsDirectional
+                                              padding: const EdgeInsetsDirectional
                                                   .fromSTEB(8.0, 0.0, 8.0, 0.0),
                                               child: Container(
                                                 width: double.infinity,
@@ -1348,7 +1461,7 @@ SizedBox(height: 1.0),
                                                       .secondaryBackground,
                                                 ),
                                                 child: Padding(
-                                                  padding: EdgeInsetsDirectional
+                                                  padding: const EdgeInsetsDirectional
                                                       .fromSTEB(
                                                           8.0, 6.0, 8.0, 0.0),
                                                   child: Row(
@@ -1504,7 +1617,7 @@ SizedBox(height: 1.0),
                                                             );
                                                           } else {
                                                             return Text(
-                                                              'Fermé',
+                                                              'Ferm\u00E9',
                                                               style: FlutterFlowTheme
                                                                       .of(context)
                                                                   .bodyMedium
@@ -1544,14 +1657,14 @@ SizedBox(height: 1.0),
                                         );
                                       },
                                     ),
-                                  ].divide(SizedBox(height: 16.0)),
+                                  ].divide(const SizedBox(height: 16.0)),
                                 ),
                               ),
                             ),
                             Align(
-                              alignment: AlignmentDirectional(-1.0, 0.0),
+                              alignment: const AlignmentDirectional(-1.0, 0.0),
                               child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     0.0, 20.0, 0.0, 0.0),
                                 child: Text(
                                   'JEUX EN COURS',
@@ -1582,15 +1695,18 @@ SizedBox(height: 1.0),
                             ),
                             Container(
                               height: 500.0,
-                              decoration: BoxDecoration(),
+                              decoration: const BoxDecoration(),
                               child: Builder(
                                 builder: (context) {
-                                  if (currentUserUid != null &&
-                                      currentUserUid != '') {
+                                  if (currentUserUid != '') {
                                     return Builder(
                                       builder: (context) {
-                                        if (functions.isAdult(
-                                            currentUserDocument!.birthday!)) {
+                                          if (isGuestOrAnonymous ||
+                                              ((currentUserDocument?.birthday !=
+                                                      null) &&
+                                                  functions.isAdult(
+                                                    currentUserDocument!
+                                                        .birthday!))) {
                                           return FutureBuilder<
                                               List<GamesRecord>>(
                                             future: queryGamesRecordOnce(
@@ -1598,7 +1714,7 @@ SizedBox(height: 1.0),
                                                   gamesRecord
                                                       .where(
                                                         'enseigne_id',
-                                                        isEqualTo: widget!
+                                                        isEqualTo: widget
                                                             .enseigneDoc
                                                             ?.reference,
                                                       )
@@ -1612,29 +1728,22 @@ SizedBox(height: 1.0),
                                             builder: (context, snapshot) {
                                               // Customize what your widget looks like when it's loading.
                                               if (!snapshot.hasData) {
-                                                return Center(
+                                                return const Center(
                                                   child: SizedBox(
                                                     width: 50.0,
                                                     height: 50.0,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                      valueColor:
-                                                          AlwaysStoppedAnimation<
-                                                              Color>(
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .primary,
-                                                      ),
-                                                    ),
+                                                    child: ProxiplayLoadingLogo(size: 42.0),
                                                   ),
                                                 );
                                               }
                                               List<GamesRecord>
                                                   listViewGamesRecordList =
-                                                  snapshot.data!;
+                                                  snapshot.data!
+                                                      .where(_isGameVisibleForPlayer)
+                                                      .toList();
                                               if (listViewGamesRecordList
                                                   .isEmpty) {
-                                                return ListEmptyComponentWidget(
+                                                return const ListEmptyComponentWidget(
                                                   title: 'Liste vide',
                                                   description:
                                                       'Aucun jeux en cours',
@@ -1649,7 +1758,7 @@ SizedBox(height: 1.0),
                                                     listViewGamesRecordList
                                                         .length,
                                                 separatorBuilder: (_, __) =>
-                                                    SizedBox(height: 10.0),
+                                                    const SizedBox(height: 10.0),
                                                 itemBuilder:
                                                     (context, listViewIndex) {
                                                   final listViewGamesRecord =
@@ -1684,20 +1793,11 @@ SizedBox(height: 1.0),
                                                           // Customize what your widget looks like when it's loading.
                                                           if (!snapshot
                                                               .hasData) {
-                                                            return Center(
+                                                            return const Center(
                                                               child: SizedBox(
                                                                 width: 50.0,
                                                                 height: 50.0,
-                                                                child:
-                                                                    CircularProgressIndicator(
-                                                                  valueColor:
-                                                                      AlwaysStoppedAnimation<
-                                                                          Color>(
-                                                                    FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                  ),
-                                                                ),
+                                                                child: ProxiplayLoadingLogo(size: 42.0),
                                                               ),
                                                             );
                                                           }
@@ -1741,7 +1841,7 @@ SizedBox(height: 1.0),
                                                                   ),
                                                                   'enseigneDoc':
                                                                       serializeParam(
-                                                                    widget!
+                                                                    widget
                                                                         .enseigneDoc,
                                                                     ParamType
                                                                         .Document,
@@ -1752,10 +1852,10 @@ SizedBox(height: 1.0),
                                                                   'gameDoc':
                                                                       listViewGamesRecord,
                                                                   'enseigneDoc':
-                                                                      widget!
+                                                                      widget
                                                                           .enseigneDoc,
                                                                   kTransitionInfoKey:
-                                                                      TransitionInfo(
+                                                                      const TransitionInfo(
                                                                     hasTransition:
                                                                         true,
                                                                     transitionType:
@@ -1780,7 +1880,7 @@ SizedBox(height: 1.0),
                                                                     height:
                                                                         150.0,
                                                                     decoration:
-                                                                        BoxDecoration(),
+                                                                        const BoxDecoration(),
                                                                     child:
                                                                         ClipRRect(
                                                                       borderRadius:
@@ -1800,7 +1900,7 @@ SizedBox(height: 1.0),
                                                                   flex: 2,
                                                                   child:
                                                                       Padding(
-                                                                    padding: EdgeInsetsDirectional
+                                                                    padding: const EdgeInsetsDirectional
                                                                         .fromSTEB(
                                                                             10.0,
                                                                             0.0,
@@ -1914,7 +2014,7 @@ SizedBox(height: 1.0),
                                                                                       ),
                                                                                 ),
                                                                                 Text(
-                                                                                  listViewGamesRecord.prizeValue.toString(),
+                                                                                  _formatPrizeLabel(listViewGamesRecord),
                                                                                   style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                         font: GoogleFonts.inter(
                                                                                           fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -1965,9 +2065,9 @@ SizedBox(height: 1.0),
                                                                                 ),
                                                                               ],
                                                                             ),
-                                                                          ].divide(SizedBox(height: 5.0)),
+                                                                          ].divide(const SizedBox(height: 5.0)),
                                                                         ),
-                                                                      ].divide(SizedBox(
+                                                                      ].divide(const SizedBox(
                                                                               height: 5.0)),
                                                                     ),
                                                                   ),
@@ -1991,7 +2091,7 @@ SizedBox(height: 1.0),
                                                   gamesRecord
                                                       .where(
                                                         'enseigne_id',
-                                                        isEqualTo: widget!
+                                                        isEqualTo: widget
                                                             .enseigneDoc
                                                             ?.reference,
                                                       )
@@ -2009,29 +2109,22 @@ SizedBox(height: 1.0),
                                             builder: (context, snapshot) {
                                               // Customize what your widget looks like when it's loading.
                                               if (!snapshot.hasData) {
-                                                return Center(
+                                                return const Center(
                                                   child: SizedBox(
                                                     width: 50.0,
                                                     height: 50.0,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                      valueColor:
-                                                          AlwaysStoppedAnimation<
-                                                              Color>(
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .primary,
-                                                      ),
-                                                    ),
+                                                    child: ProxiplayLoadingLogo(size: 42.0),
                                                   ),
                                                 );
                                               }
                                               List<GamesRecord>
                                                   listViewGamesRecordList =
-                                                  snapshot.data!;
+                                                  snapshot.data!
+                                                      .where(_isGameVisibleForPlayer)
+                                                      .toList();
                                               if (listViewGamesRecordList
                                                   .isEmpty) {
-                                                return ListEmptyComponentWidget(
+                                                return const ListEmptyComponentWidget(
                                                   title: 'Liste vide',
                                                   description:
                                                       'Pas de jeu en cours',
@@ -2046,7 +2139,7 @@ SizedBox(height: 1.0),
                                                     listViewGamesRecordList
                                                         .length,
                                                 separatorBuilder: (_, __) =>
-                                                    SizedBox(height: 10.0),
+                                                    const SizedBox(height: 10.0),
                                                 itemBuilder:
                                                     (context, listViewIndex) {
                                                   final listViewGamesRecord =
@@ -2071,20 +2164,11 @@ SizedBox(height: 1.0),
                                                           (context, snapshot) {
                                                         // Customize what your widget looks like when it's loading.
                                                         if (!snapshot.hasData) {
-                                                          return Center(
+                                                          return const Center(
                                                             child: SizedBox(
                                                               width: 50.0,
                                                               height: 50.0,
-                                                              child:
-                                                                  CircularProgressIndicator(
-                                                                valueColor:
-                                                                    AlwaysStoppedAnimation<
-                                                                        Color>(
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primary,
-                                                                ),
-                                                              ),
+                                                              child: ProxiplayLoadingLogo(size: 42.0),
                                                             ),
                                                           );
                                                         }
@@ -2126,7 +2210,7 @@ SizedBox(height: 1.0),
                                                                 ),
                                                                 'enseigneDoc':
                                                                     serializeParam(
-                                                                  widget!
+                                                                  widget
                                                                       .enseigneDoc,
                                                                   ParamType
                                                                       .Document,
@@ -2137,10 +2221,10 @@ SizedBox(height: 1.0),
                                                                 'gameDoc':
                                                                     listViewGamesRecord,
                                                                 'enseigneDoc':
-                                                                    widget!
+                                                                    widget
                                                                         .enseigneDoc,
                                                                 kTransitionInfoKey:
-                                                                    TransitionInfo(
+                                                                    const TransitionInfo(
                                                                   hasTransition:
                                                                       true,
                                                                   transitionType:
@@ -2164,7 +2248,7 @@ SizedBox(height: 1.0),
                                                                     Container(
                                                                   height: 130.0,
                                                                   decoration:
-                                                                      BoxDecoration(),
+                                                                      const BoxDecoration(),
                                                                   child:
                                                                       ClipRRect(
                                                                     borderRadius:
@@ -2183,7 +2267,7 @@ SizedBox(height: 1.0),
                                                               Expanded(
                                                                 flex: 2,
                                                                 child: Padding(
-                                                                  padding: EdgeInsetsDirectional
+                                                                  padding: const EdgeInsetsDirectional
                                                                       .fromSTEB(
                                                                           10.0,
                                                                           0.0,
@@ -2290,7 +2374,7 @@ SizedBox(height: 1.0),
                                                                                     ),
                                                                               ),
                                                                               Text(
-                                                                                listViewGamesRecord.prizeValue.toString(),
+                                                                                _formatPrizeLabel(listViewGamesRecord),
                                                                                 style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                       font: GoogleFonts.inter(
                                                                                         fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -2342,9 +2426,9 @@ SizedBox(height: 1.0),
                                                                               ),
                                                                             ],
                                                                           ),
-                                                                        ].divide(SizedBox(height: 5.0)),
+                                                                        ].divide(const SizedBox(height: 5.0)),
                                                                       ),
-                                                                    ].divide(SizedBox(
+                                                                    ].divide(const SizedBox(
                                                                         height:
                                                                             5.0)),
                                                                   ),
@@ -2370,7 +2454,7 @@ SizedBox(height: 1.0),
                                             gamesRecord
                                                 .where(
                                                   'enseigne_id',
-                                                  isEqualTo: widget!
+                                                  isEqualTo: widget
                                                       .enseigneDoc?.reference,
                                                 )
                                                 .where(
@@ -2383,26 +2467,21 @@ SizedBox(height: 1.0),
                                       builder: (context, snapshot) {
                                         // Customize what your widget looks like when it's loading.
                                         if (!snapshot.hasData) {
-                                          return Center(
+                                          return const Center(
                                             child: SizedBox(
                                               width: 50.0,
                                               height: 50.0,
-                                              child: CircularProgressIndicator(
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                        Color>(
-                                                  FlutterFlowTheme.of(context)
-                                                      .primary,
-                                                ),
-                                              ),
+                                              child: ProxiplayLoadingLogo(size: 42.0),
                                             ),
                                           );
                                         }
                                         List<GamesRecord>
                                             listViewGamesRecordList =
-                                            snapshot.data!;
+                                            snapshot.data!
+                                                .where(_isGameVisibleForPlayer)
+                                                .toList();
                                         if (listViewGamesRecordList.isEmpty) {
-                                          return ListEmptyComponentWidget(
+                                          return const ListEmptyComponentWidget(
                                             title: 'Liste vide',
                                             description: 'Aucun jeux en cours',
                                           );
@@ -2415,7 +2494,7 @@ SizedBox(height: 1.0),
                                           itemCount:
                                               listViewGamesRecordList.length,
                                           separatorBuilder: (_, __) =>
-                                              SizedBox(height: 10.0),
+                                              const SizedBox(height: 10.0),
                                           itemBuilder:
                                               (context, listViewIndex) {
                                             final listViewGamesRecord =
@@ -2446,20 +2525,11 @@ SizedBox(height: 1.0),
                                                   builder: (context, snapshot) {
                                                     // Customize what your widget looks like when it's loading.
                                                     if (!snapshot.hasData) {
-                                                      return Center(
+                                                      return const Center(
                                                         child: SizedBox(
                                                           width: 50.0,
                                                           height: 50.0,
-                                                          child:
-                                                              CircularProgressIndicator(
-                                                            valueColor:
-                                                                AlwaysStoppedAnimation<
-                                                                    Color>(
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .primary,
-                                                            ),
-                                                          ),
+                                                          child: ProxiplayLoadingLogo(size: 42.0),
                                                         ),
                                                       );
                                                     }
@@ -2500,7 +2570,7 @@ SizedBox(height: 1.0),
                                                             ),
                                                             'enseigneDoc':
                                                                 serializeParam(
-                                                              widget!
+                                                              widget
                                                                   .enseigneDoc,
                                                               ParamType
                                                                   .Document,
@@ -2511,10 +2581,10 @@ SizedBox(height: 1.0),
                                                             'gameDoc':
                                                                 listViewGamesRecord,
                                                             'enseigneDoc':
-                                                                widget!
+                                                                widget
                                                                     .enseigneDoc,
                                                             kTransitionInfoKey:
-                                                                TransitionInfo(
+                                                                const TransitionInfo(
                                                               hasTransition:
                                                                   true,
                                                               transitionType:
@@ -2536,7 +2606,7 @@ SizedBox(height: 1.0),
                                                             child: Container(
                                                               height: 130.0,
                                                               decoration:
-                                                                  BoxDecoration(),
+                                                                  const BoxDecoration(),
                                                               child: ClipRRect(
                                                                 borderRadius:
                                                                     BorderRadius
@@ -2556,7 +2626,7 @@ SizedBox(height: 1.0),
                                                             flex: 2,
                                                             child: Padding(
                                                               padding:
-                                                                  EdgeInsetsDirectional
+                                                                  const EdgeInsetsDirectional
                                                                       .fromSTEB(
                                                                           10.0,
                                                                           0.0,
@@ -2680,8 +2750,8 @@ SizedBox(height: 1.0),
                                                                                   fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
                                                                                 ),
                                                                           ),
-                                                                          Text(
-                                                                            listViewGamesRecord.prizeValue.toString(),
+                                                                        Text(
+                                                                            _formatPrizeLabel(listViewGamesRecord),
                                                                             style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                   font: GoogleFonts.inter(
                                                                                     fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -2735,11 +2805,11 @@ SizedBox(height: 1.0),
                                                                           ),
                                                                         ],
                                                                       ),
-                                                                    ].divide(SizedBox(
+                                                                    ].divide(const SizedBox(
                                                                         height:
                                                                             5.0)),
                                                                   ),
-                                                                ].divide(SizedBox(
+                                                                ].divide(const SizedBox(
                                                                     height:
                                                                         5.0)),
                                                               ),
@@ -2760,7 +2830,7 @@ SizedBox(height: 1.0),
                                 },
                               ),
                             ),
-                          ].divide(SizedBox(height: 10.0)),
+                          ].divide(const SizedBox(height: 10.0)),
                         ),
                       ),
                     ),
@@ -2768,7 +2838,7 @@ SizedBox(height: 1.0),
                   wrapWithModel(
                     model: _model.customNavBarJoueurModel,
                     updateCallback: () => safeSetState(() {}),
-                    child: CustomNavBarJoueurWidget(),
+                    child: const CustomNavBarJoueurWidget(),
                   ),
                 ],
               ),
@@ -2779,3 +2849,4 @@ SizedBox(height: 1.0),
     );
   }
 }
+

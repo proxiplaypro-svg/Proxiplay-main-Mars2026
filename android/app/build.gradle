@@ -30,6 +30,13 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+def hasReleaseKeystoreConfig =
+        keystorePropertiesFile.exists() &&
+        keystoreProperties['keyAlias'] &&
+        keystoreProperties['keyPassword'] &&
+        keystoreProperties['storeFile'] &&
+        keystoreProperties['storePassword']
+
 android {
     namespace "com.proxiplay.proxiplay"
     compileSdkVersion 35
@@ -60,7 +67,7 @@ android {
 
     lintOptions {
         disable 'InvalidPackage'
-        checkReleaseBuilds false
+        checkReleaseBuilds true
     }
 
     defaultConfig {
@@ -83,10 +90,12 @@ android {
 
     buildTypes {
         release {
-            // Use release keystore if present; fall back to debug for local builds.
-            signingConfig keystorePropertiesFile.exists()
-                    ? signingConfigs.release
-                    : signingConfigs.debug
+            if (!hasReleaseKeystoreConfig) {
+                throw new GradleException(
+                        "Release signing is not configured. Provide android/key.properties with a valid release keystore before building a release."
+                )
+            }
+            signingConfig signingConfigs.release
 
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

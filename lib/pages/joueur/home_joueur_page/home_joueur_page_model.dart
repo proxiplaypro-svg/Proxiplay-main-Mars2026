@@ -1,25 +1,11 @@
-import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/app_bar_joueur_widget.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
-import '/components/list_empty_component_widget.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
-import '/custom_code/actions/index.dart' as actions;
-import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import 'home_joueur_page_widget.dart' show HomeJoueurPageWidget;
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
-import 'package:provider/provider.dart';
-import 'package:text_search/text_search.dart';
 
 class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
   ///  Local state fields for this page.
@@ -124,31 +110,49 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
     textFieldFocusNode?.dispose();
     textController?.dispose();
 
-    listViewStreamSubscriptions2.forEach((s) => s?.cancel());
+    for (var s in listViewStreamSubscriptions2) {
+      s?.cancel();
+    }
     listViewPagingController2?.dispose();
 
-    listViewStreamSubscriptions3.forEach((s) => s?.cancel());
+    for (var s in listViewStreamSubscriptions3) {
+      s?.cancel();
+    }
     listViewPagingController3?.dispose();
 
-    listViewStreamSubscriptions4.forEach((s) => s?.cancel());
+    for (var s in listViewStreamSubscriptions4) {
+      s?.cancel();
+    }
     listViewPagingController4?.dispose();
 
-    listViewStreamSubscriptions5.forEach((s) => s?.cancel());
+    for (var s in listViewStreamSubscriptions5) {
+      s?.cancel();
+    }
     listViewPagingController5?.dispose();
 
-    listViewStreamSubscriptions6.forEach((s) => s?.cancel());
+    for (var s in listViewStreamSubscriptions6) {
+      s?.cancel();
+    }
     listViewPagingController6?.dispose();
 
-    listViewStreamSubscriptions7.forEach((s) => s?.cancel());
+    for (var s in listViewStreamSubscriptions7) {
+      s?.cancel();
+    }
     listViewPagingController7?.dispose();
 
-    listViewStreamSubscriptions8.forEach((s) => s?.cancel());
+    for (var s in listViewStreamSubscriptions8) {
+      s?.cancel();
+    }
     listViewPagingController8?.dispose();
 
-    listViewStreamSubscriptions9.forEach((s) => s?.cancel());
+    for (var s in listViewStreamSubscriptions9) {
+      s?.cancel();
+    }
     listViewPagingController9?.dispose();
 
-    listViewStreamSubscriptions10.forEach((s) => s?.cancel());
+    for (var s in listViewStreamSubscriptions10) {
+      s?.cancel();
+    }
     listViewPagingController10?.dispose();
 
     customNavBarJoueurModel.dispose();

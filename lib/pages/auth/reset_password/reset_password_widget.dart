@@ -1,19 +1,14 @@
-import '/backend/schema/structs/index.dart';
 import '/components/informational_dialog_custom_widget.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:math';
-import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/index.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'reset_password_model.dart';
 export 'reset_password_model.dart';
@@ -62,8 +57,8 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
             curve: Curves.bounceOut,
             delay: 0.0.ms,
             duration: 300.0.ms,
-            begin: Offset(0.6, 1.0),
-            end: Offset(1.0, 1.0),
+            begin: const Offset(0.6, 1.0),
+            end: const Offset(1.0, 1.0),
           ),
         ],
       ),
@@ -82,8 +77,8 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
             curve: Curves.easeInOut,
             delay: 100.0.ms,
             duration: 400.0.ms,
-            begin: Offset(0.0, 30.0),
-            end: Offset(0.0, 0.0),
+            begin: const Offset(0.0, 30.0),
+            end: const Offset(0.0, 0.0),
           ),
         ],
       ),
@@ -101,15 +96,15 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
             curve: Curves.easeInOut,
             delay: 200.0.ms,
             duration: 400.0.ms,
-            begin: Offset(0.0, 60.0),
-            end: Offset(0.0, 0.0),
+            begin: const Offset(0.0, 60.0),
+            end: const Offset(0.0, 0.0),
           ),
           TiltEffect(
             curve: Curves.easeInOut,
             delay: 200.0.ms,
             duration: 400.0.ms,
-            begin: Offset(-0.349, 0),
-            end: Offset(0, 0),
+            begin: const Offset(-0.349, 0),
+            end: const Offset(0, 0),
           ),
         ],
       ),
@@ -148,17 +143,17 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
               Container(
                 width: double.infinity,
                 height: 300.0,
-                decoration: BoxDecoration(),
+                decoration: const BoxDecoration(),
                 child: Container(
                   width: 100.0,
                   height: 100.0,
-                  decoration: BoxDecoration(),
+                  decoration: const BoxDecoration(),
                   child: Column(
                     mainAxisSize: MainAxisSize.max,
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
                             0.0, 80.0, 0.0, 60.0),
                         child: Container(
                           width: 226.0,
@@ -167,7 +162,7 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                             borderRadius: BorderRadius.circular(16.0),
                           ),
                           child: Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(
+                            padding: const EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 5.0),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8.0),
@@ -184,7 +179,7 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                       ),
                       Padding(
                         padding:
-                            EdgeInsetsDirectional.fromSTEB(0.0, 16.0, 0.0, 0.0),
+                            const EdgeInsetsDirectional.fromSTEB(0.0, 16.0, 0.0, 0.0),
                         child: Text(
                           'Mot de passe oublié ?',
                           style: FlutterFlowTheme.of(context)
@@ -215,10 +210,10 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                 ),
               ),
               Align(
-                alignment: AlignmentDirectional(0.0, 0.0),
+                alignment: const AlignmentDirectional(0.0, 0.0),
                 child: Padding(
                   padding:
-                      EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 16.0),
+                      const EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 16.0),
                   child: Column(
                     mainAxisSize: MainAxisSize.max,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,15 +225,15 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                           mainAxisSize: MainAxisSize.max,
                           children: [
                             Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 0.0, 0.0, 16.0),
-                              child: Container(
+                              child: SizedBox(
                                 width: double.infinity,
                                 child: TextFormField(
                                   controller: _model.emailAddressTextController,
                                   focusNode: _model.emailAddressFocusNode,
                                   autofocus: false,
-                                  autofillHints: [AutofillHints.email],
+                                  autofillHints: const [AutofillHints.email],
                                   obscureText: false,
                                   decoration: InputDecoration(
                                     labelText: 'Mail',
@@ -268,7 +263,7 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                                                   .fontStyle,
                                         ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Color(0x00000000),
                                         width: 2.0,
                                       ),
@@ -301,7 +296,7 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                                     filled: true,
                                     fillColor:
                                         FlutterFlowTheme.of(context).fieldBg,
-                                    contentPadding: EdgeInsets.all(24.0),
+                                    contentPadding: const EdgeInsets.all(24.0),
                                   ),
                                   style: FlutterFlowTheme.of(context)
                                       .bodyMedium
@@ -334,10 +329,10 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                               ),
                             ),
                             Align(
-                              alignment: AlignmentDirectional(0.0, 0.0),
+                              alignment: const AlignmentDirectional(0.0, 0.0),
                               child: Builder(
                                 builder: (context) => Padding(
-                                  padding: EdgeInsetsDirectional.fromSTEB(
+                                  padding: const EdgeInsetsDirectional.fromSTEB(
                                       0.0, 0.0, 0.0, 16.0),
                                   child: FFButtonWidget(
                                     onPressed: () async {
@@ -345,6 +340,9 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                                           await actions.resetPassword(
                                         _model.emailAddressTextController.text,
                                       );
+                                      if (!context.mounted) {
+                                        return;
+                                      }
                                       if (_model.response?.status ==
                                           'success') {
                                         await showDialog(
@@ -356,7 +354,7 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                                               backgroundColor:
                                                   Colors.transparent,
                                               alignment:
-                                                  AlignmentDirectional(0.0, 0.0)
+                                                  const AlignmentDirectional(0.0, 0.0)
                                                       .resolve(
                                                           Directionality.of(
                                                               context)),
@@ -400,7 +398,7 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                                               backgroundColor:
                                                   Colors.transparent,
                                               alignment:
-                                                  AlignmentDirectional(0.0, 0.0)
+                                                  const AlignmentDirectional(0.0, 0.0)
                                                       .resolve(
                                                           Directionality.of(
                                                               context)),
@@ -434,10 +432,10 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                                     options: FFButtonOptions(
                                       width: double.infinity,
                                       height: 52.0,
-                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                      padding: const EdgeInsetsDirectional.fromSTEB(
                                           0.0, 0.0, 0.0, 0.0),
                                       iconPadding:
-                                          EdgeInsetsDirectional.fromSTEB(
+                                          const EdgeInsetsDirectional.fromSTEB(
                                               0.0, 0.0, 0.0, 0.0),
                                       color:
                                           FlutterFlowTheme.of(context).primary,
@@ -466,7 +464,7 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                                                     .fontStyle,
                                           ),
                                       elevation: 0.0,
-                                      borderSide: BorderSide(
+                                      borderSide: const BorderSide(
                                         color: Colors.transparent,
                                         width: 1.0,
                                       ),
@@ -495,7 +493,7 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Align(
-                                  alignment: AlignmentDirectional(0.0, 0.0),
+                                  alignment: const AlignmentDirectional(0.0, 0.0),
                                   child: Text(
                                     'Déjà un compte ? ',
                                     textAlign: TextAlign.center,
@@ -525,7 +523,7 @@ class _ResetPasswordWidgetState extends State<ResetPasswordWidget>
                                   ),
                                 ),
                                 Align(
-                                  alignment: AlignmentDirectional(0.0, 0.0),
+                                  alignment: const AlignmentDirectional(0.0, 0.0),
                                   child: Text(
                                     ' Connexion',
                                     textAlign: TextAlign.center,

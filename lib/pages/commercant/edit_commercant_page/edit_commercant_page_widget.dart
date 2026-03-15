@@ -5,13 +5,9 @@ import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
-import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
-import 'package:provider/provider.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'edit_commercant_page_model.dart';
 export 'edit_commercant_page_model.dart';
@@ -123,14 +119,14 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                       FlutterFlowTheme.of(context).headlineMedium.fontStyle,
                 ),
           ),
-          actions: [],
+          actions: const [],
           flexibleSpace: FlexibleSpaceBar(
             background: ClipRRect(
               borderRadius: BorderRadius.circular(8.0),
               child: Image.asset(
                 'assets/images/Background.png',
                 fit: BoxFit.cover,
-                alignment: Alignment(1.0, -1.0),
+                alignment: const Alignment(1.0, -1.0),
               ),
             ),
           ),
@@ -142,7 +138,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
             decoration: BoxDecoration(
               image: DecorationImage(
                 fit: BoxFit.cover,
-                alignment: AlignmentDirectional(-1.0, 1.0),
+                alignment: const AlignmentDirectional(-1.0, 1.0),
                 image: Image.asset(
                   'assets/images/Background.png',
                 ).image,
@@ -154,7 +150,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                 Flexible(
                   child: Padding(
                     padding:
-                        EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
+                        const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
                     child: SingleChildScrollView(
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
@@ -167,7 +163,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                               borderRadius: BorderRadius.circular(12.0),
                             ),
                             child: Padding(
-                              padding: EdgeInsets.all(16.0),
+                              padding: const EdgeInsets.all(16.0),
                               child: Column(
                                 mainAxisSize: MainAxisSize.max,
                                 children: [
@@ -230,7 +226,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                                       .fontStyle,
                                             ),
                                         enabledBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -238,7 +234,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -246,7 +242,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         errorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -254,7 +250,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedErrorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -327,7 +323,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                                       .fontStyle,
                                             ),
                                         enabledBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -335,7 +331,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -343,7 +339,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         errorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -351,7 +347,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedErrorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -424,7 +420,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                                       .fontStyle,
                                             ),
                                         enabledBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -432,7 +428,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -440,7 +436,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         errorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -448,7 +444,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedErrorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -521,7 +517,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                                     .fontStyle,
                                           ),
                                       enabledBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
+                                        borderSide: const BorderSide(
                                           color: Color(0x00000000),
                                           width: 1.0,
                                         ),
@@ -529,7 +525,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                             BorderRadius.circular(8.0),
                                       ),
                                       focusedBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
+                                        borderSide: const BorderSide(
                                           color: Color(0x00000000),
                                           width: 1.0,
                                         ),
@@ -537,7 +533,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                             BorderRadius.circular(8.0),
                                       ),
                                       errorBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
+                                        borderSide: const BorderSide(
                                           color: Color(0x00000000),
                                           width: 1.0,
                                         ),
@@ -545,7 +541,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                             BorderRadius.circular(8.0),
                                       ),
                                       focusedErrorBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
+                                        borderSide: const BorderSide(
                                           color: Color(0x00000000),
                                           width: 1.0,
                                         ),
@@ -590,7 +586,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                         .textFieldMailTextControllerValidator
                                         .asValidator(context),
                                   ),
-                                ].divide(SizedBox(height: 8.0)),
+                                ].divide(const SizedBox(height: 8.0)),
                               ),
                             ),
                           ),
@@ -602,7 +598,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                               borderRadius: BorderRadius.circular(12.0),
                             ),
                             child: Padding(
-                              padding: EdgeInsets.all(16.0),
+                              padding: const EdgeInsets.all(16.0),
                               child: Column(
                                 mainAxisSize: MainAxisSize.max,
                                 children: [
@@ -638,7 +634,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                           _model.textFieldPhoneTextController,
                                       focusNode: _model.textFieldPhoneFocusNode,
                                       autofocus: false,
-                                      autofillHints: [
+                                      autofillHints: const [
                                         AutofillHints.telephoneNumber
                                       ],
                                       obscureText: false,
@@ -668,7 +664,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                                       .fontStyle,
                                             ),
                                         enabledBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -676,7 +672,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -684,7 +680,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         errorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -692,7 +688,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedErrorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -775,7 +771,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                                       .fontStyle,
                                             ),
                                         enabledBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -783,7 +779,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -791,7 +787,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         errorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -799,7 +795,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedErrorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -846,9 +842,9 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                     ),
                                   ),
                                   Align(
-                                    alignment: AlignmentDirectional(0.0, 0.1),
+                                    alignment: const AlignmentDirectional(0.0, 0.1),
                                     child: Padding(
-                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                      padding: const EdgeInsetsDirectional.fromSTEB(
                                           12.0, 10.0, 12.0, 0.0),
                                       child: FFButtonWidget(
                                         onPressed: () async {
@@ -856,7 +852,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               .text.isEmpty) {
                                             ScaffoldMessenger.of(context)
                                                 .showSnackBar(
-                                              SnackBar(
+                                              const SnackBar(
                                                 content: Text(
                                                   'Email required!',
                                                 ),
@@ -891,10 +887,10 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                           width: 270.0,
                                           height: 50.0,
                                           padding:
-                                              EdgeInsetsDirectional.fromSTEB(
+                                              const EdgeInsetsDirectional.fromSTEB(
                                                   0.0, 0.0, 0.0, 0.0),
                                           iconPadding:
-                                              EdgeInsetsDirectional.fromSTEB(
+                                              const EdgeInsetsDirectional.fromSTEB(
                                                   0.0, 0.0, 0.0, 0.0),
                                           color: FlutterFlowTheme.of(context)
                                               .primary,
@@ -926,7 +922,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                                         .fontStyle,
                                               ),
                                           elevation: 0.0,
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Colors.transparent,
                                             width: 1.0,
                                           ),
@@ -936,7 +932,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                       ),
                                     ),
                                   ),
-                                ].divide(SizedBox(height: 8.0)),
+                                ].divide(const SizedBox(height: 8.0)),
                               ),
                             ),
                           ),
@@ -951,7 +947,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                               key: _model.formKey,
                               autovalidateMode: AutovalidateMode.disabled,
                               child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
+                                padding: const EdgeInsetsDirectional.fromSTEB(
                                     16.0, 16.0, 16.0, 16.0),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.max,
@@ -1016,7 +1012,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                                       .fontStyle,
                                             ),
                                         enabledBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -1024,7 +1020,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -1032,7 +1028,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         errorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -1040,7 +1036,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedErrorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -1132,7 +1128,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                                       .fontStyle,
                                             ),
                                         enabledBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -1140,7 +1136,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -1148,7 +1144,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         errorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -1156,7 +1152,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                               BorderRadius.circular(8.0),
                                         ),
                                         focusedErrorBorder: OutlineInputBorder(
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: Color(0x00000000),
                                             width: 1.0,
                                           ),
@@ -1213,9 +1209,9 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                           .asValidator(context),
                                     ),
                                     Align(
-                                      alignment: AlignmentDirectional(0.0, 0.1),
+                                      alignment: const AlignmentDirectional(0.0, 0.1),
                                       child: Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                        padding: const EdgeInsetsDirectional.fromSTEB(
                                             12.0, 10.0, 12.0, 0.0),
                                         child: FFButtonWidget(
                                           onPressed: () async {
@@ -1243,16 +1239,16 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                                 builder: (alertDialogContext) {
                                                   return WebViewAware(
                                                     child: AlertDialog(
-                                                      title: Text(
+                                                      title: const Text(
                                                           'Mot de passe mis à jours'),
-                                                      content: Text(
+                                                      content: const Text(
                                                           'Votre mot de passe à bien été modifié'),
                                                       actions: [
                                                         TextButton(
                                                           onPressed: () =>
                                                               Navigator.pop(
                                                                   alertDialogContext),
-                                                          child: Text('Ok'),
+                                                          child: const Text('Ok'),
                                                         ),
                                                       ],
                                                     ),
@@ -1265,16 +1261,16 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                                 builder: (alertDialogContext) {
                                                   return WebViewAware(
                                                     child: AlertDialog(
-                                                      title: Text(
+                                                      title: const Text(
                                                           'Mauvaise saisie des mots de passe'),
-                                                      content: Text(
+                                                      content: const Text(
                                                           'L\'un des mots de passe ne correspond pas à l\'autre'),
                                                       actions: [
                                                         TextButton(
                                                           onPressed: () =>
                                                               Navigator.pop(
                                                                   alertDialogContext),
-                                                          child: Text('Ok'),
+                                                          child: const Text('Ok'),
                                                         ),
                                                       ],
                                                     ),
@@ -1288,10 +1284,10 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                             width: 270.0,
                                             height: 50.0,
                                             padding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     0.0, 0.0, 0.0, 0.0),
                                             iconPadding:
-                                                EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional.fromSTEB(
                                                     0.0, 0.0, 0.0, 0.0),
                                             color: FlutterFlowTheme.of(context)
                                                 .primary,
@@ -1325,7 +1321,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                                           .fontStyle,
                                                 ),
                                             elevation: 0.0,
-                                            borderSide: BorderSide(
+                                            borderSide: const BorderSide(
                                               color: Colors.transparent,
                                               width: 1.0,
                                             ),
@@ -1335,14 +1331,14 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                         ),
                                       ),
                                     ),
-                                  ].divide(SizedBox(height: 8.0)),
+                                  ].divide(const SizedBox(height: 8.0)),
                                 ),
                               ),
                             ),
                           ),
                         ]
-                            .divide(SizedBox(height: 20.0))
-                            .around(SizedBox(height: 20.0)),
+                            .divide(const SizedBox(height: 20.0))
+                            .around(const SizedBox(height: 20.0)),
                       ),
                     ),
                   ),
@@ -1350,7 +1346,7 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                 wrapWithModel(
                   model: _model.customNavBarCommercant2Model,
                   updateCallback: () => safeSetState(() {}),
-                  child: CustomNavBarCommercant2Widget(
+                  child: const CustomNavBarCommercant2Widget(
                     indexActive: 4,
                   ),
                 ),

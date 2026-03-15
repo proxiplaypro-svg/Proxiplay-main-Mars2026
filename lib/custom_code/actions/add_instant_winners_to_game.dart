@@ -1,12 +1,7 @@
-// Automatic FlutterFlow imports
+﻿// Automatic FlutterFlow imports
 import '/backend/backend.dart';
-import '/backend/schema/structs/index.dart';
-import '/backend/schema/enums/enums.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
-import '/flutter_flow/flutter_flow_util.dart';
-import 'index.dart'; // Imports other custom actions
-import '/flutter_flow/custom_functions.dart'; // Imports custom functions
-import 'package:flutter/material.dart';
+// Imports other custom actions
+// Imports custom functions
 // Begin custom action code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
@@ -17,24 +12,38 @@ Future<void> addInstantWinnersToGame(
   int numberOfWinners,
 ) async {
   if (startDate.isAfter(endDate)) {
-    throw Exception("La date de début doit précéder la date de fin.");
+    throw Exception('La date de debut doit preceder la date de fin.');
+  }
+  if (numberOfWinners < 0) {
+    throw Exception("Le nombre d'instants gagnants ne peut pas etre negatif.");
+  }
+  if (numberOfWinners == 0) {
+    return;
   }
 
   final instantWinnersRef = gameRef.collection('instant_winners');
+  final batch = FirebaseFirestore.instance.batch();
+  final totalRangeMs =
+      endDate.millisecondsSinceEpoch - startDate.millisecondsSinceEpoch;
 
   for (int i = 0; i < numberOfWinners; i++) {
-    final randomMillis = startDate.millisecondsSinceEpoch +
-        (DateTimeRange(start: startDate, end: endDate).duration.inMilliseconds *
-                (0.1 + (0.8 * (i / numberOfWinners))))
-            .toInt();
+    // 1 instant gagnant par lot secondaire, borne strictement entre start/end.
+    final ratio = (i + 0.5) / numberOfWinners;
+    final candidateMs =
+        startDate.millisecondsSinceEpoch + (totalRangeMs * ratio).round();
+    final boundedMs = candidateMs.clamp(
+      startDate.millisecondsSinceEpoch,
+      endDate.millisecondsSinceEpoch,
+    );
+    final winningDate = DateTime.fromMillisecondsSinceEpoch(boundedMs);
+    final winnerRef = instantWinnersRef.doc();
 
-    final randomDate = DateTime.fromMillisecondsSinceEpoch(randomMillis +
-        (DateTime.now().millisecondsSinceEpoch % 100000)); // pour + d'aléa
-
-    await instantWinnersRef.add({
-      'date': Timestamp.fromDate(randomDate),
+    batch.set(winnerRef, {
+      'date': Timestamp.fromDate(winningDate),
       'hasWinner': false,
       'claimed': false,
     });
   }
+
+  await batch.commit();
 }

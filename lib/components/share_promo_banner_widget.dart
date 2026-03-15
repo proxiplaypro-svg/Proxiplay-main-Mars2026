@@ -19,6 +19,12 @@ class SharePromoData {
     required this.primaryColor,
     required this.secondaryColor,
     this.ctaLabel,
+    this.titleColor,
+    this.subtitleColor,
+    this.buttonColor,
+    this.buttonTextColor,
+    this.iconBackgroundColor,
+    this.iconColor,
   });
 
   final SharePromoKind kind;
@@ -28,21 +34,33 @@ class SharePromoData {
   final Color primaryColor;
   final Color secondaryColor;
   final String? ctaLabel;
+  final Color? titleColor;
+  final Color? subtitleColor;
+  final Color? buttonColor;
+  final Color? buttonTextColor;
+  final Color? iconBackgroundColor;
+  final Color? iconColor;
 }
 
 class SharePromoBanner extends StatelessWidget {
   const SharePromoBanner({
     super.key,
     required this.data,
-    required this.onTap,
+    this.onTap,
   });
 
   final SharePromoData data;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
+    final titleColor = data.titleColor ?? const Color(0xFF2C2F5B);
+    final subtitleColor =
+        data.subtitleColor ?? const Color(0xFF2C2F5B).withValues(alpha: 0.78);
+    final accentColor = data.secondaryColor;
+    final buttonColor = data.buttonColor ?? accentColor;
+    final buttonTextColor = data.buttonTextColor ?? Colors.white;
 
     return Material(
       color: Colors.transparent,
@@ -51,36 +69,39 @@ class SharePromoBanner extends StatelessWidget {
         onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [data.primaryColor, data.secondaryColor],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: data.primaryColor,
             borderRadius: BorderRadius.circular(16.0),
+            border: Border.all(
+              color: accentColor.withValues(alpha: 0.14),
+              width: 1.0,
+            ),
             boxShadow: [
               BoxShadow(
-                color: data.primaryColor.withValues(alpha: 0.16),
-                blurRadius: 16.0,
-                offset: const Offset(0.0, 8.0),
+                color: const Color(0xFF2C2F5B).withValues(alpha: 0.06),
+                blurRadius: 14.0,
+                offset: const Offset(0.0, 6.0),
               ),
             ],
           ),
-          child: Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(
-                16.0, 14.0, 16.0, 14.0),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 60.0),
+            padding:
+                const EdgeInsetsDirectional.fromSTEB(14.0, 10.0, 14.0, 10.0),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  width: 44.0,
-                  height: 44.0,
+                  width: 38.0,
+                  height: 38.0,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(12.0),
+                    color: data.iconBackgroundColor ??
+                        accentColor.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(11.0),
                   ),
                   child: Icon(
                     data.icon,
-                    color: Colors.white,
-                    size: 22.0,
+                    color: data.iconColor ?? accentColor,
+                    size: 18.0,
                   ),
                 ),
                 const SizedBox(width: 12.0),
@@ -98,7 +119,7 @@ class SharePromoBanner extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             fontStyle: theme.titleMedium.fontStyle,
                           ),
-                          color: Colors.white,
+                          color: titleColor,
                           letterSpacing: 0.0,
                           fontWeight: FontWeight.w700,
                           fontStyle: theme.titleMedium.fontStyle,
@@ -114,7 +135,7 @@ class SharePromoBanner extends StatelessWidget {
                             fontWeight: FontWeight.w500,
                             fontStyle: theme.bodySmall.fontStyle,
                           ),
-                          color: Colors.white.withValues(alpha: 0.9),
+                          color: subtitleColor,
                           letterSpacing: 0.0,
                           fontWeight: FontWeight.w500,
                           fontStyle: theme.bodySmall.fontStyle,
@@ -123,34 +144,32 @@ class SharePromoBanner extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 12.0),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10.0,
-                    vertical: 8.0,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.22),
-                      width: 1.0,
+                if (data.ctaLabel != null) ...[
+                  const SizedBox(width: 12.0),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10.0,
+                      vertical: 8.0,
                     ),
-                  ),
-                  child: Text(
-                    data.ctaLabel ?? 'Voir',
-                    style: theme.bodySmall.override(
-                      font: GoogleFonts.inter(
+                    decoration: BoxDecoration(
+                      color: buttonColor,
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    child: Text(
+                      data.ctaLabel!,
+                      style: theme.bodySmall.override(
+                        font: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          fontStyle: theme.bodySmall.fontStyle,
+                        ),
+                        color: buttonTextColor,
+                        letterSpacing: 0.0,
                         fontWeight: FontWeight.w700,
                         fontStyle: theme.bodySmall.fontStyle,
                       ),
-                      color: Colors.white,
-                      letterSpacing: 0.0,
-                      fontWeight: FontWeight.w700,
-                      fontStyle: theme.bodySmall.fontStyle,
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

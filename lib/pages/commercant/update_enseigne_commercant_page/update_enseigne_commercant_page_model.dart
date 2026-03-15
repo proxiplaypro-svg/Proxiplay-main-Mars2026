@@ -1,25 +1,11 @@
-import '/auth/firebase_auth/auth_util.dart';
-import '/backend/backend.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
-import '/backend/schema/structs/index.dart';
-import '/flutter_flow/flutter_flow_choice_chips.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
-import 'dart:ui';
-import '/custom_code/actions/index.dart' as actions;
 import '/index.dart';
 import 'update_enseigne_commercant_page_widget.dart'
     show UpdateEnseigneCommercantPageWidget;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
-import 'package:provider/provider.dart';
-import 'package:webviewx_plus/webviewx_plus.dart';
 
 class UpdateEnseigneCommercantPageModel
     extends FlutterFlowModel<UpdateEnseigneCommercantPageWidget> {
@@ -36,7 +22,7 @@ class UpdateEnseigneCommercantPageModel
       return 'name is required';
     }
 
-    if (val.length < 1) {
+    if (val.isEmpty) {
       return 'Requires at least 1 characters.';
     }
 
@@ -54,7 +40,7 @@ class UpdateEnseigneCommercantPageModel
       return 'description is required';
     }
 
-    if (val.length < 1) {
+    if (val.isEmpty) {
       return 'Requires at least 1 characters.';
     }
 
@@ -90,7 +76,7 @@ class UpdateEnseigneCommercantPageModel
       return 'address is required';
     }
 
-    if (val.length < 1) {
+    if (val.isEmpty) {
       return 'Requires at least 1 characters.';
     }
 
@@ -124,7 +110,7 @@ class UpdateEnseigneCommercantPageModel
       return 'city is required';
     }
 
-    if (val.length < 1) {
+    if (val.isEmpty) {
       return 'Requires at least 1 characters.';
     }
 

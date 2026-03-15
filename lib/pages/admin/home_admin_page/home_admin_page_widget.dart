@@ -1,19 +1,9 @@
-import 'package:proxi_play/pages/admin/admin_push_notifications_page/admin_push_notifications_page_widget.dart';
-
-import '/auth/firebase_auth/auth_util.dart';
-import '/backend/backend.dart';
-import '/backend/schema/enums/enums.dart';
-import '/components/custom_nav_bar_admin_widget.dart';
-import '/components/list_empty_component_widget.dart';
+﻿import '/auth/firebase_auth/auth_util.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'home_admin_page_model.dart';
-export 'home_admin_page_model.dart';
 
 class HomeAdminPageWidget extends StatefulWidget {
   const HomeAdminPageWidget({super.key});
@@ -26,28 +16,216 @@ class HomeAdminPageWidget extends StatefulWidget {
 }
 
 class _HomeAdminPageWidgetState extends State<HomeAdminPageWidget> {
-  late HomeAdminPageModel _model;
-
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
-    _model = createModel(context, () => HomeAdminPageModel());
-
-    logFirebaseEvent('screen_view',
-        parameters: {'screen_name': 'HomeAdminPage'});
+    logFirebaseEvent(
+      'screen_view',
+      parameters: {'screen_name': 'HomeAdminPage'},
+    );
   }
 
   @override
   void dispose() {
-    _model.dispose();
-
     super.dispose();
+  }
+
+  void _pushAdminPage(String routeName) {
+    context.pushNamed(
+      routeName,
+      extra: <String, dynamic>{
+        kTransitionInfoKey: const TransitionInfo(
+          hasTransition: true,
+          transitionType: PageTransitionType.fade,
+          duration: Duration(milliseconds: 0),
+        ),
+      },
+    );
+  }
+
+  Widget _buildTopBar(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24.0, 0.0, 24.0, 0.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8.0),
+            child: Image.asset(
+              'assets/images/Logo_(1).png',
+              fit: BoxFit.contain,
+            ),
+          ),
+          InkWell(
+            splashColor: Colors.transparent,
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            onTap: () async {
+              FFAppState().update(() => FFAppState().isLoggingOut = true);
+              GoRouter.of(context).clearRedirectLocation();
+              context.go('/loginPage');
+              await authManager.signOut();
+              FFAppState().update(() => FFAppState().isLoggingOut = false);
+            },
+            child: Icon(
+              Icons.logout_sharp,
+              color: theme.primaryText,
+              size: 24.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIntroSection(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Administration',
+            style: theme.headlineMedium.override(
+              font: GoogleFonts.interTight(
+                fontWeight: FontWeight.w700,
+                fontStyle: theme.headlineMedium.fontStyle,
+              ),
+              letterSpacing: 0.0,
+              fontWeight: FontWeight.w700,
+              fontStyle: theme.headlineMedium.fontStyle,
+            ),
+          ),
+          const SizedBox(height: 6.0),
+          Text(
+            'Notifications, validation des comptes et pilotage des campagnes.',
+            style: theme.bodyLarge.override(
+              font: GoogleFonts.inter(
+                fontWeight: theme.bodyLarge.fontWeight,
+                fontStyle: theme.bodyLarge.fontStyle,
+              ),
+              color: theme.secondaryText,
+              letterSpacing: 0.0,
+              fontWeight: theme.bodyLarge.fontWeight,
+              fontStyle: theme.bodyLarge.fontStyle,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color accentColor,
+    required VoidCallback onTap,
+  }) {
+    final theme = FlutterFlowTheme.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22.0),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: theme.primaryBackground,
+            borderRadius: BorderRadius.circular(22.0),
+            border: Border.all(color: accentColor.withValues(alpha: 0.18)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 18.0,
+                offset: const Offset(0.0, 8.0),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18.0),
+            child: Row(
+              children: [
+                Container(
+                  width: 52.0,
+                  height: 52.0,
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(16.0),
+                  ),
+                  child: Icon(icon, color: accentColor),
+                ),
+                const SizedBox(width: 14.0),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.titleMedium.override(
+                          font: GoogleFonts.interTight(
+                            fontWeight: FontWeight.w700,
+                            fontStyle: theme.titleMedium.fontStyle,
+                          ),
+                          letterSpacing: 0.0,
+                          fontWeight: FontWeight.w700,
+                          fontStyle: theme.titleMedium.fontStyle,
+                        ),
+                      ),
+                      const SizedBox(height: 4.0),
+                      Text(
+                        subtitle,
+                        style: theme.bodySmall.override(
+                          font: GoogleFonts.inter(
+                            fontWeight: theme.bodySmall.fontWeight,
+                            fontStyle: theme.bodySmall.fontStyle,
+                          ),
+                          color: theme.secondaryText,
+                          letterSpacing: 0.0,
+                          fontWeight: theme.bodySmall.fontWeight,
+                          fontStyle: theme.bodySmall.fontStyle,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16.0,
+                  color: accentColor,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPlayersAccountsPlaceholder() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Gestion des comptes joueurs à venir.'),
+      ),
+    );
+  }
+
+  void _showMerchantsPlaceholder() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Gestion des commerçants à venir.'),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
     return GestureDetector(
       onTap: () {
         FocusScope.of(context).unfocus();
@@ -55,641 +233,83 @@ class _HomeAdminPageWidgetState extends State<HomeAdminPageWidget> {
       },
       child: Scaffold(
         key: scaffoldKey,
-        backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
-        floatingActionButton: Padding(
-          // Move FAB up a bit so it doesn't feel glued to the bottom edge.
-          padding: const EdgeInsets.only(bottom: 60),
-          child: FloatingActionButton.extended(
-            onPressed: () {
-              context.pushNamed(
-                AdminPushNotificationsPageWidget.routeName,
-                extra: <String, dynamic>{
-                  kTransitionInfoKey: TransitionInfo(
-                    hasTransition: true,
-                    transitionType: PageTransitionType.fade,
-                    duration: Duration(milliseconds: 0),
-                  ),
-                },
-              );
-            },
-            icon: const Icon(Icons.notifications_active),
-            label: const Text('Notifications'),
-          ),
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        backgroundColor: theme.secondaryBackground,
         appBar: PreferredSize(
-          preferredSize: Size.fromHeight(100.0),
+          preferredSize: const Size.fromHeight(86.0),
           child: AppBar(
-            backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
+            backgroundColor: theme.secondaryBackground,
             automaticallyImplyLeading: false,
-            actions: [],
             flexibleSpace: FlexibleSpaceBar(
-              title: Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding:
-                          EdgeInsetsDirectional.fromSTEB(24.0, 0.0, 24.0, 0.0),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8.0),
-                            child: Image.asset(
-                              'assets/images/Logo_(1).png',
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                          InkWell(
-                            splashColor: Colors.transparent,
-                            focusColor: Colors.transparent,
-                            hoverColor: Colors.transparent,
-                            highlightColor: Colors.transparent,
-                            onTap: () async {
-                              FFAppState().update(() => FFAppState().isLoggingOut = true);
-                              GoRouter.of(context).clearRedirectLocation();
-                              context.go('/loginPage');
-                              await authManager.signOut();
-                              FFAppState().update(() => FFAppState().isLoggingOut = false);
-                            },
-                            child: Icon(
-                              Icons.logout_sharp,
-                              color: FlutterFlowTheme.of(context).primaryText,
-                              size: 24.0,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              titlePadding: const EdgeInsets.only(bottom: 12.0),
+              title: _buildTopBar(context),
               centerTitle: true,
               expandedTitleScale: 1.0,
             ),
           ),
         ),
         body: Column(
-          mainAxisSize: MainAxisSize.max,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: MediaQuery.sizeOf(context).width * 1.0,
-              decoration: BoxDecoration(),
-              child: Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(24.0, 0.0, 24.0, 0.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Validation des Inscriptions',
-                      style:
-                          FlutterFlowTheme.of(context).headlineMedium.override(
-                                font: GoogleFonts.interTight(
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .headlineMedium
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .headlineMedium
-                                      .fontStyle,
-                                ),
-                                color: FlutterFlowTheme.of(context).primaryText,
-                                letterSpacing: 0.0,
-                                fontWeight: FlutterFlowTheme.of(context)
-                                    .headlineMedium
-                                    .fontWeight,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .headlineMedium
-                                    .fontStyle,
-                              ),
-                    ),
-                    Text(
-                      'Vérification des commerçants',
-                      style: FlutterFlowTheme.of(context).bodyLarge.override(
-                            font: GoogleFonts.inter(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .bodyLarge
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .bodyLarge
-                                  .fontStyle,
-                            ),
-                            color: FlutterFlowTheme.of(context).primaryText,
-                            letterSpacing: 0.0,
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .bodyLarge
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyLarge
-                                .fontStyle,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
             Expanded(
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: FlutterFlowTheme.of(context).secondaryBackground,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(0.0),
-                    bottomRight: Radius.circular(0.0),
-                    topLeft: Radius.circular(32.0),
-                    topRight: Radius.circular(32.0),
-                  ),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: StreamBuilder<List<UsersRecord>>(
-                    stream: queryUsersRecord(
-                      queryBuilder: (usersRecord) => usersRecord
-                          .where(
-                            'account_status',
-                            isEqualTo:
-                                AccountStatus.pendingValidation.serialize(),
-                          )
-                          .where(
-                            'user_role',
-                            isEqualTo: Roles.commercant.serialize(),
-                          ),
-                      limit: 20,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 20.0),
+                children: [
+                  _buildIntroSection(context),
+                  _buildActionCard(
+                    context,
+                    icon: Icons.verified_user_outlined,
+                    title: 'V\u00E9rification des comptes',
+                    subtitle:
+                        'Valider ou refuser les inscriptions commer\u00E7ants.',
+                    accentColor: const Color(0xFF2E90FA),
+                    onTap: () => _pushAdminPage(
+                      ValidationCommercantsAdminPageWidget.routeName,
                     ),
-                    builder: (context, snapshot) {
-                      // Customize what your widget looks like when it's loading.
-                      if (!snapshot.hasData) {
-                        return Center(
-                          child: SizedBox(
-                            width: 50.0,
-                            height: 50.0,
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                FlutterFlowTheme.of(context).primary,
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                      List<UsersRecord> listViewUsersRecordList = snapshot.data!
-                          .where((u) => u.uid != currentUserUid)
-                          .toList();
-                      if (listViewUsersRecordList.isEmpty) {
-                        return ListEmptyComponentWidget(
-                          title: 'Aucune inscription à valider',
-                          description: 'Liste vide',
-                        );
-                      }
-
-                      return ListView.separated(
-                        padding: EdgeInsets.zero,
-                        scrollDirection: Axis.vertical,
-                        itemCount: listViewUsersRecordList.length,
-                        separatorBuilder: (_, __) => SizedBox(height: 20.0),
-                        itemBuilder: (context, listViewIndex) {
-                          final listViewUsersRecord =
-                              listViewUsersRecordList[listViewIndex];
-                          return Material(
-                            color: Colors.transparent,
-                            elevation: 2.0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16.0),
-                            ),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: FlutterFlowTheme.of(context)
-                                    .primaryBackground,
-                                borderRadius: BorderRadius.circular(16.0),
-                              ),
-                              child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    20.0, 20.0, 20.0, 20.0),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Row(
-                                      mainAxisSize: MainAxisSize.max,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            '${listViewUsersRecord.firstName} ${listViewUsersRecord.lastName}',
-                                            style: FlutterFlowTheme.of(context)
-                                                .headlineSmall
-                                                .override(
-                                                  font: GoogleFonts.interTight(
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .headlineSmall
-                                                            .fontWeight,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .headlineSmall
-                                                            .fontStyle,
-                                                  ),
-                                                  letterSpacing: 0.0,
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .headlineSmall
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .headlineSmall
-                                                          .fontStyle,
-                                                ),
-                                          ),
-                                        ),
-                                        Flexible(
-                                          flex: 1,
-                                          child: Padding(
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                    4.0, 12.0, 4.0, 12.0),
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                color: listViewUsersRecord
-                                                            .accountStatus ==
-                                                        AccountStatus
-                                                            .pendingValidation
-                                                    ? Color(0x80EE8B60)
-                                                    : Color(0x80249689),
-                                                borderRadius:
-                                                    BorderRadius.circular(20.0),
-                                              ),
-                                              child: Padding(
-                                                padding: EdgeInsets.all(8.0),
-                                                child: Text(
-                                                  listViewUsersRecord
-                                                              .accountStatus ==
-                                                          AccountStatus
-                                                              .pendingValidation
-                                                      ? 'En attente'
-                                                      : 'Valider',
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .bodySmall
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodySmall
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodySmall
-                                                                  .fontStyle,
-                                                        ),
-                                                        color: listViewUsersRecord
-                                                                    .accountStatus ==
-                                                                AccountStatus
-                                                                    .pendingValidation
-                                                            ? Color(0xFFFF6F00)
-                                                            : FlutterFlowTheme
-                                                                    .of(context)
-                                                                .success,
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodySmall
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodySmall
-                                                                .fontStyle,
-                                                      ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    Column(
-                                      mainAxisSize: MainAxisSize.max,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Informations',
-                                          textAlign: TextAlign.center,
-                                          style: FlutterFlowTheme.of(context)
-                                              .titleMedium
-                                              .override(
-                                                font: GoogleFonts.interTight(
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .titleMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .titleMedium
-                                                          .fontStyle,
-                                                ),
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .titleMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .titleMedium
-                                                        .fontStyle,
-                                              ),
-                                        ),
-                                        Row(
-                                          mainAxisSize: MainAxisSize.max,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              'Téléphone:',
-                                              style:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                            ),
-                                            Text(
-                                              listViewUsersRecord.phoneNumber,
-                                              style:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                            ),
-                                          ],
-                                        ),
-                                        Row(
-                                          mainAxisSize: MainAxisSize.max,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              'Mail:',
-                                              style:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                            ),
-                                            Text(
-                                              listViewUsersRecord.email,
-                                              style:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                            ),
-                                          ],
-                                        ),
-                                      ].divide(SizedBox(height: 12.0)),
-                                    ),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.max,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        FFButtonWidget(
-                                          onPressed: () async {
-                                            await listViewUsersRecord.reference
-                                                .update(createUsersRecordData(
-                                              accountStatus:
-                                                  AccountStatus.rejected,
-                                            ));
-                                          },
-                                          text: 'Refuser',
-                                          options: FFButtonOptions(
-                                            width: 150.0,
-                                            height: 50.0,
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                    0.0, 0.0, 0.0, 0.0),
-                                            iconPadding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                    0.0, 0.0, 0.0, 0.0),
-                                            color: FlutterFlowTheme.of(context)
-                                                .error,
-                                            textStyle: FlutterFlowTheme.of(
-                                                    context)
-                                                .titleSmall
-                                                .override(
-                                                  font: GoogleFonts.interTight(
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .titleSmall
-                                                            .fontWeight,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .titleSmall
-                                                            .fontStyle,
-                                                  ),
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .info,
-                                                  letterSpacing: 0.0,
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .titleSmall
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .titleSmall
-                                                          .fontStyle,
-                                                ),
-                                            elevation: 0.0,
-                                            borderRadius:
-                                                BorderRadius.circular(25.0),
-                                          ),
-                                        ),
-                                        FFButtonWidget(
-                                          onPressed: () async {
-                                            await listViewUsersRecord.reference
-                                                .update(createUsersRecordData(
-                                              accountStatus:
-                                                  AccountStatus.approved,
-                                            ));
-                                          },
-                                          text: 'Valider',
-                                          options: FFButtonOptions(
-                                            width: 150.0,
-                                            height: 50.0,
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                    0.0, 0.0, 0.0, 0.0),
-                                            iconPadding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                    0.0, 0.0, 0.0, 0.0),
-                                            color: FlutterFlowTheme.of(context)
-                                                .success,
-                                            textStyle: FlutterFlowTheme.of(
-                                                    context)
-                                                .titleSmall
-                                                .override(
-                                                  font: GoogleFonts.interTight(
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .titleSmall
-                                                            .fontWeight,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .titleSmall
-                                                            .fontStyle,
-                                                  ),
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .info,
-                                                  letterSpacing: 0.0,
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .titleSmall
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .titleSmall
-                                                          .fontStyle,
-                                                ),
-                                            elevation: 0.0,
-                                            borderRadius:
-                                                BorderRadius.circular(25.0),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ].divide(SizedBox(height: 16.0)),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
                   ),
-                ),
-              ),
-            ),
-            wrapWithModel(
-              model: _model.customNavBarAdminModel,
-              updateCallback: () => safeSetState(() {}),
-              child: CustomNavBarAdminWidget(
-                indexActive: 1,
+                  const SizedBox(height: 14.0),
+                  _buildActionCard(
+                    context,
+                    icon: Icons.storefront_outlined,
+                    title: 'Gestion des commerçants',
+                    subtitle:
+                        'Accéder à la gestion des profils commerçants.',
+                    accentColor: const Color(0xFFF79009),
+                    onTap: _showMerchantsPlaceholder,
+                  ),
+                  const SizedBox(height: 14.0),
+                  _buildActionCard(
+                    context,
+                    icon: Icons.people_outline_rounded,
+                    title: 'Gestion des comptes joueurs',
+                    subtitle:
+                        'Accéder à la gestion des comptes utilisateurs.',
+                    accentColor: const Color(0xFFEF6820),
+                    onTap: _showPlayersAccountsPlaceholder,
+                  ),
+                  const SizedBox(height: 14.0),
+                  _buildActionCard(
+                    context,
+                    icon: Icons.notifications_active_outlined,
+                    title: 'Notifications',
+                    subtitle:
+                        'Cr\u00E9er et envoyer des notifications push administrateur.',
+                    accentColor: const Color(0xFF7A5AF8),
+                    onTap: () => _pushAdminPage(
+                      AdminPushNotificationsPageWidget.routeName,
+                    ),
+                  ),
+                  const SizedBox(height: 14.0),
+                  _buildActionCard(
+                    context,
+                    icon: Icons.campaign_outlined,
+                    title: 'Partages et promo',
+                    subtitle:
+                        'Configurer la campagne de parrainage et ses statistiques.',
+                    accentColor: const Color(0xFF12B76A),
+                    onTap: () => _pushAdminPage(
+                      AnimationsPromotionsAdminPageWidget.routeName,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

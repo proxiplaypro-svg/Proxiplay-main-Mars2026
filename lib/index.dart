@@ -20,6 +20,14 @@ export '/pages/joueur/profil_joueur_page/profil_joueur_page_widget.dart'
     show ProfilJoueurPageWidget;
 export '/pages/admin/home_admin_page/home_admin_page_widget.dart'
     show HomeAdminPageWidget;
+export '/pages/admin/validation_commercants_admin_page/validation_commercants_admin_page_widget.dart'
+    show ValidationCommercantsAdminPageWidget;
+export '/pages/admin/animations_promotions_admin_page/animations_promotions_admin_page_widget.dart'
+    show AnimationsPromotionsAdminPageWidget;
+export '/pages/admin/campaign_share_promo_admin_page/campaign_share_promo_admin_page_widget.dart'
+    show CampaignSharePromoAdminPageWidget;
+export '/pages/admin/share_promo_stats_admin_page/share_promo_stats_admin_page_widget.dart'
+    show SharePromoStatsAdminPageWidget;
 export '/pages/admin/admin_push_notifications_page/admin_push_notifications_page_widget.dart'
     show AdminPushNotificationsPageWidget;
 export '/pages/admin/admin_push_notifications_history_page/admin_push_notifications_history_page_widget.dart'

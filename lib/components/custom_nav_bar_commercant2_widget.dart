@@ -1,13 +1,9 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import 'dart:async';
-import 'dart:ui';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'custom_nav_bar_commercant2_model.dart';
 export 'custom_nav_bar_commercant2_model.dart';
 
@@ -96,12 +92,12 @@ class _CustomNavBarCommercant2WidgetState
                         width: 50.0,
                         height: 50.0,
                         decoration: BoxDecoration(
-                          color: widget!.indexActive == 1
+                          color: widget.indexActive == 1
                               ? FlutterFlowTheme.of(context).primaryBackground
                               : FlutterFlowTheme.of(context).primary,
                           borderRadius: BorderRadius.circular(24.0),
                         ),
-                        alignment: AlignmentDirectional(0.0, 0.0),
+                        alignment: const AlignmentDirectional(0.0, 0.0),
                         child: InkWell(
                           splashColor: Colors.transparent,
                           focusColor: Colors.transparent,
@@ -114,7 +110,7 @@ class _CustomNavBarCommercant2WidgetState
                             context.pushNamed(
                               HomeCommercantPageWidget.routeName,
                               extra: <String, dynamic>{
-                                kTransitionInfoKey: TransitionInfo(
+                                kTransitionInfoKey: const TransitionInfo(
                                   hasTransition: true,
                                   transitionType: PageTransitionType.fade,
                                   duration: Duration(milliseconds: 0),
@@ -124,7 +120,7 @@ class _CustomNavBarCommercant2WidgetState
                           },
                           child: Icon(
                             Icons.home_rounded,
-                            color: widget!.indexActive == 1
+                            color: widget.indexActive == 1
                                 ? FlutterFlowTheme.of(context).primary
                                 : FlutterFlowTheme.of(context)
                                     .primaryBackground,
@@ -132,7 +128,7 @@ class _CustomNavBarCommercant2WidgetState
                           ),
                         ),
                       ),
-                    ].divide(SizedBox(height: 8.0)),
+                    ].divide(const SizedBox(height: 8.0)),
                   ),
                   Column(
                     mainAxisSize: MainAxisSize.min,
@@ -142,7 +138,7 @@ class _CustomNavBarCommercant2WidgetState
                         width: 50.0,
                         height: 50.0,
                         decoration: BoxDecoration(
-                          color: widget!.indexActive == 2
+                          color: widget.indexActive == 2
                               ? FlutterFlowTheme.of(context).primaryBackground
                               : FlutterFlowTheme.of(context).primary,
                           borderRadius: BorderRadius.circular(24.0),
@@ -159,7 +155,7 @@ class _CustomNavBarCommercant2WidgetState
                             context.pushNamed(
                               JeuxCommercantPageWidget.routeName,
                               extra: <String, dynamic>{
-                                kTransitionInfoKey: TransitionInfo(
+                                kTransitionInfoKey: const TransitionInfo(
                                   hasTransition: true,
                                   transitionType: PageTransitionType.fade,
                                   duration: Duration(milliseconds: 0),
@@ -169,7 +165,7 @@ class _CustomNavBarCommercant2WidgetState
                           },
                           child: Icon(
                             Icons.card_giftcard,
-                            color: widget!.indexActive == 2
+                            color: widget.indexActive == 2
                                 ? FlutterFlowTheme.of(context).primary
                                 : FlutterFlowTheme.of(context)
                                     .primaryBackground,
@@ -177,7 +173,7 @@ class _CustomNavBarCommercant2WidgetState
                           ),
                         ),
                       ),
-                    ].divide(SizedBox(height: 8.0)),
+                    ].divide(const SizedBox(height: 8.0)),
                   ),
                   Column(
                     mainAxisSize: MainAxisSize.min,
@@ -187,7 +183,7 @@ class _CustomNavBarCommercant2WidgetState
                         width: 50.0,
                         height: 50.0,
                         decoration: BoxDecoration(
-                          color: widget!.indexActive == 3
+                          color: widget.indexActive == 3
                               ? FlutterFlowTheme.of(context).primaryBackground
                               : FlutterFlowTheme.of(context).primary,
                           borderRadius: BorderRadius.circular(24.0),
@@ -204,7 +200,7 @@ class _CustomNavBarCommercant2WidgetState
                             context.pushNamed(
                               StatCommercantPageWidget.routeName,
                               extra: <String, dynamic>{
-                                kTransitionInfoKey: TransitionInfo(
+                                kTransitionInfoKey: const TransitionInfo(
                                   hasTransition: true,
                                   transitionType: PageTransitionType.fade,
                                   duration: Duration(milliseconds: 0),
@@ -214,7 +210,7 @@ class _CustomNavBarCommercant2WidgetState
                           },
                           child: Icon(
                             Icons.query_stats,
-                            color: widget!.indexActive == 3
+                            color: widget.indexActive == 3
                                 ? FlutterFlowTheme.of(context).primary
                                 : FlutterFlowTheme.of(context)
                                     .primaryBackground,
@@ -222,7 +218,7 @@ class _CustomNavBarCommercant2WidgetState
                           ),
                         ),
                       ),
-                    ].divide(SizedBox(height: 8.0)),
+                    ].divide(const SizedBox(height: 8.0)),
                   ),
                   Column(
                     mainAxisSize: MainAxisSize.min,
@@ -232,7 +228,7 @@ class _CustomNavBarCommercant2WidgetState
                         width: 50.0,
                         height: 50.0,
                         decoration: BoxDecoration(
-                          color: widget!.indexActive == 4
+                          color: widget.indexActive == 4
                               ? FlutterFlowTheme.of(context).primaryBackground
                               : FlutterFlowTheme.of(context).primary,
                           borderRadius: BorderRadius.circular(24.0),
@@ -249,7 +245,7 @@ class _CustomNavBarCommercant2WidgetState
                             context.pushNamed(
                               ProfilCommercantPageWidget.routeName,
                               extra: <String, dynamic>{
-                                kTransitionInfoKey: TransitionInfo(
+                                kTransitionInfoKey: const TransitionInfo(
                                   hasTransition: true,
                                   transitionType: PageTransitionType.fade,
                                   duration: Duration(milliseconds: 0),
@@ -259,7 +255,7 @@ class _CustomNavBarCommercant2WidgetState
                           },
                           child: Icon(
                             Icons.person_rounded,
-                            color: widget!.indexActive == 4
+                            color: widget.indexActive == 4
                                 ? FlutterFlowTheme.of(context).primary
                                 : FlutterFlowTheme.of(context)
                                     .primaryBackground,
@@ -267,7 +263,7 @@ class _CustomNavBarCommercant2WidgetState
                           ),
                         ),
                       ),
-                    ].divide(SizedBox(height: 8.0)),
+                    ].divide(const SizedBox(height: 8.0)),
                   ),
                 ],
               ),
