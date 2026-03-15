@@ -8,7 +8,6 @@ import '/widgets/profile/profile_header_card_widget.dart';
 import '/widgets/profile/profile_menu_card_widget.dart';
 import '/widgets/profile/profile_menu_section_widget.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'profil_joueur_page_model.dart';
 export 'profil_joueur_page_model.dart';
