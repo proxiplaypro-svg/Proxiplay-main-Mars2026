@@ -2,7 +2,6 @@
 import '/backend/backend.dart';
 import '/components/app_bar_joueur_widget.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
-import '/components/game_card_widget.dart';
 import '/components/list_empty_component_widget.dart';
 import '/components/share_promo_banner_widget.dart';
 import '/flutter_flow/app_styles.dart';
@@ -11,8 +10,11 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/models/share_promo_models.dart';
 import '/services/share_promo_service.dart';
 import '/widgets/recent_winners_ticker.dart';
-import '/widgets/proxiplay_loading_logo.dart';
-import '/widgets/proxiplay_network_image.dart';
+import '/widgets/home/home_async_game_card_widget.dart';
+import '/widgets/home/home_finished_game_card_widget.dart';
+import '/widgets/home/home_loading_state_widget.dart';
+import '/widgets/home/home_search_result_card_widget.dart';
+import '/widgets/home/home_search_results_list_widget.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import '/utils/perf_trace.dart';
@@ -20,7 +22,6 @@ import '/utils/share_links.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:share_plus/share_plus.dart';
@@ -721,40 +722,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   @override
   Widget build(BuildContext context) {
     if (!_homeDataReady) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(
-          top: true,
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const ProxiplayLoadingLogo(size: 110.0),
-                const SizedBox(height: 16.0),
-                Text(
-                  'Recherche des jeux disponibles...',
-                  textAlign: TextAlign.center,
-                  style: FlutterFlowTheme.of(context).bodyMedium.override(
-                        font: GoogleFonts.inter(
-                          fontWeight: FontWeight.w500,
-                          fontStyle: FlutterFlowTheme.of(context)
-                              .bodyMedium
-                              .fontStyle,
-                        ),
-                        color: const Color(0xFF6F6A8E),
-                        fontSize: 14.0,
-                        letterSpacing: 0.0,
-                        fontWeight: FontWeight.w500,
-                        fontStyle: FlutterFlowTheme.of(context)
-                            .bodyMedium
-                            .fontStyle,
-                      ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      return const HomeLoadingState();
     }
 
     return GestureDetector(
@@ -842,363 +810,54 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                       );
                                     }
 
-                                    return ListView.separated(
-                                      padding: EdgeInsets.zero,
-                                      scrollDirection: Axis.vertical,
-                                      itemCount: search.length,
-                                      separatorBuilder: (_, __) =>
-                                          const SizedBox(height: 10.0),
-                                      itemBuilder: (context, searchIndex) {
-                                        final searchItem = search[searchIndex];
-                                        return Container(
-                                          decoration: BoxDecoration(
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryBackground,
-                                            borderRadius:
-                                                BorderRadius.circular(20.0),
-                                          ),
-                                          child: StreamBuilder<EnseignesRecord>(
-                                            stream: EnseignesRecord.getDocument(
-                                                searchItem.enseigneId!),
-                                            builder: (context, snapshot) {
-                                              // Customize what your widget looks like when it's loading.
-                                              if (!snapshot.hasData) {
-                                                return const SizedBox.shrink();
-                                              }
+                                    return HomeSearchResultsList(
+                                      games: search,
+                                      itemBuilder: (context, searchItem) =>
+                                          HomeSearchResultCard(
+                                        game: searchItem,
+                                        onTap: () async {
+                                          await searchItem.reference.update({
+                                            ...mapToFirestore(
+                                              {
+                                                'views': FieldValue.increment(1),
+                                              },
+                                            ),
+                                          });
 
-                                              final rowEnseignesRecord =
-                                                  snapshot.data!;
+                                          final rowEnseignesRecord =
+                                              await EnseignesRecord.getDocumentOnce(
+                                            searchItem.enseigneId!,
+                                          );
 
-                                              return InkWell(
-                                                splashColor: Colors.transparent,
-                                                focusColor: Colors.transparent,
-                                                hoverColor: Colors.transparent,
-                                                highlightColor:
-                                                    Colors.transparent,
-                                                onTap: () async {
-                                                  await searchItem.reference
-                                                      .update({
-                                                    ...mapToFirestore(
-                                                      {
-                                                        'views': FieldValue
-                                                            .increment(1),
-                                                      },
-                                                    ),
-                                                  });
+                                          if (!context.mounted) {
+                                            return;
+                                          }
 
-                                                  context.pushNamed(
-                                                    JeuDetailJoueurPageWidget
-                                                        .routeName,
-                                                    queryParameters: {
-                                                      'gameDoc': serializeParam(
-                                                        searchItem,
-                                                        ParamType.Document,
-                                                      ),
-                                                      'enseigneDoc':
-                                                          serializeParam(
-                                                        rowEnseignesRecord,
-                                                        ParamType.Document,
-                                                      ),
-                                                    }.withoutNulls,
-                                                    extra: <String, dynamic>{
-                                                      'gameDoc': searchItem,
-                                                      'enseigneDoc':
-                                                          rowEnseignesRecord,
-                                                      kTransitionInfoKey:
-                                                          const TransitionInfo(
-                                                        hasTransition: true,
-                                                        transitionType:
-                                                            PageTransitionType
-                                                                .fade,
-                                                      ),
-                                                    },
-                                                  );
-                                                },
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.max,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.center,
-                                                  children: [
-                                                    Expanded(
-                                                      flex: 1,
-                                                      child: Container(
-                                                        height: 130.0,
-                                                        decoration:
-                                                            const BoxDecoration(),
-                                                        child: ClipRRect(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      8.0),
-                                                          child:
-                                                              ProxiplayNetworkImage(
-                                                            imageUrl:
-                                                                searchItem.photo,
-                                                            fit: BoxFit.cover,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 2,
-                                                      child: Padding(
-                                                        padding:
-                                                            const EdgeInsetsDirectional
-                                                                .fromSTEB(
-                                                                    10.0,
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0),
-                                                        child: Column(
-                                                          mainAxisSize:
-                                                              MainAxisSize.max,
-                                                          mainAxisAlignment:
-                                                              MainAxisAlignment
-                                                                  .start,
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            Text(
-                                                              searchItem.name,
-                                                              style: FlutterFlowTheme
-                                                                      .of(context)
-                                                                  .bodyMedium
-                                                                  .override(
-                                                                    font: GoogleFonts
-                                                                        .inter(
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .w600,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontStyle,
-                                                                    ),
-                                                                    letterSpacing:
-                                                                        0.0,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                            ),
-                                                            Column(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .max,
-                                                              mainAxisAlignment:
-                                                                  MainAxisAlignment
-                                                                      .spaceEvenly,
-                                                              children: [
-                                                                Row(
-                                                                  mainAxisSize:
-                                                                      MainAxisSize
-                                                                          .max,
-                                                                  children: [
-                                                                    Icon(
-                                                                      Icons
-                                                                          .store_sharp,
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primaryText,
-                                                                      size:
-                                                                          18.0,
-                                                                    ),
-                                                                    Text(
-                                                                      rowEnseignesRecord
-                                                                          .name,
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodySmall
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                            ),
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                                Row(
-                                                                  mainAxisSize:
-                                                                      MainAxisSize
-                                                                          .max,
-                                                                  children: [
-                                                                    Icon(
-                                                                      Icons
-                                                                          .location_on_sharp,
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primaryText,
-                                                                      size:
-                                                                          18.0,
-                                                                    ),
-                                                                    Text(
-                                                                      rowEnseignesRecord
-                                                                          .city,
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodySmall
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                            ),
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                                Row(
-                                                                  mainAxisSize:
-                                                                      MainAxisSize
-                                                                          .max,
-                                                                  children: [
-                                                                    FaIcon(
-                                                                      FontAwesomeIcons
-                                                                          .piggyBank,
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primaryText,
-                                                                      size:
-                                                                          18.0,
-                                                                    ),
-                                                                    Text(
-                                                                      ' Valeur : ',
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodySmall
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                            ),
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                    Text(
-                                                                      searchItem.prizeValue ==
-                                                                              0
-                                                                          ? 'Gains instantanés'
-                                                                          : '${searchItem.prizeValue.toString()} \u20AC',
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodySmall
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                            ),
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                                Row(
-                                                                  mainAxisSize:
-                                                                      MainAxisSize
-                                                                          .max,
-                                                                  children: [
-                                                                    Icon(
-                                                                      Icons
-                                                                          .calendar_month,
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primaryText,
-                                                                      size:
-                                                                          18.0,
-                                                                    ),
-                                                                    Text(
-                                                                      ' Valable jusqu\'au : ',
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodySmall
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                            ),
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                    Text(
-                                                                      dateTimeFormat(
-                                                                        "d/M/y",
-                                                                        searchItem
-                                                                            .endDate!,
-                                                                        locale:
-                                                                            FFLocalizations.of(context).languageCode,
-                                                                      ),
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodySmall
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                            ),
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ].divide(const SizedBox(
-                                                                  height: 5.0)),
-                                                            ),
-                                                          ].divide(const SizedBox(
-                                                              height: 5.0)),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
+                                          context.pushNamed(
+                                            JeuDetailJoueurPageWidget.routeName,
+                                            queryParameters: {
+                                              'gameDoc': serializeParam(
+                                                searchItem,
+                                                ParamType.Document,
+                                              ),
+                                              'enseigneDoc': serializeParam(
+                                                rowEnseignesRecord,
+                                                ParamType.Document,
+                                              ),
+                                            }.withoutNulls,
+                                            extra: <String, dynamic>{
+                                              'gameDoc': searchItem,
+                                              'enseigneDoc': rowEnseignesRecord,
+                                              kTransitionInfoKey:
+                                                  const TransitionInfo(
+                                                hasTransition: true,
+                                                transitionType:
+                                                    PageTransitionType.fade,
+                                              ),
                                             },
-                                          ),
-                                        );
-                                      },
+                                          );
+                                        },
+                                      ),
                                     );
                                   },
                                 ),
@@ -1342,29 +1001,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                   if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                                     return const SizedBox.shrink();
                                                                   }
-                                                                  return FutureBuilder<EnseignesRecord>(
-                                                                      future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
-                                                                      builder: (context, enseigneSnapshot) {
-                                                                        final enseigne = enseigneSnapshot.data;
-                                                                        return GameCardWidget(
-                                                                          title: listViewGamesRecord.name,
-                                                                          imageUrl: listViewGamesRecord.photo,
-                                                                          storeName: enseigne?.name ?? '',
-                                                                          city: enseigne?.city ?? '',
-                                                                          prizeText: listViewGamesRecord.prizeValue == 0
-                                                                              ? 'Gains instantanés'
-                                                                              : '${listViewGamesRecord.prizeValue} \u20AC',
-                                                                          endDateText: listViewGamesRecord.endDate != null
-                                                                              ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
-                                                                              : "Jusqu'au : -",
-                                                                          onTap:
-                                                                              () async {
-                                                                            await _openGameDetails(
-                                                                                listViewGamesRecord);
-                                                                          },
-                                                                        );
-                                                                      },
-                                                                    );
+                                                                  return HomeAsyncGameCard(
+                                                                    game:
+                                                                        listViewGamesRecord,
+                                                                    onTap:
+                                                                        () async {
+                                                                      await _openGameDetails(
+                                                                        listViewGamesRecord,
+                                                                      );
+                                                                    },
+                                                                  );
                                                                 },
                                                               ),
                                                             ),
@@ -1479,29 +1125,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                   if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                                     return const SizedBox.shrink();
                                                                   }
-                                                                  return FutureBuilder<EnseignesRecord>(
-                                                                      future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
-                                                                      builder: (context, enseigneSnapshot) {
-                                                                        final enseigne = enseigneSnapshot.data;
-                                                                        return GameCardWidget(
-                                                                          title: listViewGamesRecord.name,
-                                                                          imageUrl: listViewGamesRecord.photo,
-                                                                          storeName: enseigne?.name ?? '',
-                                                                          city: enseigne?.city ?? '',
-                                                                          prizeText: listViewGamesRecord.prizeValue == 0
-                                                                              ? 'Gains instantanés'
-                                                                              : '${listViewGamesRecord.prizeValue} \u20AC',
-                                                                          endDateText: listViewGamesRecord.endDate != null
-                                                                              ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
-                                                                              : "Jusqu'au : -",
-                                                                          onTap:
-                                                                              () async {
-                                                                            await _openGameDetails(
-                                                                                listViewGamesRecord);
-                                                                          },
-                                                                        );
-                                                                      },
-                                                                    );
+                                                                  return HomeAsyncGameCard(
+                                                                    game:
+                                                                        listViewGamesRecord,
+                                                                    onTap:
+                                                                        () async {
+                                                                      await _openGameDetails(
+                                                                        listViewGamesRecord,
+                                                                      );
+                                                                    },
+                                                                  );
                                                                 },
                                                               ),
                                                             ),
@@ -1623,29 +1256,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
                                                                   }
 
-                                                                  return FutureBuilder<EnseignesRecord>(
-                                                                      future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
-                                                                      builder: (context, enseigneSnapshot) {
-                                                                        final enseigne = enseigneSnapshot.data;
-                                                                        return GameCardWidget(
-                                                                          title: listViewGamesRecord.name,
-                                                                          imageUrl: listViewGamesRecord.photo,
-                                                                          storeName: enseigne?.name ?? '',
-                                                                          city: enseigne?.city ?? '',
-                                                                          prizeText: listViewGamesRecord.prizeValue == 0
-                                                                              ? 'Gains instantanés'
-                                                                              : '${listViewGamesRecord.prizeValue} \u20AC',
-                                                                          endDateText: listViewGamesRecord.endDate != null
-                                                                              ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
-                                                                              : "Jusqu'au : -",
-                                                                          onTap:
-                                                                              () async {
-                                                                            await _openGameDetails(
-                                                                                listViewGamesRecord);
-                                                                          },
-                                                                        );
-                                                                      },
-                                                                    );
+                                                                  return HomeAsyncGameCard(
+                                                                    game:
+                                                                        listViewGamesRecord,
+                                                                    onTap:
+                                                                        () async {
+                                                                      await _openGameDetails(
+                                                                        listViewGamesRecord,
+                                                                      );
+                                                                    },
+                                                                  );
                                                                 },
                                                               ),
                                                             ),
@@ -1772,46 +1392,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     final game =
                                                                         recentlyEndedGames[
                                                                             idx];
-                                                                    return FutureBuilder<EnseignesRecord>(
-                                                                        future: EnseignesRecord.getDocumentOnce(game.enseigneId!),
-                                                                        builder: (context, enseigneSnapshot) {
-                                                                          final enseigne = enseigneSnapshot.data;
-                                                                          return FutureBuilder<UsersRecord>(
-                                                                            future: UsersRecord.getDocumentOnce(game.mainPrizeWinner!),
-                                                                            builder: (context, winnerSnapshot) {
-                                                                              final winner = winnerSnapshot.data;
-                                                                              final firstName = (winner?.firstName ?? '').trim();
-                                                                              final city = (winner?.city ?? '').trim();
-                                                                              final winnerIdentity = city.isNotEmpty ? '$firstName - $city' : firstName;
-                                                                              final winnerLabel = winnerIdentity.isNotEmpty
-                                                                                  ? 'Gagn\u00E9 par $winnerIdentity'
-                                                                                  : 'Gagnant annonc\u00E9';
-                                                                              return GameCardWidget(
-                                                                                title: game.name,
-                                                                                imageUrl: game.photo,
-                                                                                storeName: enseigne?.name ?? '',
-                                                                                city: enseigne?.city ?? '',
-                                                                                prizeText: game.prizeValue == 0
-                                                                                    ? 'Gains instantanés'
-                                                                                    : '${game.prizeValue} \u20AC',
-                                                                                endDateText: game.endDate != null
-                                                                                    ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}"
-                                                                                    : "Jusqu'au : -",
-                                                                                winnerText: winnerLabel,
-                                                                                winnerMaxLines: 1,
-                                                                                isFinished: true,
-                                                                                fitContent: false,
-                                                                                height: AppStyles.finishedGameListHeight,
-                                                                                imageHeight: AppStyles.finishedGameImageHeight,
-                                                                                onTap: () async {
-                                                                                  await _openGameDetails(
-                                                                                      game);
-                                                                                },
-                                                                              );
-                                                                            },
-                                                                          );
-                                                                        },
-                                                                      );
+                                                                    return HomeFinishedGameCard(
+                                                                      game:
+                                                                          game,
+                                                                      onTap:
+                                                                          () async {
+                                                                        await _openGameDetails(
+                                                                          game,
+                                                                        );
+                                                                      },
+                                                                    );
                                                                   },
                                                                 ),
                                                               );
@@ -1954,38 +1544,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                                   return const SizedBox.shrink();
                                                                 }
-                                                                return FutureBuilder<EnseignesRecord>(
-                                                                    future: EnseignesRecord.getDocumentOnce(
-                                                                        listViewGamesRecord.enseigneId!),
-                                                                    builder: (context, enseigneSnapshot) {
-                                                                      final enseigne =
-                                                                          enseigneSnapshot.data;
-                                                                      return GameCardWidget(
-                                                                        title:
-                                                                            listViewGamesRecord.name,
-                                                                        imageUrl:
-                                                                            listViewGamesRecord.photo,
-                                                                        storeName:
-                                                                            enseigne?.name ?? '',
-                                                                        city: enseigne?.city ??
-                                                                            '',
-                                                                        prizeText: listViewGamesRecord
-                                                                                    .prizeValue ==
-                                                                                0
-                                                                            ? 'Gains instantanés'
-                                                                            : '${listViewGamesRecord.prizeValue} \u20AC',
-                                                                        endDateText: listViewGamesRecord.endDate !=
-                                                                                null
-                                                                            ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
-                                                                            : "Jusqu'au : -",
-                                                                        onTap:
-                                                                            () async {
-                                                                          await _openGameDetails(
-                                                                              listViewGamesRecord);
-                                                                        },
-                                                                      );
-                                                                    },
-                                                                  );
+                                                                return HomeAsyncGameCard(
+                                                                  game:
+                                                                      listViewGamesRecord,
+                                                                  onTap:
+                                                                      () async {
+                                                                    await _openGameDetails(
+                                                                      listViewGamesRecord,
+                                                                    );
+                                                                  },
+                                                                );
                                                               },
                                                             ),
                                                           ),
@@ -2113,38 +1681,19 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                                   return const SizedBox.shrink();
                                                                 }
-                                                                return FutureBuilder<EnseignesRecord>(
-                                                                    future: EnseignesRecord.getDocumentOnce(
-                                                                        listViewGamesRecord.enseigneId!),
-                                                                    builder: (context, enseigneSnapshot) {
-                                                                      final enseigne =
-                                                                          enseigneSnapshot.data;
-                                                                      return GameCardWidget(
-                                                                            title:
-                                                                                listViewGamesRecord.name,
-                                                                            imageUrl:
-                                                                                listViewGamesRecord.photo,
-                                                                            storeName:
-                                                                                enseigne?.name ?? '',
-                                                                            city: enseigne?.city ??
-                                                                                '',
-                                                                            prizeText: listViewGamesRecord
-                                                                                        .prizeValue ==
-                                                                                    0
-                                                                                ? 'Gains instantanés'
-                                                                                : '${listViewGamesRecord.prizeValue} \u20AC',
-                                                                            endDateText: listViewGamesRecord.endDate !=
-                                                                                    null
-                                                                                ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
-                                                                                : "Jusqu'au : -",
-                                                                            onTap:
-                                                                                () async {
-                                                                              await _openGameDetails(
-                                                                                  listViewGamesRecord);
-                                                                            },
-                                                                          );
-                                                                        },
-                                                                  );
+                                                                return HomeAsyncGameCard(
+                                                                  game:
+                                                                      listViewGamesRecord,
+                                                                  onTap:
+                                                                      () async {
+                                                                    await _openGameDetails(
+                                                                      listViewGamesRecord,
+                                                                    );
+                                                                  },
+                                                                  isHighlighted:
+                                                                      listViewIndex ==
+                                                                          0,
+                                                                );
                                                               },
                                                             ),
                                                           ),
@@ -2269,38 +1818,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                                   return const SizedBox.shrink();
                                                                 }
-                                                                return FutureBuilder<EnseignesRecord>(
-                                                                    future: EnseignesRecord.getDocumentOnce(
-                                                                        listViewGamesRecord.enseigneId!),
-                                                                    builder: (context, enseigneSnapshot) {
-                                                                      final enseigne =
-                                                                          enseigneSnapshot.data;
-                                                                      return GameCardWidget(
-                                                                            title:
-                                                                                listViewGamesRecord.name,
-                                                                            imageUrl:
-                                                                                listViewGamesRecord.photo,
-                                                                            storeName:
-                                                                                enseigne?.name ?? '',
-                                                                            city: enseigne?.city ??
-                                                                                '',
-                                                                            prizeText: listViewGamesRecord
-                                                                                        .prizeValue ==
-                                                                                    0
-                                                                                ? 'Gains instantanés'
-                                                                                : '${listViewGamesRecord.prizeValue} \u20AC',
-                                                                            endDateText: listViewGamesRecord.endDate !=
-                                                                                    null
-                                                                                ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
-                                                                                : "Jusqu'au : -",
-                                                                            onTap:
-                                                                                () async {
-                                                                              await _openGameDetails(
-                                                                                  listViewGamesRecord);
-                                                                            },
-                                                                          );
-                                                                        },
-                                                                  );
+                                                                return HomeAsyncGameCard(
+                                                                  game:
+                                                                      listViewGamesRecord,
+                                                                  onTap:
+                                                                      () async {
+                                                                    await _openGameDetails(
+                                                                      listViewGamesRecord,
+                                                                    );
+                                                                  },
+                                                                );
                                                               },
                                                             ),
                                                           ),
@@ -2429,29 +1956,18 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                               return const SizedBox.shrink();
                                                             }
-                                                            return FutureBuilder<EnseignesRecord>(
-                                                                future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
-                                                                builder: (context, enseigneSnapshot) {
-                                                                  final enseigne = enseigneSnapshot.data;
-                                                                  return GameCardWidget(
-                                                                    title: listViewGamesRecord.name,
-                                                                    imageUrl: listViewGamesRecord.photo,
-                                                                    storeName: enseigne?.name ?? '',
-                                                                    city: enseigne?.city ?? '',
-                                                                    isHighlighted: listViewIndex == 0,
-                                                                    prizeText: listViewGamesRecord.prizeValue == 0
-                                                                        ? 'Gains instantanés'
-                                                                        : '${listViewGamesRecord.prizeValue} \u20AC',
-                                                                    endDateText: listViewGamesRecord.endDate != null
-                                                                        ? 'Jusqu\'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}'
-                                                                        : 'Jusqu\'au : -',
-                                                                    onTap: () async {
-                                                                      await _openGameDetails(
-                                                                          listViewGamesRecord);
-                                                                    },
-                                                                  );
-                                                                },
-                                                              );
+                                                            return HomeAsyncGameCard(
+                                                              game:
+                                                                  listViewGamesRecord,
+                                                              isHighlighted:
+                                                                  listViewIndex ==
+                                                                      0,
+                                                              onTap: () async {
+                                                                await _openGameDetails(
+                                                                  listViewGamesRecord,
+                                                                );
+                                                              },
+                                                            );
                                                           },
                                                         ),
                                                       ),
@@ -2562,28 +2078,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                               return const SizedBox.shrink();
                                                             }
-                                                            return FutureBuilder<EnseignesRecord>(
-                                                                future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
-                                                                builder: (context, enseigneSnapshot) {
-                                                                  final enseigne = enseigneSnapshot.data;
-                                                                  return GameCardWidget(
-                                                                    title: listViewGamesRecord.name,
-                                                                    imageUrl: listViewGamesRecord.photo,
-                                                                    storeName: enseigne?.name ?? '',
-                                                                    city: enseigne?.city ?? '',
-                                                                    prizeText: listViewGamesRecord.prizeValue == 0
-                                                                        ? 'Gains instantanés'
-                                                                        : '${listViewGamesRecord.prizeValue} \u20AC',
-                                                                    endDateText: listViewGamesRecord.endDate != null
-                                                                        ? 'Jusqu\'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}'
-                                                                        : 'Jusqu\'au : -',
-                                                                    onTap: () async {
-                                                                      await _openGameDetails(
-                                                                          listViewGamesRecord);
-                                                                    },
-                                                                  );
-                                                                },
-                                                              );
+                                                            return HomeAsyncGameCard(
+                                                              game:
+                                                                  listViewGamesRecord,
+                                                              onTap: () async {
+                                                                await _openGameDetails(
+                                                                  listViewGamesRecord,
+                                                                );
+                                                              },
+                                                            );
                                                           },
                                                         ),
                                                       ),
@@ -2689,28 +2192,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                               return const SizedBox.shrink();
                                                             }
-                                                            return FutureBuilder<EnseignesRecord>(
-                                                                future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
-                                                                builder: (context, enseigneSnapshot) {
-                                                                  final enseigne = enseigneSnapshot.data;
-                                                                  return GameCardWidget(
-                                                                    title: listViewGamesRecord.name,
-                                                                    imageUrl: listViewGamesRecord.photo,
-                                                                    storeName: enseigne?.name ?? '',
-                                                                    city: enseigne?.city ?? '',
-                                                                    prizeText: listViewGamesRecord.prizeValue == 0
-                                                                        ? 'Gains instantanés'
-                                                                        : '${listViewGamesRecord.prizeValue} \u20AC',
-                                                                    endDateText: listViewGamesRecord.endDate != null
-                                                                        ? 'Jusqu\'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}'
-                                                                        : 'Jusqu\'au : -',
-                                                                    onTap: () async {
-                                                                      await _openGameDetails(
-                                                                          listViewGamesRecord);
-                                                                    },
-                                                                  );
-                                                                },
-                                                              );
+                                                            return HomeAsyncGameCard(
+                                                              game:
+                                                                  listViewGamesRecord,
+                                                              onTap: () async {
+                                                                await _openGameDetails(
+                                                                  listViewGamesRecord,
+                                                                );
+                                                              },
+                                                            );
                                                           },
                                                         ),
                                                       ),
