@@ -6,18 +6,19 @@ import '/backend/backend.dart';
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
+import 'package:flutter/foundation.dart' show debugPrint;
 
 Future<void> deleteEnseigneImages(DocumentReference refEnseigne) async {
   // Add your function code here!
   try {
-    //Accès à la sous-collection "images"
+    // Acces a la sous-collection "images"
     CollectionReference imageCollection = refEnseigne.collection('images');
 
-    // Récupérer toutes les images de l'enseigne
+    // Recuperer toutes les images de l'enseigne
     QuerySnapshot imageDocs = await imageCollection.get();
 
     if (imageDocs.docs.isEmpty) {
-      print("✅ Aucune image trouvée pour cette enseigne.");
+      debugPrint('Aucune image trouvee pour cette enseigne.');
       return;
     }
 
@@ -28,28 +29,30 @@ Future<void> deleteEnseigneImages(DocumentReference refEnseigne) async {
 
       if (imageUrl != null) {
         try {
-          // Récupérer le chemin de l'image dans Firebase Storage
+          // Recuperer le chemin de l'image dans Firebase Storage
           String filePath =
               Uri.decodeFull(imageUrl.split('/o/')[1].split('?alt=media')[0]);
 
-          print("Suppression de l'image : $filePath");
+          debugPrint("Suppression de l'image : $filePath");
           await firebase_storage.FirebaseStorage.instance
               .ref(filePath)
               .delete();
         } catch (e) {
-          print("Erreur de suppression de l'image : $e");
+          debugPrint("Erreur de suppression de l'image : $e");
         }
       }
 
-      //  Supprimer le document de Firestore
+      // Supprimer le document de Firestore
       await doc.reference.delete();
     }
 
-    // Supprimer ensuite l'enseigne après suppression des images
+    // Supprimer ensuite l'enseigne apres suppression des images
     // await refEnseigne.delete();
 
-    print(" Enseigne et images supprimées avec succès.");
+    debugPrint('Enseigne et images supprimees avec succes.');
   } catch (e) {
-    print(" Erreur lors de la suppression des images et de l'enseigne : $e");
+    debugPrint(
+      "Erreur lors de la suppression des images et de l'enseigne : $e",
+    );
   }
 }

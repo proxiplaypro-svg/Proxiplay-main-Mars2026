@@ -5,14 +5,16 @@ import '/backend/backend.dart';
 // Begin custom action code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 Future<PrizesRecord?> getRefPrize(String refPrize) async {
   if (refPrize.isEmpty) {
-    throw Exception("⚠️ refPrize est vide !");
+    throw Exception('refPrize est vide !');
   }
 
-  print("📌 Récupération du document: $refPrize");
+  debugPrint('Recuperation du document: $refPrize');
 
-  // Récupérer la référence du document
+  // Recuperer la reference du document
   DocumentReference docRef = FirebaseFirestore.instance.doc(refPrize);
 
   try {
@@ -20,14 +22,14 @@ Future<PrizesRecord?> getRefPrize(String refPrize) async {
     DocumentSnapshot docSnapshot = await docRef.get();
 
     if (docSnapshot.exists) {
-      print("✅ Document trouvé !");
-      return PrizesRecord.fromSnapshot(docSnapshot); // ✅ Conversion correcte
+      debugPrint('Document trouve.');
+      return PrizesRecord.fromSnapshot(docSnapshot);
     } else {
-      print("⚠️ Document non trouvé !");
+      debugPrint('Document non trouve.');
       return null;
     }
   } catch (e) {
-    print("❌ Erreur lors de la récupération du document: $e");
+    debugPrint('Erreur lors de la recuperation du document: $e');
     return null;
   }
 }
