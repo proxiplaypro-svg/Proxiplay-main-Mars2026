@@ -167,8 +167,11 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
         FocusScope.of(context).unfocus();
         FocusManager.instance.primaryFocus?.unfocus();
       },
-      child: PopScope(
-        canPop: false,
+      child: WillPopScope(
+        onWillPop: () async {
+          context.goNamed(LoginPageWidget.routeName);
+          return false;
+        },
         child: Scaffold(
           key: scaffoldKey,
           backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,

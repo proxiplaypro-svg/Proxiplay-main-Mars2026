@@ -769,6 +769,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                             },
                                           );
                                         },
+                                        iconData: Icons.store_rounded,
                                         text: enseigneName,
                                         options: FFButtonOptions(
                                           width: double.infinity,
@@ -778,7 +779,9 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                   16.0, 0.0, 16.0, 0.0),
                                           iconPadding:
                                               const EdgeInsetsDirectional.fromSTEB(
-                                                  0.0, 0.0, 0.0, 0.0),
+                                                  0.0, 0.0, 8.0, 0.0),
+                                          iconSize: 16.0,
+                                          iconColor: const Color(0xFFA0134D),
                                           color: FlutterFlowTheme.of(context)
                                               .secondaryBackground,
                                           textStyle: FlutterFlowTheme.of(
@@ -797,9 +800,8 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                           .titleSmall
                                                           .fontStyle,
                                                 ),
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primary,
+                                                color: const Color(0xFFA0134D),
+                                                fontSize: 16.0,
                                                 letterSpacing: 0.0,
                                                 fontWeight:
                                                     FlutterFlowTheme.of(context)
@@ -814,8 +816,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                           borderRadius:
                                               BorderRadius.circular(30.0),
                                           borderSide: BorderSide(
-                                            color: FlutterFlowTheme.of(context)
-                                                .primary,
+                                            color: const Color(0xFFA0134D),
                                             width: 1.0,
                                           ),
                                         ),

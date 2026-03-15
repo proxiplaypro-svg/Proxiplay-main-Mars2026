@@ -48,10 +48,16 @@ class _AdminPushNotificationsPageWidgetState
   Timer? _searchDebounce;
   bool _searchLoading = false;
 
+  bool _dailyRemainingChancesReminderEnabled = true;
+  bool _loadingNotificationsConfig = true;
+  bool _savingNotificationsConfig = false;
+
+
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => AdminPushNotificationsPageModel());
+    _loadNotificationsConfig();
 
     _pagingController.addPageRequestListener((pageKey) {
       _fetchUsersPage(pageKey);
@@ -128,6 +134,68 @@ class _AdminPushNotificationsPageWidgetState
       _searchResults = [];
       _searchLoading = false;
     });
+  }
+
+
+  Future<void> _loadNotificationsConfig() async {
+    try {
+      final response = await makeCloudCall(
+        'adminGetNotificationsConfig',
+        const {},
+      );
+      final enabled =
+          response['dailyRemainingChancesReminderEnabled'] as bool? ?? true;
+      if (!mounted) return;
+      setState(() {
+        _dailyRemainingChancesReminderEnabled = enabled;
+        _loadingNotificationsConfig = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _dailyRemainingChancesReminderEnabled = true;
+        _loadingNotificationsConfig = false;
+      });
+    }
+  }
+
+  Future<void> _setDailyRemainingChancesReminderEnabled(bool value) async {
+    setState(() => _savingNotificationsConfig = true);
+    try {
+      final response = await makeCloudCall(
+        'adminSetNotificationsConfig',
+        {
+          'dailyRemainingChancesReminderEnabled': value,
+        },
+      );
+      if (response['ok'] != true) {
+        throw Exception('notifications_config_update_failed');
+      }
+      if (!mounted) return;
+      setState(() {
+        _dailyRemainingChancesReminderEnabled = value;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            value
+                ? 'Relance 18h activée.'
+                : 'Relance 18h désactivée.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible de mettre à jour ce réglage.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _savingNotificationsConfig = false);
+      }
+    }
   }
 
   Future<List<UsersRecord>> _searchUsers(String q) async {
@@ -601,6 +669,48 @@ class _AdminPushNotificationsPageWidgetState
     );
   }
 
+
+  Widget _notificationsConfigCard() {
+    return Card(
+      elevation: 0,
+      color: FlutterFlowTheme.of(context).secondaryBackground,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Paramètres notifications admin',
+              style: FlutterFlowTheme.of(context).titleSmall,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Pilote la relance automatique de 18h pour les utilisateurs ayant encore des chances.',
+              style: FlutterFlowTheme.of(context).bodySmall,
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: _dailyRemainingChancesReminderEnabled,
+              onChanged: _loadingNotificationsConfig || _savingNotificationsConfig
+                  ? null
+                  : _setDailyRemainingChancesReminderEnabled,
+              title: const Text('Relance 18h des chances restantes'),
+              subtitle: Text(
+                _loadingNotificationsConfig
+                    ? 'Chargement...'
+                    : (_dailyRemainingChancesReminderEnabled
+                        ? 'Activée'
+                        : 'Désactivée'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _composePanel({bool isPhone = false}) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
@@ -609,6 +719,10 @@ class _AdminPushNotificationsPageWidgetState
         children: [
           Text('Compose', style: FlutterFlowTheme.of(context).titleMedium),
           const SizedBox(height: 8),
+          if (currentUserDocument?.userRole == Roles.admin) ...[
+            _notificationsConfigCard(),
+            const SizedBox(height: 12),
+          ],
           _selectedUsersHeader(),
           if (isPhone)
             Align(

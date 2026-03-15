@@ -66,6 +66,8 @@ export const defaultShareState: ShareStateRecord = {
   rewardAvailable: false,
   lastReferralAt: null,
   lastRewardAt: null,
+  lastDailyPlayReminderDateKey: null,
+  lastDailyPlayReminderIndex: null,
   remainingEligibleRewards: 0,
   currentBannerKind: null,
   currentBannerTitle: null,
@@ -520,5 +522,3 @@ export async function queueUserPushNotification({
     created_by: createdBy,
   });
 }
-
-

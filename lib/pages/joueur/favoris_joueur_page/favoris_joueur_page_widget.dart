@@ -52,6 +52,10 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
     if (startDate != null && now.isBefore(startDate)) {
       return false;
     }
+    final endDate = game.endDate;
+    if (endDate != null && now.isAfter(endDate)) {
+      return false;
+    }
     return true;
   }
 
@@ -467,14 +471,14 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                         .max,
                                                                 crossAxisAlignment:
                                                                     CrossAxisAlignment
-                                                                        .center,
+                                                                        .start,
                                                                 children: [
                                                                   Expanded(
                                                                     flex: 1,
                                                                     child:
                                                                         Container(
                                                                       height:
-                                                                          130.0,
+                                                                          108.0,
                                                                       decoration:
                                                                           const BoxDecoration(),
                                                                       child: FutureBuilder<
@@ -541,6 +545,8 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                             [
                                                                           Text(
                                                                             containerEnseignesRecord.name,
+                                                                            maxLines: 2,
+                                                                            overflow: TextOverflow.ellipsis,
                                                                             style: FlutterFlowTheme.of(context).bodyMedium.override(
                                                                                   font: GoogleFonts.inter(
                                                                                     fontWeight: FontWeight.w600,
@@ -557,6 +563,7 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                             children: [
                                                                               Row(
                                                                                 mainAxisSize: MainAxisSize.max,
+                                                                                crossAxisAlignment: CrossAxisAlignment.start,
                                                                                 children: [
                                                                                   Container(
                                                                                     width: 30.0,
@@ -634,36 +641,11 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                                       size: 18.0,
                                                                                     ),
                                                                                   ),
-                                                                                  Text(
-                                                                                    containerEnseignesRecord.city,
-                                                                                    style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                          font: GoogleFonts.inter(
-                                                                                            fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                            fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                          ),
-                                                                                          letterSpacing: 0.0,
-                                                                                          fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                          fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                        ),
-                                                                                  ),
-                                                                                ],
-                                                                              ),
-                                                                              if (containerEnseignesRecord.siteWebUrl != '')
-                                                                                Row(
-                                                                                  mainAxisSize: MainAxisSize.max,
-                                                                                  children: [
-                                                                                    Container(
-                                                                                      width: 30.0,
-                                                                                      decoration: const BoxDecoration(),
-                                                                                      alignment: const AlignmentDirectional(-1.0, 0.0),
-                                                                                      child: Icon(
-                                                                                        Icons.language,
-                                                                                        color: FlutterFlowTheme.of(context).primaryText,
-                                                                                        size: 18.0,
-                                                                                      ),
-                                                                                    ),
-                                                                                    Text(
-                                                                                      containerEnseignesRecord.siteWebUrl,
+                                                                                  Expanded(
+                                                                                    child: Text(
+                                                                                      containerEnseignesRecord.city,
+                                                                                      maxLines: 1,
+                                                                                      overflow: TextOverflow.ellipsis,
                                                                                       style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                             font: GoogleFonts.inter(
                                                                                               fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -674,10 +656,12 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                                             fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
                                                                                           ),
                                                                                     ),
-                                                                                  ],
-                                                                                ),
+                                                                                  ),
+                                                                                ],
+                                                                              ),
                                                                               Row(
                                                                                 mainAxisSize: MainAxisSize.max,
+                                                                                crossAxisAlignment: CrossAxisAlignment.start,
                                                                                 children: [
                                                                                   Container(
                                                                                     width: 30.0,
@@ -689,17 +673,21 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                                       size: 18.0,
                                                                                     ),
                                                                                   ),
-                                                                                  Text(
-                                                                                    containerEnseignesRecord.phoneNumber,
-                                                                                    style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                          font: GoogleFonts.inter(
+                                                                                  Expanded(
+                                                                                    child: Text(
+                                                                                      containerEnseignesRecord.phoneNumber,
+                                                                                      maxLines: 1,
+                                                                                      overflow: TextOverflow.ellipsis,
+                                                                                      style: FlutterFlowTheme.of(context).bodySmall.override(
+                                                                                            font: GoogleFonts.inter(
+                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                                                                                            ),
+                                                                                            letterSpacing: 0.0,
                                                                                             fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
                                                                                             fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
                                                                                           ),
-                                                                                          letterSpacing: 0.0,
-                                                                                          fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                          fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                        ),
+                                                                                    ),
                                                                                   ),
                                                                                 ],
                                                                               ),

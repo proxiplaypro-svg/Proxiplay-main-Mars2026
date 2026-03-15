@@ -95,12 +95,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
   bool _isGameVisibleForPlayer(GamesRecord game) {
     final now = getCurrentTimestamp;
-    final endDate = game.endDate;
-    if (endDate == null || !endDate.isAfter(now)) {
-      return false;
-    }
     final startDate = game.startDate;
     if (startDate != null && now.isBefore(startDate)) {
+      return false;
+    }
+    final endDate = game.endDate;
+    if (endDate != null && now.isAfter(endDate)) {
       return false;
     }
     return true;
@@ -2438,6 +2438,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     imageUrl: listViewGamesRecord.photo,
                                                                     storeName: enseigne?.name ?? '',
                                                                     city: enseigne?.city ?? '',
+                                                                    isHighlighted: listViewIndex == 0,
                                                                     prizeText: listViewGamesRecord.prizeValue == 0
                                                                         ? 'Gains instantanés'
                                                                         : '${listViewGamesRecord.prizeValue} \u20AC',

@@ -1,4 +1,5 @@
 const String shareLinkBase = 'https://onelink.to/jx4ee7';
+const String shareSlogan = 'On a tout à gagner à jouer la proximité';
 
 const List<String> _referralParamCandidates = <String>[
   'ref',
@@ -37,14 +38,19 @@ String buildAppShareText({
   final normalizedTitle = title?.trim() ?? '';
   final normalizedDescription = description?.trim() ?? '';
 
-  if (normalizedTitle.isNotEmpty) {
-    buffer.writeln(normalizedTitle);
-  }
-  if (normalizedDescription.isNotEmpty) {
-    if (buffer.isNotEmpty) {
-      buffer.writeln();
+  buffer.writeln(shareSlogan);
+
+  if (normalizedTitle.isNotEmpty || normalizedDescription.isNotEmpty) {
+    buffer.writeln();
+    if (normalizedTitle.isNotEmpty) {
+      buffer.writeln(normalizedTitle);
     }
-    buffer.writeln(normalizedDescription);
+    if (normalizedDescription.isNotEmpty) {
+      if (normalizedTitle.isNotEmpty) {
+        buffer.writeln();
+      }
+      buffer.writeln(normalizedDescription);
+    }
   }
   if (buffer.isNotEmpty) {
     buffer.writeln();

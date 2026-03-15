@@ -18,6 +18,7 @@ import {
   normalizeNumber,
   normalizeString,
   paths,
+  pushNotificationsCollection,
   queueUserPushNotification,
   recomputeAdminStats,
   recomputeShareState,
@@ -35,6 +36,74 @@ import {
 
 // Temporary development bypass. Keep as a fallback only.
 const TEMP_ADMIN_UID = 'CKRlhsC8x2cUUsUPFy4rG67CyJHG2';
+const dailyPlaysReminderVariants = [
+  {
+    title: '🎮 Il vous reste des chances !',
+    body: 'Tentez votre chance avant minuit 🍀',
+  },
+  {
+    title: '🍀 Vos parties du jour vous attendent',
+    body: 'Vous avez encore des chances à jouer aujourd’hui.',
+  },
+  {
+    title: '🎯 Ne laissez pas vos parties expirer',
+    body: 'Utilisez vos chances avant la fin de la journée.',
+  },
+  {
+    title: '🎁 Des jeux vous attendent encore',
+    body: 'Vous pouvez encore jouer sur ProxiPlay aujourd’hui.',
+  },
+  {
+    title: '⏳ Il est encore temps de jouer',
+    body: 'Vos chances du jour ne sont pas encore utilisées.',
+  },
+  {
+    title: '🎮 Vous n’avez pas tout utilisé',
+    body: 'Revenez tenter votre chance avant minuit.',
+  },
+  {
+    title: '🍀 Encore des chances disponibles',
+    body: 'Profitez-en tant qu’il est encore temps.',
+  },
+  {
+    title: '🎯 Votre journée ProxiPlay n’est pas finie',
+    body: 'Il vous reste encore des parties à jouer.',
+  },
+] as const;
+
+function getParisDateKey(date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+function parseDailyReminderIndex(value: unknown): number | null {
+  return Number.isInteger(value) ? Number(value) : null;
+}
+
+function pickDailyPlaysReminderVariant(lastIndex: number | null) {
+  let index = Math.floor(Math.random() * dailyPlaysReminderVariants.length);
+  if (
+    dailyPlaysReminderVariants.length > 1 &&
+    lastIndex !== null &&
+    lastIndex >= 0 &&
+    lastIndex < dailyPlaysReminderVariants.length &&
+    index === lastIndex
+  ) {
+    index =
+      (index +
+        1 +
+        Math.floor(Math.random() * (dailyPlaysReminderVariants.length - 1))) %
+      dailyPlaysReminderVariants.length;
+  }
+  return {
+    index,
+    ...dailyPlaysReminderVariants[index],
+  };
+}
 
 type CallableAuth = NonNullable<functions.https.CallableContext['auth']>;
 
@@ -77,6 +146,20 @@ async function loadCampaign(): Promise<SharePromoConfig> {
       | Partial<SharePromoConfig>
       | undefined,
   );
+}
+
+
+async function loadNotificationsConfig(): Promise<{
+  dailyRemainingChancesReminderEnabled: boolean;
+}> {
+  const configSnap = await db.collection('app_config').doc('notifications').get();
+  const configData = (configSnap.data() ?? {}) as {
+    dailyRemainingChancesReminderEnabled?: unknown;
+  };
+  return {
+    dailyRemainingChancesReminderEnabled:
+      configData.dailyRemainingChancesReminderEnabled !== false,
+  };
 }
 
 async function grantReferralRewardInternal(
@@ -180,7 +263,7 @@ async function grantReferralRewardInternal(
       followUpTasks.push(
         queueUserPushNotification({
           docId: `share_promo_reward_${referralId}`,
-          title: '🎉 Ton parrainage a fonctionne !',
+          title: 'Ton parrainage a fonctionne !',
           body: 'Tu peux maintenant jouer a tous les jeux jusqu a minuit.',
           userUid: referral.inviterUid,
           createdBy: grantedBy,
@@ -426,6 +509,38 @@ export const registerReferralAcceptance = functions
     };
   });
 
+
+export const adminGetNotificationsConfig = functions
+  .region(region)
+  .runWith({ timeoutSeconds: 60, memory: '256MB' })
+  .https.onCall(async (_data, context) => {
+    await requireAdmin(context);
+    return loadNotificationsConfig();
+  });
+
+export const adminSetNotificationsConfig = functions
+  .region(region)
+  .runWith({ timeoutSeconds: 60, memory: '256MB' })
+  .https.onCall(async (data, context) => {
+    const adminUid = await requireAdmin(context);
+    const dailyRemainingChancesReminderEnabled =
+      data?.dailyRemainingChancesReminderEnabled !== false;
+
+    await db.collection('app_config').doc('notifications').set(
+      {
+        dailyRemainingChancesReminderEnabled,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: refs.user(adminUid),
+      },
+      { merge: true },
+    );
+
+    return {
+      ok: true,
+      dailyRemainingChancesReminderEnabled,
+    };
+  });
+
 export const grantReferralReward = functions
   .region(region)
   .runWith({ timeoutSeconds: 60, memory: '256MB' })
@@ -439,6 +554,98 @@ export const grantReferralReward = functions
       );
     }
     return grantReferralRewardInternal(referralId, `admin/${adminUid}`);
+  });
+
+export const remindUsersWithRemainingDailyPlays = functions
+  .region(region)
+  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+  .pubsub.schedule('0 18 * * *')
+  .timeZone('Europe/Paris')
+  .onRun(async () => {
+    const { dailyRemainingChancesReminderEnabled } =
+      await loadNotificationsConfig();
+    if (!dailyRemainingChancesReminderEnabled) {
+      console.log(
+        '[remindUsersWithRemainingDailyPlays] skipped dailyRemainingChancesReminderEnabled=false',
+      );
+      return null;
+    }
+
+    const dateKey = getParisDateKey();
+    const usersSnap = await db
+      .collection('users')
+      .where('remaining_part', '>', 0)
+      .get();
+
+    let queued = 0;
+    let skippedAlreadyQueued = 0;
+    let skippedWithoutParts = 0;
+    let failed = 0;
+
+    for (const userDoc of usersSnap.docs) {
+      const userData = userDoc.data() ?? {};
+      const remainingPart = normalizeNumber(userData.remaining_part, 0);
+      if (remainingPart <= 0) {
+        skippedWithoutParts += 1;
+        continue;
+      }
+
+      const notificationDocId = `daily_remaining_plays_${dateKey}_${userDoc.id}`;
+      const notificationRef = db
+        .collection(pushNotificationsCollection)
+        .doc(notificationDocId);
+      const notificationSnap = await notificationRef.get();
+      if (notificationSnap.exists) {
+        skippedAlreadyQueued += 1;
+        continue;
+      }
+
+      try {
+        const shareStateSnap = await refs.shareState(userDoc.id).get();
+        const shareState = shareStateSnap.exists ? shareStateSnap.data() ?? {} : {};
+        const lastIndex = parseDailyReminderIndex(
+          shareState.lastDailyPlayReminderIndex,
+        );
+        const variant = pickDailyPlaysReminderVariant(lastIndex);
+
+        await queueUserPushNotification({
+          docId: notificationDocId,
+          title: variant.title,
+          body: variant.body,
+          userUid: userDoc.id,
+          createdBy: 'system/remindUsersWithRemainingDailyPlays',
+        });
+
+        await refs.shareState(userDoc.id).set(
+          {
+            lastDailyPlayReminderDateKey: dateKey,
+            lastDailyPlayReminderIndex: variant.index,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true },
+        );
+        queued += 1;
+      } catch (error) {
+        failed += 1;
+        console.log(
+          `[remindUsersWithRemainingDailyPlays] user=${userDoc.id} error=${error}`,
+        );
+      }
+    }
+
+    console.log(
+      '[remindUsersWithRemainingDailyPlays] done',
+      JSON.stringify({
+        dateKey,
+        matchedUsers: usersSnap.size,
+        queued,
+        skippedAlreadyQueued,
+        skippedWithoutParts,
+        failed,
+      }),
+    );
+
+    return null;
   });
 
 export const expireOldReferrals = functions
@@ -581,4 +788,3 @@ export const adminGetSharePromoStats = functions
         .slice(0, 10),
     };
   });
-

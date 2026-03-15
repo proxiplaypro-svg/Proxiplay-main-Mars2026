@@ -9,10 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '/utils/share_links.dart';
 
 Future shareAppStoreLink() async {
-  final shareText = buildAppShareText(
-    title: 'Decouvrez ProxiPlay',
-    description: 'Rejoignez-moi sur ProxiPlay avec ce lien.',
-  );
+  final shareText = buildAppShareText();
 
-  await Share.share(shareText, subject: 'Partage de ProxiPlay');
+  await Share.share(shareText, subject: 'Partage ProxiPlay');
 }

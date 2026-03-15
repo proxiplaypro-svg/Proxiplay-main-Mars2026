@@ -152,9 +152,21 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
     return _readInt(rawValue);
   }
 
-  Stream<int> _followersStream() {
+  int _readShopViews(EnseignesRecord enseigne) {
+    final data = enseigne.snapshotData;
+    final dynamic rawValue = data['shop_views'] ??
+        data['shopViews'] ??
+        data['views_shop'] ??
+        data['viewsShop'] ??
+        data['store_views'] ??
+        data['storeViews'] ??
+        data['views'];
+    return _readInt(rawValue);
+  }
+
+  Stream<List<EnseignesRecord>> _merchantEnseignesStream() {
     if (currentUserReference == null) {
-      return Stream<int>.value(0);
+      return Stream<List<EnseignesRecord>>.value(const <EnseignesRecord>[]);
     }
 
     return queryEnseignesRecord(
@@ -163,63 +175,78 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
         isEqualTo: currentUserReference,
       ),
       limit: 100,
-    ).map(
-      (enseignes) => enseignes.fold<int>(0, (sum, e) => sum + _readFollowers(e)),
     );
   }
 
-  Widget _buildGlobalLine({
+  Widget _buildKpiCard({
     required IconData icon,
     required String label,
     required int value,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 14.0),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14.0),
+        borderRadius: BorderRadius.circular(16.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12.0,
+            offset: const Offset(0.0, 4.0),
+          ),
+        ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 28.0,
-            height: 28.0,
+            width: 38.0,
+            height: 38.0,
             decoration: BoxDecoration(
-              color: FlutterFlowTheme.of(context).primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(9.0),
+              color: FlutterFlowTheme.of(context).primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12.0),
             ),
             child: Icon(
               icon,
-              size: 16.0,
+              size: 20.0,
               color: FlutterFlowTheme.of(context).primary,
             ),
           ),
-          const SizedBox(width: 8.0),
-          Text(
-            '$value',
-            style: FlutterFlowTheme.of(context).titleMedium.override(
-                  font: GoogleFonts.interTight(
-                    fontWeight: FontWeight.w700,
-                    fontStyle: FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                  ),
-                  letterSpacing: 0.0,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(width: 8.0),
+          const SizedBox(width: 12.0),
           Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: FlutterFlowTheme.of(context).bodySmall.override(
-                    font: GoogleFonts.inter(
-                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                    ),
-                    color: FlutterFlowTheme.of(context).secondaryText,
-                    letterSpacing: 0.0,
-                  ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value.toString(),
+                  style: FlutterFlowTheme.of(context).headlineSmall.override(
+                        font: GoogleFonts.interTight(
+                          fontWeight: FontWeight.w800,
+                          fontStyle:
+                              FlutterFlowTheme.of(context).headlineSmall.fontStyle,
+                        ),
+                        fontSize: 24.0,
+                        letterSpacing: 0.0,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 2.0),
+                Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: FlutterFlowTheme.of(context).bodySmall.override(
+                        font: GoogleFonts.inter(
+                          fontWeight:
+                              FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                          fontStyle:
+                              FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                        ),
+                        color: FlutterFlowTheme.of(context).secondaryText,
+                        letterSpacing: 0.0,
+                      ),
+                ),
+              ],
             ),
           ),
         ],
@@ -673,39 +700,92 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                         final allGames = snapshot.data!;
                         final finishedGames = _normalizeFinishedGames(allGames);
                         final currentGame = _pickCurrentGame(allGames);
-                        final totalViews =
-                            allGames.fold<int>(0, (sum, game) => sum + game.views);
+                        final totalViews = allGames.fold<int>(
+                          0,
+                          (total, game) => total + game.views,
+                        );
                         final totalParticipations = allGames.fold<int>(
-                            0, (sum, game) => sum + game.participations);
+                          0,
+                          (total, game) => total + game.participations,
+                        );
+                        final totalUniqueVisitors = allGames.fold<int>(
+                          0,
+                          (total, game) => total + _readUniquePlayers(game),
+                        );
                         final widgets = <Widget>[
-                          StreamBuilder<int>(
-                            stream: _followersStream(),
-                            builder: (context, followersSnapshot) {
-                              final followers = followersSnapshot.data ?? 0;
-                              return Column(
-                                children: [
-                                  _buildGlobalLine(
-                                    icon: Icons.remove_red_eye,
-                                    label: 'Clics sur vos jeux',
-                                    value: totalViews,
-                                  ),
-                                  const SizedBox(height: 8.0),
-                                  _buildGlobalLine(
-                                    icon: Icons.sports_esports_rounded,
-                                    label: 'Participations',
-                                    value: totalParticipations,
-                                  ),
-                                  const SizedBox(height: 8.0),
-                                  _buildGlobalLine(
-                                    icon: Icons.storefront_rounded,
-                                    label: 'Followers',
-                                    value: followers,
-                                  ),
-                                ],
+                          StreamBuilder<List<EnseignesRecord>>(
+                            stream: _merchantEnseignesStream(),
+                            builder: (context, enseignesSnapshot) {
+                              final enseignes =
+                                  enseignesSnapshot.data ?? const <EnseignesRecord>[];
+                              final followers = enseignes.fold<int>(
+                                0,
+                                (total, enseigne) => total + _readFollowers(enseigne),
+                              );
+                              final totalShopViews = enseignes.fold<int>(
+                                0,
+                                (total, enseigne) => total + _readShopViews(enseigne),
+                              );
+
+                              return LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final availableWidth = constraints.maxWidth;
+                                  final itemWidth = availableWidth > 560
+                                      ? (availableWidth - 12.0) / 2
+                                      : availableWidth;
+                                  final kpiCards = <Widget>[
+                                    SizedBox(
+                                      width: itemWidth,
+                                      child: _buildKpiCard(
+                                        icon: Icons.visibility_outlined,
+                                        label: 'Clics sur vos jeux',
+                                        value: totalViews,
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: itemWidth,
+                                      child: _buildKpiCard(
+                                        icon: Icons.sports_esports_outlined,
+                                        label: 'Participations',
+                                        value: totalParticipations,
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: itemWidth,
+                                      child: _buildKpiCard(
+                                        icon: Icons.person_search_outlined,
+                                        label: 'Visiteurs uniques',
+                                        value: totalUniqueVisitors,
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: itemWidth,
+                                      child: _buildKpiCard(
+                                        icon: Icons.storefront_outlined,
+                                        label: 'Vues de la boutique',
+                                        value: totalShopViews,
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: itemWidth,
+                                      child: _buildKpiCard(
+                                        icon: Icons.favorite_border_rounded,
+                                        label: 'Followers',
+                                        value: followers,
+                                      ),
+                                    ),
+                                  ];
+
+                                  return Wrap(
+                                    spacing: 12.0,
+                                    runSpacing: 12.0,
+                                    children: kpiCards,
+                                  );
+                                },
                               );
                             },
                           ),
-                          const SizedBox(height: 8.0),
+                          const SizedBox(height: 12.0),
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Text(

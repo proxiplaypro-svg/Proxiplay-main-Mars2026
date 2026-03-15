@@ -43,6 +43,8 @@ class _AddGameCommercantPageWidgetState
   late AddGameCommercantPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  static const Color _premiumRaspberry = Color(0xFFA0134D);
+  static const Color _premiumFieldBorder = Color(0xFFD9D3EF);
 
   @override
   void initState() {
@@ -73,6 +75,91 @@ class _AddGameCommercantPageWidgetState
     super.dispose();
   }
 
+  BoxDecoration _buildSectionDecoration(BuildContext context) {
+    return BoxDecoration(
+      color: FlutterFlowTheme.of(context).secondaryBackground,
+      borderRadius: BorderRadius.circular(24.0),
+      border: Border.all(
+        color: _premiumRaspberry.withValues(alpha: 0.06),
+        width: 1.0,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.035),
+          blurRadius: 18.0,
+          offset: const Offset(0.0, 8.0),
+        ),
+        BoxShadow(
+          color: _premiumRaspberry.withValues(alpha: 0.03),
+          blurRadius: 24.0,
+          offset: const Offset(0.0, 12.0),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _buildPremiumFieldDecoration({
+    required String hintText,
+    String? labelText,
+    Widget? suffixIcon,
+  }) {
+    final theme = FlutterFlowTheme.of(context);
+    return InputDecoration(
+      hintText: hintText,
+      labelText: labelText,
+      hintStyle: theme.labelMedium.override(
+        font: GoogleFonts.inter(
+          fontWeight: FontWeight.w500,
+        ),
+        color: theme.fieldText.withValues(alpha: 0.75),
+        fontSize: 14.0,
+        letterSpacing: 0.0,
+      ),
+      labelStyle: theme.labelMedium.override(
+        font: GoogleFonts.inter(
+          fontWeight: FontWeight.w600,
+        ),
+        color: theme.fieldText.withValues(alpha: 0.9),
+        letterSpacing: 0.0,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderSide: const BorderSide(
+          color: _premiumFieldBorder,
+          width: 1.4,
+        ),
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderSide: BorderSide(
+          color: _premiumRaspberry.withValues(alpha: 0.28),
+          width: 1.6,
+        ),
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderSide: BorderSide(
+          color: theme.error,
+          width: 1.6,
+        ),
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderSide: BorderSide(
+          color: theme.error,
+          width: 1.6,
+        ),
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      filled: true,
+      fillColor: theme.fieldBg.withValues(alpha: 0.94),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
+      suffixIcon: suffixIcon,
+      suffixIconConstraints:
+          const BoxConstraints(minHeight: 24.0, minWidth: 24.0),
+    );
+  }
+
   List<Map<String, dynamic>>? _collectSecondaryPrizes() {
     final prizes = <Map<String, dynamic>>[];
     for (final entry in _model.secondaryPrizes) {
@@ -85,13 +172,13 @@ class _AddGameCommercantPageWidgetState
       }
       if (name.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nom du lot secondaire requis')),
+          const SnackBar(content: Text('Nom du lot requis')),
         );
         return null;
       }
       if (countText.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nombre de lots secondaires requis')),
+          const SnackBar(content: Text('Nombre de lots requis')),
         );
         return null;
       }
@@ -218,13 +305,10 @@ class _AddGameCommercantPageWidgetState
                     ),
                     Container(
                       width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).secondaryBackground,
-                        borderRadius: BorderRadius.circular(20.0),
-                      ),
+                      decoration: _buildSectionDecoration(context),
                       child: Padding(
                         padding: const EdgeInsetsDirectional.fromSTEB(
-                            16.0, 16.0, 16.0, 16.0),
+                            20.0, 20.0, 20.0, 20.0),
                         child: ListView(
                           padding: EdgeInsets.zero,
                           primary: false,
@@ -245,41 +329,79 @@ class _AddGameCommercantPageWidgetState
                                           .headlineSmall
                                           .fontStyle,
                                     ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .headlineSmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .headlineSmall
-                                        .fontStyle,
+                                    color: FlutterFlowTheme.of(context).primaryText,
+                                    fontSize: 22.0,
+                                    letterSpacing: -0.4,
+                                    fontWeight: FontWeight.w800,
                                   ),
                             ),
                             Padding(
                               padding: const EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 12.0, 0.0, 8.0),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    'Lot principal',
-                                    style:
-                                        FlutterFlowTheme.of(context).titleSmall,
+                                  0.0, 16.0, 0.0, 10.0),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsetsDirectional.fromSTEB(
+                                    16.0, 14.0, 12.0, 14.0),
+                                decoration: BoxDecoration(
+                                  color: _premiumRaspberry.withValues(alpha: 0.05),
+                                  borderRadius: BorderRadius.circular(18.0),
+                                  border: Border.all(
+                                    color: _premiumRaspberry.withValues(alpha: 0.10),
+                                    width: 1.0,
                                   ),
-                                  const Spacer(),
-                                  Switch(
-                                    value: _model.mainPrizeEnabled,
-                                    onChanged: (val) {
-                                      setState(() {
-                                        _model.mainPrizeEnabled = val;
-                                        if (!val) {
-                                          _model.textController1?.clear();
-                                          _model.textController2?.clear();
-                                          _model.textController3?.clear();
-                                          _model.textController4?.clear();
-                                        }
-                                      });
-                                    },
-                                  ),
-                                ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'Lot principal',
+                                            style: FlutterFlowTheme.of(context)
+                                                .titleSmall
+                                                .override(
+                                                  font: GoogleFonts.interTight(
+                                                    fontWeight: FontWeight.w800,
+                                                  ),
+                                                  fontSize: 18.0,
+                                                  letterSpacing: -0.2,
+                                                ),
+                                          ),
+                                        ),
+                                        Switch(
+                                          value: _model.mainPrizeEnabled,
+                                          activeThumbColor: Colors.white,
+                                          activeTrackColor: _premiumRaspberry,
+                                          onChanged: (val) {
+                                            setState(() {
+                                              _model.mainPrizeEnabled = val;
+                                              if (!val) {
+                                                _model.textController1?.clear();
+                                                _model.textController2?.clear();
+                                                _model.textController3?.clear();
+                                                _model.textController4?.clear();
+                                              }
+                                            });
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      'Tirage au sort final parmi les participants',
+                                      style: FlutterFlowTheme.of(context)
+                                          .bodySmall
+                                          .override(
+                                            font: GoogleFonts.inter(
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            color: FlutterFlowTheme.of(context)
+                                                .secondaryText,
+                                            letterSpacing: 0.0,
+                                          ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                             if (_model.mainPrizeEnabled)
@@ -288,64 +410,8 @@ class _AddGameCommercantPageWidgetState
                                 focusNode: _model.textFieldFocusNode1,
                                 autofocus: false,
                                 obscureText: false,
-                                decoration: InputDecoration(
-                                  labelText: 'Nom du lot principal',
-                                  labelStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .fieldText,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
-                                      ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(
-                                      color: Color(0x00000000),
-                                      width: 2.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12.0),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color:
-                                          FlutterFlowTheme.of(context).primary,
-                                      width: 2.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12.0),
-                                  ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).error,
-                                      width: 2.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12.0),
-                                  ),
-                                  focusedErrorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).error,
-                                      width: 2.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12.0),
-                                  ),
-                                  filled: true,
-                                  fillColor:
-                                      FlutterFlowTheme.of(context).fieldBg,
-                                  contentPadding: const EdgeInsets.all(24.0),
+                                decoration: _buildPremiumFieldDecoration(
+                                  hintText: 'ex : Un dîner pour 2',
                                 ),
                                 style: FlutterFlowTheme.of(context)
                                     .bodyMedium
@@ -385,68 +451,9 @@ class _AddGameCommercantPageWidgetState
                                   focusNode: _model.textFieldFocusNode2,
                                   autofocus: false,
                                   obscureText: false,
-                                  decoration: InputDecoration(
-                                    labelText: 'Description du lot principal',
-                                    labelStyle: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .override(
-                                          font: GoogleFonts.inter(
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .fieldText,
-                                          letterSpacing: 0.0,
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderSide: const BorderSide(
-                                        color: Color(0x00000000),
-                                        width: 2.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12.0),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color: FlutterFlowTheme.of(context)
-                                            .primary,
-                                        width: 2.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12.0),
-                                    ),
-                                    errorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color:
-                                            FlutterFlowTheme.of(context).error,
-                                        width: 2.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12.0),
-                                    ),
-                                    focusedErrorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color:
-                                            FlutterFlowTheme.of(context).error,
-                                        width: 2.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12.0),
-                                    ),
-                                    filled: true,
-                                    fillColor:
-                                        FlutterFlowTheme.of(context).fieldBg,
-                                    contentPadding: const EdgeInsets.all(24.0),
+                                  decoration: _buildPremiumFieldDecoration(
+                                    hintText:
+                                        'ex : Un menu du marché pour 2, hors boisson',
                                   ),
                                   style: FlutterFlowTheme.of(context)
                                       .bodyMedium
@@ -482,68 +489,14 @@ class _AddGameCommercantPageWidgetState
                                 focusNode: _model.textFieldFocusNode3,
                                 autofocus: false,
                                 obscureText: false,
-                                decoration: InputDecoration(
+                                decoration: _buildPremiumFieldDecoration(
+                                  hintText: 'Valeur estimée du lot principal',
                                   labelText: 'Valeur estimée du lot principal',
-                                  labelStyle: FlutterFlowTheme.of(context)
-                                      .labelMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .fieldText,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelMedium
-                                            .fontStyle,
-                                      ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(
-                                      color: Color(0x00000000),
-                                      width: 2.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12.0),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color:
-                                          FlutterFlowTheme.of(context).primary,
-                                      width: 2.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12.0),
-                                  ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).error,
-                                      width: 2.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12.0),
-                                  ),
-                                  focusedErrorBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context).error,
-                                      width: 2.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12.0),
-                                  ),
-                                  filled: true,
-                                  fillColor:
-                                      FlutterFlowTheme.of(context).fieldBg,
-                                  contentPadding: const EdgeInsets.all(24.0),
                                   suffixIcon: Icon(
-                                    Icons.euro,
-                                    color: FlutterFlowTheme.of(context).primary,
-                                    size: 22.0,
+                                    Icons.euro_rounded,
+                                    color:
+                                        _premiumRaspberry.withValues(alpha: 0.82),
+                                    size: 20.0,
                                   ),
                                 ),
                                 style: FlutterFlowTheme.of(context)
@@ -578,47 +531,85 @@ class _AddGameCommercantPageWidgetState
                                 validator: _model.textController3Validator
                                     .asValidator(context),
                               ),
-                          ].divide(const SizedBox(height: 10.0)),
+                          ].divide(const SizedBox(height: 14.0)),
                         ),
                       ),
                     ),
                     Container(
                       width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).secondaryBackground,
-                        borderRadius: BorderRadius.circular(20.0),
-                      ),
+                      decoration: _buildSectionDecoration(context),
                       child: Padding(
                         padding: const EdgeInsetsDirectional.fromSTEB(
-                            16.0, 16.0, 16.0, 16.0),
+                            20.0, 20.0, 20.0, 20.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
                           children: [
-                            Text(
-                              'Lots secondaires',
-                              style: FlutterFlowTheme.of(context)
-                                  .headlineSmall
-                                  .override(
-                                    font: GoogleFonts.interTight(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .headlineSmall
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .headlineSmall
-                                          .fontStyle,
-                                    ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .headlineSmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .headlineSmall
-                                        .fontStyle,
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Lots à gains immédiats lors du grattage',
+                                        style: FlutterFlowTheme.of(context)
+                                            .headlineSmall
+                                            .override(
+                                              font: GoogleFonts.interTight(
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                              fontSize: 19.0,
+                                              letterSpacing: -0.3,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 6.0),
+                                      Text(
+                                        'Ces lots sont remportés immédiatement pendant le jeu.',
+                                        style: FlutterFlowTheme.of(context)
+                                            .bodySmall
+                                            .override(
+                                              font: GoogleFonts.inter(
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              color: FlutterFlowTheme.of(context)
+                                                  .secondaryText,
+                                              letterSpacing: 0.0,
+                                            ),
+                                      ),
+                                    ],
                                   ),
+                                ),
+                                const SizedBox(width: 12.0),
+                                Container(
+                                  padding: const EdgeInsetsDirectional.fromSTEB(
+                                      10.0, 6.0, 10.0, 6.0),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        _premiumRaspberry.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(999.0),
+                                  ),
+                                  child: Text(
+                                    '${_model.secondaryPrizes.length} lot${_model.secondaryPrizes.length > 1 ? 's' : ''}',
+                                    style: FlutterFlowTheme.of(context)
+                                        .labelSmall
+                                        .override(
+                                          font: GoogleFonts.inter(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                          color: _premiumRaspberry,
+                                          letterSpacing: 0.0,
+                                        ),
+                                  ),
+                                ),
+                              ],
                             ),
                             Divider(
-                              thickness: 2.0,
-                              color: FlutterFlowTheme.of(context).alternate,
+                              thickness: 1.0,
+                              height: 28.0,
+                              color: FlutterFlowTheme.of(context)
+                                  .alternate
+                                  .withValues(alpha: 0.8),
                             ),
                             if (!_model.mainPrizeEnabled)
                               TextFormField(
@@ -717,18 +708,40 @@ class _AddGameCommercantPageWidgetState
                                     final entry = _model.secondaryPrizes[index];
                                     return Padding(
                                       padding:
-                                          const EdgeInsets.only(bottom: 12),
-                                      child: Column(
+                                          const EdgeInsets.only(bottom: 14),
+                                      child: Container(
+                                        padding: const EdgeInsetsDirectional.fromSTEB(
+                                            14.0, 14.0, 14.0, 14.0),
+                                        decoration: BoxDecoration(
+                                          color: _premiumRaspberry.withValues(
+                                              alpha: 0.035),
+                                          borderRadius:
+                                              BorderRadius.circular(18.0),
+                                          border: Border.all(
+                                            color: _premiumRaspberry
+                                                .withValues(alpha: 0.08),
+                                            width: 1.0,
+                                          ),
+                                        ),
+                                        child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
                                           Row(
                                             children: [
                                               Text(
-                                                'Lot secondaire ${index + 1}',
+                                                'Lot à gain immédiat ${index + 1}',
                                                 style:
                                                     FlutterFlowTheme.of(context)
-                                                        .titleSmall,
+                                                        .titleSmall
+                                                        .override(
+                                                          font:
+                                                              GoogleFonts.interTight(
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                          ),
+                                                          letterSpacing: -0.1,
+                                                        ),
                                               ),
                                               const Spacer(),
                                               if (_model
@@ -749,86 +762,10 @@ class _AddGameCommercantPageWidgetState
                                           TextFormField(
                                             controller: entry.nameController,
                                             focusNode: entry.nameFocusNode,
-                                            decoration: InputDecoration(
-                                              labelText:
-                                                  'Nom du lot secondaire (goodies, promo,...)',
-                                              labelStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        color:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .fieldText,
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontStyle,
-                                                      ),
-                                              enabledBorder: OutlineInputBorder(
-                                                borderSide: const BorderSide(
-                                                  color: Color(0x00000000),
-                                                  width: 2.0,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12.0),
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderSide: BorderSide(
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .primary,
-                                                  width: 2.0,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12.0),
-                                              ),
-                                              errorBorder: OutlineInputBorder(
-                                                borderSide: BorderSide(
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .error,
-                                                  width: 2.0,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12.0),
-                                              ),
-                                              focusedErrorBorder:
-                                                  OutlineInputBorder(
-                                                borderSide: BorderSide(
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .error,
-                                                  width: 2.0,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12.0),
-                                              ),
-                                              filled: true,
-                                              fillColor:
-                                                  FlutterFlowTheme.of(context)
-                                                      .fieldBg,
-                                              contentPadding:
-                                                  const EdgeInsets.all(24.0),
+                                            decoration:
+                                                _buildPremiumFieldDecoration(
+                                              hintText:
+                                                  'ex : 20% de réduction hors soldes',
                                             ),
                                             style: FlutterFlowTheme.of(context)
                                                 .bodyMedium
@@ -867,86 +804,10 @@ class _AddGameCommercantPageWidgetState
                                                 entry.presentationController,
                                             focusNode:
                                                 entry.presentationFocusNode,
-                                            decoration: InputDecoration(
-                                              labelText:
-                                                  'Présentation du lot secondaire',
-                                              labelStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        color:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .fieldText,
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontStyle,
-                                                      ),
-                                              enabledBorder: OutlineInputBorder(
-                                                borderSide: const BorderSide(
-                                                  color: Color(0x00000000),
-                                                  width: 2.0,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12.0),
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderSide: BorderSide(
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .primary,
-                                                  width: 2.0,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12.0),
-                                              ),
-                                              errorBorder: OutlineInputBorder(
-                                                borderSide: BorderSide(
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .error,
-                                                  width: 2.0,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12.0),
-                                              ),
-                                              focusedErrorBorder:
-                                                  OutlineInputBorder(
-                                                borderSide: BorderSide(
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .error,
-                                                  width: 2.0,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12.0),
-                                              ),
-                                              filled: true,
-                                              fillColor:
-                                                  FlutterFlowTheme.of(context)
-                                                      .fieldBg,
-                                              contentPadding:
-                                                  const EdgeInsets.all(24.0),
+                                            decoration:
+                                                _buildPremiumFieldDecoration(
+                                              hintText:
+                                                  'ex : 20% en caisse, hors soldes et promotions',
                                             ),
                                             style: FlutterFlowTheme.of(context)
                                                 .bodyMedium
@@ -985,86 +846,12 @@ class _AddGameCommercantPageWidgetState
                                             focusNode: entry.countFocusNode,
                                             autofocus: false,
                                             obscureText: false,
-                                            decoration: InputDecoration(
+                                            decoration:
+                                                _buildPremiumFieldDecoration(
+                                              hintText:
+                                                  'Nombre de lots',
                                               labelText:
-                                                  'Nombre de lots secondaires',
-                                              labelStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        color:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .fieldText,
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .fontStyle,
-                                                      ),
-                                              enabledBorder: OutlineInputBorder(
-                                                borderSide: const BorderSide(
-                                                  color: Color(0x00000000),
-                                                  width: 2.0,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12.0),
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderSide: BorderSide(
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .primary,
-                                                  width: 2.0,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12.0),
-                                              ),
-                                              errorBorder: OutlineInputBorder(
-                                                borderSide: BorderSide(
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .error,
-                                                  width: 2.0,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12.0),
-                                              ),
-                                              focusedErrorBorder:
-                                                  OutlineInputBorder(
-                                                borderSide: BorderSide(
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .error,
-                                                  width: 2.0,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(12.0),
-                                              ),
-                                              filled: true,
-                                              fillColor:
-                                                  FlutterFlowTheme.of(context)
-                                                      .fieldBg,
-                                              contentPadding:
-                                                  const EdgeInsets.all(24.0),
+                                                  'Nombre de lots',
                                             ),
                                             style: FlutterFlowTheme.of(context)
                                                 .bodyMedium
@@ -1100,7 +887,8 @@ class _AddGameCommercantPageWidgetState
                                           ),
                                         ],
                                       ),
-                                    );
+                                    ),
+                                  );
                                   },
                                 ),
                                 Align(
@@ -1112,9 +900,34 @@ class _AddGameCommercantPageWidgetState
                                             .add(SecondaryPrizeEntry());
                                       });
                                     },
-                                    icon: const Icon(Icons.add),
-                                    label:
-                                        const Text('Ajouter un lot secondaire'),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsetsDirectional.fromSTEB(
+                                          14.0, 12.0, 16.0, 12.0),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(16.0),
+                                      ),
+                                      backgroundColor: _premiumRaspberry
+                                          .withValues(alpha: 0.06),
+                                    ),
+                                    icon: const Icon(
+                                      Icons.add_circle_outline_rounded,
+                                      color: _premiumRaspberry,
+                                      size: 18.0,
+                                    ),
+                                    label: Text(
+                                      'Ajouter un lot à gain immédiat',
+                                      style: FlutterFlowTheme.of(context)
+                                          .titleSmall
+                                          .override(
+                                            font: GoogleFonts.interTight(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                            color: _premiumRaspberry,
+                                            fontSize: 15.0,
+                                            letterSpacing: -0.1,
+                                          ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1125,13 +938,10 @@ class _AddGameCommercantPageWidgetState
                     ),
                     Container(
                       width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).secondaryBackground,
-                        borderRadius: BorderRadius.circular(20.0),
-                      ),
+                      decoration: _buildSectionDecoration(context),
                       child: Padding(
                         padding: const EdgeInsetsDirectional.fromSTEB(
-                            16.0, 16.0, 16.0, 16.0),
+                            20.0, 20.0, 20.0, 20.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
                           children: [
@@ -1148,13 +958,9 @@ class _AddGameCommercantPageWidgetState
                                           .headlineSmall
                                           .fontStyle,
                                     ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .headlineSmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .headlineSmall
-                                        .fontStyle,
+                                    fontSize: 20.0,
+                                    letterSpacing: -0.3,
+                                    fontWeight: FontWeight.w800,
                                   ),
                             ),
                             InkWell(
@@ -1247,7 +1053,7 @@ class _AddGameCommercantPageWidgetState
                                                   .uploadedFileUrl_uploadDataNyu),
                                         )
                                       : null,
-                                  borderRadius: BorderRadius.circular(8.0),
+                                  borderRadius: BorderRadius.circular(18.0),
                                 ),
                                 child: Builder(
                                   builder: (context) {
@@ -1318,19 +1124,16 @@ class _AddGameCommercantPageWidgetState
                                 ),
                               ),
                             ),
-                          ].divide(const SizedBox(height: 10.0)),
+                          ].divide(const SizedBox(height: 12.0)),
                         ),
                       ),
                     ),
                     Container(
                       width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).secondaryBackground,
-                        borderRadius: BorderRadius.circular(20.0),
-                      ),
+                      decoration: _buildSectionDecoration(context),
                       child: Padding(
                         padding: const EdgeInsetsDirectional.fromSTEB(
-                            16.0, 16.0, 16.0, 16.0),
+                            20.0, 20.0, 20.0, 20.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
                           children: [
@@ -1347,13 +1150,9 @@ class _AddGameCommercantPageWidgetState
                                           .headlineSmall
                                           .fontStyle,
                                     ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .headlineSmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .headlineSmall
-                                        .fontStyle,
+                                    fontSize: 20.0,
+                                    letterSpacing: -0.3,
+                                    fontWeight: FontWeight.w800,
                                   ),
                             ),
                             Container(
@@ -1676,13 +1475,10 @@ class _AddGameCommercantPageWidgetState
                     ),
                     Container(
                       width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).secondaryBackground,
-                        borderRadius: BorderRadius.circular(20.0),
-                      ),
+                      decoration: _buildSectionDecoration(context),
                       child: Padding(
                         padding: const EdgeInsetsDirectional.fromSTEB(
-                            16.0, 16.0, 16.0, 16.0),
+                            20.0, 20.0, 20.0, 20.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
                           children: [
@@ -1986,7 +1782,7 @@ class _AddGameCommercantPageWidgetState
                                                 .showSnackBar(
                                               const SnackBar(
                                                 content: Text(
-                                                    'Ajoutez au moins un lot principal ou secondaire.'),
+                                                    'Ajoutez au moins un lot tirage au sort ou gain immédiat.'),
                                               ),
                                             );
                                             return;
@@ -2230,7 +2026,7 @@ class _AddGameCommercantPageWidgetState
                         ),
                       ),
                     ),
-                  ].divide(const SizedBox(height: 10.0)),
+                  ].divide(const SizedBox(height: 18.0)),
                 ),
               ),
             ),

@@ -85,11 +85,16 @@ class _MyAppState extends State<MyApp> {
   String? _lastReferralLocation;
 
   String getRoute([RouteMatch? routeMatch]) {
+    final currentConfiguration = _router.routerDelegate.currentConfiguration;
+    if (routeMatch == null && currentConfiguration.matches.isEmpty) {
+      final uri = currentConfiguration.uri.toString();
+      return uri.isNotEmpty ? uri : '/';
+    }
     final RouteMatch lastMatch =
-        routeMatch ?? _router.routerDelegate.currentConfiguration.last;
+        routeMatch ?? currentConfiguration.last;
     final RouteMatchList matchList = lastMatch is ImperativeRouteMatch
         ? lastMatch.matches
-        : _router.routerDelegate.currentConfiguration;
+        : currentConfiguration;
     return matchList.uri.toString();
   }
 

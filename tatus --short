@@ -1,0 +1,43 @@
+warning: in the working copy of 'firebase/functions/src/share_promo/firestore.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'firebase/functions/src/share_promo/types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/components/game_card_widget.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/custom_code/actions/share_app_store_link.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/flutter_flow/nav/nav.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/main.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/pages/auth/inscription_page/inscription_page_widget.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/pages/commercant/jeu_detail_commercant_page/jeu_detail_commercant_page_widget.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/pages/commercant/stat_commercant_page/stat_commercant_page_widget.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/pages/commercant/validation_lot_commercant_page/validation_lot_commercant_page_widget.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/pages/joueur/enseigne_detail_joueur_page/enseigne_detail_joueur_page_widget.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/pages/joueur/favoris_joueur_page/favoris_joueur_page_widget.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/pages/joueur/home_joueur_page/home_joueur_page_widget.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/pages/joueur/jeu_detail_joueur_page/jeu_detail_joueur_page_widget.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/pages/joueur/lot_detail_joueur_page/lot_detail_joueur_page_widget.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/pages/joueur/lots_joueur_page/lots_joueur_page_widget.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/pages/joueur/play_joueur_page/play_joueur_page_widget.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/utils/share_links.dart', LF will be replaced by CRLF the next time Git touches it
+ android/app/google-services-AVANT.json             |  55 [31m--[m
+ firebase/firestore.rules                           |   5 [32m+[m
+ firebase/functions/src/share_promo/firestore.ts    |   4 [32m+[m[31m-[m
+ firebase/functions/src/share_promo/index.ts        | 210 [32m++++[m[31m-[m
+ firebase/functions/src/share_promo/types.ts        |   2 [32m+[m
+ lib/components/game_card_widget.dart               |  14 [32m+[m[31m-[m
+ lib/custom_code/actions/share_app_store_link.dart  |   7 [32m+[m[31m-[m
+ lib/flutter_flow/nav/nav.dart                      |  10 [32m+[m[31m-[m
+ lib/main.dart                                      |   9 [32m+[m[31m-[m
+ .../admin_push_notifications_page_widget.dart      | 114 [32m+++[m
+ .../inscription_page/inscription_page_widget.dart  |   7 [32m+[m[31m-[m
+ .../add_game_commercant_page_widget.dart           | 846 [32m+++++++[m[31m-----------[m
+ .../jeu_detail_commercant_page_widget.dart         |   4 [32m+[m[31m-[m
+ .../stat_commercant_page_widget.dart               | 210 [32m+++[m[31m--[m
+ .../validation_lot_commercant_page_widget.dart     |   9 [32m+[m[31m-[m
+ .../enseigne_detail_joueur_page_widget.dart        |  42 [32m+[m[31m-[m
+ .../favoris_joueur_page_widget.dart                |  72 [32m+[m[31m-[m
+ .../home_joueur_page/home_joueur_page_widget.dart  |   9 [32m+[m[31m-[m
+ .../jeu_detail_joueur_page_widget.dart             | 156 [32m++[m[31m--[m
+ .../lot_detail_joueur_page_widget.dart             | 668 [32m+++++++[m[31m-------[m
+ .../lots_joueur_page/lots_joueur_page_widget.dart  | 264 [32m+++[m[31m---[m
+ .../play_joueur_page/play_joueur_page_widget.dart  |  13 [32m+[m[31m-[m
+ .../profil_joueur_page_widget.dart                 | 974 [32m+++++++[m[31m--------------[m
+ lib/utils/share_links.dart                         |  20 [32m+[m[31m-[m
+ 24 files changed, 1771 insertions(+), 1953 deletions(-)

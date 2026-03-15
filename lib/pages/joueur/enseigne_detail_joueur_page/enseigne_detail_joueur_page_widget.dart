@@ -39,15 +39,16 @@ class _EnseigneDetailJoueurPageWidgetState
   late EnseigneDetailJoueurPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _shopViewTracked = false;
 
   bool _isGameVisibleForPlayer(GamesRecord game) {
     final now = getCurrentTimestamp;
-    final endDate = game.endDate;
-    if (endDate == null || !endDate.isAfter(now)) {
-      return false;
-    }
     final startDate = game.startDate;
     if (startDate != null && now.isBefore(startDate)) {
+      return false;
+    }
+    final endDate = game.endDate;
+    if (endDate != null && now.isAfter(endDate)) {
       return false;
     }
     return true;
@@ -263,10 +264,36 @@ class _EnseigneDetailJoueurPageWidgetState
     return Uri.https('x.com', '/$username').toString();
   }
 
+  Future<void> _incrementShopViews() async {
+    if (_shopViewTracked) {
+      return;
+    }
+    final enseigneRef = widget.enseigneDoc?.reference;
+    if (enseigneRef == null) {
+      return;
+    }
+    _shopViewTracked = true;
+    try {
+      await enseigneRef.set(
+        mapToFirestore(
+          {
+            'shop_views': FieldValue.increment(1),
+          },
+        ),
+        SetOptions(merge: true),
+      );
+    } catch (_) {
+      _shopViewTracked = false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => EnseigneDetailJoueurPageModel());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _incrementShopViews();
+    });
 
     // Initialize scroll controller for image carousel
     _model.imagesScrollController = ScrollController();
@@ -418,7 +445,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                                 Icons.favorite_border_rounded,
                                                 color:
                                                     FlutterFlowTheme.of(context)
-                                                        .error,
+                                                        .primaryText,
                                                 size: 24.0,
                                               ),
                                               onPressed: () async {
@@ -442,9 +469,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                               buttonSize: 40.0,
                                               icon: Icon(
                                                 Icons.favorite_rounded,
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .error,
+                                                color: const Color(0xFFA0134D),
                                                 size: 24.0,
                                               ),
                                               onPressed: () async {
@@ -2849,4 +2874,3 @@ const SizedBox(height: 1.0),
     );
   }
 }
-

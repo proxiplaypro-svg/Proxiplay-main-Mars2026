@@ -23,6 +23,12 @@ class LotsJoueurPageWidget extends StatefulWidget {
 }
 
 class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
+  static const Color _logoBlue = Color(0xFF8AA4D6);
+  static const Color _logoOrangeTint = Color(0xFFFFF3EE);
+  static const Color _logoBlueTint = Color(0xFFF2F5FB);
+  static const Color _deleteTint = Color(0xFFFFF1F3);
+  static const Color _deleteAccent = Color(0xFFA0134D);
+
   late LotsJoueurPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
@@ -86,29 +92,6 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
       }.withoutNulls,
       extra: <String, dynamic>{
         'lot': prize,
-      },
-    );
-  }
-
-  Future<void> _openEnseigne(PrizesRecord prize) async {
-    final enseigneRef = prize.enseigneId;
-    if (enseigneRef == null) {
-      return;
-    }
-    final enseigneRecord = await EnseignesRecord.getDocumentOnce(enseigneRef);
-    if (!mounted) {
-      return;
-    }
-    context.pushNamed(
-      EnseigneDetailJoueurPageWidget.routeName,
-      queryParameters: {
-        'enseigneDoc': serializeParam(
-          enseigneRecord,
-          ParamType.Document,
-        ),
-      }.withoutNulls,
-      extra: <String, dynamic>{
-        'enseigneDoc': enseigneRecord,
       },
     );
   }
@@ -258,12 +241,19 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                 width: 52.0,
                 height: 52.0,
                 decoration: BoxDecoration(
-                  color: FlutterFlowTheme.of(context).primary.withValues(alpha: 0.08),
+                  color: _logoBlueTint,
                   borderRadius: BorderRadius.circular(16.0),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _logoBlue.withValues(alpha: 0.10),
+                      blurRadius: 12.0,
+                      offset: const Offset(0.0, 4.0),
+                    ),
+                  ],
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.emoji_events_rounded,
-                  color: FlutterFlowTheme.of(context).primary,
+                  color: _logoBlue,
                   size: 26.0,
                 ),
               ),
@@ -287,16 +277,16 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
         borderRadius: BorderRadius.circular(999.0),
       ),
       child: Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(10.0, 7.0, 10.0, 7.0),
+        padding: const EdgeInsetsDirectional.fromSTEB(8.0, 5.0, 8.0, 5.0),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
-              size: 14.0,
+              size: 12.0,
               color: textColor,
             ),
-            const SizedBox(width: 6.0),
+            const SizedBox(width: 5.0),
             Text(
               label,
               style: FlutterFlowTheme.of(context).bodySmall.override(
@@ -306,11 +296,37 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                           FlutterFlowTheme.of(context).bodySmall.fontStyle,
                     ),
                     color: textColor,
+                    fontSize: 11.0,
                     letterSpacing: 0.0,
                     fontWeight: FontWeight.w600,
                   ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLotThumbnail() {
+    return Container(
+      width: 48.0,
+      height: 48.0,
+      decoration: BoxDecoration(
+        color: _logoBlueTint,
+        borderRadius: BorderRadius.circular(12.0),
+        boxShadow: [
+          BoxShadow(
+            color: _logoBlue.withValues(alpha: 0.08),
+            blurRadius: 10.0,
+            offset: const Offset(0.0, 4.0),
+          ),
+        ],
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.card_giftcard_rounded,
+          color: _logoBlue,
+          size: 24.0,
         ),
       ),
     );
@@ -335,86 +351,109 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
         color: Colors.transparent,
         elevation: 0.0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18.0),
+          borderRadius: BorderRadius.circular(20.0),
         ),
         child: Container(
           width: MediaQuery.sizeOf(context).width,
           decoration: BoxDecoration(
             color: FlutterFlowTheme.of(context).secondaryBackground,
-            borderRadius: BorderRadius.circular(18.0),
+            borderRadius: BorderRadius.circular(20.0),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.035),
-                blurRadius: 16.0,
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 18.0,
                 offset: const Offset(0.0, 8.0),
               ),
             ],
           ),
           child: Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(16.0, 14.0, 16.0, 14.0),
+            padding: const EdgeInsetsDirectional.fromSTEB(14.0, 14.0, 14.0, 14.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildLotThumbnail(),
+                    const SizedBox(width: 12.0),
                     Expanded(
-                      child: Text(
-                        prize.name,
-                        style: FlutterFlowTheme.of(context).titleMedium.override(
-                              font: GoogleFonts.interTight(
-                                fontWeight: FontWeight.w700,
-                                fontStyle:
-                                    FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                              ),
-                              letterSpacing: 0.0,
-                              fontWeight: FontWeight.w700,
-                            ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            merchantLabel,
+                            style: FlutterFlowTheme.of(context).titleMedium.override(
+                                  font: GoogleFonts.interTight(
+                                    fontWeight: FontWeight.w800,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .titleMedium
+                                        .fontStyle,
+                                  ),
+                                  fontSize: 20.0,
+                                  letterSpacing: 0.0,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          const SizedBox(height: 4.0),
+                          Text(
+                            prize.name,
+                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                  font: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w600,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontStyle,
+                                  ),
+                                  color: FlutterFlowTheme.of(context).secondaryText,
+                                  fontSize: 14.0,
+                                  letterSpacing: 0.0,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 12.0),
-                    IconButton(
-                      onPressed: isDeleting ? null : () => _confirmDeleteLot(item),
-                      icon: isDeleting
-                          ? SizedBox(
-                              width: 18.0,
-                              height: 18.0,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.0,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  FlutterFlowTheme.of(context).secondaryText,
+                    Container(
+                      width: 40.0,
+                      height: 40.0,
+                      decoration: BoxDecoration(
+                        color: _deleteTint,
+                        borderRadius: BorderRadius.circular(12.0),
+                      ),
+                      child: IconButton(
+                        onPressed:
+                            isDeleting ? null : () => _confirmDeleteLot(item),
+                        padding: EdgeInsets.zero,
+                        splashRadius: 18.0,
+                        tooltip: 'Supprimer',
+                        visualDensity: VisualDensity.compact,
+                        icon: isDeleting
+                            ? const SizedBox(
+                                width: 18.0,
+                                height: 18.0,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.0,
+                                  valueColor:
+                                      AlwaysStoppedAnimation<Color>(
+                                    _deleteAccent,
+                                  ),
                                 ),
+                              )
+                            : const Icon(
+                                Icons.delete_outline_rounded,
+                                color: _deleteAccent,
+                                size: 22.0,
                               ),
-                            )
-                          : Icon(
-                              Icons.delete_outline_rounded,
-                              color: FlutterFlowTheme.of(context).secondaryText,
-                              size: 20.0,
-                            ),
-                      splashRadius: 20.0,
-                      tooltip: 'Supprimer',
-                      visualDensity: VisualDensity.compact,
+                      ),
                     ),
                   ],
                 ),
-                Text(
-                  merchantLabel,
-                  style: FlutterFlowTheme.of(context).bodyMedium.override(
-                        font: GoogleFonts.inter(
-                          fontWeight: FontWeight.w500,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                        ),
-                        color: FlutterFlowTheme.of(context).secondaryText,
-                        letterSpacing: 0.0,
-                        fontWeight: FontWeight.w500,
-                      ),
-                ),
-                const SizedBox(height: 12.0),
-                Wrap(
-                  spacing: 8.0,
-                  runSpacing: 8.0,
-                  children: [
+                const SizedBox(height: 10.0),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
                     _buildBadge(
                       context,
                       icon: Icons.calendar_today_rounded,
@@ -423,67 +462,24 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                         prize.winDate,
                         locale: FFLocalizations.of(context).languageCode,
                       )}',
-                      backgroundColor:
-                          FlutterFlowTheme.of(context).secondary.withValues(alpha: 0.14),
-                      textColor: FlutterFlowTheme.of(context).secondary,
+                      backgroundColor: _logoBlueTint,
+                      textColor: _logoBlue,
                     ),
+                    const SizedBox(width: 8.0),
                     _buildBadge(
                       context,
                       icon: prize.claimed
                           ? Icons.check_circle_outline_rounded
                           : Icons.schedule_rounded,
                       label: prize.claimed ? 'Réclamé' : 'Non réclamé',
-                      backgroundColor: prize.claimed
-                          ? FlutterFlowTheme.of(context).secondary.withValues(alpha: 0.14)
-                          : FlutterFlowTheme.of(context).tertiary.withValues(alpha: 0.16),
-                      textColor: prize.claimed
-                          ? FlutterFlowTheme.of(context).secondary
-                          : FlutterFlowTheme.of(context).tertiary,
+                      backgroundColor:
+                          prize.claimed ? _logoBlueTint : _logoOrangeTint,
+                      textColor:
+                          prize.claimed ? _logoBlue : const Color(0xFFE97443),
                     ),
-                  ],
-                ),
-                if (prize.enseigneId != null)
-                  Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 12.0),
-                      child: TextButton.icon(
-                        onPressed: () async {
-                          await _openEnseigne(prize);
-                        },
-                        icon: Icon(
-                          Icons.storefront_outlined,
-                          color: FlutterFlowTheme.of(context).primary,
-                          size: 16.0,
-                        ),
-                        label: Text(
-                          'Voir le commerce',
-                          style: FlutterFlowTheme.of(context).bodySmall.override(
-                                font: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w600,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodySmall
-                                      .fontStyle,
-                                ),
-                                color: FlutterFlowTheme.of(context).primary,
-                                letterSpacing: 0.0,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12.0,
-                            vertical: 8.0,
-                          ),
-                          backgroundColor:
-                              FlutterFlowTheme.of(context).primary.withValues(alpha: 0.06),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.0),
-                          ),
-                        ),
-                      ),
-                    ),
+                    ],
                   ),
+                ),
               ],
             ),
           ),

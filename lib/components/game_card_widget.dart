@@ -24,6 +24,7 @@ class GameCard extends StatefulWidget {
     this.winnerMaxLines = 1,
     this.isFinished = false,
     this.finishedInfoText = 'Jeu termin\u00E9',
+    this.isHighlighted = false,
   });
 
   final String title;
@@ -43,6 +44,7 @@ class GameCard extends StatefulWidget {
   final int winnerMaxLines;
   final bool isFinished;
   final String finishedInfoText;
+  final bool isHighlighted;
 
   @override
   State<GameCard> createState() => _GameCardState();
@@ -115,10 +117,19 @@ class _GameCardState extends State<GameCard> {
         decoration: BoxDecoration(
           borderRadius: cardRadius,
           border: Border.all(
-            color: _isPressed ? Colors.red : Colors.transparent,
+            color: _isPressed || widget.isHighlighted
+                ? const Color(0xFFA0134D)
+                : Colors.transparent,
             width: 2.0,
           ),
           boxShadow: [
+            if (widget.isHighlighted)
+              BoxShadow(
+                color: const Color(0xFFA0134D).withValues(alpha: 0.15),
+                blurRadius: 10.0,
+                spreadRadius: 1.0,
+                offset: const Offset(0.0, 4.0),
+              ),
             BoxShadow(
               color: Colors.black.withValues(alpha: _isPressed ? 0.04 : 0.08),
               blurRadius: _isPressed ? 6.0 : 16.0,
@@ -441,5 +452,6 @@ class GameCardWidget extends GameCard {
     super.winnerMaxLines,
     super.isFinished,
     super.finishedInfoText,
+    super.isHighlighted,
   });
 }

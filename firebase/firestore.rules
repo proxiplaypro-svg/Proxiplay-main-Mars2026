@@ -203,6 +203,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /app_config/notifications {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
     match /referrals/{referralId} {
       allow read: if isAdmin() ||
         (isSignedIn() && (

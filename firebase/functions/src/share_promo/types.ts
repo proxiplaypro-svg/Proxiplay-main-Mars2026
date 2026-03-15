@@ -61,6 +61,8 @@ export interface ShareStateRecord {
   rewardAvailable: boolean;
   lastReferralAt: admin.firestore.Timestamp | null;
   lastRewardAt: admin.firestore.Timestamp | null;
+  lastDailyPlayReminderDateKey?: string | null;
+  lastDailyPlayReminderIndex?: number | null;
   remainingEligibleRewards: number;
   currentBannerKind: string | null;
   currentBannerTitle: string | null;

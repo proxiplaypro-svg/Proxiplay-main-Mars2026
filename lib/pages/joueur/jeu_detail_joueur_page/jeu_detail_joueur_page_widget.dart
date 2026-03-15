@@ -297,7 +297,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                       ? Icons.favorite_rounded
                                       : Icons.favorite_border_rounded,
                                   color: favoriteGame != null
-                                      ? Colors.red
+                                      ? const Color(0xFFA0134D)
                                       : FlutterFlowTheme.of(context).primaryText,
                                   size: 20.0,
                                                     ),
@@ -396,6 +396,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                             mainAxisSize: MainAxisSize.max,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                            const SizedBox(height: 14.0),
                             // Hero Image Section
                             ProxiplayNetworkImage(
                               imageUrl: widget.gameDoc!.photo,
@@ -893,78 +894,83 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
 
                                           const SizedBox(height: 12.0),
                                         SizedBox(
-                                          // width: 220.0,
-                                          child: InkWell(
-                                      splashColor: Colors.transparent,
-                                      focusColor: Colors.transparent,
-                                      hoverColor: Colors.transparent,
-                                      highlightColor: Colors.transparent,
-                                      onTap: () async {
-                                        context.pushNamed(
-                                          EnseigneDetailJoueurPageWidget
-                                              .routeName,
-                                          queryParameters: {
-                                            'enseigneDoc': serializeParam(
-                                              widget.enseigneDoc,
-                                              ParamType.Document,
-                                            ),
-                                          }.withoutNulls,
-                                          extra: <String, dynamic>{
-                                            'enseigneDoc': widget.enseigneDoc,
-                                          },
-                                        );
-                                      },
-                                      child: Container(
-                                                constraints: const BoxConstraints(minHeight: 56.0),
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 12.0,
-                                                  vertical: 8.0,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius: BorderRadius.circular(16.0),
-                                                  border: Border.all(
-                                                    color: FlutterFlowTheme.of(context).primary,
-                                                    width: 2.0,
+                                          width: double.infinity,
+                                          child: FFButtonWidget(
+                                            onPressed: () async {
+                                              context.pushNamed(
+                                                EnseigneDetailJoueurPageWidget
+                                                    .routeName,
+                                                queryParameters: {
+                                                  'enseigneDoc': serializeParam(
+                                                    widget.enseigneDoc,
+                                                    ParamType.Document,
                                                   ),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.black.withOpacity(0.05),
-                                                      blurRadius: 10.0,
-                                                      offset: const Offset(0, 2),
+                                                }.withoutNulls,
+                                                extra: <String, dynamic>{
+                                                  'enseigneDoc': widget.enseigneDoc,
+                                                },
+                                              );
+                                            },
+                                            iconData: Icons.store_rounded,
+                                            text: widget.enseigneDoc?.name ??
+                                                'Enseigne partenaire',
+                                            options: FFButtonOptions(
+                                              width: double.infinity,
+                                              height: 40.0,
+                                              padding:
+                                                  const EdgeInsetsDirectional
+                                                      .fromSTEB(
+                                                          16.0, 0.0, 16.0, 0.0),
+                                              iconPadding:
+                                                  const EdgeInsetsDirectional
+                                                      .fromSTEB(
+                                                          0.0, 0.0, 8.0, 0.0),
+                                              iconSize: 16.0,
+                                              iconColor:
+                                                  const Color(0xFFA0134D),
+                                              color: FlutterFlowTheme.of(context)
+                                                  .secondaryBackground,
+                                              textStyle: FlutterFlowTheme.of(
+                                                      context)
+                                                  .titleSmall
+                                                  .override(
+                                                    font: GoogleFonts
+                                                        .interTight(
+                                                      fontWeight:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .titleSmall
+                                                              .fontWeight,
+                                                      fontStyle:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .titleSmall
+                                                              .fontStyle,
                                                     ),
-                                                  ],
-                                                ),
-                                                child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(
-                                                      Icons.store_rounded,
-                                                      color: FlutterFlowTheme.of(context).primary,
-                                                      size: 20.0,
-                                                    ),
-                                                    const SizedBox(width: 8.0),
-                                                    Flexible(
-                                                      child: Text(
-                                                        //  here name of the store
-                                                        widget.enseigneDoc?.name ??
-                                                            'Enseigne partenaire',
-                                                        maxLines: 2,
-                                                        softWrap: true,
-                                                        overflow: TextOverflow.ellipsis,
-                                                        textAlign: TextAlign.center,
-                                                        style: GoogleFonts.inter(
-                                                          fontSize: 16.0,
-                                                          fontWeight: FontWeight.w600,
-                                                          color: FlutterFlowTheme.of(context).primary,
-                                                          letterSpacing: 0.0,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
+                                                    color: const Color(
+                                                        0xFFA0134D),
+                                                    fontSize: 16.0,
+                                                    letterSpacing: 0.0,
+                                                    fontWeight:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .titleSmall
+                                                            .fontWeight,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .titleSmall
+                                                            .fontStyle,
+                                                  ),
+                                              elevation: 0.0,
+                                              borderRadius:
+                                                  BorderRadius.circular(30.0),
+                                              borderSide: const BorderSide(
+                                                color: Color(0xFFA0134D),
+                                                width: 1.0,
                                               ),
                                             ),
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -1868,16 +1874,6 @@ return Container(
                                             //   ),
                                             // ),
                                             // SizedBox(height: 12.0),
-                                                                Text(
-                                      widget.gameDoc!.name, 
-                                      style: GoogleFonts.inter(
-                                        fontSize:  widget.gameDoc!.name.isEmpty ? 0.0 : 23.0,
-                                        fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF111827),
-                                        letterSpacing: -0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12.0),
                                             if (hasMainPrize)
                                               Row(
                                                 crossAxisAlignment:
@@ -1961,7 +1957,7 @@ return Container(
                                                               .inter(
                                                             fontSize: 14.0,
                                                             fontWeight:
-                                                                FontWeight.w500,
+                                                                FontWeight.w700,
                                                             color: const Color(
                                                                 0xFF111827),
                                                           ),

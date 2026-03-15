@@ -145,8 +145,8 @@ class _JeuDetailCommercantPageWidgetState
       return prize.name.trim();
     }
     return prize.prizeType == PrizeType.principal
-        ? 'Lot principal'
-        : 'Lot secondaire';
+        ? 'Lot principal (tirage au sort à la fin du jeu)'
+        : 'Lots à gains immédiats lors du grattage';
   }
 
   List<PrizesRecord> _sortPrizes(List<PrizesRecord> input) {
