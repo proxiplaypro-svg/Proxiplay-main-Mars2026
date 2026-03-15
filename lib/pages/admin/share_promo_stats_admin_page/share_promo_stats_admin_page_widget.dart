@@ -1,7 +1,7 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/models/share_promo_models.dart';
-import '/services/share_promo_service.dart';
+import '/services/referral/referral_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,7 +19,7 @@ class SharePromoStatsAdminPageWidget extends StatefulWidget {
 
 class _SharePromoStatsAdminPageWidgetState
     extends State<SharePromoStatsAdminPageWidget> {
-  final _service = SharePromoService();
+  final _service = ReferralService();
 
   late Future<SharePromoAdminStatsModel> _statsFuture;
   String? _loadError;
@@ -495,3 +495,4 @@ class _SharePromoStatsAdminPageWidgetState
     );
   }
 }
+

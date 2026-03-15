@@ -1,4 +1,4 @@
-﻿import '/auth/firebase_auth/auth_util.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
@@ -6,9 +6,10 @@ import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/services/referral/referral_service.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/utils/create_account_to_play_dialog.dart';
-import '/utils/share_links.dart';
+
 import '/widgets/proxiplay_network_image.dart';
 import '/index.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -40,6 +41,7 @@ class ShareJeuPageWidget extends StatefulWidget {
 
 class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
   late ShareJeuPageModel _model;
+  final ReferralService _referralService = ReferralService();
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -192,7 +194,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                         ),
                                         onPressed: () async {
                                           await Share.share(
-                                            buildAppShareText(
+                                            _referralService.buildAppShareText(
                                               title:
                                                   '${widget.gameDoc?.name ?? 'ce jeu'} sur ProxiPlay',
                                               description: widget
@@ -1263,4 +1265,5 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
     );
   }
 }
+
 

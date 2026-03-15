@@ -6,10 +6,12 @@
 
 import 'package:share_plus/share_plus.dart';
 
-import '/utils/share_links.dart';
+import '/services/referral/referral_service.dart';
 
 Future shareAppStoreLink() async {
-  final shareText = buildAppShareText();
+  final referralService = ReferralService();
+  final shareText = referralService.buildAppShareText();
 
   await Share.share(shareText, subject: 'Partage ProxiPlay');
 }
+

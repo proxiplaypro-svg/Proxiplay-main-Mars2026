@@ -1,13 +1,14 @@
-﻿import '/backend/backend.dart';
+import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/services/referral/referral_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
-import '/utils/share_links.dart';
+
 import 'jeu_detail_commercant_page_model.dart';
 export 'jeu_detail_commercant_page_model.dart';
 
@@ -32,6 +33,7 @@ class JeuDetailCommercantPageWidget extends StatefulWidget {
 class _JeuDetailCommercantPageWidgetState
     extends State<JeuDetailCommercantPageWidget> {
   late JeuDetailCommercantPageModel _model;
+  final ReferralService _referralService = ReferralService();
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -397,7 +399,7 @@ class _JeuDetailCommercantPageWidgetState
                                 onTap: () async {
                                   if (game == null) return;
                                   await Share.share(
-                                    buildAppShareText(
+                                    _referralService.buildAppShareText(
                                       title:
                                           '${game.name} sur ProxiPlay',
                                       description: widget.enseigneDoc?.name
@@ -660,3 +662,4 @@ class _JeuDetailCommercantPageWidgetState
     );
   }
 }
+

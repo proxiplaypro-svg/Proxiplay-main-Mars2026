@@ -1,4 +1,4 @@
-﻿import '/auth/firebase_auth/auth_util.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/app_bar_joueur_widget.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
@@ -8,7 +8,7 @@ import '/flutter_flow/app_styles.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/models/share_promo_models.dart';
-import '/services/share_promo_service.dart';
+import '/services/referral/referral_service.dart';
 import '/widgets/recent_winners_ticker.dart';
 import '/widgets/home/home_async_game_card_widget.dart';
 import '/widgets/home/home_finished_game_card_widget.dart';
@@ -18,8 +18,6 @@ import '/widgets/home/home_search_results_list_widget.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import '/utils/perf_trace.dart';
-import '/utils/share_links.dart';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -42,10 +40,8 @@ class HomeJoueurPageWidget extends StatefulWidget {
 
 class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     with WidgetsBindingObserver {
-  static final Random _random = Random();
-
   late HomeJoueurPageModel _model;
-  final _sharePromoService = SharePromoService();
+  final _referralService = ReferralService();
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
   bool _homeDataReady = false;
@@ -172,7 +168,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       return null;
     }
     try {
-      final state = await _sharePromoService.getSharePromoState();
+      final state = await _referralService.getSharePromoState();
       _latestSharePromoState = state;
       return state;
     } catch (_) {
@@ -399,76 +395,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     );
   }
 
-  String _buildRandomShareMessage({
-    required String shareLink,
-    required int rewardValue,
-    String? referralCode,
-  }) {
-    final normalizedReferralCode = referralCode?.trim();
-    final referralCodeText =
-        normalizedReferralCode == null || normalizedReferralCode.isEmpty
-            ? ''
-            : '\n\nCode parrainage : $normalizedReferralCode\n\n'
-                'Si le code ne se remplit pas automatiquement après installation, '
-                'entre-le manuellement à l’inscription.';
-    final templates = <String>[
-      '🎮 Inscris-toi avec mon lien sur ProxiPlay !\n'
-          'Télécharge l’app ici :\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Si tu rejoins l’app, je débloque l’accès à tous les jeux jusqu’à minuit 👇',
-      '🎯 Viens tester ProxiPlay avec mon invitation !\n'
-          'Télécharge l’app ici :\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Si tu t’inscris, je joue à tous les jeux jusqu’à minuit 👇',
-      '🔥 Rejoins-moi sur ProxiPlay !\n\n'
-          'Télécharge l’app ici :\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Ton inscription avec mon code me débloque l’accès à tous les jeux jusqu’à minuit 👇',
-      '🎁 J’ai une invitation ProxiPlay pour toi !\n'
-          'Télécharge l’app ici :\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Si tu t’inscris avec mon lien, je débloque tous les jeux jusqu’à minuit 👇',
-      '🚀 Tu peux tester ProxiPlay avec mon lien !\n'
-          'Télécharge l’app ici :\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Si tu rejoins l’app, j’obtiens l’accès à tous les jeux jusqu’à minuit 👇',
-      '🎮 Clique sur mon lien pour découvrir ProxiPlay !\n'
-          'Télécharge l’app ici :\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Si tu t’inscris, je débloque l’accès à tous les jeux jusqu’à minuit 👇',
-    ];
-    return templates[_random.nextInt(templates.length)];
-  }
-
-  String _resolveShareLink(Map<String, dynamic> response) {
-    final inviteCode = (response['inviteCode'] as String?)?.trim();
-    final responseShareLink = (response['shareLink'] as String?)?.trim();
-    final responseReferralCode =
-        extractReferralCodeFromUri(Uri.tryParse(responseShareLink ?? ''));
-    return buildReferralShareLink(inviteCode ?? responseReferralCode);
-  }
-
   Future<Map<String, String>> _buildSharePromoPayload(String channel) async {
-    final response = await _sharePromoService.createReferral(
-      shareChannel: channel,
-    );
-    final shareLink = _resolveShareLink(response);
-    final referralCode = extractReferralCodeFromUri(Uri.tryParse(shareLink));
     final rewardValue = _latestSharePromoState?.rewardValue ?? 1;
-    return {
-      'shareLink': shareLink,
-      'shareText': _buildRandomShareMessage(
-        shareLink: shareLink,
-        rewardValue: rewardValue,
-        referralCode: referralCode,
-      ),
-    };
+    return _referralService.buildSharePromoPayload(
+      channel: channel,
+      rewardValue: rewardValue,
+    );
   }
 
   Future<void> _copyShareText(String text) async {
@@ -477,8 +409,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
   Future<void> _showSharePromoSheet() async {
     final payload = await _buildSharePromoPayload('native_share');
-    final shareText = payload['shareText'] ?? buildAppShareText();
-    final shareLink = payload['shareLink'] ?? shareLinkBase;
+    final shareText =
+        payload['shareText'] ?? _referralService.buildAppShareText();
+    final shareLink =
+        payload['shareLink'] ?? _referralService.buildReferralShareLink();
 
     try {
       debugPrint('[SHARE_DEBUG] link=$shareLink');

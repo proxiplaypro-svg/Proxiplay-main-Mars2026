@@ -1,9 +1,9 @@
-﻿import '/backend/backend.dart';
+import '/backend/backend.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import '/utils/share_links.dart';
+import '/services/referral/referral_service.dart';
 import '/widgets/tap_feedback.dart';
 import 'dart:convert';
 import 'dart:ui';
@@ -66,6 +66,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
   ];
 
   late PlayJoueurPageModel _model;
+  final ReferralService _referralService = ReferralService();
   String? _resultMessage;
   String? _resultMessageBonus;
 
@@ -403,7 +404,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                         icon: const Icon(Icons.share_rounded, size: 22.0),
                         onPressed: () async {
                           await Share.share(
-                            buildAppShareText(
+                            _referralService.buildAppShareText(
                               title:
                                   '${widget.game?.name ?? 'ce jeu'} sur ProxiPlay',
                             ),
@@ -1452,5 +1453,6 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     );
   }
 }
+
 
 

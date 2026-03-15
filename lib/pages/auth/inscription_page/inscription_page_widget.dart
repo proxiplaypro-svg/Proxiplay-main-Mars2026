@@ -7,7 +7,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/index.dart';
-import '/services/share_promo_service.dart';
+import '/services/referral/referral_service.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -29,7 +29,7 @@ class InscriptionPageWidget extends StatefulWidget {
 class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     with TickerProviderStateMixin {
   late InscriptionPageModel _model;
-  final SharePromoService _sharePromoService = SharePromoService();
+  final ReferralService _referralService = ReferralService();
   bool _isApplyingPendingReferralCode = false;
   String? _lastAppliedReferralGuardKey;
   String? _lastReferralErrorMessage;
@@ -1164,7 +1164,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     ),
                                                                     TextSpan(
                                                                       text:
-                                                                          'conditions générales d\'utilisation',
+                                                                          'conditions gÃ©nÃ©rales d\'utilisation',
                                                                       style: FlutterFlowTheme.of(
                                                                               context)
                                                                           .bodyMedium
@@ -1200,7 +1200,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     ),
                                                                     TextSpan(
                                                                       text:
-                                                                          'politique de confidentialité',
+                                                                          'politique de confidentialitÃ©',
                                                                       style: FlutterFlowTheme.of(
                                                                               context)
                                                                           .bodyMedium
@@ -1458,7 +1458,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                           const AlignmentDirectional(
                                                               0.0, 0.0),
                                                       child: Text(
-                                                        'Déjà un compte ? ',
+                                                        'DÃ©jÃ  un compte ? ',
                                                         textAlign:
                                                             TextAlign.center,
                                                         style:
@@ -1823,7 +1823,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                           Roles.commercant &&
                                                       (val == null ||
                                                           val.isEmpty)) {
-                                                    return 'Veuillez sélectionner une catégorie';
+                                                    return 'Veuillez sÃ©lectionner une catÃ©gorie';
                                                   }
                                                   return null;
                                                 },
@@ -2449,7 +2449,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                 ),
                                                                 TextSpan(
                                                                   text:
-                                                                      'conditions générales d\'utilisation',
+                                                                      'conditions gÃ©nÃ©rales d\'utilisation',
                                                                   style: FlutterFlowTheme.of(
                                                                           context)
                                                                       .bodyMedium
@@ -2489,7 +2489,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                 ),
                                                                 TextSpan(
                                                                   text:
-                                                                      'politique de confidentialité',
+                                                                      'politique de confidentialitÃ©',
                                                                   style: FlutterFlowTheme.of(
                                                                           context)
                                                                       .bodyMedium
@@ -2743,7 +2743,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                       const AlignmentDirectional(
                                                           0.0, 0.0),
                                                   child: Text(
-                                                    'Déjà un compte ? ',
+                                                    'DÃ©jÃ  un compte ? ',
                                                     textAlign: TextAlign.center,
                                                     style: FlutterFlowTheme.of(
                                                             context)
@@ -2915,7 +2915,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
         '[ReferralDebug][Signup] calling registerReferralAcceptance '
         'inviteCode=$pendingReferralCode uid=$currentUid',
       );
-      await _sharePromoService.registerReferralAcceptance(
+      await _referralService.registerReferralAcceptance(
         inviteCode: pendingReferralCode,
       );
       debugPrint(
