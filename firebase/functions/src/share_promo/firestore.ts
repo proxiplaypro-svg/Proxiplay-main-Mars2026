@@ -25,6 +25,8 @@ export const paths = {
   adminStats: 'admin_stats/share_promo',
   shareState: (uid: string) => `users/${uid}/private/share_state`,
   user: (uid: string) => `users/${uid}`,
+  userNotification: (uid: string, notificationId: string) =>
+    `users/${uid}/notifications/${notificationId}`,
   referral: (referralId: string) => `referrals/${referralId}`,
   rewardEvent: (eventId: string) => `reward_events/${eventId}`,
 };
@@ -34,6 +36,8 @@ export const refs = {
   adminStats: () => db.doc(paths.adminStats),
   shareState: (uid: string) => db.doc(paths.shareState(uid)),
   user: (uid: string) => db.doc(paths.user(uid)),
+  userNotification: (uid: string, notificationId: string) =>
+    db.doc(paths.userNotification(uid, notificationId)),
   referral: (referralId: string) => db.doc(paths.referral(referralId)),
   rewardEvent: (eventId: string) => db.doc(paths.rewardEvent(eventId)),
   referrals: () => db.collection('referrals'),
@@ -445,10 +449,24 @@ export async function applyRewardToUser(
   rewardValue: number,
 ): Promise<void> {
   if (isAllGamesUntilMidnightReward(rewardType)) {
+    const userRef = refs.user(uid);
+    const userSnap = await transaction.get(userRef);
+    const userData = userSnap.data() ?? {};
+    const nextMidnight = getNextMidnightTimestamp();
+    const existingBonusExpiry =
+      toTimestamp(userData.bonusExpiresAt) ?? toTimestamp(userData.allGamesAccessUntil);
+    const effectiveBonusExpiry =
+      existingBonusExpiry && existingBonusExpiry.toMillis() > nextMidnight.toMillis()
+        ? existingBonusExpiry
+        : nextMidnight;
+
     transaction.set(
-      refs.user(uid),
+      userRef,
       {
-        allGamesAccessUntil: getNextMidnightTimestamp(),
+        allGamesAccessUntil: effectiveBonusExpiry,
+        bonusMode: 'all_games_until_midnight',
+        bonusExpiresAt: effectiveBonusExpiry,
+        bonusSource: 'referral',
         updated_time: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true },
@@ -520,5 +538,31 @@ export async function queueUserPushNotification({
     status: 'started',
     created_at: admin.firestore.FieldValue.serverTimestamp(),
     created_by: createdBy,
+  });
+}
+
+
+export async function createUserInAppNotification({
+  docId,
+  title,
+  body,
+  userUid,
+}: {
+  docId: string;
+  title: string;
+  body: string;
+  userUid: string;
+}): Promise<void> {
+  const ref = refs.userNotification(userUid, docId);
+  const existing = await ref.get();
+  if (existing.exists) {
+    return;
+  }
+
+  await ref.set({
+    title,
+    message: body,
+    date: admin.firestore.FieldValue.serverTimestamp(),
+    read: false,
   });
 }

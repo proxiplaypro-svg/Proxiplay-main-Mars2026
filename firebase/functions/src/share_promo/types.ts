@@ -96,6 +96,10 @@ export interface GetSharePromoStateResponse {
   message: string | null;
   ctaText: string | null;
   action: string | null;
+  playerStatus: string | null;
+  bonusMode?: string | null;
+  bonusSource?: string | null;
+  bonusExpiresAt?: admin.firestore.Timestamp | null;
   campaign: {
     id: string;
     rewardType: string;
@@ -115,6 +119,16 @@ export interface CreateReferralResponse {
   inviteCode: string;
   shareMessage: string;
   shareLink: string;
+}
+
+export interface ValidateReferralCodeInput {
+  inviteCode?: string;
+}
+
+export interface ValidateReferralCodeResponse {
+  valid: boolean;
+  inviteCode: string;
+  reason?: string | null;
 }
 
 export interface RegisterReferralAcceptanceInput {
