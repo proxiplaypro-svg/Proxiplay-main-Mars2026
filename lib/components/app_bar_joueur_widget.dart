@@ -1,6 +1,7 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/utils/player_bonus_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -59,9 +60,17 @@ class _AppBarJoueurWidgetState extends State<AppBarJoueurWidget> {
               if (currentUserUid != '') {
                 final remainingPart =
                     valueOrDefault<int>(currentUserDocument?.remainingPart, 0);
+                final playerAccessState = resolvePlayerAccessState(
+                  currentUserDocument,
+                  now: getCurrentTimestamp,
+                );
+                final isBonusActive =
+                    playerAccessState == PlayerAccessState.bonusActive;
                 return Container(
                   decoration: BoxDecoration(
-                    color: remainingPart == 1
+                    color: isBonusActive
+                        ? const Color(0xFFA0134D)
+                        : remainingPart == 1
                         ? const Color(0xFFA0134D)
                         : FlutterFlowTheme.of(context).primary,
                     borderRadius: BorderRadius.circular(12.0),
@@ -86,7 +95,7 @@ class _AppBarJoueurWidgetState extends State<AppBarJoueurWidget> {
                             children: [
                               AuthUserStreamWidget(
                                 builder: (context) => Text(
-                                  remainingPart.toString(),
+                                  isBonusActive ? 'bonus' : remainingPart.toString(),
                                   style: FlutterFlowTheme.of(context)
                                       .titleMedium
                                       .override(
@@ -115,7 +124,9 @@ class _AppBarJoueurWidgetState extends State<AppBarJoueurWidget> {
                                 ),
                               ),
                               Text(
-                                remainingPart == 1
+                                isBonusActive
+                                    ? 'actif'
+                                    : remainingPart == 1
                                     ? 'chance'
                                     : 'chances',
                                 style: FlutterFlowTheme.of(context)

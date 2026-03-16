@@ -7,7 +7,8 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/services/referral/referral_service.dart';
 import '/utils/create_account_to_play_dialog.dart';
-
+import '/utils/player_bonus_state.dart';
+import '/utils/share_links.dart';
 import '/widgets/proxiplay_network_image.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
@@ -43,22 +44,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
   final ReferralService _referralService = ReferralService();
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
-
-  bool _hasUnlimitedAccess(UsersRecord? user, DateTime now) {
-    if (isGuestOrAnonymous || user == null) {
-      return false;
-    }
-    final allGamesAccessUntil = user.allGamesAccessUntil;
-    return allGamesAccessUntil != null && allGamesAccessUntil.isAfter(now);
-  }
-
-  bool _hasNoRemainingParts(UsersRecord? user, DateTime now) {
-    if (isGuestOrAnonymous) {
-      return false;
-    }
-    return valueOrDefault(user?.remainingPart, 0) <= 0 &&
-        !_hasUnlimitedAccess(user, now);
-  }
 
   String _formatEuros(num? value) {
     final amount = value ?? 0;
@@ -128,7 +113,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             lastPlay.month == now.month &&
             lastPlay.day == now.day;
         final hasPlayedBefore = lastPlay != null && !hasPlayedToday;
-        final noRemainingParts = _hasNoRemainingParts(currentUserDocument, now);
+        final playerAccessState = resolvePlayerAccessState(
+          currentUserDocument,
+          now: now,
+        );
+        final noRemainingParts = playerAccessState == PlayerAccessState.noParts;
         final endDate = widget.gameDoc?.endDate;
         final endWindowEnd = endDate?.add(const Duration(hours: 48));
         final isWithinEndWindow = endDate != null &&
@@ -586,10 +575,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   },
                                                             text: () {
                                                               final noRemainingPartsLive =
-                                                                  _hasNoRemainingParts(
-                                                                currentUserDocument,
-                                                                getCurrentTimestamp,
-                                                              );
+                                                                  resolvePlayerAccessState(
+                                                                        currentUserDocument,
+                                                                        now: getCurrentTimestamp,
+                                                                      ) ==
+                                                                      PlayerAccessState
+                                                                          .noParts;
                                                               if (noRemainingPartsLive) {
                                                                 return 'Vous n\'avez plus de parties';
                                                               } else if (widget
@@ -671,13 +662,105 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                         getCurrentTimestamp,
                                                     child: AuthUserStreamWidget(
                                                       builder: (context) {
-                                                        final noRemainingPartsLive =
-                                                            _hasNoRemainingParts(
+                                                        final playerAccessStateLive =
+                                                            resolvePlayerAccessState(
                                                           currentUserDocument,
-                                                          getCurrentTimestamp,
+                                                          now: getCurrentTimestamp,
                                                         );
-                                                        return FFButtonWidget(
-                                                          onPressed: ((widget
+                                                        final bonusActiveLive =
+                                                            playerAccessStateLive ==
+                                                                PlayerAccessState
+                                                                    .bonusActive;
+                                                        final noRemainingPartsLive =
+                                                            playerAccessStateLive ==
+                                                                PlayerAccessState
+                                                                    .noParts;
+                                                        return Column(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            if (bonusActiveLive)
+                                                              Container(
+                                                                width: double.infinity,
+                                                                margin:
+                                                                    const EdgeInsets.only(
+                                                                  bottom: 12.0,
+                                                                ),
+                                                                padding:
+                                                                    const EdgeInsetsDirectional
+                                                                        .fromSTEB(
+                                                                  16.0,
+                                                                  14.0,
+                                                                  16.0,
+                                                                  14.0,
+                                                                ),
+                                                                decoration:
+                                                                    BoxDecoration(
+                                                                  color: const Color(
+                                                                      0xFFF5F6FB),
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              16.0),
+                                                                  border: Border.all(
+                                                                    color: const Color(
+                                                                        0xFFA0134D),
+                                                                    width: 1.0,
+                                                                  ),
+                                                                ),
+                                                                child: Column(
+                                                                  crossAxisAlignment:
+                                                                      CrossAxisAlignment
+                                                                          .start,
+                                                                  children: [
+                                                                    Text(
+                                                                      'Bonus activé',
+                                                                      style: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .titleMedium
+                                                                          .override(
+                                                                            font:
+                                                                                GoogleFonts.inter(
+                                                                              fontWeight:
+                                                                                  FontWeight.w700,
+                                                                            ),
+                                                                            color:
+                                                                                FlutterFlowTheme.of(context).primaryText,
+                                                                            letterSpacing:
+                                                                                0.0,
+                                                                          ),
+                                                                    ),
+                                                                    const SizedBox(
+                                                                        height:
+                                                                            4.0),
+                                                                    Text(
+                                                                      'Vous pouvez jouer à tous les jeux jusqu’à minuit.',
+                                                                      style: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .bodySmall
+                                                                          .override(
+                                                                            font:
+                                                                                GoogleFonts.inter(
+                                                                              fontWeight:
+                                                                                  FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                                                                              fontStyle:
+                                                                                  FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                                                                            ),
+                                                                            color:
+                                                                                FlutterFlowTheme.of(context).secondaryText,
+                                                                            letterSpacing:
+                                                                                0.0,
+                                                                            fontWeight:
+                                                                                FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                                                                            fontStyle:
+                                                                                FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                                                                          ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            FFButtonWidget(
+                                                              onPressed: ((widget
                                                                         .gameDoc!
                                                                         .endDate! <
                                                                     getCurrentTimestamp) ||
@@ -794,59 +877,68 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 safeSetState(
                                                                     () {});
                                                               },
-                                                          text: () {
-                                                            if (noRemainingPartsLive) {
-                                                              return 'Vous n\'avez plus de parties';
-                                                            } else if (widget
+                                                              text: () {
+                                                                if (bonusActiveLive) {
+                                                                  return hasPlayedToday
+                                                                      ? 'Vous avez déjà joué'
+                                                                      : 'Jouer avec votre bonus';
+                                                                } else if (noRemainingPartsLive) {
+                                                                  return 'Vous n\'avez plus de parties';
+                                                                } else if (widget
                                                                     .gameDoc!
                                                                     .endDate! <
                                                                 getCurrentTimestamp) {
-                                                              return 'Le jeu est termin\u00E9';
-                                                            } else if (hasPlayedToday) {
-                                                              return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
-                                                            } else if (hasPlayedBefore) {
-                                                              return 'Rejouer';
-                                                            } else {
-                                                              return 'Jouer';
-                                                            }
-                                                          }(),
-                                                          options:
-                                                              FFButtonOptions(
-                                                            width:
-                                                                double.infinity,
-                                                            height: 56.0,
-                                                            padding:
-                                                                const EdgeInsets.all(
-                                                                    0.0),
-                                                            iconPadding:
-                                                                const EdgeInsetsDirectional
-                                                                    .fromSTEB(
-                                                                        0.0,
-                                                                        0.0,
-                                                                        0.0,
-                                                                        0.0),
-                                                            color: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .primary,
-                                                            textStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .titleMedium
-                                                                    .override(
-                                                                      font: GoogleFonts
-                                                                              .inter(
-                                                                            fontWeight: FontWeight.w600,
+                                                                  return 'Le jeu est terminé';
+                                                                } else if (hasPlayedToday) {
+                                                                  return 'Vous avez déjà joué';
+                                                                } else if (hasPlayedBefore) {
+                                                                  return 'Rejouer';
+                                                                } else {
+                                                                  return 'Jouer';
+                                                                }
+                                                              }(),
+                                                              options:
+                                                                  FFButtonOptions(
+                                                                width:
+                                                                    double.infinity,
+                                                                height: 56.0,
+                                                                padding:
+                                                                    const EdgeInsets
+                                                                        .all(0.0),
+                                                                iconPadding:
+                                                                    const EdgeInsetsDirectional
+                                                                        .fromSTEB(
+                                                                            0.0,
+                                                                            0.0,
+                                                                            0.0,
+                                                                            0.0),
+                                                                color:
+                                                                    FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .primary,
+                                                                textStyle:
+                                                                    FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .titleMedium
+                                                                        .override(
+                                                                          font:
+                                                                              GoogleFonts.inter(
+                                                                            fontWeight:
+                                                                                FontWeight.w600,
                                                                           ),
-                                                                      color: Colors.white,
-                                                                      letterSpacing:
-                                                                          0.0,
-                                                                    ),
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        16.0),
-                                                            elevation: 4.0,
-                                                          ),
+                                                                          color:
+                                                                              Colors.white,
+                                                                          letterSpacing:
+                                                                              0.0,
+                                                                        ),
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            16.0),
+                                                                elevation: 4.0,
+                                                              ),
+                                                            ),
+                                                          ],
                                                         );
                                                       },
                                                     ),

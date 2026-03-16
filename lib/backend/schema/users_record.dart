@@ -102,6 +102,21 @@ class UsersRecord extends FirestoreRecord {
   DateTime? get allGamesAccessUntil => _allGamesAccessUntil;
   bool hasAllGamesAccessUntil() => _allGamesAccessUntil != null;
 
+  // "bonusMode" field.
+  String? _bonusMode;
+  String get bonusMode => _bonusMode ?? '';
+  bool hasBonusMode() => _bonusMode != null;
+
+  // "bonusExpiresAt" field.
+  DateTime? _bonusExpiresAt;
+  DateTime? get bonusExpiresAt => _bonusExpiresAt;
+  bool hasBonusExpiresAt() => _bonusExpiresAt != null;
+
+  // "bonusSource" field.
+  String? _bonusSource;
+  String get bonusSource => _bonusSource ?? '';
+  bool hasBonusSource() => _bonusSource != null;
+
   void _initializeFields() {
     _email = snapshotData['email'] as String?;
     _uid = snapshotData['uid'] as String?;
@@ -124,6 +139,9 @@ class UsersRecord extends FirestoreRecord {
     _birthday = snapshotData['birthday'] as DateTime?;
     _professionalCategory = snapshotData['professional_category'] as String?;
     _allGamesAccessUntil = snapshotData['allGamesAccessUntil'] as DateTime?;
+    _bonusMode = snapshotData['bonusMode'] as String?;
+    _bonusExpiresAt = snapshotData['bonusExpiresAt'] as DateTime?;
+    _bonusSource = snapshotData['bonusSource'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -177,6 +195,9 @@ Map<String, dynamic> createUsersRecordData({
   DateTime? birthday,
   String? professionalCategory,
   DateTime? allGamesAccessUntil,
+  String? bonusMode,
+  DateTime? bonusExpiresAt,
+  String? bonusSource,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -197,6 +218,9 @@ Map<String, dynamic> createUsersRecordData({
       'birthday': birthday,
       'professional_category': professionalCategory,
       'allGamesAccessUntil': allGamesAccessUntil,
+      'bonusMode': bonusMode,
+      'bonusExpiresAt': bonusExpiresAt,
+      'bonusSource': bonusSource,
     }.withoutNulls,
   );
 
@@ -224,7 +248,10 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e1?.partLastUpdate == e2?.partLastUpdate &&
         e1?.birthday == e2?.birthday &&
         e1?.professionalCategory == e2?.professionalCategory &&
-        e1?.allGamesAccessUntil == e2?.allGamesAccessUntil;
+        e1?.allGamesAccessUntil == e2?.allGamesAccessUntil &&
+        e1?.bonusMode == e2?.bonusMode &&
+        e1?.bonusExpiresAt == e2?.bonusExpiresAt &&
+        e1?.bonusSource == e2?.bonusSource;
   }
 
   @override
@@ -245,7 +272,10 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e?.partLastUpdate,
         e?.birthday,
         e?.professionalCategory,
-        e?.allGamesAccessUntil
+        e?.allGamesAccessUntil,
+        e?.bonusMode,
+        e?.bonusExpiresAt,
+        e?.bonusSource
       ]);
 
   @override

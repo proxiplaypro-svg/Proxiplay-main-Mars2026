@@ -8,6 +8,7 @@ import '/widgets/profile/profile_header_card_widget.dart';
 import '/widgets/profile/profile_menu_card_widget.dart';
 import '/widgets/profile/profile_menu_section_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'profil_joueur_page_model.dart';
 export 'profil_joueur_page_model.dart';
@@ -31,6 +32,36 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
   late ProfilJoueurPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+
+  Future<void> _handleDeleteAccountTap() async {
+    final confirmDialogResponse = await showDialog<bool>(
+          context: context,
+          builder: (alertDialogContext) {
+            return WebViewAware(
+              child: AlertDialog(
+                title: const Text('Suppression du compte'),
+                content: const Text(
+                    'Êtes-vous sûr de vouloir supprimer votre compte ?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(alertDialogContext, false),
+                    child: const Text('Annuler'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(alertDialogContext, true),
+                    child: const Text('Confirmer'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ) ??
+        false;
+    if (!context.mounted || !confirmDialogResponse) return;
+    await authManager.deleteUser(context);
+    if (!context.mounted) return;
+    context.pushNamed(LoginPageWidget.routeName);
+  }
 
   Future<int> _loadLotsToClaimCount(List<MyLotsRecord> myLots) async {
     final recordsWithPrizeRef =
@@ -222,60 +253,6 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                         FFAppState().isLoggingOut = false);
                                   },
                                 ),
-                                const SizedBox(height: 12.0),
-                                ProfileMenuCard(
-                                  icon: Icons.delete_forever_rounded,
-                                  title: 'Supprimer mon compte',
-                                  compactLabel: true,
-                                  iconTint: _raspberryTint,
-                                  iconColor: _raspberry,
-                                  titleColor: _raspberry,
-                                  borderColor:
-                                      _navy.withValues(alpha: 0.06),
-                                  shadowColor:
-                                      Colors.black.withValues(alpha: 0.035),
-                                  onTap: () async {
-                                    final confirmDialogResponse =
-                                            await showDialog<bool>(
-                                                  context: context,
-                                                  builder:
-                                                      (alertDialogContext) {
-                                                    return WebViewAware(
-                                                      child: AlertDialog(
-                                                        title: const Text(
-                                                            'Suppression du compte'),
-                                                        content: const Text(
-                                                            '\u00cates-vous s\u00fbr de vouloir supprimer votre compte ?'),
-                                                        actions: [
-                                                          TextButton(
-                                                            onPressed: () => Navigator.pop(
-                                                                alertDialogContext,
-                                                                false),
-                                                            child: const Text(
-                                                                'Annuler'),
-                                                          ),
-                                                          TextButton(
-                                                            onPressed: () => Navigator.pop(
-                                                                alertDialogContext,
-                                                                true),
-                                                            child: const Text(
-                                                                'Confirmer'),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    );
-                                                  },
-                                                ) ??
-                                        false;
-                                    if (!context.mounted) return;
-                                    if (confirmDialogResponse) {
-                                      await authManager.deleteUser(context);
-                                      if (!context.mounted) return;
-                                      context.pushNamed(
-                                          LoginPageWidget.routeName);
-                                    }
-                                  },
-                                ),
                               ],
                             ),
                             const SizedBox(height: 24.0),
@@ -309,6 +286,46 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                   onTap: () {
                                     context.pushNamed(LegalPageWidget.routeName);
                                   },
+                                ),
+                                const SizedBox(height: 8.0),
+                                Padding(
+                                  padding: const EdgeInsetsDirectional.fromSTEB(
+                                      10.0, 0.0, 10.0, 0.0),
+                                  child: Align(
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: InkWell(
+                                      splashColor: Colors.transparent,
+                                      focusColor: Colors.transparent,
+                                      hoverColor: Colors.transparent,
+                                      highlightColor: Colors.transparent,
+                                      onTap: () async {
+                                        await _handleDeleteAccountTap();
+                                      },
+                                      child: Text(
+                                        'Supprimer mon compte',
+                                        style: FlutterFlowTheme.of(context)
+                                            .bodySmall
+                                            .override(
+                                              font: GoogleFonts.inter(
+                                                fontWeight: FontWeight.w500,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodySmall
+                                                        .fontStyle,
+                                              ),
+                                              color: _navy.withValues(alpha: 0.72),
+                                              letterSpacing: 0.0,
+                                              fontWeight: FontWeight.w500,
+                                              fontStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodySmall
+                                                      .fontStyle,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),

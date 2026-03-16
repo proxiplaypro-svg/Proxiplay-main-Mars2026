@@ -17,6 +17,7 @@ import '/widgets/home/home_search_result_card_widget.dart';
 import '/widgets/home/home_search_results_list_widget.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
+import '/utils/player_bonus_state.dart';
 import '/utils/perf_trace.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -241,11 +242,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   }
 
   bool _hasActiveReferralBonus() {
-    final accessUntil = currentUserDocument?.allGamesAccessUntil;
-    if (accessUntil == null) {
-      return false;
-    }
-    return accessUntil.isAfter(getCurrentTimestamp);
+    return hasActiveReferralBonus(
+      currentUserDocument,
+      now: getCurrentTimestamp,
+    );
   }
 
   String _extractWinnerFirstName(UsersRecord? user) {
@@ -331,7 +331,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   Widget _buildTopDynamicZone(BuildContext context) {
     return AuthUserStreamWidget(
       builder: (context) {
-        if (_hasActiveReferralBonus()) {
+        final playerAccessState = resolvePlayerAccessState(
+          currentUserDocument,
+          now: getCurrentTimestamp,
+        );
+        if (playerAccessState == PlayerAccessState.bonusActive) {
           return const Padding(
             padding: EdgeInsets.only(bottom: 16.0),
             child: SharePromoBanner(
@@ -351,7 +355,34 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           );
         }
 
-        if (valueOrDefault<int>(currentUserDocument?.remainingPart, 0) == 1) {
+        if (playerAccessState == PlayerAccessState.noParts) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: SharePromoBanner(
+              data: const SharePromoData(
+                kind: SharePromoKind.lowRemainingPlaysInvite,
+                title: 'Plus de chances disponibles',
+                subtitle:
+                    'Invite un ami pour récupérer l’accès à tous les jeux jusqu’à minuit.',
+                ctaLabel: 'Inviter un ami',
+                icon: Icons.volunteer_activism_rounded,
+                primaryColor: Color(0xFFF5F6FB),
+                secondaryColor: Color(0xFFA0134D),
+                titleColor: Color(0xFF2C2F5B),
+                subtitleColor: Color(0xFF2C2F5B),
+                buttonColor: Color(0xFF2C2F5B),
+                buttonTextColor: Colors.white,
+                iconBackgroundColor: Color(0xFFF7E6EE),
+                iconColor: Color(0xFFA0134D),
+              ),
+              onTap: () {
+                _showSharePromoSheet();
+              },
+            ),
+          );
+        }
+
+        if (playerAccessState == PlayerAccessState.lowParts) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 16.0),
             child: SharePromoBanner(

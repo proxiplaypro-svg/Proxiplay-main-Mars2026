@@ -50,7 +50,7 @@ class InscriptionPageModel extends FlutterFlowModel<InscriptionPageWidget> {
     }
 
     if (val.length < 5) {
-      return 'Un mot de passe à minimum 5 caractères est nécessaire';
+      return 'Un mot de passe \u00E0 minimum 5 caract\u00E8res est n\u00E9cessaire';
     }
 
     return null;
@@ -65,11 +65,11 @@ class InscriptionPageModel extends FlutterFlowModel<InscriptionPageWidget> {
   String? _passwordConfirmJoueurTextControllerValidator(
       BuildContext context, String? val) {
     if (val == null || val.isEmpty) {
-      return 'Ce champ est obligatoire, il doit être identique au mot de passe';
+      return 'Ce champ est obligatoire, il doit \u00EAtre identique au mot de passe';
     }
 
     if (val.length < 5) {
-      return 'Un mot de passe à minimum 5 caractères est nécessaire';
+      return 'Un mot de passe \u00E0 minimum 5 caract\u00E8res est n\u00E9cessaire';
     }
 
     return null;
@@ -109,7 +109,7 @@ class InscriptionPageModel extends FlutterFlowModel<InscriptionPageWidget> {
     }
 
     if (val.length < 5) {
-      return 'Un mot de passe à minimum 5 caractères est nécessaire';
+      return 'Un mot de passe \u00E0 minimum 5 caract\u00E8res est n\u00E9cessaire';
     }
 
     return null;
@@ -124,11 +124,11 @@ class InscriptionPageModel extends FlutterFlowModel<InscriptionPageWidget> {
   String? _passwordConfirmCommercantTextControllerValidator(
       BuildContext context, String? val) {
     if (val == null || val.isEmpty) {
-      return 'Ce champ est obligatoire, il doit être identique au mot de passe';
+      return 'Ce champ est obligatoire, il doit \u00EAtre identique au mot de passe';
     }
 
     if (val.length < 5) {
-      return 'Un mot de passe à minimum 5 caractères est nécessaire';
+      return 'Un mot de passe \u00E0 minimum 5 caract\u00E8res est n\u00E9cessaire';
     }
 
     return null;

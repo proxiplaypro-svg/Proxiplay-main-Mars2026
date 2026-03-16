@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
@@ -16,6 +18,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'inscription_page_model.dart';
 export 'inscription_page_model.dart';
 
+enum _ReferralValidationStatus {
+  idle,
+  checking,
+  valid,
+  invalid,
+}
+
 class InscriptionPageWidget extends StatefulWidget {
   const InscriptionPageWidget({super.key});
 
@@ -33,6 +42,14 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
   bool _isApplyingPendingReferralCode = false;
   String? _lastAppliedReferralGuardKey;
   String? _lastReferralErrorMessage;
+  Timer? _joueurReferralValidationDebounce;
+  Timer? _commercantReferralValidationDebounce;
+  _ReferralValidationStatus _joueurReferralValidationStatus =
+      _ReferralValidationStatus.idle;
+  _ReferralValidationStatus _commercantReferralValidationStatus =
+      _ReferralValidationStatus.idle;
+  String _joueurReferralValidationCode = '';
+  String _commercantReferralValidationCode = '';
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -76,6 +93,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       text: _initialReferralCodeValue,
     );
     _model.referralCodeCommercantFocusNode ??= FocusNode();
+    _primeReferralValidationStates();
 
     animationsMap.addAll({
       'containerOnPageLoadAnimation': AnimationInfo(
@@ -155,6 +173,8 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
 
   @override
   void dispose() {
+    _joueurReferralValidationDebounce?.cancel();
+    _commercantReferralValidationDebounce?.cancel();
     _model.dispose();
 
     super.dispose();
@@ -677,13 +697,21 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     .bodyMedium
                                                                     .fontStyle,
                                                               ),
-                                                      onChanged:
-                                                          _persistReferralCodeInput,
+                                                      onChanged: (value) =>
+                                                          _onReferralCodeChanged(
+                                                        value,
+                                                        isJoueur: true,
+                                                      ),
                                                       validator: _model
                                                           .referralCodeJoueurTextControllerValidator
                                                           .asValidator(context),
                                                     ),
                                                   ),
+                                                ),
+                                                _buildReferralValidationFeedback(
+                                                  context,
+                                                  status:
+                                                      _joueurReferralValidationStatus,
                                                 ),
                                                 Padding(
                                                   padding: const EdgeInsetsDirectional
@@ -1164,7 +1192,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     ),
                                                                     TextSpan(
                                                                       text:
-                                                                          'conditions gÃ©nÃ©rales d\'utilisation',
+                                                                          'conditions g\u00E9n\u00E9rales d\'utilisation',
                                                                       style: FlutterFlowTheme.of(
                                                                               context)
                                                                           .bodyMedium
@@ -1200,7 +1228,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     ),
                                                                     TextSpan(
                                                                       text:
-                                                                          'politique de confidentialitÃ©',
+                                                                          'politique de confidentialit\u00E9',
                                                                       style: FlutterFlowTheme.of(
                                                                               context)
                                                                           .bodyMedium
@@ -1301,6 +1329,15 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     ?.text ??
                                                                     '',
                                                               );
+                                                              if (!await _ensureReferralCodeIsValidForSubmit(
+                                                                rawValue: _model
+                                                                        .referralCodeJoueurTextController
+                                                                        ?.text ??
+                                                                    '',
+                                                                isJoueur: true,
+                                                              )) {
+                                                                return;
+                                                              }
 
                                                               debugPrint(
                                                                 '[ReferralDebug][Signup] beforeCreateAccount '
@@ -1458,7 +1495,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                           const AlignmentDirectional(
                                                               0.0, 0.0),
                                                       child: Text(
-                                                        'DÃ©jÃ  un compte ? ',
+                                                        'D\u00E9j\u00E0 un compte ? ',
                                                         textAlign:
                                                             TextAlign.center,
                                                         style:
@@ -2104,6 +2141,11 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                         FlutterFlowTheme.of(
                                                                 context)
                                                             .fieldBg,
+                                                    suffixIcon:
+                                                        _buildReferralSuffixIcon(
+                                                      context,
+                                                      _commercantReferralValidationStatus,
+                                                    ),
                                                     contentPadding:
                                                         const EdgeInsets.all(
                                                             24.0),
@@ -2140,13 +2182,21 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                 .bodyMedium
                                                                 .fontStyle,
                                                       ),
-                                                  onChanged:
-                                                      _persistReferralCodeInput,
+                                                  onChanged: (value) =>
+                                                      _onReferralCodeChanged(
+                                                    value,
+                                                    isJoueur: false,
+                                                  ),
                                                   validator: _model
                                                       .referralCodeCommercantTextControllerValidator
                                                       .asValidator(context),
                                                 ),
                                               ),
+                                            ),
+                                            _buildReferralValidationFeedback(
+                                              context,
+                                              status:
+                                                  _commercantReferralValidationStatus,
                                             ),
                                             Padding(
                                               padding: const EdgeInsetsDirectional
@@ -2449,7 +2499,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                 ),
                                                                 TextSpan(
                                                                   text:
-                                                                      'conditions gÃ©nÃ©rales d\'utilisation',
+                                                                      'conditions g\u00E9n\u00E9rales d\'utilisation',
                                                                   style: FlutterFlowTheme.of(
                                                                           context)
                                                                       .bodyMedium
@@ -2489,7 +2539,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                 ),
                                                                 TextSpan(
                                                                   text:
-                                                                      'politique de confidentialitÃ©',
+                                                                      'politique de confidentialit\u00E9',
                                                                   style: FlutterFlowTheme.of(
                                                                           context)
                                                                       .bodyMedium
@@ -2593,6 +2643,15 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     ?.text ??
                                                                 '',
                                                           );
+                                                          if (!await _ensureReferralCodeIsValidForSubmit(
+                                                            rawValue: _model
+                                                                    .referralCodeCommercantTextController
+                                                                    ?.text ??
+                                                                '',
+                                                            isJoueur: false,
+                                                          )) {
+                                                            return;
+                                                          }
 
                                                           debugPrint(
                                                             '[ReferralDebug][Signup] beforeCreateAccount '
@@ -2743,7 +2802,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                       const AlignmentDirectional(
                                                           0.0, 0.0),
                                                   child: Text(
-                                                    'DÃ©jÃ  un compte ? ',
+                                                    'D\u00E9j\u00E0 un compte ? ',
                                                     textAlign: TextAlign.center,
                                                     style: FlutterFlowTheme.of(
                                                             context)
@@ -2842,7 +2901,132 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
 
   String get _initialReferralCodeValue => FFAppState().pendingReferralCode;
 
+  void _primeReferralValidationStates() {
+    final initialCode = _normalizedReferralCode(_initialReferralCodeValue);
+    _joueurReferralValidationCode = initialCode;
+    _commercantReferralValidationCode = initialCode;
+    if (initialCode.isEmpty) {
+      return;
+    }
+    unawaited(_validateReferralCode(initialCode, isJoueur: true));
+    unawaited(_validateReferralCode(initialCode, isJoueur: false));
+  }
+
   String _normalizedReferralCode(String? value) => value?.trim().toUpperCase() ?? '';
+
+  void _onReferralCodeChanged(
+    String value, {
+    required bool isJoueur,
+  }) {
+    _persistReferralCodeInput(value);
+    _scheduleReferralValidation(
+      _normalizedReferralCode(value),
+      isJoueur: isJoueur,
+    );
+  }
+
+  void _scheduleReferralValidation(
+    String normalizedCode, {
+    required bool isJoueur,
+  }) {
+    final debounce = isJoueur
+        ? _joueurReferralValidationDebounce
+        : _commercantReferralValidationDebounce;
+    debounce?.cancel();
+    _setReferralValidationState(
+      isJoueur: isJoueur,
+      code: normalizedCode,
+      status: normalizedCode.isEmpty
+          ? _ReferralValidationStatus.idle
+          : _ReferralValidationStatus.checking,
+    );
+    if (normalizedCode.isEmpty) {
+      return;
+    }
+    final timer = Timer(const Duration(milliseconds: 500), () {
+      unawaited(_validateReferralCode(normalizedCode, isJoueur: isJoueur));
+    });
+    if (isJoueur) {
+      _joueurReferralValidationDebounce = timer;
+    } else {
+      _commercantReferralValidationDebounce = timer;
+    }
+  }
+
+  Future<bool> _doesReferralCodeExist(String normalizedCode) async {
+    final response = await _sharePromoService.validateReferralCode(
+      inviteCode: normalizedCode,
+    );
+    return response['valid'] == true;
+  }
+
+  Future<void> _validateReferralCode(
+    String normalizedCode, {
+    required bool isJoueur,
+  }) async {
+    if (normalizedCode.isEmpty) {
+      _setReferralValidationState(
+        isJoueur: isJoueur,
+        code: '',
+        status: _ReferralValidationStatus.idle,
+      );
+      return;
+    }
+    _setReferralValidationState(
+      isJoueur: isJoueur,
+      code: normalizedCode,
+      status: _ReferralValidationStatus.checking,
+    );
+    try {
+      final exists = await _doesReferralCodeExist(normalizedCode);
+      final currentCode = _currentReferralValidationCode(isJoueur: isJoueur);
+      if (currentCode != normalizedCode || !mounted) {
+        return;
+      }
+      _setReferralValidationState(
+        isJoueur: isJoueur,
+        code: normalizedCode,
+        status: exists
+            ? _ReferralValidationStatus.valid
+            : _ReferralValidationStatus.invalid,
+      );
+    } catch (_) {
+      final currentCode = _currentReferralValidationCode(isJoueur: isJoueur);
+      if (currentCode != normalizedCode || !mounted) {
+        return;
+      }
+      _setReferralValidationState(
+        isJoueur: isJoueur,
+        code: normalizedCode,
+        status: _ReferralValidationStatus.invalid,
+      );
+    }
+  }
+
+  Future<bool> _ensureReferralCodeIsValidForSubmit({
+    required String rawValue,
+    required bool isJoueur,
+  }) async {
+    final normalizedCode = _normalizedReferralCode(rawValue);
+    if (normalizedCode.isEmpty) {
+      _setReferralValidationState(
+        isJoueur: isJoueur,
+        code: '',
+        status: _ReferralValidationStatus.idle,
+      );
+      return true;
+    }
+    await _validateReferralCode(
+      normalizedCode,
+      isJoueur: isJoueur,
+    );
+    final status = _currentReferralValidationStatus(isJoueur: isJoueur);
+    if (status == _ReferralValidationStatus.valid) {
+      return true;
+    }
+    _showReferralErrorMessage('Veuillez saisir un code de parrainage valide.');
+    return false;
+  }
 
   void _persistReferralCodeInput(String value) {
     final normalizedValue = _normalizedReferralCode(value);
@@ -2855,6 +3039,146 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     });
   }
 
+  void _setReferralValidationState({
+    required bool isJoueur,
+    required String code,
+    required _ReferralValidationStatus status,
+  }) {
+    if (isJoueur) {
+      _joueurReferralValidationCode = code;
+      if (mounted) {
+        safeSetState(() {
+          _joueurReferralValidationStatus = status;
+        });
+      } else {
+        _joueurReferralValidationStatus = status;
+      }
+      return;
+    }
+    _commercantReferralValidationCode = code;
+    if (mounted) {
+      safeSetState(() {
+        _commercantReferralValidationStatus = status;
+      });
+    } else {
+      _commercantReferralValidationStatus = status;
+    }
+  }
+
+  String _currentReferralValidationCode({required bool isJoueur}) => isJoueur
+      ? _joueurReferralValidationCode
+      : _commercantReferralValidationCode;
+
+  _ReferralValidationStatus _currentReferralValidationStatus({
+    required bool isJoueur,
+  }) =>
+      isJoueur
+          ? _joueurReferralValidationStatus
+          : _commercantReferralValidationStatus;
+
+  Widget? _buildReferralSuffixIcon(
+    BuildContext context,
+    _ReferralValidationStatus status,
+  ) {
+    switch (status) {
+      case _ReferralValidationStatus.idle:
+        return null;
+      case _ReferralValidationStatus.checking:
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: SizedBox(
+            width: 18.0,
+            height: 18.0,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.0,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                FlutterFlowTheme.of(context).secondaryText,
+              ),
+            ),
+          ),
+        );
+      case _ReferralValidationStatus.valid:
+        return Icon(
+          Icons.check_circle_rounded,
+          color: FlutterFlowTheme.of(context).success,
+        );
+      case _ReferralValidationStatus.invalid:
+        return Icon(
+          Icons.highlight_off_rounded,
+          color: FlutterFlowTheme.of(context).error,
+        );
+    }
+  }
+
+  Widget _buildReferralValidationFeedback(
+    BuildContext context, {
+    required _ReferralValidationStatus status,
+  }) {
+    String? message;
+    Color color = Colors.transparent;
+    IconData? icon;
+    switch (status) {
+      case _ReferralValidationStatus.idle:
+        break;
+      case _ReferralValidationStatus.checking:
+        message = 'V\u00E9rification...';
+        color = FlutterFlowTheme.of(context).secondaryText;
+        icon = Icons.hourglass_top_rounded;
+        break;
+      case _ReferralValidationStatus.valid:
+        message = 'Code de parrainage valide';
+        color = FlutterFlowTheme.of(context).success;
+        icon = Icons.check_circle_rounded;
+        break;
+      case _ReferralValidationStatus.invalid:
+        message = 'Code invalide';
+        color = FlutterFlowTheme.of(context).error;
+        icon = Icons.error_outline_rounded;
+        break;
+    }
+
+    return SizedBox(
+      height: 24.0,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 160),
+        opacity: message == null ? 0.0 : 1.0,
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 14.0,
+                  color: color,
+                ),
+                const SizedBox(width: 6.0),
+              ],
+              Text(
+                message ?? '',
+                style: FlutterFlowTheme.of(context).bodySmall.override(
+                      font: GoogleFonts.inter(
+                        fontWeight:
+                            FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                        fontStyle:
+                            FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                      ),
+                      color: color,
+                      letterSpacing: 0.0,
+                      fontWeight:
+                          FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                      fontStyle:
+                          FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   String? _errorMessageForReferralFailure(FirebaseFunctionsException error) {
     switch (error.code) {
       case 'not-found':
@@ -2862,11 +3186,11 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       case 'failed-precondition':
         return 'Vous ne pouvez pas utiliser votre propre code de parrainage.';
       case 'already-exists':
-        return 'Ce parrainage a deja ete utilise pour ce compte.';
+        return 'Ce parrainage a d\u00E9j\u00E0 \u00E9t\u00E9 utilis\u00E9 pour ce compte.';
       case 'invalid-argument':
         return 'Veuillez saisir un code de parrainage valide.';
       default:
-        return 'Le code de parrainage n a pas pu etre applique pour le moment.';
+        return 'Le code de parrainage n\u2019a pas pu \u00EAtre appliqu\u00E9 pour le moment.';
     }
   }
 
@@ -2959,7 +3283,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       return false;
     } catch (error) {
       _lastReferralErrorMessage =
-          'Le code de parrainage n a pas pu etre applique pour le moment.';
+          'Le code de parrainage n\u2019a pas pu \u00EAtre appliqu\u00E9 pour le moment.';
       debugPrint(
         '[ReferralDebug][Signup] registerReferralAcceptance unexpectedError '
         'error=$error',
