@@ -422,20 +422,18 @@ function buildTimeZoneMidnightTimestamp(
   return admin.firestore.Timestamp.fromMillis(utcGuess - offsetMs);
 }
 
-export function getNextMidnightTimestamp(
+export function getCurrentDayEndTimestamp(
   now = admin.firestore.Timestamp.now(),
   timeZone = rewardAccessTimeZone,
 ): admin.firestore.Timestamp {
   const localDate = getDatePartsInTimeZone(now.toDate(), timeZone);
-  const nextDayUtc = new Date(
-    Date.UTC(localDate.year, localDate.month - 1, localDate.day + 1),
-  );
-  return buildTimeZoneMidnightTimestamp(
-    nextDayUtc.getUTCFullYear(),
-    nextDayUtc.getUTCMonth() + 1,
-    nextDayUtc.getUTCDate(),
+  const nextDayMidnight = buildTimeZoneMidnightTimestamp(
+    localDate.year,
+    localDate.month,
+    localDate.day + 1,
     timeZone,
   );
+  return admin.firestore.Timestamp.fromMillis(nextDayMidnight.toMillis() - 1);
 }
 
 export function isAllGamesUntilMidnightReward(type: string): boolean {
@@ -447,18 +445,18 @@ export async function applyRewardToUser(
   uid: string,
   rewardType: string,
   rewardValue: number,
+  existingUserData?: FirebaseFirestore.DocumentData,
 ): Promise<void> {
   if (isAllGamesUntilMidnightReward(rewardType)) {
     const userRef = refs.user(uid);
-    const userSnap = await transaction.get(userRef);
-    const userData = userSnap.data() ?? {};
-    const nextMidnight = getNextMidnightTimestamp();
+    const userData = existingUserData ?? {};
+    const currentDayEnd = getCurrentDayEndTimestamp();
     const existingBonusExpiry =
       toTimestamp(userData.bonusExpiresAt) ?? toTimestamp(userData.allGamesAccessUntil);
     const effectiveBonusExpiry =
-      existingBonusExpiry && existingBonusExpiry.toMillis() > nextMidnight.toMillis()
+      existingBonusExpiry && existingBonusExpiry.toMillis() > currentDayEnd.toMillis()
         ? existingBonusExpiry
-        : nextMidnight;
+        : currentDayEnd;
 
     transaction.set(
       userRef,

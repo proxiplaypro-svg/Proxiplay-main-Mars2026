@@ -31,6 +31,14 @@ class ReferralService {
     );
   }
 
+  Future<Map<String, dynamic>> validateReferralCode({
+    required String inviteCode,
+  }) {
+    return _sharePromoService.validateReferralCode(
+      inviteCode: inviteCode,
+    );
+  }
+
   Future<Map<String, dynamic>> registerReferralAcceptance({
     required String inviteCode,
     String? acceptedFromDeviceId,

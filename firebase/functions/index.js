@@ -1,4 +1,5 @@
 const functions = require("firebase-functions");
+const { defineBoolean, defineInt, defineString } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 admin.initializeApp();
@@ -21,6 +22,15 @@ const kPushNotificationRuntimeOpts = {
   timeoutSeconds: 540,
   memory: "2GB",
 };
+
+const SMTP_HOST = defineString("SMTP_HOST");
+const SMTP_PORT = defineInt("SMTP_PORT", { default: 587 });
+const SMTP_SECURE = defineBoolean("SMTP_SECURE", { default: false });
+const SMTP_USER = defineString("SMTP_USER");
+const SMTP_PASS = defineString("SMTP_PASS");
+const SMTP_FROM_EMAIL = defineString("SMTP_FROM_EMAIL");
+const SMTP_FROM_NAME = defineString("SMTP_FROM_NAME");
+const SMTP_REPLY_TO = defineString("SMTP_REPLY_TO", { default: "" });
 
 function inferLegacyHasMainPrize(gameData) {
   return (
@@ -617,15 +627,14 @@ function buildMerchantName(ownerData) {
 }
 
 function getSmtpSettings() {
-  const smtpConfig = functions.config().smtp || {};
-  const host = getTrimmedString(smtpConfig.host);
-  const port = Number(smtpConfig.port || 587);
-  const secure = toBoolean(smtpConfig.secure, port === 465);
-  const user = getTrimmedString(smtpConfig.user);
-  const pass = typeof smtpConfig.pass === "string" ? smtpConfig.pass : "";
-  const fromEmail = getTrimmedString(smtpConfig.from_email);
-  const fromName = getTrimmedString(smtpConfig.from_name);
-  const replyTo = getTrimmedString(smtpConfig.reply_to);
+  const host = getTrimmedString(SMTP_HOST.value());
+  const port = Number(SMTP_PORT.value() || 587);
+  const secure = SMTP_SECURE.value();
+  const user = getTrimmedString(SMTP_USER.value());
+  const pass = getTrimmedString(SMTP_PASS.value());
+  const fromEmail = getTrimmedString(SMTP_FROM_EMAIL.value());
+  const fromName = getTrimmedString(SMTP_FROM_NAME.value());
+  const replyTo = getTrimmedString(SMTP_REPLY_TO.value());
 
   const missing = [];
   if (!host) missing.push("smtp.host");

@@ -2954,7 +2954,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
   }
 
   Future<bool> _doesReferralCodeExist(String normalizedCode) async {
-    final response = await _sharePromoService.validateReferralCode(
+    final response = await _referralService.validateReferralCode(
       inviteCode: normalizedCode,
     );
     return response['valid'] == true;

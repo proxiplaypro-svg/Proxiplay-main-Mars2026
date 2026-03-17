@@ -66,6 +66,8 @@ class _AppBarJoueurWidgetState extends State<AppBarJoueurWidget> {
                 );
                 final isBonusActive =
                     playerAccessState == PlayerAccessState.bonusActive;
+                final isReferralBonusActive = isBonusActive &&
+                    currentUserDocument?.bonusSource.trim() == 'referral';
                 return Container(
                   decoration: BoxDecoration(
                     color: isBonusActive
@@ -95,7 +97,9 @@ class _AppBarJoueurWidgetState extends State<AppBarJoueurWidget> {
                             children: [
                               AuthUserStreamWidget(
                                 builder: (context) => Text(
-                                  isBonusActive ? 'bonus' : remainingPart.toString(),
+                                  isReferralBonusActive
+                                      ? 'Bonus'
+                                      : remainingPart.toString(),
                                   style: FlutterFlowTheme.of(context)
                                       .titleMedium
                                       .override(

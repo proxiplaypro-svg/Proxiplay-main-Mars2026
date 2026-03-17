@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import { defineBoolean, defineInt, defineString } from 'firebase-functions/params';
 const nodemailer = require('nodemailer');
 import {
   applyRewardToUser,
@@ -39,40 +40,49 @@ import {
   ValidateReferralCodeResponse,
 } from './types';
 
+const SMTP_HOST = defineString('SMTP_HOST');
+const SMTP_PORT = defineInt('SMTP_PORT', { default: 587 });
+const SMTP_SECURE = defineBoolean('SMTP_SECURE', { default: false });
+const SMTP_USER = defineString('SMTP_USER');
+const SMTP_PASS = defineString('SMTP_PASS');
+const SMTP_FROM_EMAIL = defineString('SMTP_FROM_EMAIL');
+const SMTP_FROM_NAME = defineString('SMTP_FROM_NAME');
+const SMTP_REPLY_TO = defineString('SMTP_REPLY_TO', { default: '' });
+
 // Temporary development bypass. Keep as a fallback only.
 const TEMP_ADMIN_UID = 'CKRlhsC8x2cUUsUPFy4rG67CyJHG2';
 const dailyPlaysReminderVariants = [
   {
-    title: '🎮 Il vous reste des chances !',
-    body: 'Tentez votre chance avant minuit 🍀',
+    title: 'Il vous reste des chances !',
+    body: 'Tentez votre chance avant minuit.',
   },
   {
-    title: '🍀 Vos parties du jour vous attendent',
-    body: 'Vous avez encore des chances à jouer aujourd’hui.',
+    title: 'Vos parties du jour vous attendent',
+    body: "Vous avez encore des chances \u00e0 jouer aujourd'hui.",
   },
   {
-    title: '🎯 Ne laissez pas vos parties expirer',
-    body: 'Utilisez vos chances avant la fin de la journée.',
+    title: 'Ne laissez pas vos parties expirer',
+    body: 'Utilisez vos chances avant la fin de la journ\u00e9e.',
   },
   {
-    title: '🎁 Des jeux vous attendent encore',
-    body: 'Vous pouvez encore jouer sur ProxiPlay aujourd’hui.',
+    title: 'Des jeux vous attendent encore',
+    body: "Vous pouvez encore jouer sur ProxiPlay aujourd'hui.",
   },
   {
-    title: '⏳ Il est encore temps de jouer',
-    body: 'Vos chances du jour ne sont pas encore utilisées.',
+    title: 'Il est encore temps de jouer',
+    body: 'Vos chances du jour ne sont pas encore utilis\u00e9es.',
   },
   {
-    title: '🎮 Vous n’avez pas tout utilisé',
+    title: "Vous n'avez pas tout utilis\u00e9",
     body: 'Revenez tenter votre chance avant minuit.',
   },
   {
-    title: '🍀 Encore des chances disponibles',
-    body: 'Profitez-en tant qu’il est encore temps.',
+    title: 'Encore des chances disponibles',
+    body: "Profitez-en tant qu'il est encore temps.",
   },
   {
-    title: '🎯 Votre journée ProxiPlay n’est pas finie',
-    body: 'Il vous reste encore des parties à jouer.',
+    title: "Votre journ\u00e9e ProxiPlay n'est pas finie",
+    body: 'Il vous reste encore des parties \u00e0 jouer.',
   },
 ] as const;
 
@@ -170,9 +180,11 @@ async function loadNotificationsConfig(): Promise<{
 
 type SmtpMailer = {
   transporter: {
+    verify: () => Promise<unknown>;
     sendMail: (options: Record<string, unknown>) => Promise<unknown>;
   };
   from: string;
+  fromEmail: string;
   replyTo: string;
 };
 
@@ -181,18 +193,14 @@ function getTrimmedString(value: unknown): string {
 }
 
 function createSmtpMailer(): SmtpMailer {
-  const smtpConfig = functions.config().smtp || {};
-  const host = getTrimmedString(smtpConfig.host);
-  const port = Number(smtpConfig.port || 587);
-  const secure =
-    typeof smtpConfig.secure === 'boolean'
-      ? smtpConfig.secure
-      : String(smtpConfig.secure || '').toLowerCase() === 'true' || port === 465;
-  const user = getTrimmedString(smtpConfig.user);
-  const pass = typeof smtpConfig.pass === 'string' ? smtpConfig.pass : '';
-  const fromEmail = getTrimmedString(smtpConfig.from_email);
-  const fromName = getTrimmedString(smtpConfig.from_name);
-  const replyTo = getTrimmedString(smtpConfig.reply_to);
+  const host = getTrimmedString(SMTP_HOST.value());
+  const port = Number(SMTP_PORT.value() || 587);
+  const secure = SMTP_SECURE.value();
+  const user = getTrimmedString(SMTP_USER.value());
+  const pass = getTrimmedString(SMTP_PASS.value());
+  const fromEmail = getTrimmedString(SMTP_FROM_EMAIL.value());
+  const fromName = getTrimmedString(SMTP_FROM_NAME.value());
+  const replyTo = getTrimmedString(SMTP_REPLY_TO.value());
 
   if (!host || !port || !user || !pass || !fromEmail || !fromName) {
     throw new Error('smtp_not_configured');
@@ -208,6 +216,7 @@ function createSmtpMailer(): SmtpMailer {
   return {
     transporter,
     from: `${fromName} <${fromEmail}>`,
+    fromEmail,
     replyTo,
   };
 }
@@ -234,22 +243,63 @@ async function sendEmailNotification(
   subject: string,
   textBody: string,
 ): Promise<void> {
+  const htmlBody = textBody
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => `<p>${line}</p>`)
+    .join('');
+
   await mailer.transporter.sendMail({
     from: mailer.from,
+    envelope: {
+      from: mailer.fromEmail,
+      to: [to],
+    },
     to,
     subject,
     text: textBody,
+    html: htmlBody,
     ...(mailer.replyTo ? { replyTo: mailer.replyTo } : {}),
   });
 }
 
+async function writeRewardEmailAttempt(
+  referralId: string,
+  inviterUid: string,
+  status:
+    | 'missing_email'
+    | 'smtp_unavailable'
+    | 'sending'
+    | 'sent'
+    | 'failed',
+  details: Record<string, unknown> = {},
+): Promise<void> {
+  await db
+    .collection('notifications')
+    .doc(`share_promo_reward_email_${referralId}`)
+    .set(
+      {
+        type: 'share_promo_reward_email',
+        referralId,
+        inviterUid,
+        status,
+        details,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+}
+
 async function notifyInviterRewardByEmail(
+  referralId: string,
   inviterUid: string,
   subject: string,
   body: string,
 ): Promise<void> {
   const recipientEmail = await resolveUserEmail(inviterUid);
   if (!recipientEmail) {
+    await writeRewardEmailAttempt(referralId, inviterUid, 'missing_email');
     console.log(`[share_promo] reward email skipped: missing_email uid=${inviterUid}`);
     return;
   }
@@ -257,14 +307,33 @@ async function notifyInviterRewardByEmail(
   let mailer: SmtpMailer;
   try {
     mailer = createSmtpMailer();
+    await mailer.transporter.verify();
   } catch (error) {
+    await writeRewardEmailAttempt(referralId, inviterUid, 'smtp_unavailable', {
+      error: String(error),
+      to: recipientEmail,
+    });
     console.log(
       `[share_promo] reward email skipped: smtp_unavailable uid=${inviterUid} error=${error}`,
     );
     return;
   }
 
+  await writeRewardEmailAttempt(referralId, inviterUid, 'sending', {
+    to: recipientEmail,
+    subject,
+  });
+  console.log(
+    '[share_promo] reward email sending uid=' + inviterUid + ' to=' + recipientEmail + ' subject=' + subject,
+  );
   await sendEmailNotification(mailer, recipientEmail, subject, body);
+  await writeRewardEmailAttempt(referralId, inviterUid, 'sent', {
+    to: recipientEmail,
+    subject,
+  });
+  console.log(
+    '[share_promo] reward email sent uid=' + inviterUid + ' to=' + recipientEmail + ' subject=' + subject,
+  );
 }
 
 async function grantReferralRewardInternal(
@@ -289,7 +358,7 @@ async function grantReferralRewardInternal(
       return { granted: false, reason: 'referral_not_eligible' };
     }
 
-    const [inviterGrantedSnap, inviteeGrantedSnap, eventSnap] =
+    const [inviterGrantedSnap, inviteeGrantedSnap, eventSnap, inviterUserSnap] =
       await Promise.all([
         transaction.get(
           refs
@@ -304,6 +373,7 @@ async function grantReferralRewardInternal(
             .where('rewardStatus', '==', 'granted'),
         ),
         transaction.get(eventRef),
+        transaction.get(refs.user(referral.inviterUid)),
       ]);
 
     if (eventSnap.exists) {
@@ -339,6 +409,7 @@ async function grantReferralRewardInternal(
       referral.inviterUid,
       referral.rewardType,
       referral.rewardValue,
+      inviterUserSnap.data() ?? {},
     );
     transaction.set(
       refs.shareState(referral.inviterUid),
@@ -367,7 +438,7 @@ async function grantReferralRewardInternal(
     if (isAllGamesUntilMidnightReward(referral.rewardType)) {
       const notificationTitle = 'Bonne nouvelle !';
       const notificationBody =
-        'Votre parrainage a ?t? valid?. Vous pouvez jouer ? tous les jeux jusqu?? minuit.';
+        'Votre parrainage a \u00e9t\u00e9 valid\u00e9. Vous pouvez jouer \u00e0 tous les jeux jusqu\u2019\u00e0 minuit.';
       followUpTasks.push(
         queueUserPushNotification({
           docId: `share_promo_reward_${referralId}`,
@@ -383,10 +454,14 @@ async function grantReferralRewardInternal(
           userUid: referral.inviterUid,
         }),
         notifyInviterRewardByEmail(
+          referralId,
           referral.inviterUid,
           notificationTitle,
           notificationBody,
         ).catch((error) => {
+          void writeRewardEmailAttempt(referralId, referral.inviterUid, 'failed', {
+            error: String(error),
+          });
           console.log(
             `[share_promo] reward email failed referralId=${referralId} uid=${referral.inviterUid} error=${error}`,
           );
@@ -430,20 +505,20 @@ export const getSharePromoState = functions
 
     if (bonusActive) {
       kind = 'bonusActive';
-      title = 'Bonus activ?';
-      message = 'Vous pouvez jouer ? tous les jeux jusqu?? minuit.';
+      title = 'Bonus activ\u00e9';
+      message = 'Vous pouvez jouer \u00e0 tous les jeux jusqu\u2019\u00e0 minuit.';
       action = 'bonusActive';
       playerStatus = 'bonus_active';
     } else if (shareState.rewardAvailable) {
       kind = 'rewardAvailable';
-      title = 'R?compense disponible';
+      title = 'R\u00e9compense disponible';
       message = 'Votre bonus de parrainage est disponible.';
       action = 'rewardAvailable';
       playerStatus = remainingPart <= 0 ? 'no_parts' : remainingPart <= 1 ? 'low_parts' : 'normal';
     } else if (shareState.pendingCount > 0) {
       kind = 'friendPending';
       title = 'Invitation en attente';
-      message = 'Un ami n?a pas encore finalis? son inscription.';
+      message = 'Un ami n\u2019a pas encore finalis\u00e9 son inscription.';
       action = 'friendPending';
       playerStatus = remainingPart <= 0 ? 'no_parts' : remainingPart <= 1 ? 'low_parts' : 'normal';
     } else if (campaignActive && campaign.kind !== 'defaultInvite') {
@@ -456,8 +531,8 @@ export const getSharePromoState = functions
       kind = 'lowRemainingPlaysInvite';
       title = remainingPart <= 0
           ? 'Plus de chances disponibles'
-          : 'Plus qu?une chance disponible';
-      message = 'Invitez un proche pour continuer ? jouer.';
+          : 'Plus qu\u2019une chance disponible';
+      message = 'Invitez un proche pour continuer \u00e0 jouer.';
       action = 'lowRemainingPlaysInvite';
       playerStatus = remainingPart <= 0 ? 'no_parts' : 'low_parts';
     } else if (campaignActive) {

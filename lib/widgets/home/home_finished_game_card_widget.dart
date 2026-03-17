@@ -16,12 +16,21 @@ class HomeFinishedGameCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<EnseignesRecord>(
-      future: EnseignesRecord.getDocumentOnce(game.enseigneId!),
+    final hasSecondaryRewards = game.secondaryPrizes.isNotEmpty ||
+        game.secondaryPrizeDescription.trim().isNotEmpty;
+    final enseigneFuture = game.enseigneId != null
+        ? EnseignesRecord.getDocumentOnce(game.enseigneId!)
+        : Future<EnseignesRecord?>.value(null);
+    final winnerFuture = game.mainPrizeWinner != null
+        ? UsersRecord.getDocumentOnce(game.mainPrizeWinner!)
+        : Future<UsersRecord?>.value(null);
+
+    return FutureBuilder<EnseignesRecord?>(
+      future: enseigneFuture,
       builder: (context, enseigneSnapshot) {
         final enseigne = enseigneSnapshot.data;
-        return FutureBuilder<UsersRecord>(
-          future: UsersRecord.getDocumentOnce(game.mainPrizeWinner!),
+        return FutureBuilder<UsersRecord?>(
+          future: winnerFuture,
           builder: (context, winnerSnapshot) {
             final winner = winnerSnapshot.data;
             final firstName = (winner?.firstName ?? '').trim();
@@ -30,7 +39,10 @@ class HomeFinishedGameCard extends StatelessWidget {
                 city.isNotEmpty ? '$firstName - $city' : firstName;
             final winnerLabel = winnerIdentity.isNotEmpty
                 ? 'Gagn\u00E9 par $winnerIdentity'
-                : 'Gagnant annonc\u00E9';
+                : '';
+            final finishedInfoText = hasSecondaryRewards
+                ? 'Lots secondaires attribués'
+                : 'Jeu terminé';
             return GameCardWidget(
               title: game.name,
               imageUrl: game.photo,
@@ -42,9 +54,10 @@ class HomeFinishedGameCard extends StatelessWidget {
               endDateText: game.endDate != null
                   ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}"
                   : "Jusqu'au : -",
-              winnerText: winnerLabel,
+              winnerText: winnerLabel.isEmpty ? null : winnerLabel,
               winnerMaxLines: 1,
               isFinished: true,
+              finishedInfoText: finishedInfoText,
               fitContent: false,
               height: AppStyles.finishedGameListHeight,
               imageHeight: AppStyles.finishedGameImageHeight,

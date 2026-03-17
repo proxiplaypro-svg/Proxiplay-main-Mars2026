@@ -104,6 +104,36 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     return true;
   }
 
+  bool _hasSecondaryRewards(GamesRecord game) {
+    return game.secondaryPrizes.isNotEmpty ||
+        game.secondaryPrizeDescription.trim().isNotEmpty;
+  }
+
+  bool _shouldShowInFinishedGames(GamesRecord game) {
+    final now = getCurrentTimestamp;
+    final end = game.endDate;
+    if (end == null) {
+      return false;
+    }
+
+    final endedRecently = now.isAfter(end) &&
+        now.isBefore(end.add(const Duration(days: 30)));
+    if (!endedRecently) {
+      return false;
+    }
+
+    if (game.hasWinner || game.hasMainPrizeWinner()) {
+      return true;
+    }
+
+    if (_hasSecondaryRewards(game)) {
+      return true;
+    }
+
+    // Keep recently ended games visible for 30 days even without a main winner.
+    return true;
+  }
+
   Future<EnseignesRecord?> _loadEnseigneForGame(GamesRecord game) async {
     final enseigneRef = game.enseigneId;
     if (enseigneRef == null) {
@@ -1272,9 +1302,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               queryBuilder:
                                                                   (gamesRecord) =>
                                                                       gamesRecord
-                                                                          .where(
-                                                                'hasWinner',
-                                                                isEqualTo: true,
+                                                                          .orderBy(
+                                                                'end_date',
+                                                                descending: true,
                                                               ),
                                                             ),
                                                             builder: (context,
@@ -1290,26 +1320,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         ?.length ??
                                                                         0,
                                                               );
-                                                              final now =
-                                                                  getCurrentTimestamp;
                                                               final recentlyEndedGames = snapshot
                                                                   .data!
-                                                                  .where((g) {
-                                                                final end =
-                                                                    g.endDate;
-                                                                if (end ==
-                                                                    null) {
-                                                                  return false;
-                                                                }
-                                                                final endPlus30Days =
-                                                                    end.add(const Duration(
-                                                                        days:
-                                                                            30));
-                                                                return now.isAfter(
-                                                                        end) &&
-                                                                    now.isBefore(
-                                                                        endPlus30Days);
-                                                              }).toList()
+                                                                  .where(
+                                                                    _shouldShowInFinishedGames,
+                                                                  )
+                                                                  .toList()
                                                                 ..sort((a, b) => (b
                                                                             .endDate ??
                                                                         DateTime
