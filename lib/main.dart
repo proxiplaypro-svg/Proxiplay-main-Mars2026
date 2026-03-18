@@ -26,6 +26,7 @@ import 'utils/perf_trace.dart';
 import 'utils/share_links.dart';
 
 import 'services/remote_config_service.dart';
+import 'services/app_update_service.dart';
 import 'pages/status_screens/maintenance_screen.dart';
 import 'pages/status_screens/update_required_screen.dart';
 
@@ -79,6 +80,7 @@ class _MyAppState extends State<MyApp> {
   bool _isLoadingConfig = true;
   bool _isMaintenance = false;
   bool _isUpdateRequired = false;
+  bool _hasScheduledAppUpdateCheck = false;
 
   StreamSubscription<BaseAuthUser>? _userStreamSub;
   VoidCallback? _routerReferralListener;
@@ -127,7 +129,7 @@ class _MyAppState extends State<MyApp> {
       _capturePendingReferralCodeFromRouter(source: 'cold_start');
     });
 
-    // VÃ©rification au dÃ©marrage (Fonctionne sur Web et Mobile)
+    // Startup check. Works on web and mobile.
     _checkRemoteConfig();
 
     // Request notification permission on Android 13+ at startup.
@@ -140,8 +142,8 @@ class _MyAppState extends State<MyApp> {
       }
     });
 
-    // --- CORRECTION WEB ---
-    // On n'active l'Ã©couteur temps rÃ©el QUE si nous ne sommes PAS sur le Web.
+    // Web fix:
+    // Enable the realtime listener only outside web builds.
     if (!kIsWeb) {
       FirebaseRemoteConfig.instance.onConfigUpdated.listen((event) async {
         await FirebaseRemoteConfig.instance.activate();
@@ -153,7 +155,7 @@ class _MyAppState extends State<MyApp> {
         }
       });
     }
-    // -----------------------
+    // End web-specific guard.
 
     Future.delayed(
       const Duration(milliseconds: 2000),
@@ -192,40 +194,20 @@ class _MyAppState extends State<MyApp> {
       return;
     }
     if (currentUserUid.isNotEmpty && !isGuestOrAnonymous) {
-      debugPrint(
-        '[ReferralDebug][LinkCapture] source=$source '
-        'skippedBecauseUserAlreadyAuthenticated uid=$currentUserUid',
-      );
       return;
     }
 
     final location = _router.getCurrentLocation();
     final isNewLocation = _lastReferralLocation != location;
     if (isNewLocation) {
-      debugPrint(
-        '[ReferralDebug][LinkCapture] source=$source rawLocation=$location',
-      );
       _lastReferralLocation = location;
     }
     final uri = Uri.tryParse(location);
     final referralCode = extractReferralCodeFromUri(uri);
     if (referralCode == null || referralCode.isEmpty) {
-      if (isNewLocation) {
-        debugPrint(
-          '[ReferralDebug][LinkCapture] source=$source noReferralCodeFound',
-        );
-      }
       return;
     }
-    debugPrint(
-      '[ReferralDebug][LinkCapture] source=$source '
-      'extractedReferralCode=$referralCode',
-    );
     if (FFAppState().pendingReferralCode == referralCode) {
-      debugPrint(
-        '[ReferralDebug][LinkCapture] source=$source '
-        'referralCodeAlreadyStored=$referralCode',
-      );
       return;
     }
 
@@ -253,6 +235,28 @@ class _MyAppState extends State<MyApp> {
         _themeMode = mode;
       });
 
+  void _scheduleAppUpdateCheck() {
+    if (_hasScheduledAppUpdateCheck) {
+      return;
+    }
+
+    _hasScheduledAppUpdateCheck = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 2300));
+
+      if (!mounted) {
+        return;
+      }
+
+      final dialogContext = appNavigatorKey.currentContext;
+      if (dialogContext == null || !dialogContext.mounted) {
+        return;
+      }
+
+      await AppUpdateService.instance.maybeShowUpdateDialog(dialogContext);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     // 1. Chargement
@@ -272,7 +276,7 @@ class _MyAppState extends State<MyApp> {
       );
     }
 
-    // 3. Blocage Mise Ã  jour requise
+    // 3. Required update block
     if (_isUpdateRequired) {
       return const MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -284,6 +288,12 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'ProxiPlay',
+      builder: (context, child) {
+        if (child != null) {
+          _scheduleAppUpdateCheck();
+        }
+        return child ?? const SizedBox.shrink();
+      },
       localizationsDelegates: const [
         FFLocalizationsDelegate(),
         GlobalMaterialLocalizations.delegate,

@@ -1,6 +1,7 @@
 const functions = require("firebase-functions");
 const { defineBoolean, defineInt, defineString } = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 admin.initializeApp();
 
@@ -673,16 +674,82 @@ function createSmtpMailer() {
   return {
     transporter,
     from: `${settings.fromName} <${settings.fromEmail}>`,
+    fromEmail: settings.fromEmail,
     replyTo: settings.replyTo,
   };
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function linkifyHtml(text) {
+  return escapeHtml(text).replace(
+    /(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#0f766e;text-decoration:underline;">$1</a>',
+  );
+}
+
+function buildMessageId(fromEmail) {
+  const domain = getTrimmedString(fromEmail).split("@")[1] || "proxiplay.local";
+  const uniqueId =
+    typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : crypto.randomBytes(16).toString("hex");
+  return `<${uniqueId}@${domain}>`;
+}
+
+function buildTransactionalEmailHtml(subject, text) {
+  const content = getTrimmedString(text)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map(
+      (line) =>
+        `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#1f2937;">${linkifyHtml(
+          line,
+        )}</p>`,
+    )
+    .join("");
+
+  return (
+    '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:24px;background:#f4f7f5;font-family:Arial,sans-serif;color:#1f2937;">' +
+    '<div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #dce7e2;border-radius:16px;overflow:hidden;">' +
+    '<div style="padding:24px 28px;background:#0f766e;color:#ffffff;">' +
+    `<div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.9;">ProxiPlay</div><h1 style="margin:8px 0 0;font-size:24px;line-height:1.3;">${escapeHtml(
+      subject,
+    )}</h1></div>` +
+    `<div style="padding:28px;">${content}` +
+    '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">' +
+    '<p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#6b7280;">Email transactionnel envoye par ProxiPlay.</p>' +
+    '<p style="margin:0;font-size:13px;line-height:1.6;color:#6b7280;">Site: <a href="https://proxiplay.fr" target="_blank" rel="noopener noreferrer" style="color:#0f766e;">proxiplay.fr</a><br>Contact: <a href="mailto:contact@proxiplay.fr" style="color:#0f766e;">contact@proxiplay.fr</a></p>' +
+    "</div></div></body></html>"
+  );
+}
+
 async function sendEmailNotification(mailer, to, subject, text) {
+  const normalizedText = [getTrimmedString(text), "", "--", "ProxiPlay", "https://proxiplay.fr", "Contact : contact@proxiplay.fr"].join("\n");
   await mailer.transporter.sendMail({
     from: mailer.from,
+    sender: mailer.fromEmail,
+    envelope: {
+      from: mailer.fromEmail,
+      to: [to],
+    },
     to,
     subject,
-    text,
+    text: normalizedText,
+    html: buildTransactionalEmailHtml(subject, normalizedText),
+    messageId: buildMessageId(mailer.fromEmail),
+    headers: {
+      "X-Auto-Response-Suppress": "OOF, AutoReply",
+      "X-Transactional-Email": "true",
+    },
     ...(mailer.replyTo ? { replyTo: mailer.replyTo } : {}),
   });
 }

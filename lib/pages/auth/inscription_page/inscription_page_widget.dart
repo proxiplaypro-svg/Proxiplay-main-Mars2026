@@ -10,6 +10,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/index.dart';
 import '/services/referral/referral_service.dart';
+import '/widgets/proxiplay_loading_logo.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -184,18 +185,28 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
+        if (_model.isSubmitting) {
+          return;
+        }
         FocusScope.of(context).unfocus();
         FocusManager.instance.primaryFocus?.unfocus();
       },
       child: WillPopScope(
         onWillPop: () async {
+          if (_model.isSubmitting) {
+            return false;
+          }
           context.goNamed(LoginPageWidget.routeName);
           return false;
         },
         child: Scaffold(
           key: scaffoldKey,
           backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
-          body: Container(
+          body: Stack(
+            children: [
+              IgnorePointer(
+                ignoring: _model.isSubmitting,
+                child: Container(
             decoration: BoxDecoration(
               image: DecorationImage(
                 fit: BoxFit.cover,
@@ -1288,117 +1299,14 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                             .fromSTEB(0.0, 0.0,
                                                                 0.0, 16.0),
                                                     child: FFButtonWidget(
-                                                      onPressed: !_model
-                                                              .checkboxJoueurValue!
+                                                      onPressed: (!_model
+                                                                  .checkboxJoueurValue! ||
+                                                              _model
+                                                                  .isSubmitting)
                                                           ? null
                                                           : () async {
-                                                              if (_model.formKey2
-                                                                          .currentState ==
-                                                                      null ||
-                                                                  !_model
-                                                                      .formKey2
-                                                                      .currentState!
-                                                                      .validate()) {
-                                                                return;
-                                                              }
-                                                              GoRouter.of(
-                                                                      context)
-                                                                  .prepareAuthEvent(
-                                                                      true);
-                                                              if (_model
-                                                                      .passwordJoueurTextController
-                                                                      .text !=
-                                                                  _model
-                                                                      .passwordConfirmJoueurTextController
-                                                                      .text) {
-                                                                ScaffoldMessenger.of(
-                                                                        context)
-                                                                    .showSnackBar(
-                                                                  const SnackBar(
-                                                                    content:
-                                                                        Text(
-                                                                      'Passwords don\'t match!',
-                                                                    ),
-                                                                  ),
-                                                                );
-                                                                return;
-                                                              }
-                                                              _persistReferralCodeInput(
-                                                                _model
-                                                                    .referralCodeJoueurTextController
-                                                                    ?.text ??
-                                                                    '',
-                                                              );
-                                                              if (!await _ensureReferralCodeIsValidForSubmit(
-                                                                rawValue: _model
-                                                                        .referralCodeJoueurTextController
-                                                                        ?.text ??
-                                                                    '',
+                                                              await _submitInscription(
                                                                 isJoueur: true,
-                                                              )) {
-                                                                return;
-                                                              }
-
-                                                              debugPrint(
-                                                                '[ReferralDebug][Signup] beforeCreateAccount '
-                                                                'role=joueur pendingReferralCode='
-                                                                '${FFAppState().pendingReferralCode.isEmpty ? '<empty>' : FFAppState().pendingReferralCode}',
-                                                              );
-                                                              final user =
-                                                                  await authManager
-                                                                      .createAccountWithEmail(
-                                                                context,
-                                                                _model
-                                                                    .emailAddressJoueurTextController
-                                                                    .text,
-                                                                _model
-                                                                    .passwordJoueurTextController
-                                                                    .text,
-                                                              );
-                                                              if (user ==
-                                                                  null) {
-                                                                return;
-                                                              }
-                                                              debugPrint(
-                                                                '[ReferralDebug][Signup] afterCreateAccount '
-                                                                'role=joueur uid=${user.uid}',
-                                                              );
-
-                                                              await UsersRecord
-                                                                  .collection
-                                                                  .doc(user.uid)
-                                                                  .update(
-                                                                      createUsersRecordData(
-                                                                    userRole: _model
-                                                                        .userType,
-                                                                    remainingPart:
-                                                                        3,
-                                                                    accountStatus:
-                                                                        AccountStatus
-                                                                            .pendingInfo,
-                                                                  ));
-
-                                                              final referralApplied =
-                                                                  await _applyPendingReferralCodeIfNeeded();
-                                                              if (!referralApplied &&
-                                                                  (_lastReferralErrorMessage ??
-                                                                          '')
-                                                                      .isNotEmpty) {
-                                                                _showReferralErrorMessage(
-                                                                  _lastReferralErrorMessage!,
-                                                                );
-                                                              }
-
-                                                              await authManager
-                                                                  .sendEmailVerification();
-
-                                                              context
-                                                                  .goNamedAuth(
-                                                                InscriptionInformationsPageWidget
-                                                                    .routeName,
-                                                                context.mounted,
-                                                                ignoreRedirect:
-                                                                    true,
                                                               );
                                                             },
                                                       text: 'Inscription',
@@ -2605,115 +2513,13 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                     .fromSTEB(
                                                         0.0, 0.0, 0.0, 16.0),
                                                 child: FFButtonWidget(
-                                                  onPressed: !_model
-                                                          .checkboxCommercantValue!
+                                                  onPressed: (!_model
+                                                              .checkboxCommercantValue! ||
+                                                          _model.isSubmitting)
                                                       ? null
                                                       : () async {
-                                                          if (_model.formKey1
-                                                                      .currentState ==
-                                                                  null ||
-                                                              !_model.formKey1
-                                                                  .currentState!
-                                                                  .validate()) {
-                                                            return;
-                                                          }
-                                                          GoRouter.of(context)
-                                                              .prepareAuthEvent(
-                                                                  true);
-                                                          if (_model
-                                                                  .passwordCommercantTextController
-                                                                  .text !=
-                                                              _model
-                                                                  .passwordConfirmCommercantTextController
-                                                                  .text) {
-                                                            ScaffoldMessenger
-                                                                    .of(context)
-                                                                .showSnackBar(
-                                                              const SnackBar(
-                                                                content: Text(
-                                                                  'Passwords don\'t match!',
-                                                                ),
-                                                              ),
-                                                            );
-                                                            return;
-                                                          }
-                                                          _persistReferralCodeInput(
-                                                            _model
-                                                                    .referralCodeCommercantTextController
-                                                                    ?.text ??
-                                                                '',
-                                                          );
-                                                          if (!await _ensureReferralCodeIsValidForSubmit(
-                                                            rawValue: _model
-                                                                    .referralCodeCommercantTextController
-                                                                    ?.text ??
-                                                                '',
+                                                          await _submitInscription(
                                                             isJoueur: false,
-                                                          )) {
-                                                            return;
-                                                          }
-
-                                                          debugPrint(
-                                                            '[ReferralDebug][Signup] beforeCreateAccount '
-                                                            'role=commercant pendingReferralCode='
-                                                            '${FFAppState().pendingReferralCode.isEmpty ? '<empty>' : FFAppState().pendingReferralCode}',
-                                                          );
-                                                          final user =
-                                                              await authManager
-                                                                  .createAccountWithEmail(
-                                                            context,
-                                                            _model
-                                                                .emailAddressCommercantTextController
-                                                                .text,
-                                                            _model
-                                                                .passwordCommercantTextController
-                                                                .text,
-                                                          );
-                                                          if (user == null) {
-                                                            return;
-                                                          }
-                                                          debugPrint(
-                                                            '[ReferralDebug][Signup] afterCreateAccount '
-                                                            'role=commercant uid=${user.uid}',
-                                                          );
-
-                                                          await UsersRecord
-                                                              .collection
-                                                              .doc(user.uid)
-                                                              .update(
-                                                                  createUsersRecordData(
-                                                                userRole: _model
-                                                                    .userType,
-                                                                professionalCategory:
-                                                                    _model
-                                                                        .professionalCategoryValue,
-                                                                remainingPart:
-                                                                    3,
-                                                                accountStatus:
-                                                                    AccountStatus
-                                                                        .pendingInfo,
-                                                              ));
-
-                                                          final referralApplied =
-                                                              await _applyPendingReferralCodeIfNeeded();
-                                                          if (!referralApplied &&
-                                                              (_lastReferralErrorMessage ??
-                                                                      '')
-                                                                  .isNotEmpty) {
-                                                            _showReferralErrorMessage(
-                                                              _lastReferralErrorMessage!,
-                                                            );
-                                                          }
-
-                                                          await authManager
-                                                              .sendEmailVerification();
-
-                                                          context.goNamedAuth(
-                                                            InscriptionInformationsPageWidget
-                                                                .routeName,
-                                                            context.mounted,
-                                                            ignoreRedirect:
-                                                                true,
                                                           );
                                                         },
                                                   text: 'Inscription',
@@ -2893,6 +2699,92 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                 ),
               ],
             ),
+                ),
+              ),
+              if (_model.isSubmitting)
+                Positioned.fill(
+                  child: AbsorbPointer(
+                    child: Container(
+                      color: const Color(0x33000000),
+                      alignment: Alignment.center,
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 280.0),
+                        margin: const EdgeInsets.symmetric(horizontal: 24.0),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24.0,
+                          vertical: 22.0,
+                        ),
+                        decoration: BoxDecoration(
+                          color: FlutterFlowTheme.of(context)
+                              .secondaryBackground,
+                          borderRadius: BorderRadius.circular(20.0),
+                          boxShadow: const [
+                            BoxShadow(
+                              blurRadius: 24.0,
+                              color: Color(0x22000000),
+                              offset: Offset(0.0, 12.0),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const ProxiplayLoadingLogo(size: 52.0),
+                            const SizedBox(height: 16.0),
+                            Text(
+                              'Creation du compte...',
+                              textAlign: TextAlign.center,
+                              style: FlutterFlowTheme.of(context)
+                                  .titleMedium
+                                  .override(
+                                    font: GoogleFonts.interTight(
+                                      fontWeight: FlutterFlowTheme.of(context)
+                                          .titleMedium
+                                          .fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .titleMedium
+                                          .fontStyle,
+                                    ),
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w600,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .titleMedium
+                                        .fontStyle,
+                                  ),
+                            ),
+                            const SizedBox(height: 8.0),
+                            Text(
+                              'Inscription en cours...',
+                              textAlign: TextAlign.center,
+                              style: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .override(
+                                    font: GoogleFonts.inter(
+                                      fontWeight: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontStyle,
+                                    ),
+                                    color: FlutterFlowTheme.of(context)
+                                        .secondaryText,
+                                    letterSpacing: 0.0,
+                                    fontWeight: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontWeight,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontStyle,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
@@ -3208,25 +3100,14 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
   Future<bool> _applyPendingReferralCodeIfNeeded() async {
     final pendingReferralCode = FFAppState().pendingReferralCode.trim();
     if (pendingReferralCode.isEmpty) {
-      debugPrint(
-        '[ReferralDebug][Signup] noPendingReferralCodeAtSignup',
-      );
       _lastReferralErrorMessage = null;
       return true;
     }
-
-    debugPrint(
-      '[ReferralDebug][Signup] pendingReferralCodeAtSignup=$pendingReferralCode',
-    );
 
     final currentUid = currentUserUid;
     final referralGuardKey = '$currentUid::$pendingReferralCode';
     if (_isApplyingPendingReferralCode ||
         _lastAppliedReferralGuardKey == referralGuardKey) {
-      debugPrint(
-        '[ReferralDebug][Signup] skippedDuplicateReferralAcceptance '
-        'guardKey=$referralGuardKey',
-      );
       _lastReferralErrorMessage = null;
       return true;
     }
@@ -3235,23 +3116,12 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     _lastReferralErrorMessage = null;
     _lastAppliedReferralGuardKey = referralGuardKey;
     try {
-      debugPrint(
-        '[ReferralDebug][Signup] calling registerReferralAcceptance '
-        'inviteCode=$pendingReferralCode uid=$currentUid',
-      );
       await _referralService.registerReferralAcceptance(
         inviteCode: pendingReferralCode,
-      );
-      debugPrint(
-        '[ReferralDebug][Signup] registerReferralAcceptance success '
-        'inviteCode=$pendingReferralCode uid=$currentUid',
       );
       FFAppState().update(() {
         FFAppState().clearPendingReferralCode();
       });
-      debugPrint(
-        '[ReferralDebug][Signup] pendingReferralCode clearedAfterSuccess',
-      );
       return true;
     } on FirebaseFunctionsException catch (error) {
       _lastReferralErrorMessage = _errorMessageForReferralFailure(error);
@@ -3263,21 +3133,13 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       };
       if (terminalErrorCodes.contains(error.code)) {
         debugPrint(
-          '[ReferralDebug][Signup] registerReferralAcceptance terminalError '
-          'code=${error.code} message=${error.message ?? '<no-message>'}',
-        );
-        debugPrint(
-          '[ReferralDebug][Signup] pendingReferralCode preservedAfterTerminalError '
-          'value=$pendingReferralCode',
+          '[ReferralDebug][Signup] referralAcceptance terminalError '
+          'code=${error.code}',
         );
       } else {
         debugPrint(
-          '[ReferralDebug][Signup] registerReferralAcceptance retryableError '
-          'code=${error.code} message=${error.message ?? '<no-message>'}',
-        );
-        debugPrint(
-          '[ReferralDebug][Signup] pendingReferralCode preservedAfterError '
-          'value=$pendingReferralCode',
+          '[ReferralDebug][Signup] referralAcceptance retryableError '
+          'code=${error.code}',
         );
       }
       return false;
@@ -3285,16 +3147,110 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       _lastReferralErrorMessage =
           'Le code de parrainage n\u2019a pas pu \u00EAtre appliqu\u00E9 pour le moment.';
       debugPrint(
-        '[ReferralDebug][Signup] registerReferralAcceptance unexpectedError '
-        'error=$error',
-      );
-      debugPrint(
-        '[ReferralDebug][Signup] pendingReferralCode preservedAfterUnexpectedError '
-        'value=$pendingReferralCode',
+        '[ReferralDebug][Signup] referralAcceptance unexpectedError',
       );
       return false;
     } finally {
       _isApplyingPendingReferralCode = false;
+    }
+  }
+
+  Future<void> _submitInscription({required bool isJoueur}) async {
+    if (_model.isSubmitting) {
+      return;
+    }
+
+    safeSetState(() {
+      _model.isSubmitting = true;
+    });
+
+    try {
+      final formKey = isJoueur ? _model.formKey2 : _model.formKey1;
+      if (formKey.currentState == null || !formKey.currentState!.validate()) {
+        return;
+      }
+
+      GoRouter.of(context).prepareAuthEvent(true);
+
+      final passwordController = isJoueur
+          ? _model.passwordJoueurTextController
+          : _model.passwordCommercantTextController;
+      final passwordConfirmController = isJoueur
+          ? _model.passwordConfirmJoueurTextController
+          : _model.passwordConfirmCommercantTextController;
+      if (passwordController.text != passwordConfirmController.text) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Passwords don\'t match!',
+            ),
+          ),
+        );
+        return;
+      }
+
+      final referralCode = isJoueur
+          ? _model.referralCodeJoueurTextController?.text ?? ''
+          : _model.referralCodeCommercantTextController?.text ?? '';
+      _persistReferralCodeInput(referralCode);
+      if (!await _ensureReferralCodeIsValidForSubmit(
+        rawValue: referralCode,
+        isJoueur: isJoueur,
+      )) {
+        return;
+      }
+
+      final email = isJoueur
+          ? _model.emailAddressJoueurTextController.text
+          : _model.emailAddressCommercantTextController.text;
+      final user = await authManager.createAccountWithEmail(
+        context,
+        email,
+        passwordController.text,
+      );
+      if (user == null) {
+        return;
+      }
+
+      final userData = isJoueur
+          ? createUsersRecordData(
+              userRole: _model.userType,
+              remainingPart: 3,
+              accountStatus: AccountStatus.pendingInfo,
+            )
+          : createUsersRecordData(
+              userRole: _model.userType,
+              professionalCategory: _model.professionalCategoryValue,
+              remainingPart: 3,
+              accountStatus: AccountStatus.pendingInfo,
+            );
+      await UsersRecord.collection.doc(user.uid).update(userData);
+
+      final referralApplied = await _applyPendingReferralCodeIfNeeded();
+      if (!referralApplied && (_lastReferralErrorMessage ?? '').isNotEmpty) {
+        _showReferralErrorMessage(_lastReferralErrorMessage!);
+      }
+
+      await authManager.sendEmailVerification();
+
+      if (mounted) {
+        safeSetState(() {
+          _model.isSubmitting = false;
+        });
+      }
+
+      context.goNamedAuth(
+        InscriptionInformationsPageWidget.routeName,
+        context.mounted,
+        ignoreRedirect: true,
+      );
+      return;
+    } finally {
+      if (mounted && _model.isSubmitting) {
+        safeSetState(() {
+          _model.isSubmitting = false;
+        });
+      }
     }
   }
 }

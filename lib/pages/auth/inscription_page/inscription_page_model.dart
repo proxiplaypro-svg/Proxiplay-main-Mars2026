@@ -8,6 +8,7 @@ class InscriptionPageModel extends FlutterFlowModel<InscriptionPageWidget> {
   ///  Local state fields for this page.
 
   Roles? userType = Roles.joueur;
+  bool isSubmitting = false;
 
   ///  State fields for stateful widgets in this page.
 

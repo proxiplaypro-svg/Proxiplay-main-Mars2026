@@ -8,7 +8,6 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import '/services/referral/referral_service.dart';
 import '/utils/create_account_to_play_dialog.dart';
 import '/utils/player_bonus_state.dart';
-import '/utils/share_links.dart';
 import '/widgets/proxiplay_network_image.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';

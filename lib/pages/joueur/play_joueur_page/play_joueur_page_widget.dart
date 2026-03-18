@@ -816,8 +816,8 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                           elevation: 0.0,
                                           borderRadius:
                                               BorderRadius.circular(30.0),
-                                          borderSide: BorderSide(
-                                            color: const Color(0xFFA0134D),
+                                          borderSide: const BorderSide(
+                                            color: Color(0xFFA0134D),
                                             width: 1.0,
                                           ),
                                         ),

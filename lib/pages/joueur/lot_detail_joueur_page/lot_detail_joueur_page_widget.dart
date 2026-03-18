@@ -575,7 +575,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                         borderRadius:
                                                             BorderRadius
                                                                 .circular(30.0),
-                                                        borderSide: BorderSide(
+                                                        borderSide: const BorderSide(
 	                                                          color:
 	                                                              _premiumAccent,
                                                           width: 1.0,
@@ -605,7 +605,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
 	                                                              CrossAxisAlignment
 	                                                                  .start,
 	                                                          children: [
-	                                                            Icon(
+	                                                            const Icon(
 	                                                              Icons.location_on,
 	                                                              color: _premiumAccent,
 	                                                              size: 22.0,

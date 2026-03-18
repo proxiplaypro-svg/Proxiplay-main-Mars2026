@@ -467,9 +467,9 @@ class _EnseigneDetailJoueurPageWidgetState
                                             return FlutterFlowIconButton(
                                               borderRadius: 8.0,
                                               buttonSize: 40.0,
-                                              icon: Icon(
+                                              icon: const Icon(
                                                 Icons.favorite_rounded,
-                                                color: const Color(0xFFA0134D),
+                                                color: Color(0xFFA0134D),
                                                 size: 24.0,
                                               ),
                                               onPressed: () async {
