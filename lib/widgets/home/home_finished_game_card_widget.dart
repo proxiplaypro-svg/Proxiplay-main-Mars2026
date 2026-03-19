@@ -50,7 +50,7 @@ class HomeFinishedGameCard extends StatelessWidget {
               city: enseigne?.city ?? '',
               prizeText: game.prizeValue == 0
                   ? 'Gains instantan\u00E9s'
-                  : '${game.prizeValue} \u20AC',
+                  : compactEuroAmount(game.prizeValue),
               endDateText: game.endDate != null
                   ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}"
                   : "Jusqu'au : -",

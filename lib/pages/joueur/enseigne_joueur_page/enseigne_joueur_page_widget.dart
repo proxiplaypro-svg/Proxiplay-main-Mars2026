@@ -34,6 +34,29 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
   late StreamSubscription<bool> _keyboardVisibilitySubscription;
   bool _isKeyboardVisible = false;
 
+  bool _isGameVisibleForPlayer(GamesRecord game) {
+    final now = getCurrentTimestamp;
+    final startDate = game.startDate;
+    if (startDate != null && now.isBefore(startDate)) {
+      return false;
+    }
+    final endDate = game.endDate;
+    if (endDate != null && !endDate.isAfter(now)) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<int> _countVisibleGamesForEnseigne(DocumentReference enseigneRef) async {
+    final games = await queryGamesRecordOnce(
+      queryBuilder: (gamesRecord) => gamesRecord.where(
+        'enseigne_id',
+        isEqualTo: enseigneRef,
+      ),
+    );
+    return games.where(_isGameVisibleForPlayer).length;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -481,12 +504,10 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                               .fontStyle,
                                                                         ),
                                                                   ),
-                                                                  FutureBuilder<
-                                                                      int>(
+                                                                  FutureBuilder<int>(
                                                                     future:
-                                                                        queryEnseigneGameRecordCount(
-                                                                      parent: searchItem
-                                                                          .reference,
+                                                                        _countVisibleGamesForEnseigne(
+                                                                      searchItem.reference,
                                                                     ),
                                                                     builder:
                                                                         (context,
@@ -939,16 +960,9 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                                                     ),
                                                                                               ),
                                                                                               FutureBuilder<int>(
-                                                                                                future: queryGamesRecordCount(
-                                                                                                  queryBuilder: (gamesRecord) => gamesRecord
-                                                                                                      .where(
-                                                                                                        'hasWinner',
-                                                                                                        isEqualTo: false,
-                                                                                                      )
-                                                                                                      .where(
-                                                                                                        'enseigne_id',
-                                                                                                        isEqualTo: enseigneItem.reference,
-                                                                                                      ),
+                                                                                                future:
+                                                                                                    _countVisibleGamesForEnseigne(
+                                                                                                  enseigneItem.reference,
                                                                                                 ),
                                                                                                 builder: (context, snapshot) {
                                                                                                   // Customize what your widget looks like when it's loading.
@@ -1067,4 +1081,3 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
     );
   }
 }
-

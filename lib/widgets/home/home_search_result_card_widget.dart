@@ -1,4 +1,5 @@
 import '/backend/backend.dart';
+import '/components/game_card_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/widgets/proxiplay_network_image.dart';
@@ -111,7 +112,7 @@ class HomeSearchResultCard extends StatelessWidget {
                                   context,
                                   game.prizeValue == 0
                                       ? 'Gains instantan\u00E9s'
-                                      : '${game.prizeValue} \u20AC',
+                                      : compactEuroAmount(game.prizeValue),
                                 ),
                               ],
                             ),

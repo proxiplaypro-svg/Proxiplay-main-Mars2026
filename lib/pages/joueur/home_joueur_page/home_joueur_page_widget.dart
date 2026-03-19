@@ -1,4 +1,4 @@
-import '/auth/firebase_auth/auth_util.dart';
+﻿import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/app_bar_joueur_widget.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
@@ -15,6 +15,7 @@ import '/widgets/home/home_finished_game_card_widget.dart';
 import '/widgets/home/home_loading_state_widget.dart';
 import '/widgets/home/home_search_result_card_widget.dart';
 import '/widgets/home/home_search_results_list_widget.dart';
+import '/widgets/proxiplay_loading_logo.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import '/utils/player_bonus_state.dart';
@@ -468,37 +469,273 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     await Clipboard.setData(ClipboardData(text: text));
   }
 
-  Future<void> _showSharePromoSheet() async {
-    final payload = await _buildSharePromoPayload('native_share');
-    final shareText =
-        payload['shareText'] ?? _referralService.buildAppShareText();
-    final shareLink =
-        payload['shareLink'] ?? _referralService.buildReferralShareLink();
+  Future<T> _runWithShareLoader<T>(Future<T> Function() action) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return PopScope(
+          canPop: false,
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0.0,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24.0, vertical: 22.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24.0),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.14),
+                    blurRadius: 24.0,
+                    offset: const Offset(0.0, 10.0),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const ProxiplayLoadingLogo(size: 52.0),
+                  const SizedBox(height: 16.0),
+                  Text(
+                    'Ouverture du partage...',
+                    textAlign: TextAlign.center,
+                    style: FlutterFlowTheme.of(dialogContext)
+                        .titleMedium
+                        .override(
+                          font: GoogleFonts.interTight(
+                            fontWeight: FontWeight.w700,
+                            fontStyle: FlutterFlowTheme.of(dialogContext)
+                                .titleMedium
+                                .fontStyle,
+                          ),
+                          color: const Color(0xFF2C2F5B),
+                          letterSpacing: 0.0,
+                          fontWeight: FontWeight.w700,
+                          fontStyle: FlutterFlowTheme.of(dialogContext)
+                              .titleMedium
+                              .fontStyle,
+                        ),
+                  ),
+                  const SizedBox(height: 6.0),
+                  Text(
+                    'Préparation de votre invitation ProxiPlay...',
+                    textAlign: TextAlign.center,
+                    style: FlutterFlowTheme.of(dialogContext).bodyMedium.override(
+                          font: GoogleFonts.inter(
+                            fontWeight: FontWeight.w500,
+                            fontStyle: FlutterFlowTheme.of(dialogContext)
+                                .bodyMedium
+                                .fontStyle,
+                          ),
+                          color: const Color(0xFF5A607C),
+                          letterSpacing: 0.0,
+                          fontWeight: FontWeight.w500,
+                          fontStyle: FlutterFlowTheme.of(dialogContext)
+                              .bodyMedium
+                              .fontStyle,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
 
     try {
-      debugPrint('[SHARE_DEBUG] link=$shareLink');
-      debugPrint('[SHARE_DEBUG] text=$shareText');
-      final box = context.findRenderObject() as RenderBox?;
-      await Share.share(
-        shareText,
-        subject: 'Inviter un ami sur ProxiPlay',
-        sharePositionOrigin: box == null
-            ? null
-            : box.localToGlobal(Offset.zero) & box.size,
-      );
-    } catch (_) {
-      await _copyShareText(shareText);
-      if (!mounted) {
-        return;
+      return await action();
+    } finally {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Partage natif indisponible. Le message a ete copie dans le presse-papiers.',
-          ),
-        ),
-      );
     }
+  }
+
+  Future<void> _launchSharePromoAction() async {
+    await _runWithShareLoader(() async {
+      final payload = await _buildSharePromoPayload('native_share');
+      final shareText =
+          payload['shareText'] ?? _referralService.buildAppShareText();
+      final shareLink =
+          payload['shareLink'] ?? _referralService.buildReferralShareLink();
+
+      try {
+        debugPrint('[SHARE_DEBUG] link=$shareLink');
+        debugPrint('[SHARE_DEBUG] text=$shareText');
+        final box = context.findRenderObject() as RenderBox?;
+        await Share.share(
+          shareText,
+          subject: 'Invitation ProxiPlay',
+          sharePositionOrigin: box == null
+              ? null
+              : box.localToGlobal(Offset.zero) & box.size,
+        );
+      } catch (_) {
+        await _copyShareText(shareText);
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Le partage natif est indisponible. Le message a été copié dans le presse-papiers.',
+            ),
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> _showSharePromoSheet() async {
+    await showDialog<void>(
+      context: context,
+      builder: (sheetContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0.0,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24.0),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 24.0,
+                  offset: const Offset(0.0, 8.0),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20.0, 18.0, 20.0, 20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42.0,
+                      height: 4.0,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDBDDEA),
+                        borderRadius: BorderRadius.circular(999.0),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18.0),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 52.0,
+                        height: 52.0,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF7E6EE),
+                          borderRadius: BorderRadius.circular(16.0),
+                        ),
+                        child: const Icon(
+                          Icons.volunteer_activism_rounded,
+                          color: Color(0xFFA0134D),
+                          size: 24.0,
+                        ),
+                      ),
+                      const SizedBox(width: 14.0),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Inviter un ami',
+                              style: FlutterFlowTheme.of(sheetContext)
+                                  .headlineSmall
+                                  .override(
+                                    font: GoogleFonts.interTight(
+                                      fontWeight: FontWeight.w700,
+                                      fontStyle: FlutterFlowTheme.of(sheetContext)
+                                          .headlineSmall
+                                          .fontStyle,
+                                    ),
+                                    color: const Color(0xFF2C2F5B),
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w700,
+                                    fontStyle: FlutterFlowTheme.of(sheetContext)
+                                        .headlineSmall
+                                        .fontStyle,
+                                  ),
+                            ),
+                            const SizedBox(height: 10.0),
+                            Text(
+                              'Partage ton lien ProxiPlay pour récupérer l’accès à tous les jeux jusqu’à minuit.',
+                              style: FlutterFlowTheme.of(sheetContext)
+                                  .bodyMedium
+                                  .override(
+                                    font: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w500,
+                                      fontStyle: FlutterFlowTheme.of(sheetContext)
+                                          .bodyMedium
+                                          .fontStyle,
+                                    ),
+                                    color: const Color(0xFF2C2F5B),
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w500,
+                                    fontStyle: FlutterFlowTheme.of(sheetContext)
+                                        .bodyMedium
+                                        .fontStyle,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20.0),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2C2F5B),
+                        foregroundColor: Colors.white,
+                        elevation: 0.0,
+                        padding: const EdgeInsets.symmetric(vertical: 14.0),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14.0),
+                        ),
+                      ),
+                      onPressed: () async {
+                        Navigator.of(sheetContext).pop();
+                        await _launchSharePromoAction();
+                      },
+                      child: Text(
+                        'Inviter un ami',
+                        style: FlutterFlowTheme.of(sheetContext)
+                            .titleSmall
+                            .override(
+                              font: GoogleFonts.inter(
+                                fontWeight: FontWeight.w700,
+                                fontStyle: FlutterFlowTheme.of(sheetContext)
+                                    .titleSmall
+                                    .fontStyle,
+                              ),
+                              color: Colors.white,
+                              letterSpacing: 0.0,
+                              fontWeight: FontWeight.w700,
+                              fontStyle: FlutterFlowTheme.of(sheetContext)
+                                  .titleSmall
+                                  .fontStyle,
+                            ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _submitSearch() async {

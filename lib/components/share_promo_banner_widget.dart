@@ -83,73 +83,17 @@ class SharePromoBanner extends StatelessWidget {
               ),
             ],
           ),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 60.0),
-            padding:
-                const EdgeInsetsDirectional.fromSTEB(14.0, 10.0, 14.0, 10.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  width: 38.0,
-                  height: 38.0,
-                  decoration: BoxDecoration(
-                    color: data.iconBackgroundColor ??
-                        accentColor.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(11.0),
-                  ),
-                  child: Icon(
-                    data.icon,
-                    color: data.iconColor ?? accentColor,
-                    size: 18.0,
-                  ),
-                ),
-                const SizedBox(width: 12.0),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        data.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.titleMedium.override(
-                          font: GoogleFonts.interTight(
-                            fontWeight: FontWeight.w700,
-                            fontStyle: theme.titleMedium.fontStyle,
-                          ),
-                          color: titleColor,
-                          letterSpacing: 0.0,
-                          fontWeight: FontWeight.w700,
-                          fontStyle: theme.titleMedium.fontStyle,
-                        ),
-                      ),
-                      const SizedBox(height: 4.0),
-                      Text(
-                        data.subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.bodySmall.override(
-                          font: GoogleFonts.inter(
-                            fontWeight: FontWeight.w500,
-                            fontStyle: theme.bodySmall.fontStyle,
-                          ),
-                          color: subtitleColor,
-                          letterSpacing: 0.0,
-                          fontWeight: FontWeight.w500,
-                          fontStyle: theme.bodySmall.fontStyle,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (data.ctaLabel != null) ...[
-                  const SizedBox(width: 12.0),
-                  Container(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compactButton = constraints.maxWidth < 390.0;
+
+              Widget ctaButton() => Container(
+                    constraints: BoxConstraints(
+                      minWidth: compactButton ? 122.0 : 142.0,
+                    ),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10.0,
-                      vertical: 8.0,
+                      horizontal: 16.0,
+                      vertical: 10.0,
                     ),
                     decoration: BoxDecoration(
                       color: buttonColor,
@@ -157,6 +101,7 @@ class SharePromoBanner extends StatelessWidget {
                     ),
                     child: Text(
                       data.ctaLabel!,
+                      textAlign: TextAlign.center,
                       style: theme.bodySmall.override(
                         font: GoogleFonts.inter(
                           fontWeight: FontWeight.w700,
@@ -168,10 +113,89 @@ class SharePromoBanner extends StatelessWidget {
                         fontStyle: theme.bodySmall.fontStyle,
                       ),
                     ),
-                  ),
-                ],
-              ],
-            ),
+                  );
+
+              return Container(
+                constraints: const BoxConstraints(minHeight: 60.0),
+                padding:
+                    const EdgeInsetsDirectional.fromSTEB(14.0, 12.0, 14.0, 12.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 48.0,
+                      height: 48.0,
+                      decoration: BoxDecoration(
+                        color: data.iconBackgroundColor ??
+                            accentColor.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(14.0),
+                      ),
+                      child: Icon(
+                        data.icon,
+                        color: data.iconColor ?? accentColor,
+                        size: 22.0,
+                      ),
+                    ),
+                    const SizedBox(width: 12.0),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  data.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.titleMedium.override(
+                                    font: GoogleFonts.interTight(
+                                      fontWeight: FontWeight.w700,
+                                      fontStyle: theme.titleMedium.fontStyle,
+                                    ),
+                                    color: titleColor,
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w700,
+                                    fontStyle: theme.titleMedium.fontStyle,
+                                  ),
+                                ),
+                              ),
+                              if (data.ctaLabel != null) ...[
+                                const SizedBox(width: 12.0),
+                                Flexible(
+                                  child: Align(
+                                    alignment: Alignment.topRight,
+                                    child: ctaButton(),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 6.0),
+                          Text(
+                            data.subtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.bodySmall.override(
+                              font: GoogleFonts.inter(
+                                fontWeight: FontWeight.w500,
+                                fontStyle: theme.bodySmall.fontStyle,
+                              ),
+                              color: subtitleColor,
+                              letterSpacing: 0.0,
+                              fontWeight: FontWeight.w500,
+                              fontStyle: theme.bodySmall.fontStyle,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),

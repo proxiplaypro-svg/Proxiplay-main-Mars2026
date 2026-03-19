@@ -98,40 +98,40 @@ class ReferralService {
     final referralCodeText =
         normalizedReferralCode == null || normalizedReferralCode.isEmpty
             ? ''
-            : '\n\nCode parrainage : $normalizedReferralCode\n\n'
-                'Si le code ne se remplit pas automatiquement après installation, '
-                'entre-le manuellement à l’inscription.';
+            : "\n\nCode de parrainage : $normalizedReferralCode\n"
+                "Si le code ne se remplit pas automatiquement après l'installation, "
+                "saisis-le manuellement lors de l'inscription.";
     final templates = <String>[
-      '🎮 Inscris-toi avec mon lien sur ProxiPlay !\n'
-          'Télécharge l’app ici :\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Si tu rejoins l’app, je débloque l’accès à tous les jeux jusqu’à minuit 👇',
-      '🎯 Viens tester ProxiPlay avec mon invitation !\n'
-          'Télécharge l’app ici :\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Si tu t’inscris, je joue à tous les jeux jusqu’à minuit 👇',
-      '🔥 Rejoins-moi sur ProxiPlay !\n\n'
-          'Télécharge l’app ici :\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Ton inscription avec mon code me débloque l’accès à tous les jeux jusqu’à minuit 👇',
-      '🎁 J’ai une invitation ProxiPlay pour toi !\n'
-          'Télécharge l’app ici :\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Si tu t’inscris avec mon lien, je débloque tous les jeux jusqu’à minuit 👇',
-      '🚀 Tu peux tester ProxiPlay avec mon lien !\n'
-          'Télécharge l’app ici :\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Si tu rejoins l’app, j’obtiens l’accès à tous les jeux jusqu’à minuit 👇',
-      '🎮 Clique sur mon lien pour découvrir ProxiPlay !\n'
-          'Télécharge l’app ici :\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Si tu t’inscris, je débloque l’accès à tous les jeux jusqu’à minuit 👇',
+      "J'utilise ProxiPlay et je t'invite à découvrir l'app.\n"
+          "Télécharge-la ici :\n"
+          "$shareLink"
+          "$referralCodeText\n\n"
+          "Si tu t'inscris avec mon lien, je débloque l'accès à tous les jeux jusqu'à minuit.",
+      "J'ai une invitation ProxiPlay pour toi.\n"
+          "Télécharge l'application ici :\n"
+          "$shareLink"
+          "$referralCodeText\n\n"
+          "Ton inscription avec mon lien me permet de jouer à tous les jeux jusqu'à minuit.",
+      "Envie de tester ProxiPlay ?\n"
+          "Voici mon lien d'invitation :\n"
+          "$shareLink"
+          "$referralCodeText\n\n"
+          "Si tu rejoins l'app avec mon lien, je récupère l'accès à tous les jeux jusqu'à minuit.",
+      "Rejoins-moi sur ProxiPlay.\n"
+          "Tu peux télécharger l'app ici :\n"
+          "$shareLink"
+          "$referralCodeText\n\n"
+          "En t'inscrivant avec mon lien, tu m'aides à débloquer l'accès à tous les jeux jusqu'à minuit.",
+      "Je te partage mon invitation ProxiPlay.\n"
+          "Télécharge l'app ici :\n"
+          "$shareLink"
+          "$referralCodeText\n\n"
+          "Si tu t'inscris avec mon lien, je profite de l'accès à tous les jeux jusqu'à minuit.",
+      "Découvre ProxiPlay avec mon lien.\n"
+          "Télécharge l'application ici :\n"
+          "$shareLink"
+          "$referralCodeText\n\n"
+          "Ton inscription avec mon lien me débloque l'accès à tous les jeux jusqu'à minuit.",
     ];
     return templates[_random.nextInt(templates.length)];
   }

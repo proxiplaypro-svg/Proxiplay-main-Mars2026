@@ -1,5 +1,6 @@
 ﻿import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/components/game_card_widget.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_expanded_image_view.dart';
@@ -60,7 +61,7 @@ class _EnseigneDetailJoueurPageWidgetState
     if (game.prizeValue == 0 && hasSecondaryPrizes) {
       return 'Gains immédiats';
     }
-    return game.prizeValue.toString();
+    return compactEuroAmount(game.prizeValue);
   }
 
   String? _ensureHttpScheme(String? raw) {

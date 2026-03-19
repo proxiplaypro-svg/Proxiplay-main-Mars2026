@@ -4,6 +4,24 @@ import '/widgets/proxiplay_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+String compactEuroAmount(num? value) {
+  final amount = value ?? 0;
+  if (amount % 1 == 0) {
+    return '${amount.toInt()}€';
+  }
+  return '${amount.toStringAsFixed(2).replaceAll('.', ',')}€';
+}
+
+String formatEuroAmount(num? value) {
+  final amount = value ?? 0;
+  if (amount % 1 == 0) {
+    return '${amount.toInt()} €';
+  }
+  var text = amount.toStringAsFixed(2);
+  text = text.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+  return '${text.replaceAll('.', ',')} €';
+}
+
 class GameCard extends StatefulWidget {
   const GameCard({
     super.key,
@@ -392,7 +410,24 @@ class _GameCardState extends State<GameCard> {
     return value != null && value.trim().isNotEmpty;
   }
 
+  String _formatPriceTextCompact(String value) {
+    final normalized = _normalizeText(value).trim();
+    final match = RegExp(r'^(\d+)(?:[.,](\d{1,2}))?\s*€?$').firstMatch(normalized);
+    if (match == null) {
+      return normalized.replaceAll(' €', '€');
+    }
+    final euros = match.group(1)!;
+    final decimals = match.group(2);
+    if (decimals == null || int.tryParse(decimals) == 0) {
+      return '$euros€';
+    }
+    final paddedDecimals = decimals.padRight(2, '0');
+    return '$euros,$paddedDecimals€';
+  }
+
   String _formatPriceText(String value) {
+    return _formatPriceTextCompact(value);
+    // ignore: dead_code
     final normalized = _normalizeText(value).trim();
     final match =
         RegExp(r'^(\d+)(?:[.,](\d{1,2}))?\s*€?$').firstMatch(normalized);

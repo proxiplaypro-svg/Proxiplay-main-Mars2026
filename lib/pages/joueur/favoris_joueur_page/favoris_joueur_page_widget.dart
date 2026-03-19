@@ -59,6 +59,40 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
     return true;
   }
 
+  Future<int> _countVisibleGamesForEnseigne(
+    DocumentReference? enseigneRef,
+  ) async {
+    if (enseigneRef == null) {
+      return 0;
+    }
+
+    final now = getCurrentTimestamp;
+    final games = await queryGamesRecordOnce(
+      queryBuilder: (gamesRecord) => gamesRecord.where(
+        'enseigne_id',
+        isEqualTo: enseigneRef,
+      ),
+    );
+
+    return games.where((game) {
+      if (game.hasWinner) {
+        return false;
+      }
+      if (!game.visiblePublic) {
+        return false;
+      }
+      final endDate = game.endDate;
+      if (endDate == null || !endDate.isAfter(now)) {
+        return false;
+      }
+      final startDate = game.startDate;
+      if (startDate != null && now.isBefore(startDate)) {
+        return false;
+      }
+      return true;
+    }).length;
+  }
+
   Future<void> _removeMerchantFavorite(
     FavoriteEnseignesRecord favoriteRecord,
   ) async {
@@ -588,16 +622,8 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                                         ),
                                                                                   ),
                                                                                   FutureBuilder<int>(
-                                                                                    future: queryGamesRecordCount(
-                                                                                      queryBuilder: (gamesRecord) => gamesRecord
-                                                                                          .where(
-                                                                                            'enseigne_id',
-                                                                                            isEqualTo: listViewFavoriteEnseignesRecord.enseigneId,
-                                                                                          )
-                                                                                          .where(
-                                                                                            'hasWinner',
-                                                                                            isEqualTo: false,
-                                                                                          ),
+                                                                                    future: _countVisibleGamesForEnseigne(
+                                                                                      listViewFavoriteEnseignesRecord.enseigneId,
                                                                                     ),
                                                                                     builder: (context, snapshot) {
                                                                                       // Customize what your widget looks like when it's loading.
@@ -790,7 +816,10 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                         .prizeValue ==
                                                                     0
                                                                 ? 'Gains instantanés'
-                                                                : '${containerGamesRecord.prizeValue} €',
+                                                                : compactEuroAmount(
+                                                                    containerGamesRecord
+                                                                        .prizeValue,
+                                                                  ),
                                                         endDateText:
                                                             containerGamesRecord
                                                                         .endDate !=
