@@ -182,6 +182,8 @@ dependencies:
 
 dependency_overrides:
   http: 1.4.0
+  rive_common:
+    path: third_party/rive_common-0.2.8
   uuid: ^4.0.0
 
 dev_dependencies:

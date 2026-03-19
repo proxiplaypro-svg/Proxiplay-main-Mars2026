@@ -1,0 +1,73 @@
+# ninja log v5
+5	3709	7939970074435573	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-aat-map.cc.o	731b645bb7fcfa84
+350	4030	7939970067916139	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/rive-cpp/src/text/line_breaker.cpp.o	4651ab3fb53dac5e
+529	4416	7939970070587353	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-blob.cc.o	8419662df6719553
+709	4743	7939970075050846	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-buffer-serialize.cc.o	be5b2153779dd516
+876	5078	7939970082462486	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-buffer.cc.o	7fe0fbfa16533ee7
+1038	5444	7939970076844710	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-buffer-verify.cc.o	5e59c0c22e695134
+1179	5620	7939970078263769	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-common.cc.o	17f06cae803c1f0b
+1311	5854	7939970078363867	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-draw.cc.o	6476dfd98743abf8
+1450	6165	7939970108919643	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-face.cc.o	7f7e3eeb0f3d401d
+1578	6499	7939970104325268	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-font.cc.o	d646b297f1a89d64
+1700	6751	7939970083262412	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-number.cc.o	25dbebc52738dc5
+1826	7034	7939970085677765	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-map.cc.o	e5dbe6a7b74b4465
+1973	7418	7939970108126504	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-cff1-table.cc.o	dda5be46e09d5d7
+2230	7729	7939970122630364	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-color.cc.o	d3632e2904955d33
+2354	7906	7939970113801537	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-cff2-table.cc.o	18bf0b7a414961f9
+2477	8091	7939970102202974	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-map.cc.o	d45765f09fca861f
+2982	8289	7939970119224723	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-metrics.cc.o	354146698b2b0602
+3115	8503	7939970107345782	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-meta.cc.o	bd3dd52d7326f626
+3273	8720	7939970130787845	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-math.cc.o	efd134154ca47319
+3490	9097	7939970118707598	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-name.cc.o	cd2fa8c59f21f54a
+4032	9383	7939970121609098	CMakeFiles/rive_text.dir/48be1ac4fef986794a1123cb4d61d6ed/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shaper-default.cc.o	c3a173ab1ede7378
+4417	9702	7939970122841127	CMakeFiles/rive_text.dir/48be1ac4fef986794a1123cb4d61d6ed/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shaper-indic-table.cc.o	3a3ee8f1ffa40ea
+4745	9972	7939970128590195	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shaper-hangul.cc.o	fbf8ad9936311aff
+5081	10289	7939970133016443	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shaper-indic.cc.o	69f977ee27349fb6
+5445	10657	7939970130732391	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shaper-hebrew.cc.o	16de7ef08276e81d
+5621	10901	7939970132449357	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shaper-khmer.cc.o	f1f90182c71f4943
+5857	11178	7939970137634461	CMakeFiles/rive_text.dir/48be1ac4fef986794a1123cb4d61d6ed/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shaper-myanmar.cc.o	d3d532a2c4d9f81c
+6166	11430	7939970144473278	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shaper-use.cc.o	479dfa974a7cae43
+6752	11633	7939970147475472	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shaper-thai.cc.o	686863b7c392cfda
+7035	11815	7939970149758499	CMakeFiles/rive_text.dir/4b33bee037c121df08c0dfe36b2ba964/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shaper-vowel-constraints.cc.o	8f7081334fef7d7b
+7419	12072	7939970153912541	CMakeFiles/rive_text.dir/48be1ac4fef986794a1123cb4d61d6ed/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shape-normalize.cc.o	32436fa4d443e8cc
+182	12248	7939970132128551	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-aat-layout.cc.o	97b3e12245eb7fef
+7731	12571	7939970155555757	CMakeFiles/rive_text.dir/48be1ac4fef986794a1123cb4d61d6ed/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shaper-syllabic.cc.o	9faae90789a41aee
+7907	12967	7939970155610966	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-set.cc.o	d6b356c3ae32cc5a
+8092	13191	7939970175865906	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-var.cc.o	15769986fd391439
+8290	13374	7939970157571654	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-tag.cc.o	e5ecea426915ecf1
+8504	13545	7939970168864021	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shape.cc.o	5f5057136179c5ee
+8721	13762	7939970163616635	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-shape-plan.cc.o	1828498bf9cde92f
+9098	13970	7939970165772048	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-shape.cc.o	f9bc51be993a9c1
+9384	13973	7939970168874069	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/rive_text/rive_text.cpp.o	ea0edc2f48ee0a2c
+9703	13975	7939970174477894	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/rive-cpp/src/math/raw_path.cpp.o	ce3d9ffdae11eb71
+9973	13979	7939970170162569	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/rive-cpp/src/math/mat2d.cpp.o	55a0d30e8a10bb25
+10290	13981	7939970174683324	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/rive-cpp/src/renderer.cpp.o	3b654c1d4bfd8139
+10658	13983	7939970193949103	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/rive-cpp/src/text/font_hb.cpp.o	e7c97ac20d508f2d
+2100	13986	7939970167550413	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-face.cc.o	1e7b24a844627605
+2648	13989	7939970167695769	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-font.cc.o	e986140fd3ad647d
+3719	13992	7939970168964392	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shaper-arabic.cc.o	51fea0d6ec967f8b
+11431	13994	7939970194034865	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-subset-input.cc.o	bfd3386230ebe1d7
+6500	13997	7939970187140003	CMakeFiles/rive_text.dir/48be1ac4fef986794a1123cb4d61d6ed/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-shape-fallback.cc.o	87f5e5f1725758cc
+13192	14581	7939970201038361	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-unicode.cc.o	d3787141b6567098
+13763	14618	7939970201344234	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/SheenBidi/Source/SheenBidi.c.o	5c512bfde2cb98af
+12968	14624	7939970201439631	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ucd.cc.o	8c1ef471277717b4
+13375	14798	7939970203247083	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-shaper.cc.o	60eda4fcae42f69e
+11179	15071	7939970205871570	CMakeFiles/rive_text.dir/48be1ac4fef986794a1123cb4d61d6ed/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-subset-cff-common.cc.o	ce00245c09b496f2
+10901	16229	7939970217307070	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-subset-cff2.cc.o	2327b35ddec5fc90
+2828	17007	7939970224624090	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-ot-layout.cc.o	7e358638bcb9c7fd
+12074	17080	7939970225921039	CMakeFiles/rive_text.dir/48be1ac4fef986794a1123cb4d61d6ed/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/graph/gsubgpos-context.cc.o	4c7dc6d07eff7d10
+11634	17092	7939970225961136	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-subset-cff1.cc.o	3b479ecd1fea60b0
+12250	17129	7939970226484510	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-subset-repacker.cc.o	5dc94078faa5e087
+13546	17836	7939970233531394	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-static.cc.o	ca0fe8d69dda3f70
+11816	25452	7939970308626539	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-subset-plan.cc.o	89bc6e1192469830
+12572	33999	7939970393209631	CMakeFiles/rive_text.dir/C_/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/ios/harfbuzz/src/hb-subset.cc.o	4c404229790ec1f3
+34000	34942	7939970403346078	C:/dev/PROXIPLAY/Proxiplay-main 27-02/Proxiplay-main/build/rive_common/intermediates/cxx/Debug/6c153452/obj/arm64-v8a/librive_text.so	725b81720160457e
+16	768	7939975257826364	C:/dev/PROXIPLAY/Proxiplay-main 27-02/Proxiplay-main/build/rive_common/intermediates/cxx/Debug/6c153452/obj/arm64-v8a/librive_text.so	725b81720160457e
+56	1628	7941788833721241	C:/dev/PROXIPLAY/Proxiplay-main 27-02/Proxiplay-main/build/rive_common/intermediates/cxx/Debug/6c153452/obj/arm64-v8a/librive_text.so	725b81720160457e
+37	1637	7941808654363305	C:/dev/PROXIPLAY/Proxiplay-main 27-02/Proxiplay-main/build/rive_common/intermediates/cxx/Debug/6c153452/obj/arm64-v8a/librive_text.so	725b81720160457e
+7	578	7941809893218021	C:/dev/PROXIPLAY/Proxiplay-main 27-02/Proxiplay-main/build/rive_common/intermediates/cxx/Debug/6c153452/obj/arm64-v8a/librive_text.so	725b81720160457e
+11	816	7941811436764452	C:/dev/PROXIPLAY/Proxiplay-main 27-02/Proxiplay-main/build/rive_common/intermediates/cxx/Debug/6c153452/obj/arm64-v8a/librive_text.so	725b81720160457e
+122	2189	7943552793503178	C:/dev/PROXIPLAY/Proxiplay-main 27-02/Proxiplay-main/build/rive_common/intermediates/cxx/Debug/6c153452/obj/arm64-v8a/librive_text.so	725b81720160457e
+26	1650	7943762377844637	C:/dev/PROXIPLAY/Proxiplay-main 27-02/Proxiplay-main/build/rive_common/intermediates/cxx/Debug/6c153452/obj/arm64-v8a/librive_text.so	725b81720160457e
+84	1368	7944036809551069	C:/dev/PROXIPLAY/Proxiplay-main 27-02/Proxiplay-main/build/rive_common/intermediates/cxx/Debug/6c153452/obj/arm64-v8a/librive_text.so	725b81720160457e
+203	2070	7945053895134187	C:/dev/PROXIPLAY/Proxiplay-main 27-02/Proxiplay-main/build/rive_common/intermediates/cxx/Debug/6c153452/obj/arm64-v8a/librive_text.so	725b81720160457e

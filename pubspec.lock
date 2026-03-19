@@ -1194,10 +1194,9 @@ packages:
   rive_common:
     dependency: "direct main"
     description:
-      name: rive_common
-      sha256: f4e20d0a99c5040c85624a3eb2b0b6b19e614d93a693c3bb25cf6e7bb2d3d6d3
-      url: "https://pub.dev"
-    source: hosted
+      path: "third_party/rive_common-0.2.8"
+      relative: true
+    source: path
     version: "0.2.8"
   rxdart:
     dependency: "direct main"

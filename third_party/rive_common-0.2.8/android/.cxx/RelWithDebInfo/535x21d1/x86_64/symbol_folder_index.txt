@@ -1,0 +1,1 @@
+C:\dev\PROXIPLAY\Proxiplay-main-MAJ-MARS\build\rive_common\intermediates\cxx\RelWithDebInfo\535x21d1\obj\x86_64

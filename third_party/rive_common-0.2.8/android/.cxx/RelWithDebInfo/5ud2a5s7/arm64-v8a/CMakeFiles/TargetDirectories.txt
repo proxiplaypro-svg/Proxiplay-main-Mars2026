@@ -1,0 +1,3 @@
+C:/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/android/.cxx/RelWithDebInfo/5ud2a5s7/arm64-v8a/CMakeFiles/rive_text.dir
+C:/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/android/.cxx/RelWithDebInfo/5ud2a5s7/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/pasca/AppData/Local/Pub/Cache/hosted/pub.dev/rive_common-0.2.8/android/.cxx/RelWithDebInfo/5ud2a5s7/arm64-v8a/CMakeFiles/rebuild_cache.dir
