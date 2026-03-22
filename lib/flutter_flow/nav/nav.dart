@@ -156,6 +156,14 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               builder: (context, params) => const HomeAdminPageWidget(),
             ),
             FFRoute(
+              name: AdminNotificationsCenterPageWidget.routeName,
+              path: AdminNotificationsCenterPageWidget.routePath,
+              requireAuth: true,
+              requireAdmin: true,
+              builder: (context, params) =>
+                  const AdminNotificationsCenterPageWidget(),
+            ),
+            FFRoute(
               name: ValidationCommercantsAdminPageWidget.routeName,
               path: ValidationCommercantsAdminPageWidget.routePath,
               requireAuth: true,
@@ -177,6 +185,40 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               requireAuth: true,
               requireAdmin: true,
               builder: (context, params) => const AdminPushNotificationsPageWidget(),
+            ),
+            FFRoute(
+              name: AdminAutomaticNotificationsPageWidget.routeName,
+              path: AdminAutomaticNotificationsPageWidget.routePath,
+              requireAuth: true,
+              requireAdmin: true,
+              builder: (context, params) =>
+                  const AdminAutomaticNotificationsPageWidget(),
+            ),
+            FFRoute(
+              name: AdminAutomaticNotificationConfigPageWidget.routeName,
+              path: AdminAutomaticNotificationConfigPageWidget.routePath,
+              requireAuth: true,
+              requireAdmin: true,
+              builder: (context, params) =>
+                  AdminAutomaticNotificationConfigPageWidget(
+                scenarioId: params.getParam(
+                  'scenarioId',
+                  ParamType.String,
+                ),
+                isNew: params.getParam(
+                      'isNew',
+                      ParamType.bool,
+                    ) ??
+                    false,
+              ),
+            ),
+            FFRoute(
+              name: AdminScheduledNotificationsPageWidget.routeName,
+              path: AdminScheduledNotificationsPageWidget.routePath,
+              requireAuth: true,
+              requireAdmin: true,
+              builder: (context, params) =>
+                  const AdminScheduledNotificationsPageWidget(),
             ),
             FFRoute(
               name: AdminPushNotificationsHistoryPageWidget.routeName,

@@ -20,6 +20,8 @@ export '/pages/joueur/profil_joueur_page/profil_joueur_page_widget.dart'
     show ProfilJoueurPageWidget;
 export '/pages/admin/home_admin_page/home_admin_page_widget.dart'
     show HomeAdminPageWidget;
+export '/pages/admin/admin_notifications_center_page/admin_notifications_center_page_widget.dart'
+    show AdminNotificationsCenterPageWidget;
 export '/pages/admin/validation_commercants_admin_page/validation_commercants_admin_page_widget.dart'
     show ValidationCommercantsAdminPageWidget;
 export '/pages/admin/animations_promotions_admin_page/animations_promotions_admin_page_widget.dart'
@@ -30,6 +32,12 @@ export '/pages/admin/share_promo_stats_admin_page/share_promo_stats_admin_page_w
     show SharePromoStatsAdminPageWidget;
 export '/pages/admin/admin_push_notifications_page/admin_push_notifications_page_widget.dart'
     show AdminPushNotificationsPageWidget;
+export '/pages/admin/admin_automatic_notifications_page/admin_automatic_notifications_page_widget.dart'
+    show AdminAutomaticNotificationsPageWidget;
+export '/pages/admin/admin_automatic_notification_config_page/admin_automatic_notification_config_page_widget.dart'
+    show AdminAutomaticNotificationConfigPageWidget;
+export '/pages/admin/admin_scheduled_notifications_page/admin_scheduled_notifications_page_widget.dart'
+    show AdminScheduledNotificationsPageWidget;
 export '/pages/admin/admin_push_notifications_history_page/admin_push_notifications_history_page_widget.dart'
     show AdminPushNotificationsHistoryPageWidget;
 export '/pages/commercant/jeu_detail_commercant_page/jeu_detail_commercant_page_widget.dart'

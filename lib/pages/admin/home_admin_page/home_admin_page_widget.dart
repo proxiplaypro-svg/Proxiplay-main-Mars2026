@@ -291,10 +291,10 @@ class _HomeAdminPageWidgetState extends State<HomeAdminPageWidget> {
                     icon: Icons.notifications_active_outlined,
                     title: 'Notifications',
                     subtitle:
-                        'Cr\u00E9er et envoyer des notifications push administrateur.',
+                        'Accéder au centre de notifications administrateur.',
                     accentColor: const Color(0xFF7A5AF8),
                     onTap: () => _pushAdminPage(
-                      AdminPushNotificationsPageWidget.routeName,
+                      AdminNotificationsCenterPageWidget.routeName,
                     ),
                   ),
                   const SizedBox(height: 14.0),

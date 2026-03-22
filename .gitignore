@@ -143,9 +143,29 @@ gradle.properties
 
 # Firebase Functions build généré
 firebase/functions/lib/
+!firebase/functions/lib/
+firebase/functions/lib/*
+!firebase/functions/lib/share_promo/
+!firebase/functions/lib/share_promo/**
+!firebase/functions/lib/notifications/
+!firebase/functions/lib/notifications/**
 
 # Fichiers audio/temp si non voulus
 # assets/audios/
 
 # Logs divers
 *.log
+
+# -----------------------
+# Clés Firebase (PROJET LOCAL)
+# -----------------------
+
+# Clé déplacée hors repo (recommandé)
+keys/
+
+# Clé actuelle à la racine (temporaire)
+firebase-key.json
+
+# Toutes variantes possibles (sécurité)
+*-firebase-adminsdk*.json
+*service-account*.json

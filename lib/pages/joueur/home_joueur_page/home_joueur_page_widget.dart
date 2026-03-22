@@ -358,25 +358,29 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           );
         }
 
-        if (valueOrDefault<int>(currentUserDocument?.remainingPart, 0) == 1) {
+        if (valueOrDefault<int>(currentUserDocument?.remainingPart, 0) <= 1) {
+          final remainingPart =
+              valueOrDefault<int>(currentUserDocument?.remainingPart, 0);
           return Padding(
             padding: const EdgeInsets.only(bottom: 16.0),
             child: SharePromoBanner(
-              data: const SharePromoData(
+              data: SharePromoData(
                 kind: SharePromoKind.lowRemainingPlaysInvite,
-                title: 'Plus qu’une partie',
+                title: remainingPart <= 0
+                    ? 'Plus de partie disponible'
+                    : 'Plus qu’une partie',
                 subtitle:
                     'Invite un ami et joue à tous les jeux jusqu’à minuit.',
                 ctaLabel: 'Inviter un ami',
                 icon: Icons.volunteer_activism_rounded,
-                primaryColor: Color(0xFFF5F6FB),
-                secondaryColor: Color(0xFFA0134D),
-                titleColor: Color(0xFF2C2F5B),
-                subtitleColor: Color(0xFF2C2F5B),
-                buttonColor: Color(0xFF2C2F5B),
+                primaryColor: const Color(0xFFF5F6FB),
+                secondaryColor: const Color(0xFFA0134D),
+                titleColor: const Color(0xFF2C2F5B),
+                subtitleColor: const Color(0xFF2C2F5B),
+                buttonColor: const Color(0xFF2C2F5B),
                 buttonTextColor: Colors.white,
-                iconBackgroundColor: Color(0xFFF7E6EE),
-                iconColor: Color(0xFFA0134D),
+                iconBackgroundColor: const Color(0xFFF7E6EE),
+                iconColor: const Color(0xFFA0134D),
               ),
               onTap: () {
                 _showSharePromoSheet();

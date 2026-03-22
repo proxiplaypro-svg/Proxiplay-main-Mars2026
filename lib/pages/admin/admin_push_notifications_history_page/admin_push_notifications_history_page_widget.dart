@@ -36,7 +36,7 @@ class AdminPushNotificationsHistoryPageWidget extends StatelessWidget {
         .limit(50);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sent notifications')),
+      appBar: AppBar(title: const Text('Historique / statistiques')),
       body: SafeArea(
         child: StreamBuilder<QuerySnapshot>(
           stream: query.snapshots(),
@@ -56,6 +56,7 @@ class AdminPushNotificationsHistoryPageWidget extends StatelessWidget {
                 final data = docs[index].data() as Map<String, dynamic>;
                 final title = (data['notification_title'] ?? '').toString();
                 final body = (data['notification_text'] ?? '').toString();
+                final target = (data['target_user_group'] ?? 'All').toString();
                 final status = (data['status'] ?? '').toString();
                 final createdAt = data['created_at'];
                 final createdAtText = createdAt is Timestamp
@@ -71,8 +72,8 @@ class AdminPushNotificationsHistoryPageWidget extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
-                    body.isNotEmpty ? body : '(No message)',
-                    maxLines: 1,
+                    '${target.isNotEmpty ? target : 'All'} · ${body.isNotEmpty ? body : '(No message)'}',
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   trailing: Column(
@@ -103,6 +104,7 @@ class AdminPushNotificationsHistoryPageWidget extends StatelessWidget {
                             const SizedBox(height: 12),
                             if (createdAtText.isNotEmpty)
                               Text('Sent: $createdAtText'),
+                            if (target.isNotEmpty) Text('Target: $target'),
                             if (status.isNotEmpty) Text('Status: $status'),
                             if (numSent.isNotEmpty) Text('Sent count: $numSent'),
                             if (error.isNotEmpty) Text('Error: $error'),
@@ -120,5 +122,4 @@ class AdminPushNotificationsHistoryPageWidget extends StatelessWidget {
     );
   }
 }
-
 

@@ -2446,3 +2446,21 @@ try {
 } catch (error) {
   console.log("share_promo TypeScript bundle not loaded yet:", error.message);
 }
+
+try {
+  const {
+    createRunInactivePlayerAutomationsManual,
+  } = require("./lib/notifications/triggers/run_inactive_player_automations_manual");
+  exports.runInactivePlayerAutomationsManual =
+    createRunInactivePlayerAutomationsManual({
+      functions,
+      firestore,
+      admin,
+      assertIsAdmin,
+    });
+} catch (error) {
+  console.log(
+    "notifications automation manual trigger not loaded yet:",
+    error.message,
+  );
+}

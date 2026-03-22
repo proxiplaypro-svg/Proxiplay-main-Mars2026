@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
@@ -46,6 +48,9 @@ class _AdminPushNotificationsPageWidgetState
   List<UsersRecord> _searchResults = [];
   Timer? _searchDebounce;
   bool _searchLoading = false;
+  final TextEditingController _inactivePlayerTestUidController =
+      TextEditingController(text: 'UID_CIBLE');
+  bool _inactivePlayerTestLoading = false;
 
   @override
   void initState() {
@@ -58,6 +63,7 @@ class _AdminPushNotificationsPageWidgetState
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _inactivePlayerTestUidController.dispose();
     _pagingController.dispose();
     _model.dispose();
     super.dispose();
@@ -416,6 +422,85 @@ class _AdminPushNotificationsPageWidgetState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Notification créée, statut en attente.')),
       );
+    }
+  }
+
+  Future<void> _runInactivePlayerDryRunTest() async {
+    final uid = _inactivePlayerTestUidController.text.trim();
+    if (uid.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Renseignez un UID cible.')),
+      );
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Session expirée. Reconnectez-vous.')),
+      );
+      return;
+    }
+
+    setState(() => _inactivePlayerTestLoading = true);
+    try {
+      await user.getIdToken(true);
+      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+      final result = await functions
+          .httpsCallable('runInactivePlayerAutomationsManual')
+          .call({
+        'automationId': 'inactive_players_7d',
+        'dryRun': true,
+        'onlyUserIds': [uid],
+        'limit': 1,
+      });
+
+      final data = result.data is Map
+          ? Map<String, dynamic>.from(result.data as Map)
+          : <String, dynamic>{};
+      final jsonResponse = const JsonEncoder.withIndent('  ').convert(data);
+
+      debugPrint(
+        '[runInactivePlayerAutomationsManual] dryRun response:\n$jsonResponse',
+      );
+      print('[runInactivePlayerAutomationsManual] dryRun response:\n$jsonResponse');
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Test dry-run exécuté. Réponse JSON dans les logs.'),
+        ),
+      );
+    } on FirebaseFunctionsException catch (error) {
+      debugPrint(
+        '[runInactivePlayerAutomationsManual] error code=${error.code} message=${error.message}',
+      );
+      print(
+        '[runInactivePlayerAutomationsManual] error code=${error.code} message=${error.message}',
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.message?.isNotEmpty == true
+                ? error.message!
+                : 'Erreur lors du test dry-run.',
+          ),
+        ),
+      );
+    } catch (error) {
+      debugPrint('[runInactivePlayerAutomationsManual] error=$error');
+      print('[runInactivePlayerAutomationsManual] error=$error');
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors du test dry-run: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _inactivePlayerTestLoading = false);
+      }
     }
   }
 
@@ -954,23 +1039,6 @@ class _AdminPushNotificationsPageWidgetState
             ],
           ),
           const SizedBox(height: 18),
-          Row(
-            children: [
-              _summaryStat(
-                label: 'Audience',
-                value: _audienceTitle(),
-                icon: Icons.campaign_outlined,
-              ),
-              const SizedBox(width: 12),
-              _summaryStat(
-                label: 'Sélection',
-                value: _selectedUsers.length.toString(),
-                icon: Icons.person_add_alt_1_outlined,
-                accent: const Color(0xFF12B76A),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
           _selectionSummary(),
           const SizedBox(height: 18),
           TextFormField(
@@ -1221,6 +1289,8 @@ class _AdminPushNotificationsPageWidgetState
               ),
             ),
           ),
+          const SizedBox(height: 18),
+          _buildTemporaryInactivePlayerTestCard(),
         ],
       ),
     );
@@ -1307,6 +1377,84 @@ class _AdminPushNotificationsPageWidgetState
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTemporaryInactivePlayerTestCard() {
+    final theme = FlutterFlowTheme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFAEB),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFDB022)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.science_outlined,
+                color: Color(0xFFB54708),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Test admin temporaire: inactive_player',
+                  style: theme.titleSmall.override(
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF7A2E0E),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Callable manuel en dry-run uniquement. Aucun envoi réel tant que dryRun reste à true.',
+            style: theme.bodyMedium.override(
+              color: const Color(0xFF7A2E0E),
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _inactivePlayerTestUidController,
+            decoration: InputDecoration(
+              labelText: 'UID cible',
+              hintText: 'UID_CIBLE',
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FFButtonWidget(
+              onPressed:
+                  _inactivePlayerTestLoading ? null : _runInactivePlayerDryRunTest,
+              text: _inactivePlayerTestLoading
+                  ? 'Test dry-run en cours...'
+                  : 'Lancer test admin temporaire',
+              icon: const Icon(Icons.play_arrow_rounded, size: 18),
+              options: FFButtonOptions(
+                height: 52,
+                color: const Color(0xFFB54708),
+                textStyle: theme.labelLarge.override(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
           ),
         ],
@@ -1601,7 +1749,7 @@ class _AdminPushNotificationsPageWidgetState
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FB),
       appBar: AppBar(
-        title: const Text('Notifications admin'),
+        title: const Text('Envoyer une notification'),
         elevation: 0,
         backgroundColor: const Color(0xFFF5F7FB),
         foregroundColor: FlutterFlowTheme.of(context).primaryText,
@@ -1613,49 +1761,23 @@ class _AdminPushNotificationsPageWidgetState
             builder: (context, constraints) {
               final isCompact = constraints.maxWidth < 1100;
               return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                child: Column(
-                  children: [
-                    _buildTopBanner(),
-                    const SizedBox(height: 16),
-                    if (isCompact) ...[
-                      _buildRecipientsPanel(),
-                      const SizedBox(height: 16),
-                      _buildComposePanel(),
-                      const SizedBox(height: 16),
-                      _buildAutomationPanel(),
-                      const SizedBox(height: 16),
-                      _buildRecentHistoryPanel(),
-                    ] else ...[
-                      Row(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                child: isCompact
+                    ? Column(
+                        children: [
+                          _buildRecipientsPanel(),
+                          const SizedBox(height: 16),
+                          _buildComposePanel(),
+                        ],
+                      )
+                    : Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            flex: 5,
-                            child: Column(
-                              children: [
-                                _buildRecipientsPanel(),
-                                const SizedBox(height: 16),
-                                _buildRecentHistoryPanel(),
-                              ],
-                            ),
-                          ),
+                          Expanded(flex: 5, child: _buildRecipientsPanel()),
                           const SizedBox(width: 16),
-                          Expanded(
-                            flex: 6,
-                            child: Column(
-                              children: [
-                                _buildComposePanel(),
-                                const SizedBox(height: 16),
-                                _buildAutomationPanel(),
-                              ],
-                            ),
-                          ),
+                          Expanded(flex: 6, child: _buildComposePanel()),
                         ],
                       ),
-                    ],
-                  ],
-                ),
               );
             },
           ),
