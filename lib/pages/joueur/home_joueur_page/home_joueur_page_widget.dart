@@ -145,7 +145,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
             game.enseigneId,
             ParamType.DocumentReference,
           );
-    context.pushNamed(
+    await context.pushNamed(
       JeuDetailJoueurPageWidget.routeName,
       queryParameters: {
         'gameDoc': serializeParam(
@@ -163,6 +163,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         ),
       },
     );
+    await refreshCurrentUserDocument();
+    if (mounted) {
+      safeSetState(() {});
+    }
   }
 
   Future<SharePromoStateViewModel?> _loadSharePromoState() async {
@@ -680,6 +684,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   }
 
   Future<void> _refreshHomeContent() async {
+    await refreshCurrentUserDocument();
     _sharePromoFuture = _loadSharePromoState();
     final controllers = <PagingController<DocumentSnapshot?, GamesRecord>?>[
       _model.listViewPagingController2,

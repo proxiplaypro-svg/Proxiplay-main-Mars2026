@@ -64,6 +64,17 @@ final authenticatedUserStream = FirebaseAuth.instance
   return currentUserDocument;
 }).asBroadcastStream();
 
+Future<UsersRecord?> refreshCurrentUserDocument() async {
+  final userRef = currentUserReference;
+  if (userRef == null) {
+    currentUserDocument = null;
+    return currentUserDocument;
+  }
+
+  currentUserDocument = await UsersRecord.getDocumentOnce(userRef);
+  return currentUserDocument;
+}
+
 class AuthUserStreamWidget extends StatelessWidget {
   const AuthUserStreamWidget({super.key, required this.builder});
 

@@ -64,6 +64,81 @@ function hasUnlimitedAccess(userData, now) {
   return accessUntil.toMillis() > now.toMillis();
 }
 
+/**
+ * Calcule le statut du joueur basé sur son activité réelle.
+ * 
+ * Règles :
+ * - actif: dernière activité <= 7 jours OU (dernier <= 14 jours ET games_played >= 3)
+ * - a_relancer: dernier 8-30 jours OU (compte > 7 jours ET games_played <= 2)
+ * - dormant: dernier 31-90 jours OU (compte > 30 jours ET games_played <= 1)
+ * - mort_probable: dernier > 90 jours OU (compte > 60 jours ET 0 participation)
+ * - statut_inconnu: données manquantes ou incohérentes
+ * 
+ * @param userData - Document utilisateur avec created_time, last_real_activity_at, games_played_count
+ * @param now - Timestamp serveur actuel
+ * @returns {string} - Un des statuts ci-dessus
+ */
+function calculatePlayerStatus(userData, now) {
+  // Vérifier les données requises
+  if (!userData || !userData.created_time) {
+    return 'statut_inconnu';
+  }
+
+  const createdTime = userData.created_time;
+  const lastActivityAt = userData.last_real_activity_at;
+  const gamesPlayed = userData.games_played_count || 0;
+
+  // Convertir les timestamps Firestore en millisecondes
+  const nowMs = now.toMillis ? now.toMillis() : now;
+  const createdMs = createdTime.toMillis ? createdTime.toMillis() : createdTime;
+  const lastActivityMs = lastActivityAt
+    ? (lastActivityAt.toMillis ? lastActivityAt.toMillis() : lastActivityAt)
+    : null;
+
+  // Calculer les délais en jours
+  const accountAgeDays = Math.floor((nowMs - createdMs) / (1000 * 60 * 60 * 24));
+  const daysSinceActivity = lastActivityMs
+    ? Math.floor((nowMs - lastActivityMs) / (1000 * 60 * 60 * 24))
+    : null;
+
+  // Règle 1 : ACTIF
+  if (lastActivityMs !== null) {
+    if (daysSinceActivity <= 7) {
+      return 'actif';
+    }
+    if (daysSinceActivity <= 14 && gamesPlayed >= 3) {
+      return 'actif';
+    }
+  }
+
+  // Règle 2 : À RELANCER
+  if (lastActivityMs !== null && daysSinceActivity >= 8 && daysSinceActivity <= 30) {
+    return 'a_relancer';
+  }
+  if (accountAgeDays > 7 && gamesPlayed <= 2) {
+    return 'a_relancer';
+  }
+
+  // Règle 3 : DORMANT
+  if (lastActivityMs !== null && daysSinceActivity >= 31 && daysSinceActivity <= 90) {
+    return 'dormant';
+  }
+  if (accountAgeDays > 30 && gamesPlayed <= 1) {
+    return 'dormant';
+  }
+
+  // Règle 4 : MORT PROBABLE
+  if (accountAgeDays > 60 && gamesPlayed === 0) {
+    return 'mort_probable';
+  }
+  if (lastActivityMs !== null && daysSinceActivity > 90) {
+    return 'mort_probable';
+  }
+
+  // Par défaut
+  return 'statut_inconnu';
+}
+
 exports.participateInGameTransaction = functions.https.onCall(
   async (data, context) => {
     if (!context.auth) {
@@ -295,18 +370,45 @@ exports.participateInGameTransaction = functions.https.onCall(
           participations: admin.firestore.FieldValue.increment(1),
         });
 
+        let messageBonus = "";
+        let remainingPartDelta = 0;
         if (!unlimitedAccessActive) {
-          transaction.update(userRef, {
-            remaining_part: admin.firestore.FieldValue.increment(-1),
-          });
+          remainingPartDelta -= 1;
         }
+
+        // Bonus toutes les 10 participations
+        if (newPosition % 10 === 0) {
+          remainingPartDelta += 3;
+          messageBonus = "Vous avez gagné 3 parties supplémentaires !";
+        }
+
+        // Mettre à jour l'activité réelle du joueur et les statistiques
+        const userUpdateData = {
+          last_real_activity_at: now,
+          games_played_count: admin.firestore.FieldValue.increment(1),
+        };
+
+        if (remainingPartDelta !== 0) {
+          userUpdateData.remaining_part = remainingPart + remainingPartDelta;
+        }
+
+        // Calculer le nouveau statut du joueur basé sur son activité
+        // Remarque : games_played_count est déjà incrémenté ci-dessus,
+        // mais la transaction n'a pas encore committée. On doit passer la valeur future.
+        const projectedGamesPlayedCount = (userData.games_played_count || 0) + 1;
+        const projectedUserData = {
+          ...userData,
+          last_real_activity_at: now,
+          games_played_count: projectedGamesPlayedCount,
+        };
+        userUpdateData.player_status_cached = calculatePlayerStatus(projectedUserData, now);
+
+        transaction.update(userRef, userUpdateData);
 
         // Lots (gains immÃƒÂ©diats uniquement)
         let lotGagne = false;
         let lotDetails = null;
         let prizeRef = null;
-
-        let messageBonus = "";
 
         if (!instantWinnerSnap.empty) {
           const instantWinnerDoc = instantWinnerSnap.docs[0];
@@ -340,14 +442,6 @@ exports.participateInGameTransaction = functions.https.onCall(
 
           lotGagne = true;
           lotDetails = gameData.secondary_prize_description;
-        }
-
-        // Bonus toutes les 10 participations
-        if (newPosition % 10 === 0) {
-          transaction.update(userRef, {
-            remaining_part: admin.firestore.FieldValue.increment(3),
-          });
-          messageBonus = "Vous avez gagné 3 parties supplémentaires !";
         }
 
         // Messages aleatoires a afficher en cas de perte

@@ -362,62 +362,136 @@ async function queueFavoriteMerchantNewGameNotifications(gameDoc, gameData) {
   );
 }
 
-async function queueFollowedGameEndingSoonNotifications(gameDoc) {
+async function queueFollowedGameEndingSoonNotifications(gameDoc, config) {
   const gameData = gameDoc.data() || {};
-  const favoriteSnap = await firestore
-    .collectionGroup("favorite_games")
-    .where("game_id", "==", gameDoc.ref)
-    .get();
+  const gameId = gameDoc.id;
 
-  if (favoriteSnap.empty) {
-    console.log(`[followedGameEndingSoon] game=${gameDoc.id} followers=0 queued=0`);
+  // Config avec fallbacks
+  const enabled = config && config.game_ending_enabled === true;
+  const targetStatuses = Array.isArray(config?.game_ending_target_statuses)
+    ? config.game_ending_target_statuses
+    : ["actif", "a_relancer"];
+  const useCityFilter = config && config.game_ending_use_city_filter === true;
+  const daysBefore = config?.game_ending_days_before || 3;
+
+  if (!enabled) {
+    console.log(`[followedGameEndingSoon] game=${gameId} disabled in config, skipping`);
     return;
   }
 
-  const userRefsByUid = new Map();
-  favoriteSnap.docs.forEach((favoriteDoc) => {
-    const userRef = favoriteDoc.ref.parent.parent;
-    const uid = getUserUidFromRef(userRef);
-    if (userRef && uid) {
-      userRefsByUid.set(uid, userRef);
+  // Récupérer city du commerce si filtrage activé
+  let enseigneCity = null;
+  if (useCityFilter) {
+    const enseigneRef = toDocRef(gameData.enseigne_id);
+    if (enseigneRef) {
+      const enseigneSnap = await enseigneRef.get();
+      if (enseigneSnap.exists) {
+        enseigneCity = getTrimmedString(enseigneSnap.data().city);
+      }
     }
-  });
+  }
 
-  const userSnaps = await loadUserSnapshotsByRef(Array.from(userRefsByUid.values()));
+  // Requête: tous les joueurs éligibles (pas seulement followers)
+  let usersQuery = firestore
+    .collection("users")
+    .where("user_role", "==", "joueur")
+    .where("player_status_cached", "in", targetStatuses);
+
+  if (useCityFilter && enseigneCity) {
+    usersQuery = usersQuery.where("city", "==", enseigneCity);
+  }
+
+  const userSnaps = await usersQuery.get();
+
+  if (userSnaps.empty) {
+    console.log(`[followedGameEndingSoon] game=${gameId} no eligible users, skipping`);
+    return;
+  }
+
   let queued = 0;
+  let skippedDuplicate = 0;
+  let skippedNoToken = 0;
   let skippedPrefs = 0;
-  let duplicates = 0;
+
+  const gameName = getTrimmedString(gameData.name) || "ce jeu";
+  const enseigneName = getTrimmedString(gameData.enseigne_name) || "un commerce";
 
   await Promise.all(
     userSnaps.map(async (userSnap) => {
-      const userUid = getUserUidFromRef(userSnap.ref);
-      if (!userUid || !isUserPushPreferenceEnabled(userSnap.data(), "followedGameEndingSoon")) {
+      const userData = userSnap.data() || {};
+      const userUid = userData.uid || userSnap.id;
+      const userCity = userData.city || "";
+
+      // Vérifier les préférences push
+      if (!isUserPushPreferenceEnabled(userData, "followedGameEndingSoon")) {
         skippedPrefs += 1;
         return;
       }
 
-      const gameName = getTrimmedString(gameData.name) || "ce jeu";
-      const enseigneName = getTrimmedString(gameData.enseigne_name);
+      // Vérifier au moins 1 FCM token
+      const tokensSnap = await firestore
+        .doc(`users/${userUid}`)
+        .collection(kFcmTokensCollection)
+        .get();
+
+      if (tokensSnap.empty) {
+        skippedNoToken += 1;
+        return;
+      }
+
+      // ===== ANTI-DOUBLON AVANT ENVOI =====
+      const antiDuplicateRef = firestore
+        .doc(`users/${userUid}/notifications`)
+        .collection("by_game")
+        .doc(`${gameId}_ending`);
+      const existingSnap = await antiDuplicateRef.get();
+
+      if (existingSnap.exists) {
+        console.log(
+          `[followedGameEndingSoon] uid=${userUid} game=${gameId} already notified, skipping`
+        );
+        skippedDuplicate++;
+        return;
+      }
+
+      // ===== CRÉER NOTIFICATION via FF_PUSH_NOTIFICATIONS =====
+      const notificationBody = useCityFilter && enseigneCity
+        ? `${gameName} chez ${enseigneName} se termine dans ${daysBefore} jours.`
+        : `${gameName} se termine dans ${daysBefore} jours.`;
+
       const queuedNow = await queueUserScopedPushNotification({
-        docId: `followed_game_ending_soon_${gameDoc.id}_${userUid}`,
-        title: "Jeu bientot termine",
-        body: enseigneName
-          ? `${gameName} chez ${enseigneName} se termine dans 3 jours.`
-          : `${gameName} se termine dans 3 jours.`,
+        docId: `game_ending_${gameId}_${userUid}_${Date.now()}`,
+        title: "Tic tac ⏳",
+        body: notificationBody,
         userUid,
-        createdBy: `system/followed_game_ending_soon/${gameDoc.id}`,
+        createdBy: `system/game_ending/${gameId}`,
       });
 
       if (queuedNow) {
+        // ===== CRÉER LOG ANTI-DOUBLON =====
+        await antiDuplicateRef.set({
+          type: "game_ending_soon",
+          game_id: gameId,
+          game_name: gameName,
+          enseigne_id: gameData.enseigne_id ? gameData.enseigne_id.path : "",
+          enseigne_name: enseigneName,
+          notification_title: "Tic tac ⏳",
+          notification_text: notificationBody,
+          player_status: userData.player_status_cached || "unknown",
+          city_filtered: useCityFilter,
+          user_city: userCity,
+          enseigne_city: enseigneCity || "",
+          sent_at: admin.firestore.FieldValue.serverTimestamp(),
+          viewed: false,
+        });
+
         queued += 1;
-      } else {
-        duplicates += 1;
       }
     }),
   );
 
   console.log(
-    `[followedGameEndingSoon] game=${gameDoc.id} followers=${favoriteSnap.size} users=${userSnaps.length} queued=${queued} duplicates=${duplicates} skippedPrefs=${skippedPrefs}`,
+    `[followedGameEndingSoon] game=${gameId} eligible=${userSnaps.size} queued=${queued} skippedDuplicate=${skippedDuplicate} skippedNoToken=${skippedNoToken} skippedPrefs=${skippedPrefs}`
   );
 }
 
@@ -1142,6 +1216,194 @@ exports.notifyFavoriteMerchantNewGame = functions
     return null;
   });
 
+/**
+ * Notification "Nouveau jeu disponible" - Étape 4
+ * - Déclenché quand visible_public passe de false → true
+ * - Cible joueurs éligibles: statut actif/a_relancer, optionnellement par ville
+ * - Anti-doublon: vérification dans users/{uid}/notifications/by_game/{gameId} AVANT envoi
+ * - Réutilise ff_push_notifications + sendPushNotificationsTrigger
+ */
+exports.notifyNewGameAvailableToAllEligible = functions
+  .runWith(kPushNotificationRuntimeOpts)
+  .firestore.document("games/{gameId}")
+  .onWrite(async (change, context) => {
+    const gameId = context.params.gameId;
+    const beforeExists = change.before.exists;
+    const afterExists = change.after.exists;
+
+    if (!afterExists) {
+      return null; // Jeu supprimé
+    }
+
+    // Vérifier la TRANSITION: false → true (pas l'état seul)
+    const beforeData = beforeExists ? change.before.data() || {} : {};
+    const afterData = change.after.data() || {};
+    const wasPublished = beforeExists ? isPublishedGame(beforeData) : false;
+    const isNowPublished = isPublishedGame(afterData);
+
+    if (!isNowPublished || wasPublished) {
+      return null; // Pas une transition de publication
+    }
+
+    console.log(
+      `[notifyNewGameAvailableToAllEligible] game=${gameId} transition detected`
+    );
+
+    try {
+      // Lire config admin
+      const configRef = firestore.collection("app_config").doc("notifications_auto");
+      const configSnap = await configRef.get();
+      const configData = configSnap.exists ? configSnap.data() || {} : {};
+      const newGameEnabled = configData.new_game_enabled === true;
+      const targetStatuses = Array.isArray(configData.new_game_target_statuses)
+        ? configData.new_game_target_statuses
+        : ["actif", "a_relancer"];
+      const useCityFilter = configData.new_game_use_city_filter === true;
+
+      console.log(
+        `[notifyNewGameAvailableToAllEligible] config enabled=${newGameEnabled} useCity=${useCityFilter}`
+      );
+
+      if (!newGameEnabled) {
+        console.log(
+          `[notifyNewGameAvailableToAllEligible] disabled in config, skipping`
+        );
+        return null;
+      }
+
+      // Récupérer infos du jeu et du commerce
+      const gameData = afterData;
+      const gameName = getTrimmedString(gameData.name) || "un nouveau jeu";
+      const enseigneRef = toDocRef(gameData.enseigne_id);
+      const enseigneName = getTrimmedString(gameData.enseigne_name) || "un commerce";
+      let enseigneCity = null;
+
+      if (useCityFilter && enseigneRef) {
+        const enseigneSnap = await enseigneRef.get();
+        if (enseigneSnap.exists) {
+          enseigneCity = getTrimmedString(enseigneSnap.data().city);
+        }
+      }
+
+      // Requête joueurs éligibles
+      let usersQuery = firestore
+        .collection("users")
+        .where("user_role", "==", "joueur")
+        .where("player_status_cached", "in", targetStatuses);
+
+      if (useCityFilter && enseigneCity) {
+        usersQuery = usersQuery.where("city", "==", enseigneCity);
+      }
+
+      const usersSnap = await usersQuery.get();
+      console.log(
+        `[notifyNewGameAvailableToAllEligible] found ${usersSnap.size} eligible users (city=${enseigneCity})`
+      );
+
+      let sent = 0;
+      let skippedDuplicate = 0;
+      let skippedNoToken = 0;
+      let errors = 0;
+
+      // Traiter chaque joueur
+      for (const userDoc of usersSnap.docs) {
+        const userData = userDoc.data() || {};
+        const uid = userData.uid || userDoc.id;
+        const userCity = userData.city || "";
+
+        try {
+          // ===== ANTI-DOUBLON AVANT ENVOI =====
+          const existingNotifRef = firestore
+            .doc(`users/${uid}/notifications`)
+            .collection("by_game")
+            .doc(gameId);
+          const existingSnap = await existingNotifRef.get();
+
+          if (existingSnap.exists) {
+            console.log(
+              `[notifyNewGameAvailableToAllEligible] uid=${uid} game=${gameId} already notified, skipping`
+            );
+            skippedDuplicate++;
+            continue;
+          }
+
+          // Vérifier qu'il a au moins un token FCM
+          const tokensSnap = await firestore
+            .doc(`users/${uid}`)
+            .collection(kFcmTokensCollection)
+            .get();
+
+          if (tokensSnap.empty) {
+            skippedNoToken++;
+            continue;
+          }
+
+          // ===== CRÉER NOTIFICATION via FF_PUSH_NOTIFICATIONS =====
+          const notificationBody = enseigneCity
+            ? `${enseigneName} a publié ${gameName} près de chez vous.`
+            : `${enseigneName} a publié ${gameName}.`;
+
+          const notificationRef = firestore
+            .collection("ff_push_notifications")
+            .doc(`new_game_${gameId}_${uid}_${Date.now()}`);
+
+          await notificationRef.set({
+            notification_title: "Nouveau jeu disponible 🎉",
+            notification_text: notificationBody,
+            notification_image_url: "",
+            notification_sound: "",
+            parameter_data: "", // Pourrait être JSON avec deeplink au jeu
+            initial_page_name: "",
+            target_audience: "All",
+            target_user_group: "All",
+            user_refs: `users/${uid}`,
+            status: "started",
+            created_at: admin.firestore.FieldValue.serverTimestamp(),
+            created_by: "system/new_game_available",
+          });
+
+          // ===== CRÉER LOG ANTI-DOUBLON =====
+          await existingNotifRef.set({
+            type: "new_game_available",
+            game_id: gameId,
+            game_name: gameName,
+            enseigne_id: gameData.enseigne_id ? gameData.enseigne_id.path : "",
+            enseigne_name: enseigneName,
+            notification_title: "Nouveau jeu disponible 🎉",
+            notification_text: notificationBody,
+            player_status: userData.player_status_cached || "unknown",
+            city_filtered: useCityFilter,
+            user_city: userCity,
+            enseigne_city: enseigneCity || "",
+            sent_at: admin.firestore.FieldValue.serverTimestamp(),
+            viewed: false,
+          });
+
+          sent++;
+          console.log(
+            `[notifyNewGameAvailableToAllEligible] uid=${uid} notified for game=${gameId}`
+          );
+        } catch (e) {
+          errors++;
+          console.error(
+            `[notifyNewGameAvailableToAllEligible] uid=${uid} error=${e.message || e}`
+          );
+        }
+      }
+
+      console.log(
+        `[notifyNewGameAvailableToAllEligible] game=${gameId} sent=${sent} skippedDuplicate=${skippedDuplicate} skippedNoToken=${skippedNoToken} errors=${errors}`
+      );
+
+      return null;
+    } catch (e) {
+      console.error(
+        `[notifyNewGameAvailableToAllEligible] critical error=${e.message || e}`
+      );
+      throw e;
+    }
+  });
+
 async function sendPushNotifications(snapshot) {
   const notificationData = snapshot.data();
   const title = notificationData.notification_title || "";
@@ -1619,43 +1881,215 @@ exports.notifyFollowedGamesEndingSoon = functions
   .pubsub.schedule("0 9 * * *")
   .timeZone(kParisTimeZone)
   .onRun(async () => {
-    const now = new Date();
-    const { start, end } = getTimeZoneDayBounds(now, kParisTimeZone, 3);
-    const startTimestamp = admin.firestore.Timestamp.fromDate(start);
-    const endTimestamp = admin.firestore.Timestamp.fromDate(end);
+    try {
+      // Lire config
+      const configRef = firestore.collection("app_config").doc("notifications_auto");
+      const configSnap = await configRef.get();
+      const config = configSnap.exists ? configSnap.data() || {} : {};
+      const enabled = config.game_ending_enabled === true;
+      const daysBefore = config.game_ending_days_before || 3;
 
-    console.log(
-      `[followedGameEndingSoon] start windowStart=${start.toISOString()} windowEnd=${end.toISOString()}`,
-    );
+      console.log(
+        `[followedGameEndingSoon] start enabled=${enabled} daysBefore=${daysBefore}`
+      );
 
-    const gamesSnap = await firestore
-      .collection("games")
-      .where("end_date", ">=", startTimestamp)
-      .where("end_date", "<", endTimestamp)
-      .get();
-
-    let processed = 0;
-    let skippedUnpublished = 0;
-    for (const gameDoc of gamesSnap.docs) {
-      const gameData = gameDoc.data() || {};
-      if (!isPublishedGame(gameData)) {
-        skippedUnpublished += 1;
-        continue;
+      if (!enabled) {
+        console.log(`[followedGameEndingSoon] disabled in config, skipping`);
+        return null;
       }
-      processed += 1;
-      try {
-        await queueFollowedGameEndingSoonNotifications(gameDoc);
-      } catch (error) {
-        console.error(
-          `[followedGameEndingSoon] game=${gameDoc.id} error=${error.message || error}`,
-        );
+
+      const now = new Date();
+      const { start, end } = getTimeZoneDayBounds(now, kParisTimeZone, daysBefore);
+      const startTimestamp = admin.firestore.Timestamp.fromDate(start);
+      const endTimestamp = admin.firestore.Timestamp.fromDate(end);
+
+      console.log(
+        `[followedGameEndingSoon] windowStart=${start.toISOString()} windowEnd=${end.toISOString()}`
+      );
+
+      // Chercher jeux qui finissent dans la fenêtre J+X
+      const gamesSnap = await firestore
+        .collection("games")
+        .where("end_date", ">=", startTimestamp)
+        .where("end_date", "<", endTimestamp)
+        .get();
+
+      console.log(`[followedGameEndingSoon] found ${gamesSnap.size} games`);
+
+      let processed = 0;
+      let skippedUnpublished = 0;
+
+      for (const gameDoc of gamesSnap.docs) {
+        const gameData = gameDoc.data() || {};
+        if (!isPublishedGame(gameData)) {
+          skippedUnpublished += 1;
+          continue;
+        }
+        processed += 1;
+        try {
+          await queueFollowedGameEndingSoonNotifications(gameDoc, config);
+        } catch (error) {
+          console.error(
+            `[followedGameEndingSoon] game=${gameDoc.id} error=${error.message || error}`
+          );
+        }
       }
+
+      console.log(
+        `[followedGameEndingSoon] completed matched=${gamesSnap.size} processed=${processed} skippedUnpublished=${skippedUnpublished}`
+      );
+      return null;
+    } catch (e) {
+      console.error(
+        `[followedGameEndingSoon] critical error=${e.message || e}`
+      );
+      throw e;
     }
+  });
 
-    console.log(
-      `[followedGameEndingSoon] completed matched=${gamesSnap.size} processed=${processed} skippedUnpublished=${skippedUnpublished}`,
-    );
-    return null;
+/**
+ * Relance des joueurs inactifs (V1 SIMPLE)
+ * - Runs quotidiennement à 10h (Europe/Paris)
+ * - Lit config depuis app_config/notifications_auto
+ * - Filtre users avec player_status_cached in [a_relancer, dormant, mort_probable]
+ * - Anti-spam: max 1 relance par N jours (configurable)
+ * - Crée notifications individuelles (hardcodées par status)
+ * - Met à jour last_inactive_relaunch_at sur utilisateur
+ */
+exports.relaunInactivePlayersByStatus = functions
+  .runWith(kPushNotificationRuntimeOpts)
+  .pubsub.schedule("0 10 * * *")
+  .timeZone(kParisTimeZone)
+  .onRun(async () => {
+    const startTime = Date.now();
+    let relaunched = 0;
+    let skippedAntiSpam = 0;
+    let errors = 0;
+
+    try {
+      // Lire configuration
+      const configRef = firestore.collection("app_config").doc("notifications_auto");
+      const configSnap = await configRef.get();
+      const configData = configSnap.exists ? configSnap.data() || {} : {};
+      const enabled = configData.inactive_relaunch_enabled === true;
+      const frequencyDays = configData.inactive_relaunch_frequency_days || 7;
+
+      console.log(
+        `[relaunInactivePlayersByStatus] start enabled=${enabled} frequencyDays=${frequencyDays}`,
+      );
+
+      if (!enabled) {
+        console.log(`[relaunInactivePlayersByStatus] disabled, skipping`);
+        return null;
+      }
+
+      // Requête: users avec statuts inactifs
+      const usersSnap = await firestore
+        .collection("users")
+        .where("user_role", "==", "joueur")
+        .where("player_status_cached", "in", ["a_relancer", "dormant", "mort_probable"])
+        .get();
+
+      console.log(
+        `[relaunInactivePlayersByStatus] found ${usersSnap.size} inactive users`,
+      );
+
+      // Calculer le cutoff pour anti-spam
+      const frequencyMs = frequencyDays * 24 * 60 * 60 * 1000;
+      const cutoffTime = new Date(Date.now() - frequencyMs);
+      const cutoffTimestamp = admin.firestore.Timestamp.fromDate(cutoffTime);
+
+      // Traiter chaque utilisateur
+      for (const userDoc of usersSnap.docs) {
+        const userData = userDoc.data() || {};
+        const uid = userData.uid || userDoc.id;
+        const status = userData.player_status_cached || "statut_inconnu";
+
+        // Vérifier anti-spam
+        const lastRelaunchRaw = userData.last_inactive_relaunch_at;
+        if (lastRelaunchRaw && lastRelaunchRaw > cutoffTimestamp) {
+          skippedAntiSpam += 1;
+          continue;
+        }
+
+        try {
+          // Message hardcodé par status
+          let messageTitle = "Revenez jouer !";
+          let messageBody = "Nous vous avons beaucoup manqué !";
+
+          if (status === "mort_probable") {
+            messageTitle = "Nous vous manquons ?";
+            messageBody =
+              "Revenez jouer à ProxiPlay et tentez de remporter des superbes lots !";
+          } else if (status === "dormant") {
+            messageTitle = "Ça fait longtemps !";
+            messageBody =
+              "Retrouvez les jeux ProxiPlay et vos lots récompenses. Nouveau jeu disponible !";
+          } else if (status === "a_relancer") {
+            messageTitle = "Revenez jouer !";
+            messageBody = "Continuez à jouer pour accumuler vos prochaines victoires !";
+          }
+
+          // Créer notification individuelle
+          const notificationRef = firestore
+            .collection("ff_push_notifications")
+            .doc(`relaunch_${uid}_${Date.now()}`);
+
+          await notificationRef.set({
+            notification_title: messageTitle,
+            notification_text: messageBody,
+            notification_image_url: "",
+            notification_sound: "",
+            parameter_data: "",
+            initial_page_name: "",
+            target_audience: "All",
+            target_user_group: "All",
+            user_refs: `users/${uid}`,
+            status: "started",
+            created_at: admin.firestore.FieldValue.serverTimestamp(),
+            created_by: "system/relaunch_inactive",
+          });
+
+          // Mettre à jour le user avec dernier relance
+          await userDoc.ref.update({
+            last_inactive_relaunch_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+          relaunched += 1;
+          console.log(
+            `[relaunInactivePlayersByStatus] relaunched uid=${uid} status=${status}`,
+          );
+        } catch (e) {
+          errors += 1;
+          console.error(
+            `[relaunInactivePlayersByStatus] uid=${uid} error=${e.message || e}`,
+          );
+        }
+      }
+
+      // Mettre à jour config avec stats
+      const elapsedMs = Date.now() - startTime;
+      await configRef.set(
+        {
+          last_run_at: admin.firestore.FieldValue.serverTimestamp(),
+          last_sent_count: relaunched,
+          last_error_count: errors,
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      console.log(
+        `[relaunInactivePlayersByStatus] completed relaunched=${relaunched} skippedAntiSpam=${skippedAntiSpam} errors=${errors} elapsed=${elapsedMs}ms`,
+      );
+
+      return null;
+    } catch (e) {
+      console.error(
+        `[relaunInactivePlayersByStatus] critical error=${e.message || e}`,
+      );
+      throw e;
+    }
   });
 
 // Automatically select a main prize winner after game end.

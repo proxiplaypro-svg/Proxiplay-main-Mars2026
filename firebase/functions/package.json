@@ -30,7 +30,9 @@
     "shell": "firebase -P proxi-play-odzp2e functions:shell",
     "start": "npm run shell",
     "logs": "firebase -P proxi-play-odzp2e functions:log",
-    "compile": "tsc --project tsconfig.json"
+    "compile": "tsc --project tsconfig.json",
+    "backfill:player-status:dry": "node scripts/backfill_player_status_cached.js --project proxi-play-odzp2e --dry-run",
+    "backfill:player-status": "node scripts/backfill_player_status_cached.js --project proxi-play-odzp2e --apply --confirm"
   },
   "engines": {
     "node": "20"

@@ -1,5 +1,6 @@
-﻿import 'dart:async';
+import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
@@ -13,6 +14,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/upload_data.dart';
+import '/pages/admin/admin_push_notifications_history_page/admin_push_notifications_history_page_widget.dart';
 
 import 'admin_push_notifications_page_model.dart';
 
@@ -37,9 +39,6 @@ class _AdminPushNotificationsPageWidgetState
   final PagingController<DocumentSnapshot?, UsersRecord> _pagingController =
       PagingController(firstPageKey: null);
 
-  // Step 0 = pick recipients, Step 1 = compose/send
-  int _step = 0;
-
   _AudienceMode _audienceMode = _AudienceMode.allUsers;
   final Map<String, UsersRecord> _selectedUsers = {};
 
@@ -52,10 +51,8 @@ class _AdminPushNotificationsPageWidgetState
   void initState() {
     super.initState();
     _model = createModel(context, () => AdminPushNotificationsPageModel());
-
-    _pagingController.addPageRequestListener((pageKey) {
-      _fetchUsersPage(pageKey);
-    });
+    _pagingController.addPageRequestListener(_fetchUsersPage);
+    _loadGameEndingConfig();
   }
 
   @override
@@ -66,23 +63,100 @@ class _AdminPushNotificationsPageWidgetState
     super.dispose();
   }
 
+  Future<void> _loadGameEndingConfig() async {
+    if (!mounted) return;
+    setState(() => _model.gameEndingConfigLoading = true);
+    try {
+      final result = await makeCloudCall('adminGetNotificationsConfig', {});
+      if (!mounted || result == null) return;
+      setState(() {
+        _model.gameEndingNotificationEnabled =
+            result['game_ending_enabled'] ?? false;
+        _model.gameEndingDaysBeforeController.text =
+            (result['game_ending_days_before'] ?? 3).toString();
+        final statuses =
+            result['game_ending_target_statuses'] ?? ['actif', 'a_relancer'];
+        _model.gameEndingTargetStatuses = {
+          'actif': statuses.contains('actif'),
+          'a_relancer': statuses.contains('a_relancer'),
+        };
+        _model.gameEndingUseCityFilter =
+            result['game_ending_use_city_filter'] ?? true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur chargement config: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _model.gameEndingConfigLoading = false);
+      }
+    }
+  }
+
+  Future<void> _saveGameEndingConfig() async {
+    if (!mounted) return;
+    setState(() => _model.gameEndingConfigSaving = true);
+    try {
+      final daysBefore =
+          int.tryParse(_model.gameEndingDaysBeforeController.text.trim()) ?? 3;
+      final targetStatuses = _model.gameEndingTargetStatuses.entries
+          .where((entry) => entry.value)
+          .map((entry) => entry.key)
+          .toList();
+
+      if (targetStatuses.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sélectionnez au moins un statut.')),
+        );
+        return;
+      }
+
+      final result = await makeCloudCall('adminSetNotificationsConfig', {
+        'game_ending_enabled': _model.gameEndingNotificationEnabled,
+        'game_ending_days_before': daysBefore,
+        'game_ending_target_statuses': targetStatuses,
+        'game_ending_use_city_filter': _model.gameEndingUseCityFilter,
+      });
+
+      if (!mounted) return;
+      final ok = result != null && result['ok'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok ? 'Configuration enregistrée.' : 'Erreur lors de la sauvegarde.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _model.gameEndingConfigSaving = false);
+      }
+    }
+  }
+
   Future<void> _fetchUsersPage(DocumentSnapshot? pageKey) async {
     try {
-      // Order by a field that exists for all users.
-      Query q = UsersRecord.collection
+      Query query = UsersRecord.collection
           .orderBy('created_time', descending: true)
           .limit(_pageSize);
 
       if (pageKey != null) {
-        q = q.startAfterDocument(pageKey);
+        query = query.startAfterDocument(pageKey);
       }
 
-      final QuerySnapshot snap = await q.get();
-      final docs = snap.docs;
+      final snapshot = await query.get();
+      final docs = snapshot.docs;
       final users =
-          docs.map((d) => UsersRecord.fromSnapshot(d)).toList(growable: false);
-
+          docs.map((doc) => UsersRecord.fromSnapshot(doc)).toList(growable: false);
       final isLastPage = users.length < _pageSize;
+
       if (isLastPage) {
         _pagingController.appendLastPage(users);
       } else {
@@ -98,6 +172,7 @@ class _AdminPushNotificationsPageWidgetState
     _searchDebounce = Timer(const Duration(milliseconds: 350), () async {
       final query = value.trim();
       if (query.isEmpty) {
+        if (!mounted) return;
         setState(() {
           _searchMode = false;
           _searchResults = [];
@@ -106,6 +181,7 @@ class _AdminPushNotificationsPageWidgetState
         return;
       }
 
+      if (!mounted) return;
       setState(() {
         _searchMode = true;
         _searchLoading = true;
@@ -131,59 +207,55 @@ class _AdminPushNotificationsPageWidgetState
   }
 
   Future<List<UsersRecord>> _searchUsers(String q) async {
-    // Simple server-side prefix search on email + display_name and merge results.
     final queryLower = q.toLowerCase();
-    final endLower = '$queryLower\uf8ff';
-    final end = '$q\uf8ff';
-
     final byEmail = await UsersRecord.collection
         .orderBy('email')
         .startAt([queryLower])
-        .endAt([endLower])
+        .endAt(['$queryLower\uf8ff'])
         .limit(25)
         .get();
     final byName = await UsersRecord.collection
         .orderBy('display_name')
         .startAt([q])
-        .endAt([end])
+        .endAt(['$q\uf8ff'])
         .limit(25)
         .get();
 
-    final map = <String, UsersRecord>{};
-    for (final d in byEmail.docs) {
-      final u = UsersRecord.fromSnapshot(d);
-      map[u.reference.path] = u;
+    final usersByPath = <String, UsersRecord>{};
+    for (final doc in byEmail.docs) {
+      final user = UsersRecord.fromSnapshot(doc);
+      usersByPath[user.reference.path] = user;
     }
-    for (final d in byName.docs) {
-      final u = UsersRecord.fromSnapshot(d);
-      map[u.reference.path] = u;
+    for (final doc in byName.docs) {
+      final user = UsersRecord.fromSnapshot(doc);
+      usersByPath[user.reference.path] = user;
     }
-    return map.values.toList();
+    return usersByPath.values.toList();
   }
 
-  void _toggleSelected(UsersRecord u) {
-    final key = u.reference.path;
-    setState(() {
-      if (_selectedUsers.containsKey(key)) {
-        _selectedUsers.remove(key);
-      } else {
-        _selectedUsers[key] = u;
-      }
-    });
-  }
-
-  bool _matchesAudienceFilter(UsersRecord u) {
+  bool _matchesAudienceFilter(UsersRecord user) {
     switch (_audienceMode) {
       case _AudienceMode.adminsOnly:
-        return u.userRole == Roles.admin;
+        return user.userRole == Roles.admin;
       case _AudienceMode.professionals:
-        return u.userRole == Roles.commercant;
+        return user.userRole == Roles.commercant;
       case _AudienceMode.normalUsers:
-        return u.userRole != Roles.admin;
+        return user.userRole != Roles.admin && user.userRole != Roles.commercant;
       case _AudienceMode.selectedUsers:
       case _AudienceMode.allUsers:
         return true;
     }
+  }
+
+  void _toggleSelected(UsersRecord user) {
+    final key = user.reference.path;
+    setState(() {
+      if (_selectedUsers.containsKey(key)) {
+        _selectedUsers.remove(key);
+      } else {
+        _selectedUsers[key] = user;
+      }
+    });
   }
 
   Future<void> _pickAndUploadImage() async {
@@ -198,12 +270,44 @@ class _AdminPushNotificationsPageWidgetState
     try {
       final file = selectedMedia.first;
       final url = await uploadData(file.storagePath, file.bytes);
-      if (url != null) {
+      if (url != null && mounted) {
         setState(() => _model.imageUrl = url);
       }
     } finally {
-      if (mounted) setState(() => _model.isUploadingImage = false);
+      if (mounted) {
+        setState(() => _model.isUploadingImage = false);
+      }
     }
+  }
+
+  Future<void> _pickSchedule() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      initialDate: _model.scheduledAt ?? now,
+    );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(
+        _model.scheduledAt ?? now.add(const Duration(minutes: 5)),
+      ),
+    );
+    if (time == null || !mounted) return;
+
+    setState(() {
+      _model.scheduleEnabled = true;
+      _model.scheduledAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    });
   }
 
   Future<void> _send() async {
@@ -214,30 +318,26 @@ class _AdminPushNotificationsPageWidgetState
 
     if (_audienceMode == _AudienceMode.selectedUsers && _selectedUsers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select at least one user.')),
+        const SnackBar(content: Text('Sélectionnez au moins un utilisateur.')),
       );
       return;
     }
 
-    // Check if user is actually authenticated
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Not authenticated. Please log in again.')),
+        const SnackBar(content: Text('Session expirée. Reconnectez-vous.')),
       );
       return;
     }
 
-    // Force token refresh to ensure we have a valid token
     try {
       await user.getIdToken(true);
-    } catch (e) {
-    }
+    } catch (_) {}
 
     final scheduledMs = _model.scheduleEnabled && _model.scheduledAt != null
         ? _model.scheduledAt!.millisecondsSinceEpoch
         : 0;
-
     final repeatEveryMinutes = _model.repeatEnabled
         ? int.tryParse(_model.repeatMinutesController.text.trim()) ?? 0
         : 0;
@@ -257,7 +357,7 @@ class _AdminPushNotificationsPageWidgetState
         ? _selectedUsers.keys.toList()
         : <String>[];
 
-    final res = await makeCloudCall('createAdminPushNotification', {
+    final result = await makeCloudCall('createAdminPushNotification', {
       'title': _model.titleController.text.trim(),
       'body': _model.bodyController.text.trim(),
       'imageUrl': _model.imageUrl,
@@ -269,533 +369,1214 @@ class _AdminPushNotificationsPageWidgetState
       'repeatCount': _model.repeatEnabled ? repeatCount : null,
     }.withoutNulls);
 
-    final ok = res['ok'] == true;
-    final id = res['id']?.toString();
+    final ok = result['ok'] == true;
+    final id = result['id']?.toString() ?? '';
     if (!mounted) return;
-    if (!ok || id == null || id.isEmpty) {
+
+    if (!ok || id.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to send message.')),
+        const SnackBar(content: Text('Échec de création de la notification.')),
       );
       return;
     }
 
-    // If scheduled/repeating: it is expected to be queued.
     if (scheduledMs > 0 || repeatEveryMinutes > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Message scheduled.')),
+        const SnackBar(content: Text('Notification planifiée.')),
       );
       return;
     }
 
-    // Immediate send: show queued â†’ succeeded/failed once the trigger updates the doc.
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Message queued...')),
+      const SnackBar(content: Text('Notification en file d’envoi...')),
     );
+
     try {
       final docRef =
           FirebaseFirestore.instance.collection('ff_push_notifications').doc(id);
       final status = await docRef
           .snapshots()
-          .map((s) => s.data()?['status']?.toString())
-          .where((s) => s == 'succeeded' || s == 'failed')
+          .map((snapshot) => snapshot.data()?['status']?.toString())
+          .where((value) => value == 'succeeded' || value == 'failed')
           .first
           .timeout(const Duration(seconds: 20));
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            status == 'succeeded' ? 'Message sent.' : 'Failed to send message.',
+            status == 'succeeded'
+                ? 'Notification envoyée.'
+                : 'Échec lors de l’envoi.',
           ),
         ),
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Message queued (delivery pending).')),
+        const SnackBar(content: Text('Notification créée, statut en attente.')),
       );
     }
   }
 
-  Widget _userBadge(UsersRecord u) {
-    final isAdmin = u.userRole == Roles.admin;
-    final isPro = u.userRole == Roles.commercant;
-    if (!isAdmin && !isPro) return const SizedBox.shrink();
+  String _audienceTitle() {
+    switch (_audienceMode) {
+      case _AudienceMode.allUsers:
+        return 'Tous les utilisateurs';
+      case _AudienceMode.normalUsers:
+        return 'Joueurs';
+      case _AudienceMode.professionals:
+        return 'Commerçants';
+      case _AudienceMode.adminsOnly:
+        return 'Administrateurs';
+      case _AudienceMode.selectedUsers:
+        return 'Sélection manuelle';
+    }
+  }
 
-    final label = isAdmin ? 'ADMIN' : 'PRO';
-    final color = isAdmin
-        ? FlutterFlowTheme.of(context).primary
-        : FlutterFlowTheme.of(context).secondary;
+  String _audienceSubtitle() {
+    switch (_audienceMode) {
+      case _AudienceMode.allUsers:
+        return 'Diffusion large sur toute la base.';
+      case _AudienceMode.normalUsers:
+        return 'Ciblage des comptes joueurs uniquement.';
+      case _AudienceMode.professionals:
+        return 'Ciblage des comptes commerçants.';
+      case _AudienceMode.adminsOnly:
+        return 'Réservé aux administrateurs.';
+      case _AudienceMode.selectedUsers:
+        final count = _selectedUsers.length;
+        return count == 0
+            ? 'Choisissez précisément les comptes à notifier.'
+            : '$count utilisateur${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''}.';
+    }
+  }
 
+  String _sendButtonLabel() {
+    if (_model.scheduleEnabled) return 'Planifier l’envoi';
+    if (_model.repeatEnabled) return 'Créer la campagne récurrente';
+    return 'Envoyer maintenant';
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'succeeded':
+        return const Color(0xFF12B76A);
+      case 'failed':
+        return const Color(0xFFF04438);
+      case 'scheduled':
+        return const Color(0xFFF79009);
+      default:
+        return FlutterFlowTheme.of(context).primary;
+    }
+  }
+
+  Widget _buildTopBanner() {
+    final theme = FlutterFlowTheme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1D2939), Color(0xFF344054)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
       ),
-      child: Text(
-        label,
-        style: FlutterFlowTheme.of(context).labelSmall.override(
-              fontSize: 10,
-              color: Colors.white,
-              letterSpacing: 0.5,
-            ),
-      ),
-    );
-  }
-
-  Widget _userTile(UsersRecord u) {
-    final isSelected = _selectedUsers.containsKey(u.reference.path);
-    return ListTile(
-      dense: true,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      tileColor: FlutterFlowTheme.of(context).primaryBackground,
-      title: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              u.displayName.isNotEmpty
-                  ? u.displayName
-                  : (u.email.isNotEmpty ? u.email : u.uid),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(
+                  Icons.notifications_active_outlined,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Centre de gestion des notifications',
+                    style: theme.headlineSmall.override(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Créez, planifiez et suivez vos pushs administrateur depuis un seul écran.',
+                    style: theme.bodyMedium.override(
+                      color: Colors.white.withValues(alpha: 0.82),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          _userBadge(u),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _bannerPill(
+                icon: Icons.group_outlined,
+                label: _audienceTitle(),
+              ),
+              _bannerPill(
+                icon: Icons.schedule_outlined,
+                label: _model.scheduleEnabled && _model.scheduledAt != null
+                    ? dateTimeFormat('d/M HH:mm', _model.scheduledAt)
+                    : 'Envoi immédiat',
+              ),
+              _bannerPill(
+                icon: Icons.tune_outlined,
+                label: _model.gameEndingNotificationEnabled
+                    ? 'Auto fin de jeu active'
+                    : 'Automatisations à vérifier',
+              ),
+            ],
+          ),
         ],
       ),
-      subtitle: Text(u.email, maxLines: 1, overflow: TextOverflow.ellipsis),
-      onTap: () {
-        // UX: tapping a user selects them and switches to "Selected users" mode.
-        setState(() => _audienceMode = _AudienceMode.selectedUsers);
-        _toggleSelected(u);
-      },
-      trailing: _audienceMode == _AudienceMode.selectedUsers
-          ? Checkbox(
-              value: isSelected,
-              onChanged: (_) => _toggleSelected(u),
-            )
-          : null,
     );
   }
 
-  Widget _selectedUsersHeader() {
-    if (_audienceMode != _AudienceMode.selectedUsers) return const SizedBox.shrink();
-    if (_selectedUsers.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          'To: (no users selected)',
-          style: FlutterFlowTheme.of(context).labelMedium,
-        ),
-      );
-    }
-
-    final labels = _selectedUsers.values
-        .take(3)
-        .map((u) => u.displayName.isNotEmpty
-            ? u.displayName
-            : (u.email.isNotEmpty ? u.email : u.uid))
-        .toList();
-    final extraCount = _selectedUsers.length - labels.length;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+  Widget _bannerPill({required IconData icon, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: FlutterFlowTheme.of(context).secondaryBackground,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: FlutterFlowTheme.of(context).alternate),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.people_alt, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'To: ${labels.join(", ")}${extraCount > 0 ? " +$extraCount" : ""}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: FlutterFlowTheme.of(context).bodyMedium,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          Icon(icon, size: 16, color: Colors.white),
           const SizedBox(width: 8),
-          IconButton(
-            tooltip: 'Clear selected users',
-            onPressed: () => setState(() => _selectedUsers.clear()),
-            icon: const Icon(Icons.close),
+          Text(
+            label,
+            style: FlutterFlowTheme.of(context).labelMedium.override(
+                  color: Colors.white,
+                ),
           ),
         ],
       ),
     );
   }
 
-  Widget _usersPanel() {
-    return Column(
+  Widget _sectionCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(18),
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: FlutterFlowTheme.of(context).secondaryBackground,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: FlutterFlowTheme.of(context).alternate.withValues(alpha: 0.6),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(padding: padding, child: child),
+    );
+  }
+
+  Widget _sectionHeader({
+    required String title,
+    required String subtitle,
+    IconData? icon,
+    Widget? trailing,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-          child: Text(
-            'Recipients',
-            style: FlutterFlowTheme.of(context).titleMedium,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Card(
-            elevation: 0,
-            color: FlutterFlowTheme.of(context).secondaryBackground,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  TextFormField(
-                    controller: _model.searchController,
-                    onChanged: _onSearchChanged,
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.search),
-                      hintText: 'Search users (name or email)',
-                      filled: true,
-                      fillColor: FlutterFlowTheme.of(context).primaryBackground,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
-                      ),
-                      suffixIcon: _model.searchController.text.isNotEmpty
-                          ? IconButton(
-                              onPressed: _clearSearch,
-                              icon: const Icon(Icons.close),
-                            )
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _audienceMode == _AudienceMode.allUsers,
-                        onChanged: (v) {
-                          setState(() {
-                            if (v == true) {
-                              _audienceMode = _AudienceMode.allUsers;
-                              _selectedUsers.clear();
-                            } else {
-                              _audienceMode = _AudienceMode.selectedUsers;
-                            }
-                          });
-                        },
-                      ),
-                      const Text('All users'),
-                      const SizedBox(width: 12),
-                      DropdownButton<_AudienceMode>(
-                        value: _audienceMode,
-                        onChanged: (v) {
-                          if (v == null) return;
-                          setState(() {
-                            _audienceMode = v;
-                            if (_audienceMode != _AudienceMode.selectedUsers) {
-                              _selectedUsers.clear();
-                            }
-                          });
-                        },
-                        underline: const SizedBox.shrink(),
-                        items: const [
-                          DropdownMenuItem(
-                            value: _AudienceMode.allUsers,
-                            child: Text('All users'),
-                          ),
-                          DropdownMenuItem(
-                            value: _AudienceMode.professionals,
-                            child: Text('Professionals'),
-                          ),
-                          DropdownMenuItem(
-                            value: _AudienceMode.normalUsers,
-                            child: Text('Normal users'),
-                          ),
-                          DropdownMenuItem(
-                            value: _AudienceMode.adminsOnly,
-                            child: Text('Admins only'),
-                          ),
-                          DropdownMenuItem(
-                            value: _AudienceMode.selectedUsers,
-                            child: Text('Selected users'),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      if (_audienceMode == _AudienceMode.selectedUsers)
-                        Text(
-                          '${_selectedUsers.length} selected',
-                          style: FlutterFlowTheme.of(context).labelMedium,
-                        ),
-                    ],
-                  ),
-                ],
-              ),
+        if (icon != null) ...[
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: FlutterFlowTheme.of(context).primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(14),
             ),
+            child: Icon(icon, color: FlutterFlowTheme.of(context).primary),
           ),
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(width: 12),
+        ],
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Card(
-              elevation: 1,
-              color: FlutterFlowTheme.of(context).secondaryBackground,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: _searchMode
-                    ? (_searchLoading
-                        ? const Center(child: SizedBox.shrink())
-                        : () {
-                            final filtered = _searchResults
-                                .where(_matchesAudienceFilter)
-                                .toList(growable: false);
-                            if (filtered.isEmpty) {
-                              return const Center(child: Text('No users found.'));
-                            }
-                            return ListView.builder(
-                              itemCount: filtered.length,
-                              itemBuilder: (context, i) => _userTile(filtered[i]),
-                            );
-                          }())
-                    : PagedListView<DocumentSnapshot?, UsersRecord>(
-                        pagingController: _pagingController,
-                        builderDelegate:
-                            PagedChildBuilderDelegate<UsersRecord>(
-                          itemBuilder: (context, item, index) =>
-                              _matchesAudienceFilter(item)
-                                  ? _userTile(item)
-                                  : const SizedBox.shrink(),
-                          firstPageProgressIndicatorBuilder: (_) =>
-                              const Center(child: SizedBox.shrink()),
-                          newPageProgressIndicatorBuilder: (_) =>
-                              const Center(child: SizedBox.shrink()),
-                          noItemsFoundIndicatorBuilder: (_) =>
-                              const Center(child: Text('No users.')),
-                          firstPageErrorIndicatorBuilder: (_) => Center(
-                            child: Text(
-                              'Failed to load users.\n${_pagingController.error}',
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: FlutterFlowTheme.of(context).titleLarge),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: FlutterFlowTheme.of(context).bodySmall.override(
+                      color: FlutterFlowTheme.of(context).secondaryText,
+                    ),
               ),
-            ),
+            ],
           ),
         ),
+        if (trailing != null) trailing,
       ],
     );
   }
 
-  Widget _composePanel({bool isPhone = false}) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _audienceChip(_AudienceMode mode, String label, IconData icon) {
+    final selected = _audienceMode == mode;
+    final theme = FlutterFlowTheme.of(context);
+    return ChoiceChip(
+      selected: selected,
+      showCheckmark: false,
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Compose', style: FlutterFlowTheme.of(context).titleMedium),
-          const SizedBox(height: 8),
-          _selectedUsersHeader(),
-          if (isPhone)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () => setState(() => _step = 0),
-                child: const Text('Edit recipients'),
+          Icon(
+            icon,
+            size: 16,
+            color: selected ? Colors.white : theme.primaryText,
+          ),
+          const SizedBox(width: 8),
+          Text(label),
+        ],
+      ),
+      labelStyle: theme.labelLarge.override(
+        color: selected ? Colors.white : theme.primaryText,
+      ),
+      backgroundColor: theme.primaryBackground,
+      selectedColor: theme.primary,
+      side: BorderSide(
+        color: selected ? theme.primary : theme.alternate,
+      ),
+      onSelected: (_) {
+        setState(() {
+          _audienceMode = mode;
+          if (mode != _AudienceMode.selectedUsers) {
+            _selectedUsers.clear();
+          }
+        });
+      },
+    );
+  }
+
+  Widget _summaryStat({
+    required String label,
+    required String value,
+    required IconData icon,
+    Color? accent,
+  }) {
+    final color = accent ?? FlutterFlowTheme.of(context).primary;
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: FlutterFlowTheme.of(context).primaryBackground,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 18, color: color),
+            ),
+            const SizedBox(height: 14),
+            Text(value, style: FlutterFlowTheme.of(context).headlineSmall),
+            const SizedBox(height: 4),
+            Text(label, style: FlutterFlowTheme.of(context).bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _selectionSummary() {
+    final names = _selectedUsers.values
+        .take(4)
+        .map((user) {
+          if (user.displayName.isNotEmpty) return user.displayName;
+          if (user.email.isNotEmpty) return user.email;
+          return user.uid;
+        })
+        .toList();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: FlutterFlowTheme.of(context).primaryBackground,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: FlutterFlowTheme.of(context).alternate),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.people_alt_outlined,
+                color: FlutterFlowTheme.of(context).primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Ciblage actuel',
+                style: FlutterFlowTheme.of(context).titleSmall,
+              ),
+              const Spacer(),
+              if (_audienceMode == _AudienceMode.selectedUsers &&
+                  _selectedUsers.isNotEmpty)
+                TextButton(
+                  onPressed: () => setState(() => _selectedUsers.clear()),
+                  child: const Text('Vider'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _audienceSubtitle(),
+            style: FlutterFlowTheme.of(context).bodyMedium,
+          ),
+          if (_audienceMode == _AudienceMode.selectedUsers &&
+              _selectedUsers.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: names
+                  .map(
+                    (name) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: FlutterFlowTheme.of(context)
+                            .primary
+                            .withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(name),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _userBadge(UsersRecord user) {
+    final isAdmin = user.userRole == Roles.admin;
+    final isPro = user.userRole == Roles.commercant;
+    if (!isAdmin && !isPro) return const SizedBox.shrink();
+
+    final label = isAdmin ? 'ADMIN' : 'PRO';
+    final color = isAdmin
+        ? const Color(0xFF7F56D9)
+        : const Color(0xFF12B76A);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: FlutterFlowTheme.of(context).labelSmall.override(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+      ),
+    );
+  }
+
+  Widget _userTile(UsersRecord user) {
+    final isSelected = _selectedUsers.containsKey(user.reference.path);
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () {
+        setState(() => _audienceMode = _AudienceMode.selectedUsers);
+        _toggleSelected(user);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? FlutterFlowTheme.of(context).primary.withValues(alpha: 0.07)
+              : FlutterFlowTheme.of(context).primaryBackground,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isSelected
+                ? FlutterFlowTheme.of(context).primary
+                : FlutterFlowTheme.of(context).alternate,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: FlutterFlowTheme.of(context)
+                    .secondary
+                    .withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                _initialForUser(user),
+                style: FlutterFlowTheme.of(context).titleMedium.override(
+                      color: FlutterFlowTheme.of(context).secondary,
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
             ),
-          Card(
-            elevation: 0,
-            color: FlutterFlowTheme.of(context).secondaryBackground,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextFormField(
-                    controller: _model.titleController,
-                    decoration: InputDecoration(
-                      labelText: 'Title',
-                      filled: true,
-                      fillColor: FlutterFlowTheme.of(context).primaryBackground,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 14),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  Text(
+                    user.displayName.isNotEmpty
+                        ? user.displayName
+                        : (user.email.isNotEmpty ? user.email : user.uid),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: FlutterFlowTheme.of(context).bodyLarge,
                   ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _model.bodyController,
-                    decoration: InputDecoration(
-                      labelText: 'Message',
-                      filled: true,
-                      fillColor: FlutterFlowTheme.of(context).primaryBackground,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 14),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    minLines: 3,
-                    maxLines: 6,
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  const SizedBox(height: 4),
+                  Text(
+                    user.email.isNotEmpty ? user.email : user.uid,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: FlutterFlowTheme.of(context).bodySmall,
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          initialValue: _model.imageUrl,
-                          key: ValueKey(_model.imageUrl),
-                          decoration: InputDecoration(
-                            labelText: 'Image URL (optional)',
-                            filled: true,
-                            fillColor: FlutterFlowTheme.of(context).primaryBackground,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 14),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          onChanged: (v) => _model.imageUrl = v.trim(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      FFButtonWidget(
-                        onPressed: _model.isUploadingImage ? null : _pickAndUploadImage,
-                        text: _model.isUploadingImage ? 'Uploading...' : 'Upload',
-                        options: const FFButtonOptions(
-                          height: 44,
-                          padding: EdgeInsets.symmetric(horizontal: 14),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      FilterChip(
-                        label: const Text('Schedule'),
-                        selected: _model.scheduleEnabled,
-                        onSelected: (v) async {
-                          if (!v) {
-                            setState(() {
-                              _model.scheduleEnabled = false;
-                              _model.scheduledAt = null;
-                            });
-                            return;
-                          }
-                          final now = DateTime.now();
-                          final date = await showDatePicker(
-                            context: context,
-                            firstDate: now,
-                            lastDate: now.add(const Duration(days: 365)),
-                            initialDate: now,
-                          );
-                          if (date == null) return;
-                          if (!mounted) return;
-                          final time = await showTimePicker(
-                            context: context,
-                            initialTime: TimeOfDay.fromDateTime(
-                                now.add(const Duration(minutes: 5))),
-                          );
-                          if (time == null) return;
-                          if (!mounted) return;
-                          final dt = DateTime(
-                            date.year,
-                            date.month,
-                            date.day,
-                            time.hour,
-                            time.minute,
-                          );
-                          setState(() {
-                            _model.scheduleEnabled = true;
-                            _model.scheduledAt = dt;
-                          });
-                        },
-                      ),
-                      FilterChip(
-                        label: const Text('Repeat'),
-                        selected: _model.repeatEnabled,
-                        onSelected: (v) => setState(() => _model.repeatEnabled = v),
-                      ),
-                      if (_model.scheduleEnabled && _model.scheduledAt != null)
-                        Text(
-                          'At: ${dateTimeFormat("y-MM-dd HH:mm", _model.scheduledAt)}',
-                          style: FlutterFlowTheme.of(context).labelMedium,
-                        ),
-                    ],
-                  ),
-                  if (_model.repeatEnabled) ...[
-                    const SizedBox(height: 12),
-                    Text('Repeat settings',
-                        style: FlutterFlowTheme.of(context).titleSmall),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _model.repeatMinutesController,
-                            keyboardType: TextInputType.number,
-                            decoration:
-                                const InputDecoration(labelText: 'Every (minutes)'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _model.repeatCountController,
-                            keyboardType: TextInputType.number,
-                            decoration:
-                                const InputDecoration(labelText: 'Count (0 = infinite)'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
                 ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            _userBadge(user),
+            const SizedBox(width: 8),
+            Checkbox(
+              value: isSelected,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+              onChanged: (_) {
+                setState(() => _audienceMode = _AudienceMode.selectedUsers);
+                _toggleSelected(user);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _initialForUser(UsersRecord user) {
+    final source = user.displayName.isNotEmpty
+        ? user.displayName
+        : (user.email.isNotEmpty ? user.email : user.uid);
+    return source.substring(0, 1).toUpperCase();
+  }
+
+  Widget _buildRecipientsPanel() {
+    final filteredSearchResults =
+        _searchResults.where(_matchesAudienceFilter).toList(growable: false);
+
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(
+            title: 'Destinataires',
+            subtitle: 'Choisissez une audience large ou une sélection précise.',
+            icon: Icons.group_outlined,
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _audienceChip(
+                _AudienceMode.allUsers,
+                'Tous',
+                Icons.public_outlined,
+              ),
+              _audienceChip(
+                _AudienceMode.normalUsers,
+                'Joueurs',
+                Icons.sports_esports_outlined,
+              ),
+              _audienceChip(
+                _AudienceMode.professionals,
+                'Commerçants',
+                Icons.storefront_outlined,
+              ),
+              _audienceChip(
+                _AudienceMode.adminsOnly,
+                'Admins',
+                Icons.admin_panel_settings_outlined,
+              ),
+              _audienceChip(
+                _AudienceMode.selectedUsers,
+                'Sélection manuelle',
+                Icons.how_to_reg_outlined,
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              _summaryStat(
+                label: 'Audience',
+                value: _audienceTitle(),
+                icon: Icons.campaign_outlined,
+              ),
+              const SizedBox(width: 12),
+              _summaryStat(
+                label: 'Sélection',
+                value: _selectedUsers.length.toString(),
+                icon: Icons.person_add_alt_1_outlined,
+                accent: const Color(0xFF12B76A),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _selectionSummary(),
+          const SizedBox(height: 18),
+          TextFormField(
+            controller: _model.searchController,
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+              hintText: 'Rechercher par nom ou email',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _model.searchController.text.isNotEmpty
+                  ? IconButton(
+                      onPressed: _clearSearch,
+                      icon: const Icon(Icons.close),
+                    )
+                  : null,
+              filled: true,
+              fillColor: FlutterFlowTheme.of(context).primaryBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
               ),
             ),
           ),
           const SizedBox(height: 16),
-          FFButtonWidget(
-            onPressed: _send,
-            text: _model.scheduleEnabled ? 'Schedule' : 'Send now',
-            options: FFButtonOptions(
-              height: 48,
-              color: FlutterFlowTheme.of(context).primary,
-              elevation: 2,
-              borderRadius: BorderRadius.circular(14),
-              textStyle: FlutterFlowTheme.of(context)
-                  .titleSmall
-                  .override(color: Colors.white),
+          SizedBox(
+            height: 420,
+            child: _searchMode
+                ? _searchLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : filteredSearchResults.isEmpty
+                        ? Center(
+                            child: Text(
+                              'Aucun utilisateur trouvé.',
+                              style: FlutterFlowTheme.of(context).bodyMedium,
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: filteredSearchResults.length,
+                            itemBuilder: (context, index) =>
+                                _userTile(filteredSearchResults[index]),
+                          )
+                : PagedListView<DocumentSnapshot?, UsersRecord>(
+                    pagingController: _pagingController,
+                    builderDelegate: PagedChildBuilderDelegate<UsersRecord>(
+                      itemBuilder: (context, item, index) {
+                        if (!_matchesAudienceFilter(item)) {
+                          return const SizedBox.shrink();
+                        }
+                        return _userTile(item);
+                      },
+                      firstPageProgressIndicatorBuilder: (_) =>
+                          const Center(child: CircularProgressIndicator()),
+                      newPageProgressIndicatorBuilder: (_) =>
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                      noItemsFoundIndicatorBuilder: (_) => Center(
+                        child: Text(
+                          'Aucun utilisateur disponible.',
+                          style: FlutterFlowTheme.of(context).bodyMedium,
+                        ),
+                      ),
+                      firstPageErrorIndicatorBuilder: (_) => Center(
+                        child: Text(
+                          'Erreur de chargement.\n${_pagingController.error}',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildComposePanel() {
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(
+            title: 'Composer la notification',
+            subtitle: 'Préparez le contenu, l’image et le mode d’envoi.',
+            icon: Icons.edit_notifications_outlined,
+          ),
+          const SizedBox(height: 18),
+          TextFormField(
+            controller: _model.titleController,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: 'Titre',
+              hintText: 'Ex: Nouveau jeu disponible aujourd’hui',
+              filled: true,
+              fillColor: FlutterFlowTheme.of(context).primaryBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            validator: (value) =>
+                value == null || value.trim().isEmpty ? 'Titre requis' : null,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _model.bodyController,
+            onChanged: (_) => setState(() {}),
+            minLines: 4,
+            maxLines: 6,
+            decoration: InputDecoration(
+              labelText: 'Message',
+              hintText: 'Expliquez clairement l’action attendue.',
+              alignLabelWithHint: true,
+              filled: true,
+              fillColor: FlutterFlowTheme.of(context).primaryBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            validator: (value) =>
+                value == null || value.trim().isEmpty ? 'Message requis' : null,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextFormField(
+                  initialValue: _model.imageUrl,
+                  key: ValueKey(_model.imageUrl),
+                  decoration: InputDecoration(
+                    labelText: 'Image URL',
+                    hintText: 'Optionnel',
+                    filled: true,
+                    fillColor: FlutterFlowTheme.of(context).primaryBackground,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onChanged: (value) => setState(() {
+                    _model.imageUrl = value.trim();
+                  }),
+                ),
+              ),
+              const SizedBox(width: 10),
+              FFButtonWidget(
+                onPressed: _model.isUploadingImage ? null : _pickAndUploadImage,
+                text: _model.isUploadingImage ? 'Upload...' : 'Uploader',
+                options: FFButtonOptions(
+                  height: 52,
+                  color: FlutterFlowTheme.of(context).primary,
+                  textStyle: FlutterFlowTheme.of(context)
+                      .labelLarge
+                      .override(color: Colors.white),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilterChip(
+                selected: _model.scheduleEnabled,
+                label: Text(
+                  _model.scheduleEnabled && _model.scheduledAt != null
+                      ? 'Planifié le ${dateTimeFormat('d/M HH:mm', _model.scheduledAt)}'
+                      : 'Planifier',
+                ),
+                onSelected: (selected) async {
+                  if (!selected) {
+                    setState(() {
+                      _model.scheduleEnabled = false;
+                      _model.scheduledAt = null;
+                    });
+                    return;
+                  }
+                  await _pickSchedule();
+                },
+              ),
+              FilterChip(
+                selected: _model.repeatEnabled,
+                label: const Text('Récurrence'),
+                onSelected: (selected) =>
+                    setState(() => _model.repeatEnabled = selected),
+              ),
+            ],
+          ),
+          if (_model.repeatEnabled) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _model.repeatMinutesController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Toutes les X minutes',
+                      filled: true,
+                      fillColor: FlutterFlowTheme.of(context).primaryBackground,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _model.repeatCountController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Nombre d’envois',
+                      helperText: '0 = illimité',
+                      filled: true,
+                      fillColor: FlutterFlowTheme.of(context).primaryBackground,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 18),
+          _buildPreviewCard(),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: FFButtonWidget(
+              onPressed: _send,
+              text: _sendButtonLabel(),
+              icon: const Icon(Icons.send_rounded, size: 18),
+              options: FFButtonOptions(
+                height: 54,
+                color: const Color(0xFF101828),
+                textStyle: FlutterFlowTheme.of(context)
+                    .titleSmall
+                    .override(color: Colors.white, fontWeight: FontWeight.w700),
+                borderRadius: BorderRadius.circular(18),
+              ),
             ),
           ),
-          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewCard() {
+    final title = _model.titleController.text.trim();
+    final body = _model.bodyController.text.trim();
+    final hasImage = _model.imageUrl.trim().isNotEmpty;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: FlutterFlowTheme.of(context).primaryBackground,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: FlutterFlowTheme.of(context).alternate),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.visibility_outlined,
+                color: FlutterFlowTheme.of(context).primary,
+              ),
+              const SizedBox(width: 8),
+              Text('Aperçu', style: FlutterFlowTheme.of(context).titleSmall),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: FlutterFlowTheme.of(context).secondaryBackground,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: FlutterFlowTheme.of(context).alternate.withValues(alpha: 0.8),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: FlutterFlowTheme.of(context)
+                        .primary
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.notifications_none_rounded,
+                    color: FlutterFlowTheme.of(context).primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title.isEmpty ? 'Titre de la notification' : title,
+                        style: FlutterFlowTheme.of(context).titleSmall,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        body.isEmpty
+                            ? 'Le message envoyé apparaîtra ici.'
+                            : body,
+                        style: FlutterFlowTheme.of(context).bodyMedium,
+                      ),
+                      if (hasImage) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          'Image jointe',
+                          style: FlutterFlowTheme.of(context).labelMedium,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAutomationPanel() {
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(
+            title: 'Automatisation fin de jeu',
+            subtitle: 'Gérez le rappel automatique envoyé avant la clôture d’un jeu.',
+            icon: Icons.auto_awesome_outlined,
+          ),
+          const SizedBox(height: 18),
+          if (_model.gameEndingConfigLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else ...[
+            Row(
+              children: [
+                _summaryStat(
+                  label: 'Statut',
+                  value: _model.gameEndingNotificationEnabled ? 'Actif' : 'Inactif',
+                  icon: Icons.power_settings_new_outlined,
+                  accent: _model.gameEndingNotificationEnabled
+                      ? const Color(0xFF12B76A)
+                      : const Color(0xFFF79009),
+                ),
+                const SizedBox(width: 12),
+                _summaryStat(
+                  label: 'Délai',
+                  value: '${_model.gameEndingDaysBeforeController.text} j',
+                  icon: Icons.timelapse_outlined,
+                  accent: const Color(0xFF2E90FA),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            SwitchListTile.adaptive(
+              value: _model.gameEndingNotificationEnabled,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Activer les notifications automatiques'),
+              subtitle: const Text(
+                'Envoie un rappel avant la fin des jeux concernés.',
+              ),
+              onChanged: (value) =>
+                  setState(() => _model.gameEndingNotificationEnabled = value),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _model.gameEndingDaysBeforeController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Nombre de jours avant la fin',
+                filled: true,
+                fillColor: FlutterFlowTheme.of(context).primaryBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text('Statuts ciblés', style: FlutterFlowTheme.of(context).titleSmall),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                FilterChip(
+                  selected: _model.gameEndingTargetStatuses['actif'] ?? false,
+                  label: const Text('actif'),
+                  onSelected: (value) => setState(() {
+                    _model.gameEndingTargetStatuses['actif'] = value;
+                  }),
+                ),
+                FilterChip(
+                  selected:
+                      _model.gameEndingTargetStatuses['a_relancer'] ?? false,
+                  label: const Text('a_relancer'),
+                  onSelected: (value) => setState(() {
+                    _model.gameEndingTargetStatuses['a_relancer'] = value;
+                  }),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            SwitchListTile.adaptive(
+              value: _model.gameEndingUseCityFilter,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Filtrer par ville'),
+              subtitle: const Text(
+                'Limite les notifications aux utilisateurs de la zone du commerçant.',
+              ),
+              onChanged: (value) =>
+                  setState(() => _model.gameEndingUseCityFilter = value),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FFButtonWidget(
+                onPressed:
+                    _model.gameEndingConfigSaving ? null : _saveGameEndingConfig,
+                text: _model.gameEndingConfigSaving
+                    ? 'Enregistrement...'
+                    : 'Enregistrer la configuration',
+                options: FFButtonOptions(
+                  height: 52,
+                  color: FlutterFlowTheme.of(context).primary,
+                  textStyle: FlutterFlowTheme.of(context)
+                      .labelLarge
+                      .override(color: Colors.white),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecentHistoryPanel() {
+    final createdBy = currentUserReference?.path ?? '';
+    final query = FirebaseFirestore.instance
+        .collection('ff_push_notifications')
+        .where('created_by', isEqualTo: createdBy)
+        .orderBy('created_at', descending: true)
+        .limit(6);
+
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(
+            title: 'Historique récent',
+            subtitle: 'Suivez les dernières notifications créées depuis ce compte admin.',
+            icon: Icons.history_outlined,
+            trailing: TextButton(
+              onPressed: () => context.pushNamed(
+                AdminPushNotificationsHistoryPageWidget.routeName,
+              ),
+              child: const Text('Voir tout'),
+            ),
+          ),
+          const SizedBox(height: 18),
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: query.snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: FlutterFlowTheme.of(context).primaryBackground,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Text(
+                    'Aucune notification récente.',
+                    style: FlutterFlowTheme.of(context).bodyMedium,
+                  ),
+                );
+              }
+
+              return Column(
+                children: docs.map((doc) {
+                  final data = doc.data();
+                  final title =
+                      (data['notification_title'] ?? '').toString().trim();
+                  final body = (data['notification_text'] ?? '').toString().trim();
+                  final status = (data['status'] ?? '').toString().trim();
+                  final createdAt = data['created_at'];
+                  final createdAtText = createdAt is Timestamp
+                      ? dateTimeFormat('d/M HH:mm', createdAt.toDate())
+                      : 'En attente';
+                  final sentCount = data['num_sent']?.toString() ?? '-';
+
+                  return Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: FlutterFlowTheme.of(context).primaryBackground,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: FlutterFlowTheme.of(context).alternate,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title.isEmpty ? '(Sans titre)' : title,
+                                style: FlutterFlowTheme.of(context).titleSmall,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _statusColor(status).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                status.isEmpty ? 'started' : status,
+                                style: FlutterFlowTheme.of(context)
+                                    .labelSmall
+                                    .override(
+                                      color: _statusColor(status),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          body.isEmpty ? '(Sans message)' : body,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: FlutterFlowTheme.of(context).bodyMedium,
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.schedule_outlined,
+                              size: 16,
+                              color: FlutterFlowTheme.of(context).secondaryText,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(createdAtText),
+                            const SizedBox(width: 16),
+                            Icon(
+                              Icons.send_outlined,
+                              size: 16,
+                              color: FlutterFlowTheme.of(context).secondaryText,
+                            ),
+                            const SizedBox(width: 6),
+                            Text('Envoyés: $sentCount'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -803,116 +1584,83 @@ class _AdminPushNotificationsPageWidgetState
 
   @override
   Widget build(BuildContext context) {
-    // Guard: only admins should see this page (wait for user doc to load).
     if (currentUserDocument == null && loggedIn) {
-      return const Scaffold(
-        body: Center(child: SizedBox.shrink()),
-      );
+      return const Scaffold(body: Center(child: SizedBox.shrink()));
     }
     if (currentUserDocument?.userRole != Roles.admin) {
       return Scaffold(
         body: Center(
-          child: Text('Admin only.', style: FlutterFlowTheme.of(context).bodyMedium),
+          child: Text(
+            'Admin only.',
+            style: FlutterFlowTheme.of(context).bodyMedium,
+          ),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+      backgroundColor: const Color(0xFFF5F7FB),
       appBar: AppBar(
-        title: const Text('Admin Notifications'),
+        title: const Text('Notifications admin'),
         elevation: 0,
-        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+        backgroundColor: const Color(0xFFF5F7FB),
         foregroundColor: FlutterFlowTheme.of(context).primaryText,
       ),
       body: SafeArea(
         child: Form(
           key: _model.formKey,
-          child: Column(
-            children: [
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isPhone = constraints.maxWidth < 600;
-                    if (!isPhone) {
-                      // Tablet/desktop: split view
-                      return Row(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 1100;
+              return SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                child: Column(
+                  children: [
+                    _buildTopBanner(),
+                    const SizedBox(height: 16),
+                    if (isCompact) ...[
+                      _buildRecipientsPanel(),
+                      const SizedBox(height: 16),
+                      _buildComposePanel(),
+                      const SizedBox(height: 16),
+                      _buildAutomationPanel(),
+                      const SizedBox(height: 16),
+                      _buildRecentHistoryPanel(),
+                    ] else ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            flex: 2,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(
-                                    color: FlutterFlowTheme.of(context).alternate,
-                                  ),
-                                ),
-                              ),
-                              child: _usersPanel(),
-                            ),
-                          ),
-                          Expanded(flex: 3, child: _composePanel()),
-                        ],
-                      );
-                    }
-
-                    // Phone: 2-step flow
-                    return Column(
-                      children: [
-                        Expanded(
-                          child: IndexedStack(
-                            index: _step,
-                            children: [
-                              _usersPanel(),
-                              _composePanel(isPhone: true),
-                            ],
-                          ),
-                        ),
-                        if (_step == 0)
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                top: BorderSide(
-                                  color: FlutterFlowTheme.of(context).alternate,
-                                ),
-                              ),
-                            ),
-                            child: Row(
+                            flex: 5,
+                            child: Column(
                               children: [
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      if (_audienceMode ==
-                                              _AudienceMode.selectedUsers &&
-                                          _selectedUsers.isEmpty) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('Select at least one user.'),
-                                          ),
-                                        );
-                                        return;
-                                      }
-                                      setState(() => _step = 1);
-                                    },
-                                    child: const Text('Next'),
-                                  ),
-                                ),
+                                _buildRecipientsPanel(),
+                                const SizedBox(height: 16),
+                                _buildRecentHistoryPanel(),
                               ],
                             ),
                           ),
-                      ],
-                    );
-                  },
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 6,
+                            child: Column(
+                              children: [
+                                _buildComposePanel(),
+                                const SizedBox(height: 16),
+                                _buildAutomationPanel(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),
     );
   }
 }
-
-
-

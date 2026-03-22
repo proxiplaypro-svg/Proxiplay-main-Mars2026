@@ -102,6 +102,26 @@ class UsersRecord extends FirestoreRecord {
   DateTime? get allGamesAccessUntil => _allGamesAccessUntil;
   bool hasAllGamesAccessUntil() => _allGamesAccessUntil != null;
 
+  // "last_real_activity_at" field.
+  DateTime? _lastRealActivityAt;
+  DateTime? get lastRealActivityAt => _lastRealActivityAt;
+  bool hasLastRealActivityAt() => _lastRealActivityAt != null;
+
+  // "games_played_count" field.
+  int? _gamesPlayedCount;
+  int get gamesPlayedCount => _gamesPlayedCount ?? 0;
+  bool hasGamesPlayedCount() => _gamesPlayedCount != null;
+
+  // "player_status_cached" field.
+  String? _playerStatusCached;
+  String get playerStatusCached => _playerStatusCached ?? 'statut_inconnu';
+  bool hasPlayerStatusCached() => _playerStatusCached != null;
+
+  // "last_inactive_relaunch_at" field.
+  DateTime? _lastInactiveRelaunchAt;
+  DateTime? get lastInactiveRelaunchAt => _lastInactiveRelaunchAt;
+  bool hasLastInactiveRelaunchAt() => _lastInactiveRelaunchAt != null;
+
   void _initializeFields() {
     _email = snapshotData['email'] as String?;
     _uid = snapshotData['uid'] as String?;
@@ -124,6 +144,10 @@ class UsersRecord extends FirestoreRecord {
     _birthday = snapshotData['birthday'] as DateTime?;
     _professionalCategory = snapshotData['professional_category'] as String?;
     _allGamesAccessUntil = snapshotData['allGamesAccessUntil'] as DateTime?;
+    _lastRealActivityAt = snapshotData['last_real_activity_at'] as DateTime?;
+    _gamesPlayedCount = castToType<int>(snapshotData['games_played_count']);
+    _playerStatusCached = snapshotData['player_status_cached'] as String?;
+    _lastInactiveRelaunchAt = snapshotData['last_inactive_relaunch_at'] as DateTime?;
   }
 
   static CollectionReference get collection =>
@@ -177,6 +201,9 @@ Map<String, dynamic> createUsersRecordData({
   DateTime? birthday,
   String? professionalCategory,
   DateTime? allGamesAccessUntil,
+  DateTime? lastRealActivityAt,
+  int? gamesPlayedCount,
+  DateTime? lastInactiveRelaunchAt,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -197,6 +224,9 @@ Map<String, dynamic> createUsersRecordData({
       'birthday': birthday,
       'professional_category': professionalCategory,
       'allGamesAccessUntil': allGamesAccessUntil,
+      'last_real_activity_at': lastRealActivityAt,
+      'games_played_count': gamesPlayedCount,
+      'last_inactive_relaunch_at': lastInactiveRelaunchAt,
     }.withoutNulls,
   );
 
@@ -224,7 +254,11 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e1?.partLastUpdate == e2?.partLastUpdate &&
         e1?.birthday == e2?.birthday &&
         e1?.professionalCategory == e2?.professionalCategory &&
-        e1?.allGamesAccessUntil == e2?.allGamesAccessUntil;
+        e1?.allGamesAccessUntil == e2?.allGamesAccessUntil &&
+        e1?.lastInactiveRelaunchAt == e2?.lastInactiveRelaunchAt &&
+        e1?.lastRealActivityAt == e2?.lastRealActivityAt &&
+        e1?.gamesPlayedCount == e2?.gamesPlayedCount &&
+        e1?.playerStatusCached == e2?.playerStatusCached;
   }
 
   @override
@@ -245,7 +279,11 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e?.partLastUpdate,
         e?.birthday,
         e?.professionalCategory,
-        e?.allGamesAccessUntil
+        e?.allGamesAccessUntil,
+        e?.lastRealActivityAt,
+        e?.gamesPlayedCount,
+        e?.lastInactiveRelaunchAt,
+        e?.playerStatusCached,
       ]);
 
   @override

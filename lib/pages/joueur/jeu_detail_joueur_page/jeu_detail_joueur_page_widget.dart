@@ -734,6 +734,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 if (_model
                                                                     .cloudFunction3sn2!
                                                                     .succeeded!) {
+                                                                  await refreshCurrentUserDocument();
+                                                                  if (context.mounted) {
+                                                                    safeSetState(() {});
+                                                                  }
                                                                   context
                                                                       .pushNamed(
                                                                     PlayJoueurPageWidget
