@@ -23,6 +23,25 @@ async function getActiveAutomationById(firestore, automationId) {
   };
 }
 
+async function getActiveAutomationByIdAndType(firestore, automationId, type) {
+  const snap = await getAutomationRef(firestore, automationId).get();
+  if (!snap.exists) {
+    return null;
+  }
+  const data = snap.data() || {};
+  if (data.isActive !== true) {
+    return null;
+  }
+  if (type && data.type !== type) {
+    return null;
+  }
+  return {
+    id: snap.id,
+    ref: snap.ref,
+    data,
+  };
+}
+
 async function listActiveAutomationsByType(firestore, type) {
   const snap = await getAutomationCollection(firestore)
     .where("type", "==", type)
@@ -75,6 +94,7 @@ async function updateAutomationRun({
 module.exports = {
   createAutomationRun,
   getActiveAutomationById,
+  getActiveAutomationByIdAndType,
   listActiveAutomationsByType,
   updateAutomationRun,
 };

@@ -4,8 +4,11 @@ const kRunsSubcollection = "runs";
 const kFcmTokensCollection = "fcm_tokens";
 const kPushNotificationsCollection = "ff_push_notifications";
 const kAutomationTypeInactivePlayer = "inactive_player";
+const kAutomationTypeBirthday = "birthday";
 const kNotificationChannelPush = "push";
+const kNotificationChannelEmail = "email";
 const kInactivePlayerStatuses = ["a_relancer", "dormant", "mort_probable"];
+const kParisTimeZone = "Europe/Paris";
 
 const kDefaultInactivePlayerMessagesByStatus = {
   mort_probable: {
@@ -26,13 +29,22 @@ const kDefaultInactivePlayerMessagesByStatus = {
   },
 };
 
+const kDefaultBirthdayMessage = {
+  title: "Joyeux anniversaire !",
+  body: "Profitez de vos avantages du jour et tentez votre chance !",
+};
+
 module.exports = {
+  kAutomationTypeBirthday,
   kAutomationTypeInactivePlayer,
+  kDefaultBirthdayMessage,
   kDefaultInactivePlayerMessagesByStatus,
   kFcmTokensCollection,
   kInactivePlayerStatuses,
   kNotificationAutomationsCollection,
+  kNotificationChannelEmail,
   kNotificationChannelPush,
+  kParisTimeZone,
   kNotificationDeliveryStateCollection,
   kPushNotificationsCollection,
   kRunsSubcollection,

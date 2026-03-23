@@ -2464,3 +2464,38 @@ try {
     error.message,
   );
 }
+
+try {
+  const {
+    createRunBirthdayAutomationsManual,
+  } = require("./lib/notifications/triggers/run_birthday_automations_manual");
+  exports.runBirthdayAutomationsManual =
+    createRunBirthdayAutomationsManual({
+      functions,
+      firestore,
+      admin,
+      assertIsAdmin,
+    });
+} catch (error) {
+  console.log(
+    "birthday automation manual trigger not loaded yet:",
+    error.message,
+  );
+}
+
+try {
+  const {
+    createRunBirthdayAutomationsDaily,
+  } = require("./lib/notifications/triggers/run_birthday_automations_daily");
+  exports.runBirthdayAutomationsDaily =
+    createRunBirthdayAutomationsDaily({
+      functions,
+      firestore,
+      admin,
+    });
+} catch (error) {
+  console.log(
+    "birthday automation daily trigger not loaded yet:",
+    error.message,
+  );
+}

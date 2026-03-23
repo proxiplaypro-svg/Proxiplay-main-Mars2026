@@ -56,8 +56,9 @@ const kAutomationSeeds = [
         },
       },
       reward: {
-        type: "free_play_all",
-        validUntilHour: 23,
+        type: "all_games_until_midnight",
+        value: 1,
+        grantedBy: "birthday",
       },
     },
   },
