@@ -11,6 +11,8 @@ import '/utils/share_links.dart';
 import 'jeu_detail_commercant_page_model.dart';
 export 'jeu_detail_commercant_page_model.dart';
 
+const bool kShowUniquePlayersStat = false;
+
 class JeuDetailCommercantPageWidget extends StatefulWidget {
   const JeuDetailCommercantPageWidget({
     super.key,
@@ -560,13 +562,15 @@ class _JeuDetailCommercantPageWidgetState
                                       label: 'Participations',
                                       value: game.participations.toString(),
                                     ),
-                                    _buildStatCard(
-                                      icon: Icons.people,
-                                      label: 'Joueurs uniques',
-                                      value: _hasUniquePlayers(game)
-                                          ? _readUniquePlayers(game).toString()
-                                          : '—',
-                                    ),
+                                    if (kShowUniquePlayersStat)
+                                      _buildStatCard(
+                                        icon: Icons.people,
+                                        label: 'Joueurs uniques',
+                                        value: _hasUniquePlayers(game)
+                                            ? _readUniquePlayers(game)
+                                                .toString()
+                                            : '—',
+                                      ),
                                   ],
                                 );
                               },

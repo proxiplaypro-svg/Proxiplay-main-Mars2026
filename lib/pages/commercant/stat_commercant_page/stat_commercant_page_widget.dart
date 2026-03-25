@@ -12,6 +12,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'stat_commercant_page_model.dart';
 export 'stat_commercant_page_model.dart';
 
+const bool kShowUniquePlayersStat = false;
+
 class StatCommercantPageWidget extends StatefulWidget {
   const StatCommercantPageWidget({super.key});
 
@@ -388,7 +390,8 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                               'Participations ${game.participations}'),
                           const SizedBox(width: 12.0),
                           _statChip(Icons.star_rounded, 'Favoris ${game.favorites}'),
-                          if (_shouldShowUniquePlayers(game))
+                          if (kShowUniquePlayersStat &&
+                              _shouldShowUniquePlayers(game))
                             ...[
                               const SizedBox(width: 12.0),
                               _statChip(Icons.person_rounded,
