@@ -1,4 +1,4 @@
-﻿const functions = require("firebase-functions");
+const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
 const db = admin.firestore();
@@ -48,11 +48,11 @@ function sanitizeDisplayText(value) {
   output = output.replace(/\u00F0[\u0080-\u00BF]{2,4}/g, "");
   output = output.replace(/\u00C3[\u0080-\u00BF]/g, "");
   output = output.replace(/\u00E2[\u0080-\u00BF]{1,2}/g, "");
-  output = output.replace(/ð[\wÀ-ÿ]*/g, "");
-  output = output.replace(/Ã[\wÀ-ÿ]*/g, "");
+  output = output.replace(/�[\w�-�]*/g, "");
+  output = output.replace(/�[\w�-�]*/g, "");
   output = output.replace(/[^\t\n\r\x20-\x7E\u00A0-\u00FF]/g, "");
   output = output.replace(/\s+/g, " ").trim();
-  output = output.replace(/^[^A-Za-zÀ-ÖØ-öø-ÿ0-9]+/, "");
+  output = output.replace(/^[^A-Za-z�-��-��-�0-9]+/, "");
   return output;
 }
 
@@ -65,21 +65,21 @@ function hasUnlimitedAccess(userData, now) {
 }
 
 /**
- * Calcule le statut du joueur basé sur son activité réelle.
+ * Calcule le statut du joueur bas� sur son activit� r�elle.
  * 
- * Règles :
- * - actif: dernière activité <= 7 jours OU (dernier <= 14 jours ET games_played >= 3)
+ * R�gles :
+ * - actif: derni�re activit� <= 7 jours OU (dernier <= 14 jours ET games_played >= 3)
  * - a_relancer: dernier 8-30 jours OU (compte > 7 jours ET games_played <= 2)
  * - dormant: dernier 31-90 jours OU (compte > 30 jours ET games_played <= 1)
  * - mort_probable: dernier > 90 jours OU (compte > 60 jours ET 0 participation)
- * - statut_inconnu: données manquantes ou incohérentes
+ * - statut_inconnu: donn�es manquantes ou incoh�rentes
  * 
  * @param userData - Document utilisateur avec created_time, last_real_activity_at, games_played_count
  * @param now - Timestamp serveur actuel
  * @returns {string} - Un des statuts ci-dessus
  */
 function calculatePlayerStatus(userData, now) {
-  // Vérifier les données requises
+  // V�rifier les donn�es requises
   if (!userData || !userData.created_time) {
     return 'statut_inconnu';
   }
@@ -95,13 +95,13 @@ function calculatePlayerStatus(userData, now) {
     ? (lastActivityAt.toMillis ? lastActivityAt.toMillis() : lastActivityAt)
     : null;
 
-  // Calculer les délais en jours
+  // Calculer les d�lais en jours
   const accountAgeDays = Math.floor((nowMs - createdMs) / (1000 * 60 * 60 * 24));
   const daysSinceActivity = lastActivityMs
     ? Math.floor((nowMs - lastActivityMs) / (1000 * 60 * 60 * 24))
     : null;
 
-  // Règle 1 : ACTIF
+  // R�gle 1 : ACTIF
   if (lastActivityMs !== null) {
     if (daysSinceActivity <= 7) {
       return 'actif';
@@ -111,7 +111,7 @@ function calculatePlayerStatus(userData, now) {
     }
   }
 
-  // Règle 2 : À RELANCER
+  // R�gle 2 : � RELANCER
   if (lastActivityMs !== null && daysSinceActivity >= 8 && daysSinceActivity <= 30) {
     return 'a_relancer';
   }
@@ -119,7 +119,7 @@ function calculatePlayerStatus(userData, now) {
     return 'a_relancer';
   }
 
-  // Règle 3 : DORMANT
+  // R�gle 3 : DORMANT
   if (lastActivityMs !== null && daysSinceActivity >= 31 && daysSinceActivity <= 90) {
     return 'dormant';
   }
@@ -127,7 +127,7 @@ function calculatePlayerStatus(userData, now) {
     return 'dormant';
   }
 
-  // Règle 4 : MORT PROBABLE
+  // R�gle 4 : MORT PROBABLE
   if (accountAgeDays > 60 && gamesPlayed === 0) {
     return 'mort_probable';
   }
@@ -135,7 +135,7 @@ function calculatePlayerStatus(userData, now) {
     return 'mort_probable';
   }
 
-  // Par défaut
+  // Par d�faut
   return 'statut_inconnu';
 }
 
@@ -144,18 +144,18 @@ exports.participateInGameTransaction = functions.https.onCall(
     if (!context.auth) {
       throw new functions.https.HttpsError(
         "unauthenticated",
-        "Vous devez ÃƒÂªtre connectÃƒÂ© pour participer."
+        "Vous devez Ãªtre connectÃ© pour participer."
       );
     }
 
     let gameRefPath = data.gameRef;
-    console.log("gameRefPath reÃƒÂ§u:", gameRefPath);
+    console.log("gameRefPath reÃ§u:", gameRefPath);
 
     if (!gameRefPath || typeof gameRefPath !== "string" || gameRefPath === "") {
       console.error("gameRefPath est invalide:", gameRefPath);
       throw new functions.https.HttpsError(
         "invalid-argument",
-        "RÃƒÂ©fÃƒÂ©rence du jeu invalide."
+        "RÃ©fÃ©rence du jeu invalide."
       );
     }
 
@@ -199,17 +199,17 @@ exports.participateInGameTransaction = functions.https.onCall(
             transaction.get(uniquePlayerRef),
           ]);
 
-        // 1. RÃƒÂ©fÃƒÂ©rence ÃƒÂ  la sous-collection
+        // 1. RÃ©fÃ©rence Ã  la sous-collection
         const instantWinnersRef = gameRef.collection("instant_winners");
 
-        // 2. Query prochain lot instantanÃƒÂ© non rÃƒÂ©clamÃƒÂ©
+        // 2. Query prochain lot instantanÃ© non rÃ©clamÃ©
         const instantWinnersQuery = instantWinnersRef
           .where("hasWinner", "==", false)
           .where("date", "<=", now)
           .orderBy("date", "asc")
           .limit(1);
 
-        // 3. ExÃƒÂ©cuter la query dans la transaction
+        // 3. ExÃ©cuter la query dans la transaction
         const instantWinnerSnap = await transaction.get(instantWinnersQuery);
 
         if (!gameDoc.exists) {
@@ -224,12 +224,12 @@ exports.participateInGameTransaction = functions.https.onCall(
         const ownerRef = db.doc(gameData.create_by.path);
         const enseigneRef = db.doc(gameData.enseigne_id.path);
 
-        // RÃƒÂ©cupÃƒÂ©rer l'enseigne
+        // RÃ©cupÃ©rer l'enseigne
         const enseigneDoc = await transaction.get(enseigneRef);
         if (!enseigneDoc.exists) {
           throw new functions.https.HttpsError(
             "not-found",
-            "L'enseigne associÃƒÂ©e au jeu n'existe pas."
+            "L'enseigne associÃ©e au jeu n'existe pas."
           );
         }
         const enseigneData = enseigneDoc.data();
@@ -242,7 +242,7 @@ exports.participateInGameTransaction = functions.https.onCall(
         const unlimitedAccessActive = hasUnlimitedAccess(userData, now);
         let uniquePlayerNew = false;
 
-        // DÃƒÂ©tection lot principal (sert uniquement ÃƒÂ  la cohÃƒÂ©rence des champs, pas au message de perte)
+        // DÃ©tection lot principal (sert uniquement Ã  la cohÃ©rence des champs, pas au message de perte)
         const hasMainPrizeField = Object.prototype.hasOwnProperty.call(
           gameData || {},
           "hasMainPrize"
@@ -255,7 +255,7 @@ exports.participateInGameTransaction = functions.https.onCall(
               (gameData.prize_value !== null && typeof gameData.prize_value !== "undefined")
             );
 
-        // Patch cohÃƒÂ©rence: si pas de lot principal -> pas de winner / tirage au sort
+        // Patch cohÃ©rence: si pas de lot principal -> pas de winner / tirage au sort
         const gameConsistencyPatch = {};
         if (!hasMainPrizeField) {
           gameConsistencyPatch.hasMainPrize = hasMainPrize;
@@ -296,7 +296,7 @@ exports.participateInGameTransaction = functions.https.onCall(
             `participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=true uniquePlayerNew=${uniquePlayerNew}`
           );
           responseData = {
-            message: "Vous avez déjà participé aujourd'hui.",
+            message: "Vous avez d�j� particip� aujourd'hui.",
             messageBonus: "",
             isWin: false,
             prize_id: null,
@@ -319,7 +319,7 @@ exports.participateInGameTransaction = functions.https.onCall(
               `participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=true(unique-last-play) uniquePlayerNew=${uniquePlayerNew}`
             );
             responseData = {
-              message: "Vous avez déjà participé aujourd'hui.",
+              message: "Vous avez d�j� particip� aujourd'hui.",
               messageBonus: "",
               isWin: false,
               prize_id: null,
@@ -333,7 +333,7 @@ exports.participateInGameTransaction = functions.https.onCall(
               `participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=true(bonus) uniquePlayerNew=${uniquePlayerNew}`
             );
             responseData = {
-              message: "Vous avez déjà participé aujourd'hui.",
+              message: "Vous avez d�j� particip� aujourd'hui.",
               messageBonus: "",
               isWin: false,
               prize_id: null,
@@ -379,10 +379,10 @@ exports.participateInGameTransaction = functions.https.onCall(
         // Bonus toutes les 10 participations
         if (newPosition % 10 === 0) {
           remainingPartDelta += 3;
-          messageBonus = "Vous avez gagné 3 parties supplémentaires !";
+          messageBonus = "Vous avez gagn� 3 parties suppl�mentaires !";
         }
 
-        // Mettre à jour l'activité réelle du joueur et les statistiques
+        // Mettre � jour l'activit� r�elle du joueur et les statistiques
         const userUpdateData = {
           last_real_activity_at: now,
           games_played_count: admin.firestore.FieldValue.increment(1),
@@ -392,9 +392,9 @@ exports.participateInGameTransaction = functions.https.onCall(
           userUpdateData.remaining_part = remainingPart + remainingPartDelta;
         }
 
-        // Calculer le nouveau statut du joueur basé sur son activité
-        // Remarque : games_played_count est déjà incrémenté ci-dessus,
-        // mais la transaction n'a pas encore committée. On doit passer la valeur future.
+        // Calculer le nouveau statut du joueur bas� sur son activit�
+        // Remarque : games_played_count est d�j� incr�ment� ci-dessus,
+        // mais la transaction n'a pas encore committ�e. On doit passer la valeur future.
         const projectedGamesPlayedCount = (userData.games_played_count || 0) + 1;
         const projectedUserData = {
           ...userData,
@@ -405,13 +405,27 @@ exports.participateInGameTransaction = functions.https.onCall(
 
         transaction.update(userRef, userUpdateData);
 
-        // Lots (gains immÃƒÂ©diats uniquement)
+        // Lots (gains immÃ©diats uniquement)
         let lotGagne = false;
         let lotDetails = null;
         let prizeRef = null;
 
         if (!instantWinnerSnap.empty) {
           const instantWinnerDoc = instantWinnerSnap.docs[0];
+          const instantWinnerData = instantWinnerDoc.data() || {};
+          const instantPrizeName =
+            typeof instantWinnerData.prize === "string" &&
+            instantWinnerData.prize.trim().length > 0
+              ? instantWinnerData.prize.trim()
+              : typeof instantWinnerData.secondary_prize_name === "string" &&
+                  instantWinnerData.secondary_prize_name.trim().length > 0
+                ? instantWinnerData.secondary_prize_name.trim()
+                : gameData.secondary_prize_description;
+          const instantPrizeDescription =
+            typeof instantWinnerData.secondary_prize_presentation === "string" &&
+            instantWinnerData.secondary_prize_presentation.trim().length > 0
+              ? instantWinnerData.secondary_prize_presentation.trim()
+              : "";
 
           const claim_code = `${Date.now().toString(36).toUpperCase()}`;
 
@@ -424,7 +438,8 @@ exports.participateInGameTransaction = functions.https.onCall(
 
           transaction.set(prizeRef, {
             prize_type: "secondaire",
-            name: gameData.secondary_prize_description,
+            name: instantPrizeName,
+            ...(instantPrizeDescription ? {description: instantPrizeDescription} : {}),
             winner_id: userRef,
             game_id: gameRef,
             enseigne_id: enseigneRef,
@@ -441,7 +456,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           });
 
           lotGagne = true;
-          lotDetails = gameData.secondary_prize_description;
+          lotDetails = instantPrizeName;
         }
 
         // Messages aleatoires a afficher en cas de perte
@@ -452,8 +467,8 @@ exports.participateInGameTransaction = functions.https.onCall(
         ];
 
         // Message principal renvoye a l'app :
-        // - Si gain immÃƒÂ©diat => lotDetails
-        // - Si perte => message alÃƒÂ©atoire (mÃƒÂªme si pas de lot principal)
+        // - Si gain immÃ©diat => lotDetails
+        // - Si perte => message alÃ©atoire (mÃªme si pas de lot principal)
         const message = lotGagne
           ? lotDetails
           : loseMessages[Math.floor(Math.random() * loseMessages.length)];
@@ -464,13 +479,13 @@ exports.participateInGameTransaction = functions.https.onCall(
           isWin: lotGagne,
           prize_id: prizeRef ? prizeRef.path : null,
           alreadyParticipatedToday: false,
-          // Optionnel: garde l'info cÃƒÂ´tÃƒÂ© app si besoin un jour
+          // Optionnel: garde l'info cÃ´tÃ© app si besoin un jour
           // hasMainPrize,
         };
         console.log(`participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=false uniquePlayerNew=${uniquePlayerNew}`);
       });
 
-      console.log("Retour des données FINAL :", responseData);
+      console.log("Retour des donn�es FINAL :", responseData);
       responseData = {
         ...responseData,
         message: sanitizeDisplayText(responseData.message || ""),
@@ -489,4 +504,6 @@ exports.participateInGameTransaction = functions.https.onCall(
     }
   }
 );
+
+
 

@@ -1,7 +1,6 @@
+import '/auth/firebase_auth/auth_util.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/models/share_promo_models.dart';
-import '/services/share_promo_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,9 +18,7 @@ class SharePromoStatsAdminPageWidget extends StatefulWidget {
 
 class _SharePromoStatsAdminPageWidgetState
     extends State<SharePromoStatsAdminPageWidget> {
-  final _service = SharePromoService();
-
-  late Future<SharePromoAdminStatsModel> _statsFuture;
+  late Future<_ReferralStatsViewData> _statsFuture;
   String? _loadError;
 
   @override
@@ -30,9 +27,9 @@ class _SharePromoStatsAdminPageWidgetState
     _statsFuture = _loadStats();
   }
 
-  Future<SharePromoAdminStatsModel> _loadStats() async {
+  Future<_ReferralStatsViewData> _loadStats() async {
     try {
-      final stats = await _service.adminGetSharePromoStats();
+      final stats = await _loadReferralStats();
       _loadError = null;
       return stats;
     } catch (error) {
@@ -47,6 +44,199 @@ class _SharePromoStatsAdminPageWidgetState
       _statsFuture = future;
     });
     await future;
+  }
+
+  Future<_ReferralStatsViewData> _loadReferralStats() async {
+    final uid = currentUserUid.trim();
+    if (uid.isEmpty) {
+      throw StateError('Utilisateur non authentifi�.');
+    }
+
+    final referralsRef = FirebaseFirestore.instance.collection('referrals');
+    final userReferralsQuery = referralsRef.where('inviterUid', isEqualTo: uid);
+
+    int totalReferrals = 0;
+    try {
+      final totalSnapshot = await userReferralsQuery.count().get();
+      totalReferrals = totalSnapshot.count ?? 0;
+    } catch (_) {
+      totalReferrals = -1;
+    }
+
+    final querySnapshot = await userReferralsQuery.get();
+    final docs = querySnapshot.docs
+        .map((doc) => <String, dynamic>{'id': doc.id, ...doc.data()})
+        .toList();
+
+    final statusValues = docs
+        .map((row) => (row['status'] ?? '').toString().trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
+    final missingCreatedAt = docs
+        .where((row) => _readTimestampValue(row['createdAt']) == null)
+        .length;
+
+    debugPrint(
+      '[share_promo_stats] totalReferrals=$totalReferrals filteredByUser=${docs.length} userUid=$uid',
+    );
+    debugPrint(
+      '[share_promo_stats] statuses=${statusValues.join(', ')}',
+    );
+    if (docs.isEmpty) {
+      debugPrint(
+        '[share_promo_stats][warning] no referrals found for inviterUid=$uid',
+      );
+    }
+    if (missingCreatedAt > 0) {
+      debugPrint(
+        '[share_promo_stats][warning] missing createdAt count=$missingCreatedAt inviterUid=$uid',
+      );
+    }
+
+    final inviteeUserIds = docs
+        .map((row) => (row['inviteeUid'] ?? '').toString().trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList();
+    final usersById = await _loadUsersByIds(inviteeUserIds);
+
+    docs.sort((a, b) {
+      final bMillis =
+          _readTimestampValue(b['createdAt'])?.millisecondsSinceEpoch ?? 0;
+      final aMillis =
+          _readTimestampValue(a['createdAt'])?.millisecondsSinceEpoch ?? 0;
+      return bMillis.compareTo(aMillis);
+    });
+
+    final pendingCount =
+        docs.where((row) => _normalizeStatus(row) == 'pending').length;
+    final acceptedCount =
+        docs.where((row) => _normalizeStatus(row) == 'accepted').length;
+    final rewardedCount = docs.where(_isRewardGranted).length;
+    final campaignIds = docs
+        .map((row) => (row['campaignId'] ?? '').toString().trim())
+        .where((value) => value.isNotEmpty)
+        .toSet();
+    final activeCampaigns = campaignIds.isNotEmpty
+        ? campaignIds.length
+        : docs.where((row) => row['active'] == true).length;
+
+    final rows = docs.take(20).map((row) {
+      final inviteeUid = (row['inviteeUid'] ?? '').toString().trim();
+      final inviteeData = usersById[inviteeUid] ?? const <String, dynamic>{};
+      return _ReferralRowViewData(
+        displayName: _buildInviteeDisplayName(inviteeData),
+        inviteCode: (row['inviteCode'] ?? '').toString().trim(),
+        statusKey: _effectiveStatus(row),
+        statusLabel: _statusLabel(row),
+        createdAt: _readTimestampValue(row['createdAt']),
+        rewardGranted: _isRewardGranted(row),
+      );
+    }).toList();
+
+    return _ReferralStatsViewData(
+      pendingReferrals: pendingCount,
+      acceptedReferrals: acceptedCount,
+      grantedRewards: rewardedCount,
+      activeCampaigns: activeCampaigns,
+      recentReferrals: rows,
+    );
+  }
+
+  Future<Map<String, Map<String, dynamic>>> _loadUsersByIds(
+    List<String> userIds,
+  ) async {
+    if (userIds.isEmpty) {
+      return const <String, Map<String, dynamic>>{};
+    }
+
+    final result = <String, Map<String, dynamic>>{};
+    for (var index = 0; index < userIds.length; index += 10) {
+      final chunk = userIds.sublist(
+        index,
+        index + 10 > userIds.length ? userIds.length : index + 10,
+      );
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      for (final doc in snapshot.docs) {
+        result[doc.id] = doc.data();
+      }
+    }
+    return result;
+  }
+
+  Timestamp? _readTimestampValue(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is Timestamp) {
+      return value;
+    }
+    if (value is DateTime) {
+      return Timestamp.fromDate(value);
+    }
+    if (value is int) {
+      return Timestamp.fromMillisecondsSinceEpoch(value);
+    }
+    if (value is num) {
+      return Timestamp.fromMillisecondsSinceEpoch(value.toInt());
+    }
+    if (value is String) {
+      final parsed = DateTime.tryParse(value.trim());
+      if (parsed != null) {
+        return Timestamp.fromDate(parsed);
+      }
+    }
+    return null;
+  }
+
+  String _normalizeStatus(Map<String, dynamic> row) =>
+      (row['status'] ?? '').toString().trim().toLowerCase();
+
+  bool _isRewardGranted(Map<String, dynamic> row) {
+    final rewardGranted = row['rewardGranted'] == true;
+    final rewardStatus =
+        (row['rewardStatus'] ?? '').toString().trim().toLowerCase();
+    final status = _normalizeStatus(row);
+    return rewardGranted || rewardStatus == 'granted' || status == 'rewarded';
+  }
+
+  String _effectiveStatus(Map<String, dynamic> row) {
+    if (_isRewardGranted(row)) {
+      return 'rewarded';
+    }
+    return _normalizeStatus(row);
+  }
+
+  String _statusLabel(Map<String, dynamic> row) {
+    switch (_effectiveStatus(row)) {
+      case 'rewarded':
+        return 'R�compens�';
+      case 'accepted':
+        return 'Inscrit';
+      case 'pending':
+      default:
+        return 'En attente';
+    }
+  }
+
+  String _buildInviteeDisplayName(Map<String, dynamic> userData) {
+    final firstName = (userData['first_name'] ?? '').toString().trim();
+    final displayName = (userData['display_name'] ?? '').toString().trim();
+    final pseudo = (userData['pseudo'] ?? '').toString().trim();
+    final fallback = (userData['name'] ?? '').toString().trim();
+    final resolved = [
+      firstName,
+      displayName,
+      pseudo,
+      fallback,
+    ].firstWhere(
+      (value) => value.isNotEmpty,
+      orElse: () => '',
+    );
+    return resolved.isNotEmpty ? resolved : 'Utilisateur invit�';
   }
 
   String _formatDate(dynamic value) {
@@ -64,39 +254,6 @@ class _SharePromoStatsAdminPageWidgetState
       return value;
     }
     return '-';
-  }
-
-  String _readValue(Map<String, dynamic> row, List<String> keys) {
-    for (final key in keys) {
-      final value = row[key];
-      if (value == null) {
-        continue;
-      }
-      if (key.toLowerCase().contains('createdat')) {
-        return _formatDate(value);
-      }
-      final text = value.toString().trim();
-      if (text.isNotEmpty) {
-        return text;
-      }
-    }
-    return '-';
-  }
-
-  String _formatRewardType(String value) {
-    switch (value.trim()) {
-      case 'all_games_until_midnight':
-        return 'Tous les jeux jusqu a minuit';
-      case 'play_credit':
-      case 'plays':
-      case 'remaining_part':
-      case 'extra_play':
-        return 'Parties supplementaires';
-      case 'game_bonus':
-        return 'Bonus de jeu';
-      default:
-        return value.trim().isEmpty ? '-' : value;
-    }
   }
 
   Widget _buildSection({
@@ -230,9 +387,9 @@ class _SharePromoStatsAdminPageWidgetState
 
   Widget _buildListSection({
     required BuildContext context,
-    required List<Map<String, dynamic>> rows,
+    required List<_ReferralRowViewData> rows,
     required String emptyMessage,
-    required Widget Function(Map<String, dynamic> row) itemBuilder,
+    required Widget Function(_ReferralRowViewData row) itemBuilder,
   }) {
     if (rows.isEmpty) {
       return _buildEmptyState(emptyMessage);
@@ -248,97 +405,117 @@ class _SharePromoStatsAdminPageWidgetState
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
-      child: Row(
+  Color _statusColor(String statusKey) {
+    switch (statusKey) {
+      case 'rewarded':
+        return const Color(0xFF12B76A);
+      case 'accepted':
+        return const Color(0xFF2E90FA);
+      case 'pending':
+      default:
+        return const Color(0xFFF79009);
+    }
+  }
+
+  Widget _buildStatusBadge(BuildContext context, _ReferralRowViewData row) {
+    final color = _statusColor(row.statusKey);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999.0),
+      ),
+      child: Text(
+        row.statusLabel,
+        style: FlutterFlowTheme.of(context).bodySmall.override(
+              font: GoogleFonts.inter(
+                fontWeight: FontWeight.w600,
+                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+              ),
+              color: color,
+              letterSpacing: 0.0,
+              fontWeight: FontWeight.w600,
+              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+            ),
+      ),
+    );
+  }
+
+  Widget _buildReferralCard(_ReferralRowViewData row) {
+    final initials = row.displayName.trim().isNotEmpty
+        ? row.displayName.trim().characters.first.toUpperCase()
+        : 'U';
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F9FC),
+        borderRadius: BorderRadius.circular(16.0),
+        border: Border.all(color: const Color(0xFFD9E2EC)),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 116.0,
-            child: Text(
-              label,
-              style: const TextStyle(
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 22.0,
+                backgroundColor: const Color(0xFFE8EEF7),
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    color: Color(0xFF1D3557),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12.0),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      row.displayName,
+                      style: const TextStyle(
+                        fontSize: 16.0,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                    const SizedBox(height: 4.0),
+                    Text(
+                      row.inviteCode.isEmpty
+                          ? 'Code indisponible'
+                          : 'Code: ${row.inviteCode}',
+                      style: const TextStyle(
+                        fontSize: 13.0,
+                        color: Color(0xFF667085),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _buildStatusBadge(context, row),
+            ],
+          ),
+          const SizedBox(height: 12.0),
+          Text(
+            'Date: ${_formatDate(row.createdAt)}',
+            style: const TextStyle(
+              fontSize: 13.0,
+              color: Color(0xFF52606D),
+            ),
+          ),
+          if (row.rewardGranted) ...[
+            const SizedBox(height: 6.0),
+            const Text(
+              'R�compense obtenue',
+              style: TextStyle(
+                fontSize: 13.0,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF52606D),
+                color: Color(0xFF12B76A),
               ),
             ),
-          ),
-          Expanded(
-            child: Text(value),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReferralCard(Map<String, dynamic> row) {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F9FC),
-        borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: const Color(0xFFD9E2EC)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInfoRow('inviteCode', _readValue(row, const ['inviteCode'])),
-          _buildInfoRow('inviterUid', _readValue(row, const ['inviterUid'])),
-          _buildInfoRow('status', _readValue(row, const ['status'])),
-          _buildInfoRow('createdAt', _readValue(row, const ['createdAt'])),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRewardCard(Map<String, dynamic> row) {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F9FC),
-        borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: const Color(0xFFD9E2EC)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInfoRow(
-            'Utilisateur',
-            _readValue(row, const ['uid', 'userId', 'user_id']),
-          ),
-          _buildInfoRow(
-            'Recompense',
-            _formatRewardType(
-              _readValue(row, const ['type', 'rewardType', 'reward_type']),
-            ),
-          ),
-          _buildInfoRow(
-            'Valeur',
-            _readValue(row, const ['value', 'rewardValue']),
-          ),
-          _buildInfoRow('Cree le', _readValue(row, const ['createdAt'])),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopInviterCard(Map<String, dynamic> row) {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F9FC),
-        borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: const Color(0xFFD9E2EC)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInfoRow('inviterUid', _readValue(row, const ['uid', 'inviterUid'])),
-          _buildInfoRow(
-            'acceptedCount',
-            _readValue(row, const ['acceptedCount']),
-          ),
+          ],
         ],
       ),
     );
@@ -392,7 +569,7 @@ class _SharePromoStatsAdminPageWidgetState
         ),
       ),
       body: SafeArea(
-        child: FutureBuilder<SharePromoAdminStatsModel>(
+        child: FutureBuilder<_ReferralStatsViewData>(
           future: _statsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -421,7 +598,8 @@ class _SharePromoStatsAdminPageWidgetState
                       mainAxisSpacing: 12.0,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      childAspectRatio: MediaQuery.sizeOf(context).width > 900 ? 1.35 : 1.1,
+                      childAspectRatio:
+                          MediaQuery.sizeOf(context).width > 900 ? 1.35 : 1.1,
                       children: [
                         _buildKpiCard(
                           context,
@@ -454,36 +632,12 @@ class _SharePromoStatsAdminPageWidgetState
                   _buildSection(
                     context: context,
                     title: 'SECTION 2 - Referrals recentes',
-                    subtitle: 'inviteCode, inviterUid, status, createdAt',
+                    subtitle: 'Pr�noms, statuts lisibles et dates de cr�ation.',
                     child: _buildListSection(
                       context: context,
                       rows: stats.recentReferrals,
                       emptyMessage: 'Aucune referral recente.',
                       itemBuilder: _buildReferralCard,
-                    ),
-                  ),
-                  const SizedBox(height: 16.0),
-                  _buildSection(
-                    context: context,
-                    title: 'SECTION 3 - Rewards recentes',
-                    subtitle: 'userId, rewardType, value, createdAt',
-                    child: _buildListSection(
-                      context: context,
-                      rows: stats.recentRewards,
-                      emptyMessage: 'Aucune reward recente.',
-                      itemBuilder: _buildRewardCard,
-                    ),
-                  ),
-                  const SizedBox(height: 16.0),
-                  _buildSection(
-                    context: context,
-                    title: 'SECTION 4 - Top parrains',
-                    subtitle: 'inviterUid et acceptedCount, tries par performance.',
-                    child: _buildListSection(
-                      context: context,
-                      rows: stats.topInviters,
-                      emptyMessage: 'Aucun parrain en tete pour le moment.',
-                      itemBuilder: _buildTopInviterCard,
                     ),
                   ),
                 ],
@@ -495,3 +649,38 @@ class _SharePromoStatsAdminPageWidgetState
     );
   }
 }
+
+class _ReferralStatsViewData {
+  const _ReferralStatsViewData({
+    required this.pendingReferrals,
+    required this.acceptedReferrals,
+    required this.grantedRewards,
+    required this.activeCampaigns,
+    required this.recentReferrals,
+  });
+
+  final int pendingReferrals;
+  final int acceptedReferrals;
+  final int grantedRewards;
+  final int activeCampaigns;
+  final List<_ReferralRowViewData> recentReferrals;
+}
+
+class _ReferralRowViewData {
+  const _ReferralRowViewData({
+    required this.displayName,
+    required this.inviteCode,
+    required this.statusKey,
+    required this.statusLabel,
+    required this.createdAt,
+    required this.rewardGranted,
+  });
+
+  final String displayName;
+  final String inviteCode;
+  final String statusKey;
+  final String statusLabel;
+  final Timestamp? createdAt;
+  final bool rewardGranted;
+}
+

@@ -312,6 +312,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
   Widget build(BuildContext context) {
     final rewardText = _resultMessage ?? '';
     final rewardTextBonus = _resultMessageBonus ?? '';
+    final wonPrizePath = widget.resultParticipation?.prizeId.trim() ?? '';
     final hasMainPrizeGame =
         widget.game != null ? hasMainPrize(widget.game!) : false;
     final isCompactHeight = MediaQuery.sizeOf(context).height < 1000.0;
@@ -892,6 +893,82 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                               borderRadius:
                                                   BorderRadius.circular(30.0),
                                             ),
+                                          ),
+                                        if (widget
+                                                .resultParticipation?.isWin ==
+                                            true)
+                                          Container(
+                                            width: double.infinity,
+                                            padding: const EdgeInsets.all(14.0),
+                                            decoration: BoxDecoration(
+                                              color: FlutterFlowTheme.of(context)
+                                                  .primaryBackground,
+                                              borderRadius:
+                                                  BorderRadius.circular(14.0),
+                                            ),
+                                            child: wonPrizePath.isEmpty
+                                                ? Text(
+                                                    'Lot gagné instantanément',
+                                                    style: FlutterFlowTheme.of(
+                                                            context)
+                                                        .bodyMedium,
+                                                  )
+                                                : FutureBuilder<PrizesRecord>(
+                                                    future:
+                                                        PrizesRecord.getDocumentOnce(
+                                                      FirebaseFirestore.instance
+                                                          .doc(wonPrizePath),
+                                                    ),
+                                                    builder:
+                                                        (context, snapshot) {
+                                                      final prize = snapshot.data;
+                                                      final prizeName = prize
+                                                                  ?.name
+                                                                  .trim()
+                                                                  .isNotEmpty ==
+                                                              true
+                                                          ? prize!.name.trim()
+                                                          : 'Lot gagné instantanément';
+                                                      return Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            'Lot associé à votre gain',
+                                                            style: FlutterFlowTheme.of(
+                                                                    context)
+                                                                .bodySmall
+                                                                .override(
+                                                                  font: GoogleFonts
+                                                                      .inter(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w700,
+                                                                    fontStyle:
+                                                                        FlutterFlowTheme.of(context)
+                                                                            .bodySmall
+                                                                            .fontStyle,
+                                                                  ),
+                                                                  letterSpacing:
+                                                                      0.0,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w700,
+                                                                ),
+                                                          ),
+                                                          const SizedBox(
+                                                              height: 6.0),
+                                                          Text(
+                                                            prizeName,
+                                                            style: FlutterFlowTheme.of(
+                                                                    context)
+                                                                .titleSmall,
+                                                          ),
+                                                        ],
+                                                      );
+                                                    },
+                                                  ),
                                           ),
                                         FFButtonWidget(
                                           onPressed: () async {

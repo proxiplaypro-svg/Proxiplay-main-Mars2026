@@ -76,7 +76,6 @@ class _MyAppState extends State<MyApp> {
   late AppStateNotifier _appStateNotifier;
   late GoRouter _router;
 
-  bool _isLoadingConfig = true;
   bool _isMaintenance = false;
   bool _isUpdateRequired = false;
 
@@ -150,10 +149,9 @@ class _MyAppState extends State<MyApp> {
     }
     // -----------------------
 
-    Future.delayed(
-      const Duration(milliseconds: 2000),
-      () => _appStateNotifier.stopShowingSplashImage(),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _appStateNotifier.stopShowingSplashImage();
+    });
   }
 
   Future<void> _checkRemoteConfig() async {
@@ -176,7 +174,6 @@ class _MyAppState extends State<MyApp> {
         setState(() {
           _isMaintenance = maintenance;
           _isUpdateRequired = updateNeeded;
-          _isLoadingConfig = false;
         });
       }
     }
@@ -250,15 +247,6 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Chargement
-    if (_isLoadingConfig) {
-      return const MaterialApp(
-          debugShowCheckedModeBanner: false,
-          home: Scaffold(
-              backgroundColor: Colors.white,
-              body: SizedBox.shrink()));
-    }
-
     // 2. Blocage Maintenance
     if (_isMaintenance) {
       return const MaterialApp(

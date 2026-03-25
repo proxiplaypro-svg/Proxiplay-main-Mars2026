@@ -73,9 +73,24 @@ class _AddGameCommercantPageWidgetState
     super.dispose();
   }
 
+  List<Map<String, dynamic>> _cloneSecondaryPrizes(
+    List<Map<String, dynamic>> prizes,
+  ) {
+    return prizes
+        .map((prize) => Map<String, dynamic>.from(prize))
+        .toList(growable: false);
+  }
+
+  void _logSecondaryPrizes(String stage, List<Map<String, dynamic>> prizes) {
+    debugPrint(
+      '[secondary_prizes][$stage] count=${prizes.length} payload=${jsonEncode(prizes)}',
+    );
+  }
+
   List<Map<String, dynamic>>? _collectSecondaryPrizes() {
     final prizes = <Map<String, dynamic>>[];
-    for (final entry in _model.secondaryPrizes) {
+    for (var index = 0; index < _model.secondaryPrizes.length; index++) {
+      final entry = _model.secondaryPrizes[index];
       final name = entry.nameController.text.trim();
       final presentation = entry.presentationController.text.trim();
       final countText = entry.countController.text.trim();
@@ -102,13 +117,19 @@ class _AddGameCommercantPageWidgetState
         return null;
       }
 
-      prizes.add({
+      final prize = <String, dynamic>{
         'name': name,
         if (presentation.isNotEmpty) 'presentation': presentation,
         'count': int.parse(countText),
-      });
+      };
+      debugPrint(
+        '[secondary_prizes][before_save][$index] payload=${jsonEncode(prize)}',
+      );
+      prizes.add(prize);
     }
-    return prizes;
+    final clonedPrizes = _cloneSecondaryPrizes(prizes);
+    _logSecondaryPrizes('collected', clonedPrizes);
+    return clonedPrizes;
   }
 
   double? _parsePriceValue(String? rawValue) {
@@ -152,6 +173,7 @@ class _AddGameCommercantPageWidgetState
       entry.dispose();
     }
     _model.secondaryPrizes.clear();
+    _logSecondaryPrizes('reload_source', template.secondaryPrizes);
     for (final prize in template.secondaryPrizes) {
       final entry = SecondaryPrizeEntry();
       entry.nameController.text = (prize['name'] ?? '').toString();
@@ -716,6 +738,7 @@ class _AddGameCommercantPageWidgetState
                                   (index) {
                                     final entry = _model.secondaryPrizes[index];
                                     return Padding(
+                                      key: ValueKey(entry),
                                       padding:
                                           const EdgeInsets.only(bottom: 12),
                                       child: Column(
@@ -1897,16 +1920,13 @@ class _AddGameCommercantPageWidgetState
                                           if (secondaryPrizes == null) {
                                             return;
                                           }
-                                          final totalSecondaryCount =
-                                              secondaryPrizes.fold<int>(
-                                            0,
-                                            (sum, item) =>
-                                                sum +
-                                                (item['count'] as int? ?? 0),
-                                          );
+                                          final serializedSecondaryPrizes =
+                                              _cloneSecondaryPrizes(
+                                                  secondaryPrizes);
                                           final secondaryPrizeSummary =
-                                              secondaryPrizes.isNotEmpty
-                                                  ? secondaryPrizes
+                                              serializedSecondaryPrizes
+                                                      .isNotEmpty
+                                                  ? serializedSecondaryPrizes
                                                       .map((e) =>
                                                           (e['name'] ?? '')
                                                               .toString())
@@ -1986,11 +2006,15 @@ class _AddGameCommercantPageWidgetState
                                                 .showSnackBar(
                                               const SnackBar(
                                                 content: Text(
-                                                    'Ajoutez au moins un lot principal ou secondaire.'),
+                                                  'Ajoutez au moins un lot principal ou secondaire.'),
                                               ),
                                             );
                                             return;
                                           }
+                                          _logSecondaryPrizes(
+                                            'write_request',
+                                            serializedSecondaryPrizes,
+                                          );
                                           if (_model
                                                   .uploadedLocalFile_uploadGameData5ir
                                                   .bytes
@@ -2076,7 +2100,8 @@ class _AddGameCommercantPageWidgetState
                                                   .uploadedFileUrl_uploadDataNyu,
                                               secondaryPrizeDescription:
                                                   secondaryPrizeSummary,
-                                              secondaryPrizes: secondaryPrizes,
+                                              secondaryPrizes:
+                                                  serializedSecondaryPrizes,
                                               views: 0,
                                               favorites: 0,
                                               participations: 0,
@@ -2115,7 +2140,8 @@ class _AddGameCommercantPageWidgetState
                                                   .uploadedFileUrl_uploadDataNyu,
                                               secondaryPrizeDescription:
                                                   secondaryPrizeSummary,
-                                              secondaryPrizes: secondaryPrizes,
+                                              secondaryPrizes:
+                                                  serializedSecondaryPrizes,
                                               views: 0,
                                               favorites: 0,
                                               participations: 0,
@@ -2134,13 +2160,25 @@ class _AddGameCommercantPageWidgetState
                                               },
                                             ),
                                           }, gamesRecordReference);
-                                          if (totalSecondaryCount > 0) {
+                                          final savedGameSnapshot =
+                                              await gamesRecordReference.get();
+                                          final savedSecondaryPrizesRaw =
+                                              savedGameSnapshot.data() is Map
+                                                  ? (savedGameSnapshot.data()
+                                                              as Map)[
+                                                          'secondary_prizes'] ??
+                                                      const []
+                                                  : const [];
+                                          debugPrint(
+                                            '[secondary_prizes][firestore_saved] game=${gamesRecordReference.id} payload=${jsonEncode(savedSecondaryPrizesRaw)}',
+                                          );
+                                          if (serializedSecondaryPrizes.isNotEmpty) {
                                             await actions
                                                 .addInstantWinnersToGame(
                                               _model.gameResult!.reference,
                                               _model.gameResult!.startDate!,
                                               _model.endDateTransformCopy!,
-                                              totalSecondaryCount,
+                                              serializedSecondaryPrizes,
                                             );
                                           }
                                           safeSetState(() {

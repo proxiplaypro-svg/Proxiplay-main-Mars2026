@@ -1,4 +1,4 @@
-﻿import '/auth/firebase_auth/auth_util.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
@@ -61,11 +61,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
   String _formatEuros(num? value) {
     final amount = value ?? 0;
     if (amount % 1 == 0) {
-      return '${amount.toInt()} €';
+      return '${amount.toInt()} ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬';
     }
     var text = amount.toStringAsFixed(2);
     text = text.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
-    return '${text.replaceAll('.', ',')} €';
+    return '${text.replaceAll('.', ',')} ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬';
   }
 
   @override
@@ -126,7 +126,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             lastPlay.month == now.month &&
             lastPlay.day == now.day;
         final hasPlayedBefore = lastPlay != null && !hasPlayedToday;
-        final noRemainingParts = _hasNoRemainingParts(currentUserDocument, now);
         final endDate = widget.gameDoc?.endDate;
         final endWindowEnd = endDate?.add(const Duration(hours: 48));
         final isWithinEndWindow = endDate != null &&
@@ -472,191 +471,174 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   .gameDoc!
                                                                   .endDate! >
                                                               getCurrentTimestamp,
-                                                          child: FFButtonWidget(
-                                                            onPressed: ((widget
-                                                                            .gameDoc!
-                                                                            .endDate! <
-                                                                        getCurrentTimestamp) ||
-                                                                    hasPlayedToday ||
-                                                                    noRemainingParts)
-                                                                ? null
-                                                                : () async {
-                                                                    if (isGuestOrAnonymous) {
-                                                                      await showCreateAccountToPlayDialog(
-                                                                          context);
-                                                                      return;
-                                                                    }
-                                                                    try {
-                                                                      final result = await FirebaseFunctions
-                                                                          .instance
-                                                                          .httpsCallable(
-                                                                              'participateInGameTransaction')
-                                                                          .call({
-                                                                        "gameRef": widget
-                                                                            .gameDoc!
-                                                                            .reference
-                                                                            .id,
-                                                                      });
-                                                                      _model.cloudFunction3sn =
-                                                                          ParticipateInGameTransactionCloudFunctionCallResponse(
-                                                                        data: ResultParticipationGameStruct.fromMap(
-                                                                            result.data),
-                                                                        succeeded:
-                                                                            true,
-                                                                        resultAsString: result
-                                                                            .data
-                                                                            .toString(),
-                                                                        jsonBody:
-                                                                            result.data,
-                                                                      );
-                                                                    } on FirebaseFunctionsException catch (error) {
-                                                                      _model.cloudFunction3sn =
-                                                                          ParticipateInGameTransactionCloudFunctionCallResponse(
-                                                                        data: createResultParticipationGameStruct(
-                                                                          message: error.message ??
-                                                                              "Erreur (${error.code})",
-                                                                        ),
-                                                                        errorCode:
-                                                                            error.code,
-                                                                        succeeded:
-                                                                            false,
-                                                                      );
-                                                                    }
-
-                                                                    if (!context.mounted) {
-                                                                      return;
-                                                                    }
-                                                                    if (_model
-                                                                        .cloudFunction3sn!
-                                                                        .succeeded!) {
-                                                                      context
-                                                                          .pushNamed(
-                                                                        PlayJoueurPageWidget
-                                                                            .routeName,
-                                                                        queryParameters:
-                                                                            {
-                                                                          'game':
-                                                                              serializeParam(
-                                                                            widget.gameDoc,
-                                                                            ParamType.Document,
-                                                                          ),
-                                                                          'resultParticipation':
-                                                                              serializeParam(
-                                                                            ResultParticipationGameStruct.maybeFromMap(_model.cloudFunction3sn?.jsonBody),
-                                                                            ParamType.DataStruct,
-                                                                          ),
-                                                                        }.withoutNulls,
-                                                                        extra: <String,
-                                                                            dynamic>{
-                                                                          'game':
-                                                                              widget.gameDoc,
-                                                                        },
-                                                                      );
-                                                                    } else {
-                                                                      await showDialog(
-                                                                        context:
-                                                                            context,
-                                                                        builder:
-                                                                            (alertDialogContext) {
-                                                                          return WebViewAware(
-                                                                            child:
-                                                                                AlertDialog(
-                                                                              title: Text(
-                                                                                _model.cloudFunction3sn?.data?.message.isNotEmpty == true
-                                                                                    ? _model.cloudFunction3sn!.data!.message
-                                                                                    : "Une erreur est survenue (${_model.cloudFunction3sn?.errorCode ?? 'inconnue'}).",
-                                                                              ),
-                                                                              actions: [
-                                                                                TextButton(
-                                                                                  onPressed: () => Navigator.pop(alertDialogContext),
-                                                                                  child: const Text('Ok'),
-                                                                                ),
-                                                                              ],
-                                                                            ),
-                                                                          );
-                                                                        },
-                                                                      );
-                                                                    }
-
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                            text: () {
+                                                          child: AuthUserStreamWidget(
+                                                            builder: (context) {
                                                               final noRemainingPartsLive =
                                                                   _hasNoRemainingParts(
                                                                 currentUserDocument,
                                                                 getCurrentTimestamp,
                                                               );
-                                                              if (noRemainingPartsLive) {
-                                                                return 'Vous n\'avez plus de parties';
-                                                              } else if (widget
-                                                                      .gameDoc!
-                                                                      .endDate! <
-                                                                  getCurrentTimestamp) {
-                                                                return 'Le jeu est termin\u00E9';
-                                                              } else if (hasPlayedToday) {
-                                                                return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
-                                                              } else if (hasPlayedBefore) {
-                                                                return 'Rejouer';
-                                                              } else {
-                                                                return 'Jouer';
-                                                              }
-                                                            }(),
-                                                            options:
-                                                                FFButtonOptions(
-                                                              width: double
-                                                                  .infinity,
+                                                              return FFButtonWidget(
+                                                                onPressed: ((widget
+                                                                                .gameDoc!
+                                                                                .endDate! <
+                                                                            getCurrentTimestamp) ||
+                                                                        hasPlayedToday ||
+                                                                        noRemainingPartsLive)
+                                                                    ? null
+                                                                    : () async {
+                                                                        if (isGuestOrAnonymous) {
+                                                                          await showCreateAccountToPlayDialog(
+                                                                              context);
+                                                                          return;
+                                                                        }
+                                                                        try {
+                                                                          final result = await FirebaseFunctions
+                                                                              .instance
+                                                                              .httpsCallable(
+                                                                                  'participateInGameTransaction')
+                                                                              .call({
+                                                                            "gameRef": widget
+                                                                                .gameDoc!
+                                                                                .reference
+                                                                                .id,
+                                                                          });
+                                                                          _model.cloudFunction3sn =
+                                                                              ParticipateInGameTransactionCloudFunctionCallResponse(
+                                                                            data: ResultParticipationGameStruct.fromMap(
+                                                                                result.data),
+                                                                            succeeded:
+                                                                                true,
+                                                                            resultAsString: result
+                                                                                .data
+                                                                                .toString(),
+                                                                            jsonBody:
+                                                                                result.data,
+                                                                          );
+                                                                        } on FirebaseFunctionsException catch (error) {
+                                                                          _model.cloudFunction3sn =
+                                                                              ParticipateInGameTransactionCloudFunctionCallResponse(
+                                                                            data: createResultParticipationGameStruct(
+                                                                              message: error.message ??
+                                                                                  "Erreur (${error.code})",
+                                                                            ),
+                                                                            errorCode:
+                                                                                error.code,
+                                                                            succeeded:
+                                                                                false,
+                                                                          );
+                                                                        }
+
+                                                                        if (!context.mounted) {
+                                                                          return;
+                                                                        }
+                                                                        if (_model
+                                                                            .cloudFunction3sn!
+                                                                            .succeeded!) {
+                                                                          await refreshCurrentUserDocument();
+                                                                          if (context.mounted) {
+                                                                            safeSetState(() {});
+                                                                          }
+                                                                          context.pushNamed(
+                                                                            PlayJoueurPageWidget
+                                                                                .routeName,
+                                                                            queryParameters:
+                                                                                {
+                                                                              'game':
+                                                                                  serializeParam(
+                                                                                widget.gameDoc,
+                                                                                ParamType.Document,
+                                                                              ),
+                                                                              'resultParticipation':
+                                                                                  serializeParam(
+                                                                                ResultParticipationGameStruct.maybeFromMap(_model.cloudFunction3sn?.jsonBody),
+                                                                                ParamType.DataStruct,
+                                                                              ),
+                                                                            }.withoutNulls,
+                                                                            extra: <String, dynamic>{
+                                                                              'game': widget.gameDoc,
+                                                                            },
+                                                                          );
+                                                                        } else {
+                                                                          await showDialog(
+                                                                            context: context,
+                                                                            builder: (alertDialogContext) {
+                                                                              return WebViewAware(
+                                                                                child: AlertDialog(
+                                                                                  title: Text(
+                                                                                    _model.cloudFunction3sn?.data?.message.isNotEmpty == true
+                                                                                        ? _model.cloudFunction3sn!.data!.message
+                                                                                        : "Une erreur est survenue (${_model.cloudFunction3sn?.errorCode ?? 'inconnue'}).",
+                                                                                  ),
+                                                                                  actions: [
+                                                                                    TextButton(
+                                                                                      onPressed: () => Navigator.pop(alertDialogContext),
+                                                                                      child: const Text('Ok'),
+                                                                                    ),
+                                                                                  ],
+                                                                                ),
+                                                                              );
+                                                                            },
+                                                                          );
+                                                                        }
+
+                                                                        safeSetState(() {});
+                                                                      },
+                                                                text: () {
+                                                                  if (noRemainingPartsLive) {
+                                                                    return 'Vous n''avez plus de parties';
+                                                                  } else if (widget
+                                                                          .gameDoc!
+                                                                          .endDate! <
+                                                                      getCurrentTimestamp) {
+                                                                    return 'Le jeu est terminÃƒÆ’Ã‚Â©';
+                                                                  } else if (hasPlayedToday) {
+                                                                    return 'Vous avez dÃƒÆ’Ã‚Â©jÃƒÆ’Ã‚Â  jouÃƒÆ’Ã‚Â©';
+                                                                  } else if (hasPlayedBefore) {
+                                                                    return 'Rejouer';
+                                                                  } else {
+                                                                    return 'Jouer';
+                                                                  }
+                                                                }(),
+                                                                options: FFButtonOptions(
+                                                                  width: double.infinity,
                                                                   height: 56.0,
-                                                              padding:
-                                                                  const EdgeInsets
-                                                                      .all(0.0),
-                                                              iconPadding:
-                                                                  const EdgeInsetsDirectional
-                                                                      .fromSTEB(
-                                                                          0.0,
-                                                                          0.0,
-                                                                          0.0,
-                                                                          0.0),
-                                                              color: FlutterFlowTheme
-                                                                      .of(context)
-                                                                  .primary,
-                                                              textStyle:
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
+                                                                  padding: const EdgeInsets.all(0.0),
+                                                                  iconPadding: const EdgeInsetsDirectional.fromSTEB(
+                                                                      0.0, 0.0, 0.0, 0.0),
+                                                                  color: FlutterFlowTheme.of(context).primary,
+                                                                  textStyle: FlutterFlowTheme.of(context)
                                                                       .titleMedium
                                                                       .override(
-                                                                        font: GoogleFonts
-                                                                                .inter(
-                                                                              fontWeight: FontWeight.w600,
-                                                                            ),
-                                                                            color: Colors.white,
-                                                                        letterSpacing:
-                                                                            0.0,
+                                                                        font: GoogleFonts.inter(
+                                                                          fontWeight: FontWeight.w600,
+                                                                        ),
+                                                                        color: Colors.white,
+                                                                        letterSpacing: 0.0,
                                                                       ),
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                              16.0),
+                                                                  borderRadius: BorderRadius.circular(16.0),
                                                                   elevation: 4.0,
-                                                            ),
+                                                                ),
+                                                              );
+                                                            },
                                                           ),
                                                         );
                                                       } else {
-                                                            return Container(
-                                                              height: 56.0,
-                                                              decoration: BoxDecoration(
-                                                                color: FlutterFlowTheme.of(context).primary,
-                                                                borderRadius: BorderRadius.circular(16.0),
+                                                        return Container(
+                                                          height: 56.0,
+                                                          decoration: BoxDecoration(
+                                                            color: FlutterFlowTheme.of(context).primary,
+                                                            borderRadius: BorderRadius.circular(16.0),
+                                                          ),
+                                                          child: Center(
+                                                            child: Text(
+                                                              'Interdit au mineur',
+                                                              style: GoogleFonts.inter(
+                                                                fontWeight: FontWeight.w600,
+                                                                color: Colors.white,
                                                               ),
-                                                              child: Center(
-                                                                child: Text(
-                                                          'Interdit au mineur',
-                                                                  style: GoogleFonts.inter(
-                                                                    fontWeight: FontWeight.w600,
-                                                                    color: Colors.white,
-                                                                  ),
-                                                                ),
-                                                              ),
+                                                            ),
+                                                          ),
                                                         );
                                                       }
                                                     },
@@ -1012,7 +994,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             children: [
                                               if (winnerName.isNotEmpty)
                                                     // Text(
-                                                    //   'FÃ©licitations Ã  $winnerName de ${snapshot.data!.city} !',
+                                                    //   'FÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©licitations ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  $winnerName de ${snapshot.data!.city} !',
                                                     //   textAlign:
                                                     //       TextAlign.center,
                                                     //   style:
@@ -1805,7 +1787,7 @@ return Container(
                                                   //                                         );
                                                   //                                       } else {
                                                   //                                         return Text(
-                                                  //                                           'FermÃ©',
+                                                  //                                           'FermÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â©',
                                                   //                                           textAlign: TextAlign.right,
                                                   //                                           style: GoogleFonts.inter(
                                                   //                                             fontSize: 14.0,
@@ -1863,7 +1845,7 @@ return Container(
                                               CrossAxisAlignment.start,
                                                               children: [
                                             // Text(
-                                            //   'Lots Ã  gagner',
+                                            //   'Lots ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â  gagner',
                                             //   style: GoogleFonts.inter(
                                             //     fontSize: 22.0,
                                             //     fontWeight: FontWeight.w700,
@@ -2192,8 +2174,8 @@ return Container(
                                                         Expanded(
                                                           child: Text(
                                                             secondaryPrizeCount > 0
-                                                                ? '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} secondaire${secondaryPrizeCount > 1 ? 's' : ''} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} à gagner instantanément'
-                                                                : 'Des lots secondaires sont à gagner instantanément',
+                                                                ? '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} secondaire${secondaryPrizeCount > 1 ? 's' : ''} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} ÃƒÆ’Ã‚Â  gagner instantanÃƒÆ’Ã‚Â©ment'
+                                                                : 'Des lots secondaires sont ÃƒÆ’Ã‚Â  gagner instantanÃƒÆ’Ã‚Â©ment',
                                                             style: GoogleFonts
                                                                 .inter(
                                                               fontSize: 13.0,

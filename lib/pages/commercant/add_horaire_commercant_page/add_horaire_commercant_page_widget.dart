@@ -106,7 +106,7 @@ class _AddHoraireCommercantPageWidgetState
                   ),
                 ),
                 title: Text(
-                  'Horairssses d\'ouverture',
+                  'Horaires d\'ouverture',
                   style: FlutterFlowTheme.of(context).headlineMedium.override(
                         font: GoogleFonts.interTight(
                           fontWeight: FlutterFlowTheme.of(context)
@@ -162,7 +162,7 @@ class _AddHoraireCommercantPageWidgetState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'DÃ©finissez les horaires d\'ouverture pour chaque jour de la semaine',
+                            'Définissez les horaires d\'ouverture pour chaque jour de la semaine',
                             style: FlutterFlowTheme.of(context)
                                 .bodyMedium
                                 .override(
@@ -570,7 +570,7 @@ class _AddHoraireCommercantPageWidgetState
                                                           );
                                                         } else {
                                                           return Text(
-                                                            'FermÃ©',
+                                                            'Fermé',
                                                             style: FlutterFlowTheme
                                                                     .of(context)
                                                                 .bodyMedium
@@ -637,4 +637,3 @@ class _AddHoraireCommercantPageWidgetState
     );
   }
 }
-

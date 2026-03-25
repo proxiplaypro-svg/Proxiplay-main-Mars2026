@@ -294,7 +294,7 @@ class _AdminAutomaticNotificationConfigPageWidgetState
                     _section(
                       context,
                       child: DropdownButtonFormField<String>(
-                        value: _scenario.templateKey,
+                        initialValue: _scenario.templateKey,
                         decoration: _inputDecoration(context, 'Type de scénario'),
                         items: AutomaticNotificationTemplates.definitions.entries
                             .map(
@@ -339,7 +339,7 @@ class _AdminAutomaticNotificationConfigPageWidgetState
                           ),
                           const SizedBox(height: 12),
                           DropdownButtonFormField<String>(
-                            value: _scenario.frequency,
+                            initialValue: _scenario.frequency,
                             decoration: _inputDecoration(context, 'Fréquence'),
                             items: const [
                               DropdownMenuItem(value: 'once', child: Text('Une fois')),

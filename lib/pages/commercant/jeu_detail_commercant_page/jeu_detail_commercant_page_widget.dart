@@ -282,6 +282,7 @@ class _JeuDetailCommercantPageWidgetState
     );
   }
 
+
   Widget _buildWinnerInfoRow(String label, String? value) {
     final displayValue =
         (value ?? '').trim().isNotEmpty ? value!.trim() : '—';
@@ -559,13 +560,6 @@ class _JeuDetailCommercantPageWidgetState
                                       icon: Icons.sports_esports,
                                       label: 'Participations',
                                       value: game.participations.toString(),
-                                    ),
-                                    _buildStatCard(
-                                      icon: Icons.people,
-                                      label: 'Joueurs uniques',
-                                      value: _hasUniquePlayers(game)
-                                          ? _readUniquePlayers(game).toString()
-                                          : '—',
                                     ),
                                   ],
                                 );

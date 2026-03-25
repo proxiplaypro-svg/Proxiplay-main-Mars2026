@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/backend/schema/enums/enums.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
@@ -77,7 +78,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
 
   Future<void> _openLotDetail(PrizesRecord prize) async {
     context.pushNamed(
-      LotDetailJoueurPageWidget.routeName,
+      'lotDetailJoueurPage',
       queryParameters: {
         'lot': serializeParam(
           prize,
@@ -170,6 +171,27 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
         });
       }
     }
+  }
+
+  String _prizeDisplayName(PrizesRecord prize) {
+    final name = prize.name.trim();
+    if (name.isNotEmpty) {
+      return name;
+    }
+    if (prize.prizeType == PrizeType.principal) {
+      return 'Lot principal';
+    }
+    return 'Lot secondaire';
+  }
+
+  String _prizeDisplaySubtitle(PrizesRecord prize) {
+    final description = prize.description.trim();
+    if (description.isNotEmpty) {
+      return description;
+    }
+    return prize.prizeType == PrizeType.principal
+        ? 'Lot principal gagné'
+        : 'Lot secondaire gagné';
   }
 
   Widget _buildSummaryCard(BuildContext context, List<_LotListItem> items) {
@@ -360,7 +382,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                   children: [
                     Expanded(
                       child: Text(
-                        prize.name,
+                        _prizeDisplayName(prize),
                         style: FlutterFlowTheme.of(context).titleMedium.override(
                               font: GoogleFonts.interTight(
                                 fontWeight: FontWeight.w700,
@@ -398,7 +420,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                   ],
                 ),
                 Text(
-                  merchantLabel,
+                  _prizeDisplaySubtitle(prize),
                   style: FlutterFlowTheme.of(context).bodyMedium.override(
                         font: GoogleFonts.inter(
                           fontWeight: FontWeight.w500,
@@ -408,6 +430,18 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                         color: FlutterFlowTheme.of(context).secondaryText,
                         letterSpacing: 0.0,
                         fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                const SizedBox(height: 4.0),
+                Text(
+                  merchantLabel,
+                  style: FlutterFlowTheme.of(context).bodySmall.override(
+                        font: GoogleFonts.inter(
+                          fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                          fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                        ),
+                        color: FlutterFlowTheme.of(context).secondaryText,
+                        letterSpacing: 0.0,
                       ),
                 ),
                 const SizedBox(height: 12.0),
@@ -655,3 +689,7 @@ class _LotListItem {
   final MyLotsRecord myLot;
   final PrizesRecord prize;
 }
+
+
+
+

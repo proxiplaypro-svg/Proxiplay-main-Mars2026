@@ -40,7 +40,7 @@ class AutomaticNotificationScenario {
       );
 
   String get scheduleText =>
-      '${delayDays} j - ${frequency == 'once' ? '1 fois' : 'repetee'} - ${sendHour.toString().padLeft(2, '0')}h${sendMinute.toString().padLeft(2, '0')}';
+      '$delayDays j - ${frequency == 'once' ? '1 fois' : 'repetee'} - ${sendHour.toString().padLeft(2, '0')}h${sendMinute.toString().padLeft(2, '0')}';
 
   String get summary {
     final filters = filterRemainingParts ? ' - parties restantes' : '';

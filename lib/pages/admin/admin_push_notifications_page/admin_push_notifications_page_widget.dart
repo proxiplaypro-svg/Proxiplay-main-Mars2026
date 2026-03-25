@@ -74,7 +74,7 @@ class _AdminPushNotificationsPageWidgetState
     setState(() => _model.gameEndingConfigLoading = true);
     try {
       final result = await makeCloudCall('adminGetNotificationsConfig', {});
-      if (!mounted || result == null) return;
+      if (!mounted) return;
       setState(() {
         _model.gameEndingNotificationEnabled =
             result['game_ending_enabled'] ?? false;
@@ -127,7 +127,7 @@ class _AdminPushNotificationsPageWidgetState
       });
 
       if (!mounted) return;
-      final ok = result != null && result['ok'] == true;
+      final ok = result['ok'] == true;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

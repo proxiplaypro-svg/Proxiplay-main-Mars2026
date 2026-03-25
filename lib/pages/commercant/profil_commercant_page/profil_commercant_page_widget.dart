@@ -73,7 +73,15 @@ class _ProfilCommercantPageWidgetState
                   children: [
                     AuthUserStreamWidget(
                       builder: (context) => Text(
-                        valueOrDefault(currentUserDocument?.firstName, ''),
+                        valueOrDefault<String>(
+                          currentUserDocument?.firstName,
+                          '',
+                        ).trim().isNotEmpty
+                            ? 'Bonjour ${valueOrDefault<String>(
+                                currentUserDocument?.firstName,
+                                '',
+                              ).trim()}'
+                            : 'Bonjour',
                         style:
                             FlutterFlowTheme.of(context).headlineSmall.override(
                                   font: GoogleFonts.interTight(
@@ -255,9 +263,39 @@ class _ProfilCommercantPageWidgetState
                                 hoverColor: Colors.transparent,
                                 highlightColor: Colors.transparent,
                                 onTap: () async {
-                                  context.pushNamed(
-                                      MesEnseignesCommercantPageWidget
-                                          .routeName);
+                                  final enseignes = await queryEnseignesRecordOnce(
+                                    queryBuilder: (enseignesRecord) =>
+                                        enseignesRecord.where(
+                                      'owner',
+                                      isEqualTo: currentUserReference,
+                                    ),
+                                    limit: 1,
+                                  );
+                                  final enseigne =
+                                      enseignes.isNotEmpty ? enseignes.first : null;
+
+                                  if (!context.mounted) {
+                                    return;
+                                  }
+
+                                  if (enseigne != null) {
+                                    context.pushNamed(
+                                      UpdateEnseigneCommercantPageWidget.routeName,
+                                      queryParameters: {
+                                        'enseigneDocument': serializeParam(
+                                          enseigne,
+                                          ParamType.Document,
+                                        ),
+                                      }.withoutNulls,
+                                      extra: <String, dynamic>{
+                                        'enseigneDocument': enseigne,
+                                      },
+                                    );
+                                  } else {
+                                    context.pushNamed(
+                                      AddEnseigneCommercantPageWidget.routeName,
+                                    );
+                                  }
                                 },
                                 child: Container(
                                   width: double.infinity,
@@ -912,3 +950,5 @@ class _ProfilCommercantPageWidgetState
     );
   }
 }
+
+

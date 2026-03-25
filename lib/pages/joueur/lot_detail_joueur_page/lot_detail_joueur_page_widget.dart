@@ -1,4 +1,5 @@
-﻿import '/backend/backend.dart';
+import '/backend/backend.dart';
+import '/backend/schema/enums/enums.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/update_horaire_card_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
@@ -49,6 +50,27 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
     _model.dispose();
 
     super.dispose();
+  }
+
+  String _prizeDisplayName(PrizesRecord prize) {
+    final name = prize.name.trim();
+    if (name.isNotEmpty) {
+      return name;
+    }
+    if (prize.prizeType == PrizeType.principal) {
+      return 'Lot principal';
+    }
+    return 'Lot secondaire';
+  }
+
+  String _prizeDisplayDescription(PrizesRecord prize) {
+    final description = prize.description.trim();
+    if (description.isNotEmpty) {
+      return description;
+    }
+    return prize.prizeType == PrizeType.principal
+        ? 'Lot principal gagné'
+        : 'Lot secondaire gagné';
   }
 
   @override
@@ -824,7 +846,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                     ),
                                                     Expanded(
                                                       child: Text(
-                                                        widget.lot!.name,
+                                                        _prizeDisplayName(widget.lot!),
                                                         style:
                                                             FlutterFlowTheme.of(
                                                                     context)
@@ -845,6 +867,85 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                                   color: FlutterFlowTheme.of(
                                                                           context)
                                                                       .primary,
+                                                                  letterSpacing:
+                                                                      0.0,
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyLarge
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyLarge
+                                                                      .fontStyle,
+                                                                ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.max,
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      'Détail : ',
+                                                      style:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodyLarge
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyLarge
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyLarge
+                                                                      .fontStyle,
+                                                                ),
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyLarge
+                                                                    .fontWeight,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyLarge
+                                                                    .fontStyle,
+                                                              ),
+                                                    ),
+                                                    Expanded(
+                                                      child: Text(
+                                                        _prizeDisplayDescription(
+                                                            widget.lot!),
+                                                        style:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .bodyLarge
+                                                                .override(
+                                                                  font:
+                                                                      GoogleFonts
+                                                                          .inter(
+                                                                    fontWeight: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodyLarge
+                                                                        .fontWeight,
+                                                                    fontStyle: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodyLarge
+                                                                        .fontStyle,
+                                                                  ),
+                                                                  color: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .secondaryText,
                                                                   letterSpacing:
                                                                       0.0,
                                                                   fontWeight: FlutterFlowTheme.of(
@@ -1132,4 +1233,5 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
     );
   }
 }
+
 

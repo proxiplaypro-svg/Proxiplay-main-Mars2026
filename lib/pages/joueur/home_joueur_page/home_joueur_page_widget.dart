@@ -17,6 +17,7 @@ import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import '/utils/perf_trace.dart';
 import '/utils/share_links.dart';
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -52,6 +53,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   late Future<SharePromoStateViewModel?> _sharePromoFuture;
   late Future<List<String>> _recentWinnerMessagesFuture;
   SharePromoStateViewModel? _latestSharePromoState;
+  final Map<String, Future<EnseignesRecord?>> _enseigneFutureCache = {};
+  final Map<String, Future<UsersRecord?>> _userFutureCache = {};
 
   @override
   void initState() {
@@ -62,11 +65,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     PerfTrace.log('HOME_DATA_LOADING_START');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PerfTrace.log('HOME_FIRST_FRAME');
-      Future.delayed(const Duration(milliseconds: 900), () {
-        if (mounted) {
-          _markHomeDataReady();
-        }
-      });
+      if (mounted) {
+        _markHomeDataReady();
+      }
     });
 
     logFirebaseEvent('screen_view',
@@ -111,11 +112,92 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     if (enseigneRef == null) {
       return null;
     }
-    try {
-      return await EnseignesRecord.getDocumentOnce(enseigneRef);
-    } catch (_) {
+    return _enseigneFutureCache.putIfAbsent(enseigneRef.path, () async {
+      try {
+        return await EnseignesRecord.getDocumentOnce(enseigneRef);
+      } catch (_) {
+        return null;
+      }
+    });
+  }
+
+  void _primeEnseignesForGames(Iterable<GamesRecord> games) {
+    final refsByPath = <String, DocumentReference>{};
+    for (final game in games) {
+      final ref = game.enseigneId;
+      if (ref == null) {
+        continue;
+      }
+      if (_enseigneFutureCache.containsKey(ref.path)) {
+        continue;
+      }
+      refsByPath[ref.path] = ref;
+    }
+    if (refsByPath.isEmpty) {
+      return;
+    }
+
+    final pendingPaths = refsByPath.keys.toList();
+    final completers = <String, Completer<EnseignesRecord?>>{};
+    for (final path in pendingPaths) {
+      final completer = Completer<EnseignesRecord?>();
+      completers[path] = completer;
+      _enseigneFutureCache[path] = completer.future;
+    }
+
+    const chunkSize = 10;
+    for (var i = 0; i < pendingPaths.length; i += chunkSize) {
+      final chunkPaths = pendingPaths.skip(i).take(chunkSize).toList();
+      final docIds = chunkPaths.map((path) => path.split('/').last).toList();
+
+      queryEnseignesRecordOnce(
+        queryBuilder: (query) => query.where(
+          FieldPath.documentId,
+          whereIn: docIds,
+        ),
+        limit: docIds.length,
+      ).then((records) {
+        final recordsByPath = <String, EnseignesRecord>{
+          for (final record in records) record.reference.path: record,
+        };
+        for (final path in chunkPaths) {
+          final completer = completers[path];
+          if (completer == null || completer.isCompleted) {
+            continue;
+          }
+          completer.complete(recordsByPath[path]);
+        }
+      }).catchError((_) {
+        for (final path in chunkPaths) {
+          final completer = completers[path];
+          if (completer == null || completer.isCompleted) {
+            continue;
+          }
+          completer.complete(null);
+        }
+      });
+    }
+  }
+
+  Future<UsersRecord?> _loadUserRecord(DocumentReference? userRef) async {
+    if (userRef == null) {
       return null;
     }
+    return _userFutureCache.putIfAbsent(userRef.path, () async {
+      try {
+        return await UsersRecord.getDocumentOnce(userRef);
+      } catch (_) {
+        return null;
+      }
+    });
+  }
+
+  String _resolveStoreName(GamesRecord game, EnseignesRecord? enseigne) {
+    final denormalized = game.enseigneName.trim();
+    if (denormalized.isNotEmpty) {
+      return denormalized;
+    }
+    return enseigne?.name ?? '';
   }
 
   void _incrementGameViews(GamesRecord game) {
@@ -843,6 +925,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                     final search = _model.simpleSearchResults
                                         .where(_isGameVisibleForPlayer)
                                         .toList();
+                                    _primeEnseignesForGames(search);
                                     if (search.isEmpty) {
                                       return const ListEmptyComponentWidget(
                                         title: 'Liste vide',
@@ -866,17 +949,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                             borderRadius:
                                                 BorderRadius.circular(20.0),
                                           ),
-                                          child: StreamBuilder<EnseignesRecord>(
-                                            stream: EnseignesRecord.getDocument(
-                                                searchItem.enseigneId!),
+                                          child: FutureBuilder<EnseignesRecord?>(
+                                            future:
+                                                _loadEnseigneForGame(searchItem),
                                             builder: (context, snapshot) {
-                                              // Customize what your widget looks like when it's loading.
-                                              if (!snapshot.hasData) {
-                                                return const SizedBox.shrink();
-                                              }
-
                                               final rowEnseignesRecord =
-                                                  snapshot.data!;
+                                                  snapshot.data;
 
                                               return InkWell(
                                                 splashColor: Colors.transparent,
@@ -895,6 +973,19 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                     ),
                                                   });
 
+                                                  final enseigneParam =
+                                                      rowEnseignesRecord != null
+                                                          ? serializeParam(
+                                                              rowEnseignesRecord,
+                                                              ParamType.Document,
+                                                            )
+                                                          : serializeParam(
+                                                              searchItem
+                                                                  .enseigneId,
+                                                              ParamType
+                                                                  .DocumentReference,
+                                                            );
+
                                                   context.pushNamed(
                                                     JeuDetailJoueurPageWidget
                                                         .routeName,
@@ -904,15 +995,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         ParamType.Document,
                                                       ),
                                                       'enseigneDoc':
-                                                          serializeParam(
-                                                        rowEnseignesRecord,
-                                                        ParamType.Document,
-                                                      ),
+                                                          enseigneParam,
                                                     }.withoutNulls,
                                                     extra: <String, dynamic>{
                                                       'gameDoc': searchItem,
-                                                      'enseigneDoc':
-                                                          rowEnseignesRecord,
+                                                      if (rowEnseignesRecord !=
+                                                          null)
+                                                        'enseigneDoc':
+                                                            rowEnseignesRecord,
                                                       kTransitionInfoKey:
                                                           const TransitionInfo(
                                                         hasTransition: true,
@@ -1019,8 +1109,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                           18.0,
                                                                     ),
                                                                     Text(
-                                                                      rowEnseignesRecord
-                                                                          .name,
+                                                                      _resolveStoreName(
+                                                                        searchItem,
+                                                                        rowEnseignesRecord,
+                                                                      ),
                                                                       style: FlutterFlowTheme.of(
                                                                               context)
                                                                           .bodySmall
@@ -1056,7 +1148,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     ),
                                                                     Text(
                                                                       rowEnseignesRecord
-                                                                          .city,
+                                                                              ?.city ??
+                                                                          '',
                                                                       style: FlutterFlowTheme.of(
                                                                               context)
                                                                           .bodySmall
@@ -1348,17 +1441,23 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                           .listViewPagingController2!
                                                                           .itemList![
                                                                       listViewIndex];
+                                                                  if (listViewIndex == 0) {
+                                                                    _primeEnseignesForGames(
+                                                                      _model.listViewPagingController2!
+                                                                          .itemList!,
+                                                                    );
+                                                                  }
                                                                   if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                                     return const SizedBox.shrink();
                                                                   }
-                                                                  return FutureBuilder<EnseignesRecord>(
-                                                                      future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
+                                                                  return FutureBuilder<EnseignesRecord?>(
+                                                                      future: _loadEnseigneForGame(listViewGamesRecord),
                                                                       builder: (context, enseigneSnapshot) {
                                                                         final enseigne = enseigneSnapshot.data;
                                                                         return GameCardWidget(
                                                                           title: listViewGamesRecord.name,
                                                                           imageUrl: listViewGamesRecord.photo,
-                                                                          storeName: enseigne?.name ?? '',
+                                                                          storeName: _resolveStoreName(listViewGamesRecord, enseigne),
                                                                           city: enseigne?.city ?? '',
                                                                           prizeText: listViewGamesRecord.prizeValue == 0
                                                                               ? 'Gains instantanés'
@@ -1383,6 +1482,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                       ),
                                                     ),
                                                     Container(
+                                                      width: double.infinity,
                                                       decoration:
                                                           const BoxDecoration(),
                                                       child: Column(
@@ -1485,17 +1585,23 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                           .listViewPagingController4!
                                                                           .itemList![
                                                                       listViewIndex];
+                                                                  if (listViewIndex == 0) {
+                                                                    _primeEnseignesForGames(
+                                                                      _model.listViewPagingController4!
+                                                                          .itemList!,
+                                                                    );
+                                                                  }
                                                                   if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                                     return const SizedBox.shrink();
                                                                   }
-                                                                  return FutureBuilder<EnseignesRecord>(
-                                                                      future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
+                                                                  return FutureBuilder<EnseignesRecord?>(
+                                                                      future: _loadEnseigneForGame(listViewGamesRecord),
                                                                       builder: (context, enseigneSnapshot) {
                                                                         final enseigne = enseigneSnapshot.data;
                                                                         return GameCardWidget(
                                                                           title: listViewGamesRecord.name,
                                                                           imageUrl: listViewGamesRecord.photo,
-                                                                          storeName: enseigne?.name ?? '',
+                                                                          storeName: _resolveStoreName(listViewGamesRecord, enseigne),
                                                                           city: enseigne?.city ?? '',
                                                                           prizeText: listViewGamesRecord.prizeValue == 0
                                                                               ? 'Gains instantanés'
@@ -1625,6 +1731,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                           .listViewPagingController3!
                                                                           .itemList![
                                                                       listViewIndex];
+                                                                  if (listViewIndex == 0) {
+                                                                    _primeEnseignesForGames(
+                                                                      _model.listViewPagingController3!
+                                                                          .itemList!,
+                                                                    );
+                                                                  }
 
                                                                   if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
 
@@ -1632,14 +1744,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
                                                                   }
 
-                                                                  return FutureBuilder<EnseignesRecord>(
-                                                                      future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
+                                                                  return FutureBuilder<EnseignesRecord?>(
+                                                                      future: _loadEnseigneForGame(listViewGamesRecord),
                                                                       builder: (context, enseigneSnapshot) {
                                                                         final enseigne = enseigneSnapshot.data;
                                                                         return GameCardWidget(
                                                                           title: listViewGamesRecord.name,
                                                                           imageUrl: listViewGamesRecord.photo,
-                                                                          storeName: enseigne?.name ?? '',
+                                                                          storeName: _resolveStoreName(listViewGamesRecord, enseigne),
                                                                           city: enseigne?.city ?? '',
                                                                           prizeText: listViewGamesRecord.prizeValue == 0
                                                                               ? 'Gains instantanés'
@@ -1781,12 +1893,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     final game =
                                                                         recentlyEndedGames[
                                                                             idx];
-                                                                    return FutureBuilder<EnseignesRecord>(
-                                                                        future: EnseignesRecord.getDocumentOnce(game.enseigneId!),
+                                                                    return FutureBuilder<EnseignesRecord?>(
+                                                                        future: _loadEnseigneForGame(game),
                                                                         builder: (context, enseigneSnapshot) {
                                                                           final enseigne = enseigneSnapshot.data;
-                                                                          return FutureBuilder<UsersRecord>(
-                                                                            future: UsersRecord.getDocumentOnce(game.mainPrizeWinner!),
+                                                                          return FutureBuilder<UsersRecord?>(
+                                                                            future: _loadUserRecord(game.mainPrizeWinner),
                                                                             builder: (context, winnerSnapshot) {
                                                                               final winner = winnerSnapshot.data;
                                                                               final firstName = (winner?.firstName ?? '').trim();
@@ -1798,7 +1910,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                               return GameCardWidget(
                                                                                 title: game.name,
                                                                                 imageUrl: game.photo,
-                                                                                storeName: enseigne?.name ?? '',
+                                                                                storeName: _resolveStoreName(game, enseigne),
                                                                                 city: enseigne?.city ?? '',
                                                                                 prizeText: game.prizeValue == 0
                                                                                     ? 'Gains instantanés'
@@ -1960,12 +2072,18 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         .listViewPagingController5!
                                                                         .itemList![
                                                                     listViewIndex];
+                                                                if (listViewIndex == 0) {
+                                                                  _primeEnseignesForGames(
+                                                                    _model.listViewPagingController5!
+                                                                        .itemList!,
+                                                                  );
+                                                                }
                                                                 if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                                   return const SizedBox.shrink();
                                                                 }
-                                                                return FutureBuilder<EnseignesRecord>(
-                                                                    future: EnseignesRecord.getDocumentOnce(
-                                                                        listViewGamesRecord.enseigneId!),
+                                                                return FutureBuilder<EnseignesRecord?>(
+                                                                    future: _loadEnseigneForGame(
+                                                                        listViewGamesRecord),
                                                                     builder: (context, enseigneSnapshot) {
                                                                       final enseigne =
                                                                           enseigneSnapshot.data;
@@ -1975,7 +2093,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         imageUrl:
                                                                             listViewGamesRecord.photo,
                                                                         storeName:
-                                                                            enseigne?.name ?? '',
+                                                                            _resolveStoreName(listViewGamesRecord, enseigne),
                                                                         city: enseigne?.city ??
                                                                             '',
                                                                         prizeText: listViewGamesRecord
@@ -2119,12 +2237,18 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         .listViewPagingController6!
                                                                         .itemList![
                                                                     listViewIndex];
+                                                                if (listViewIndex == 0) {
+                                                                  _primeEnseignesForGames(
+                                                                    _model.listViewPagingController6!
+                                                                        .itemList!,
+                                                                  );
+                                                                }
                                                                 if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                                   return const SizedBox.shrink();
                                                                 }
-                                                                return FutureBuilder<EnseignesRecord>(
-                                                                    future: EnseignesRecord.getDocumentOnce(
-                                                                        listViewGamesRecord.enseigneId!),
+                                                                return FutureBuilder<EnseignesRecord?>(
+                                                                    future: _loadEnseigneForGame(
+                                                                        listViewGamesRecord),
                                                                     builder: (context, enseigneSnapshot) {
                                                                       final enseigne =
                                                                           enseigneSnapshot.data;
@@ -2134,7 +2258,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                             imageUrl:
                                                                                 listViewGamesRecord.photo,
                                                                             storeName:
-                                                                                enseigne?.name ?? '',
+                                                                                _resolveStoreName(listViewGamesRecord, enseigne),
                                                                             city: enseigne?.city ??
                                                                                 '',
                                                                             prizeText: listViewGamesRecord
@@ -2162,6 +2286,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                     ),
                                                   ),
                                                   Container(
+                                                    width: double.infinity,
                                                     decoration: const BoxDecoration(),
                                                     child: Column(
                                                       mainAxisSize:
@@ -2275,12 +2400,18 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         .listViewPagingController7!
                                                                         .itemList![
                                                                     listViewIndex];
+                                                                if (listViewIndex == 0) {
+                                                                  _primeEnseignesForGames(
+                                                                    _model.listViewPagingController7!
+                                                                        .itemList!,
+                                                                  );
+                                                                }
                                                                 if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                                   return const SizedBox.shrink();
                                                                 }
-                                                                return FutureBuilder<EnseignesRecord>(
-                                                                    future: EnseignesRecord.getDocumentOnce(
-                                                                        listViewGamesRecord.enseigneId!),
+                                                                return FutureBuilder<EnseignesRecord?>(
+                                                                    future: _loadEnseigneForGame(
+                                                                        listViewGamesRecord),
                                                                     builder: (context, enseigneSnapshot) {
                                                                       final enseigne =
                                                                           enseigneSnapshot.data;
@@ -2290,7 +2421,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                             imageUrl:
                                                                                 listViewGamesRecord.photo,
                                                                             storeName:
-                                                                                enseigne?.name ?? '',
+                                                                                _resolveStoreName(listViewGamesRecord, enseigne),
                                                                             city: enseigne?.city ??
                                                                                 '',
                                                                             prizeText: listViewGamesRecord
@@ -2435,17 +2566,23 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     .listViewPagingController8!
                                                                     .itemList![
                                                                 listViewIndex];
+                                                            if (listViewIndex == 0) {
+                                                              _primeEnseignesForGames(
+                                                                _model.listViewPagingController8!
+                                                                    .itemList!,
+                                                              );
+                                                            }
                                                             if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                               return const SizedBox.shrink();
                                                             }
-                                                            return FutureBuilder<EnseignesRecord>(
-                                                                future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
+                                                            return FutureBuilder<EnseignesRecord?>(
+                                                                future: _loadEnseigneForGame(listViewGamesRecord),
                                                                 builder: (context, enseigneSnapshot) {
                                                                   final enseigne = enseigneSnapshot.data;
                                                                   return GameCardWidget(
                                                                     title: listViewGamesRecord.name,
                                                                     imageUrl: listViewGamesRecord.photo,
-                                                                    storeName: enseigne?.name ?? '',
+                                                                    storeName: _resolveStoreName(listViewGamesRecord, enseigne),
                                                                     city: enseigne?.city ?? '',
                                                                     prizeText: listViewGamesRecord.prizeValue == 0
                                                                         ? 'Gains instantanés'
@@ -2567,17 +2704,23 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     .listViewPagingController9!
                                                                     .itemList![
                                                                 listViewIndex];
+                                                            if (listViewIndex == 0) {
+                                                              _primeEnseignesForGames(
+                                                                _model.listViewPagingController9!
+                                                                    .itemList!,
+                                                              );
+                                                            }
                                                             if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                               return const SizedBox.shrink();
                                                             }
-                                                            return FutureBuilder<EnseignesRecord>(
-                                                                future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
+                                                            return FutureBuilder<EnseignesRecord?>(
+                                                                future: _loadEnseigneForGame(listViewGamesRecord),
                                                                 builder: (context, enseigneSnapshot) {
                                                                   final enseigne = enseigneSnapshot.data;
                                                                   return GameCardWidget(
                                                                     title: listViewGamesRecord.name,
                                                                     imageUrl: listViewGamesRecord.photo,
-                                                                    storeName: enseigne?.name ?? '',
+                                                                    storeName: _resolveStoreName(listViewGamesRecord, enseigne),
                                                                     city: enseigne?.city ?? '',
                                                                     prizeText: listViewGamesRecord.prizeValue == 0
                                                                         ? 'Gains instantanés'
@@ -2601,6 +2744,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                 ),
                                               ),
                                               Container(
+                                                width: double.infinity,
                                                 decoration: const BoxDecoration(),
                                                 child: Column(
                                                   mainAxisSize:
@@ -2694,17 +2838,23 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     .listViewPagingController10!
                                                                     .itemList![
                                                                 listViewIndex];
+                                                            if (listViewIndex == 0) {
+                                                              _primeEnseignesForGames(
+                                                                _model.listViewPagingController10!
+                                                                    .itemList!,
+                                                              );
+                                                            }
                                                             if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                               return const SizedBox.shrink();
                                                             }
-                                                            return FutureBuilder<EnseignesRecord>(
-                                                                future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
+                                                            return FutureBuilder<EnseignesRecord?>(
+                                                                future: _loadEnseigneForGame(listViewGamesRecord),
                                                                 builder: (context, enseigneSnapshot) {
                                                                   final enseigne = enseigneSnapshot.data;
                                                                   return GameCardWidget(
                                                                     title: listViewGamesRecord.name,
                                                                     imageUrl: listViewGamesRecord.photo,
-                                                                    storeName: enseigne?.name ?? '',
+                                                                    storeName: _resolveStoreName(listViewGamesRecord, enseigne),
                                                                     city: enseigne?.city ?? '',
                                                                     prizeText: listViewGamesRecord.prizeValue == 0
                                                                         ? 'Gains instantanés'

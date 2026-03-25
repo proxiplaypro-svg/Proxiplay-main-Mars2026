@@ -12,7 +12,7 @@ import 'package:webviewx_plus/webviewx_plus.dart';
 import 'edit_commercant_page_model.dart';
 export 'edit_commercant_page_model.dart';
 
-/// il me faut un champ non modifiable nom, prenom et pseudo et des champs
+/// il me faut un champ non modifiable nom et prenom et des champs
 /// modifiable pour le numéro de telephone, mail et ville
 class EditCommercantPageWidget extends StatefulWidget {
   const EditCommercantPageWidget({super.key});
@@ -44,10 +44,6 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
     _model.textController2 ??= TextEditingController(
         text: valueOrDefault(currentUserDocument?.firstName, ''));
     _model.textFieldFocusNode2 ??= FocusNode();
-
-    _model.textController3 ??= TextEditingController(
-        text: valueOrDefault(currentUserDocument?.pseudo, ''));
-    _model.textFieldFocusNode3 ??= FocusNode();
 
     _model.textFieldMailTextController ??=
         TextEditingController(text: currentUserEmail);
@@ -384,103 +380,6 @@ class _EditCommercantPageWidgetState extends State<EditCommercantPageWidget> {
                                                     .fontStyle,
                                           ),
                                       validator: _model.textController2Validator
-                                          .asValidator(context),
-                                    ),
-                                  ),
-                                  AuthUserStreamWidget(
-                                    builder: (context) => TextFormField(
-                                      controller: _model.textController3,
-                                      focusNode: _model.textFieldFocusNode3,
-                                      autofocus: false,
-                                      readOnly: true,
-                                      obscureText: false,
-                                      decoration: InputDecoration(
-                                        hintText: 'Pseudo',
-                                        hintStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .override(
-                                              font: GoogleFonts.inter(
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                              ),
-                                              letterSpacing: 0.0,
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderSide: const BorderSide(
-                                            color: Color(0x00000000),
-                                            width: 1.0,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(8.0),
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderSide: const BorderSide(
-                                            color: Color(0x00000000),
-                                            width: 1.0,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(8.0),
-                                        ),
-                                        errorBorder: OutlineInputBorder(
-                                          borderSide: const BorderSide(
-                                            color: Color(0x00000000),
-                                            width: 1.0,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(8.0),
-                                        ),
-                                        focusedErrorBorder: OutlineInputBorder(
-                                          borderSide: const BorderSide(
-                                            color: Color(0x00000000),
-                                            width: 1.0,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(8.0),
-                                        ),
-                                        filled: true,
-                                        fillColor: FlutterFlowTheme.of(context)
-                                            .fieldBg,
-                                      ),
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryText,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                      validator: _model.textController3Validator
                                           .asValidator(context),
                                     ),
                                   ),
