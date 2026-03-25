@@ -75,7 +75,8 @@ class _AddGameCommercantPageWidgetState
 
   List<Map<String, dynamic>>? _collectSecondaryPrizes() {
     final prizes = <Map<String, dynamic>>[];
-    for (final entry in _model.secondaryPrizes) {
+    for (var index = 0; index < _model.secondaryPrizes.length; index++) {
+      final entry = _model.secondaryPrizes[index];
       final name = entry.nameController.text.trim();
       final presentation = entry.presentationController.text.trim();
       final countText = entry.countController.text.trim();
@@ -2140,7 +2141,7 @@ class _AddGameCommercantPageWidgetState
                                               _model.gameResult!.reference,
                                               _model.gameResult!.startDate!,
                                               _model.endDateTransformCopy!,
-                                              totalSecondaryCount,
+                                              secondaryPrizes,
                                             );
                                           }
                                           safeSetState(() {
