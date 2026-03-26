@@ -1,4 +1,5 @@
 import '/auth/firebase_auth/auth_util.dart';
+import '/backend/backend.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -9,7 +10,6 @@ import 'package:webviewx_plus/webviewx_plus.dart';
 import 'profil_joueur_page_model.dart';
 export 'profil_joueur_page_model.dart';
 
-/// ajout d'un bouton de déconnexion et supression de compte
 class ProfilJoueurPageWidget extends StatefulWidget {
   const ProfilJoueurPageWidget({super.key});
 
@@ -37,8 +37,147 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
   @override
   void dispose() {
     _model.dispose();
-
     super.dispose();
+  }
+
+  Future<int> _countUnclaimedLots(List<MyLotsRecord> myLots) async {
+    final recordsWithPrizeRef =
+        myLots.where((record) => record.prizeId != null).toList();
+    if (recordsWithPrizeRef.isEmpty) {
+      return 0;
+    }
+
+    final prizeSnaps = await Future.wait(
+      recordsWithPrizeRef.map((record) => record.prizeId!.get()),
+    );
+
+    var unclaimedLots = 0;
+    for (final prizeSnap in prizeSnaps) {
+      if (!prizeSnap.exists) {
+        continue;
+      }
+      final prize = PrizesRecord.fromSnapshot(prizeSnap);
+      if (!prize.claimed) {
+        unclaimedLots++;
+      }
+    }
+    return unclaimedLots;
+  }
+
+  Future<void> _handleDeleteAccountTap() async {
+    final confirmDialogResponse = await showDialog<bool>(
+          context: context,
+          builder: (alertDialogContext) {
+            return WebViewAware(
+              child: AlertDialog(
+                title: const Text('Suppression du compte'),
+                content: const Text(
+                    'Êtes-vous sûr de vouloir supprimer votre compte ?'),
+                actions: [
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.pop(alertDialogContext, false),
+                    child: const Text('Annuler'),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.pop(alertDialogContext, true),
+                    child: const Text('Confirmer'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ) ??
+        false;
+    if (!context.mounted) return;
+    if (confirmDialogResponse) {
+      await authManager.deleteUser(context);
+      if (!context.mounted) return;
+      context.pushNamed(LoginPageWidget.routeName);
+    }
+  }
+
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 6.0),
+      child: Text(
+        title,
+        style: FlutterFlowTheme.of(context).labelLarge.override(
+              font: GoogleFonts.inter(
+                fontWeight: FontWeight.w700,
+              ),
+              fontSize: 18.0,
+              color: const Color(0xFF4B5078),
+              letterSpacing: 0.6,
+              fontWeight: FontWeight.w700,
+            ),
+      ),
+    );
+  }
+
+  Widget _buildMenuCard(
+    BuildContext context, {
+    required IconData icon,
+    required Widget title,
+    required VoidCallback onTap,
+    Color iconColor = const Color(0xFF2D2A72),
+    Color arrowColor = const Color(0xFF2D2A72),
+    Color circleColor = const Color(0xFFF5F6FF),
+    Color backgroundColor = Colors.white,
+    BoxBorder? border,
+  }) {
+    return InkWell(
+      splashColor: const Color(0x142D2A72),
+      focusColor: const Color(0x0F2D2A72),
+      hoverColor: const Color(0x082D2A72),
+      highlightColor: const Color(0x0A2D2A72),
+      borderRadius: BorderRadius.circular(24.0),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        height: 92.0,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(24.0),
+          border: border,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 16.0,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 17.0),
+          child: Row(
+            children: [
+              Container(
+                width: 54.0,
+                height: 54.0,
+                decoration: BoxDecoration(
+                  color: circleColor,
+                  borderRadius: BorderRadius.circular(18.0),
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 25.0,
+                ),
+              ),
+              const SizedBox(width: 16.0),
+              Expanded(child: title),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: arrowColor,
+                size: 17.0,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -53,53 +192,6 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
         child: Scaffold(
           key: scaffoldKey,
           backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            automaticallyImplyLeading: false,
-            title: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  AuthUserStreamWidget(
-                    builder: (context) => Text(
-                      '${valueOrDefault(currentUserDocument?.firstName, '')} ${valueOrDefault(currentUserDocument?.lastName, '')}',
-                      style:
-                          FlutterFlowTheme.of(context).headlineSmall.override(
-                                font: GoogleFonts.interTight(
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .headlineSmall
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .headlineSmall
-                                      .fontStyle,
-                                ),
-                                letterSpacing: 0.0,
-                                fontWeight: FlutterFlowTheme.of(context)
-                                    .headlineSmall
-                                    .fontWeight,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .headlineSmall
-                                    .fontStyle,
-                              ),
-                    ),
-                  ),
-                ].divide(const SizedBox(height: 10.0)),
-              ),
-            ),
-            actions: const [],
-            flexibleSpace: FlexibleSpaceBar(
-              background: ClipRRect(
-                borderRadius: BorderRadius.circular(8.0),
-                child: Image.asset(
-                  'assets/images/Background.png',
-                  fit: BoxFit.cover,
-                  alignment: const Alignment(1.0, -1.0),
-                ),
-              ),
-            ),
-            centerTitle: true,
-          ),
           body: SafeArea(
             top: true,
             child: Container(
@@ -112,230 +204,167 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                 ),
               ),
               child: Column(
-                mainAxisSize: MainAxisSize.max,
                 children: [
                   Expanded(
                     child: Padding(
-                      padding:
-                          const EdgeInsetsDirectional.fromSTEB(20.0, 60.0, 20.0, 0.0),
+                      padding: const EdgeInsets.fromLTRB(20.0, 18.0, 20.0, 0.0),
                       child: SingleChildScrollView(
                         child: Column(
-                          mainAxisSize: MainAxisSize.max,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Padding(
-                              padding: const EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 1.0, 0.0, 0.0),
-                              child: Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12.0),
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.96),
+                                borderRadius: BorderRadius.circular(28.0),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.055),
+                                    blurRadius: 18.0,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 26.0, vertical: 26.0),
+                                child: AuthUserStreamWidget(
+                                  builder: (context) {
+                                    final firstName = valueOrDefault(
+                                      currentUserDocument?.firstName,
+                                      '',
+                                    );
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          firstName.isNotEmpty
+                                              ? 'Bonjour $firstName'
+                                              : 'Bonjour',
+                                          style: FlutterFlowTheme.of(context)
+                                              .headlineSmall
+                                              .override(
+                                                font: GoogleFonts.interTight(
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                                color:
+                                                    const Color(0xFF2D2A72),
+                                                letterSpacing: 0.0,
+                                                fontSize: 33.0,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 10.0),
+                                        Text(
+                                          'Votre espace personnel ProxiPlay',
+                                          style: FlutterFlowTheme.of(context)
+                                              .bodyLarge
+                                              .override(
+                                                font: GoogleFonts.inter(
+                                                  fontWeight: FontWeight.w400,
+                                                ),
+                                                color:
+                                                    const Color(0xFF6B6B8B),
+                                                fontSize: 15.0,
+                                                letterSpacing: 0.0,
+                                              ),
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 ),
                               ),
                             ),
+                            const SizedBox(height: 28.0),
+                            _buildSectionTitle(context, 'MON COMPTE'),
+                            const SizedBox(height: 14.0),
                             Padding(
-                              padding: const EdgeInsetsDirectional.fromSTEB(
-                                  16.0, 16.0, 0.0, 0.0),
-                              child: Text(
-                                'Mon compte',
-                                style: FlutterFlowTheme.of(context)
-                                    .labelLarge
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w600,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelLarge
-                                            .fontStyle,
+                              padding: const EdgeInsets.only(bottom: 14.0),
+                              child: StreamBuilder<List<MyLotsRecord>>(
+                                stream: currentUserReference == null
+                                    ? const Stream<List<MyLotsRecord>>.empty()
+                                    : queryMyLotsRecord(
+                                        parent: currentUserReference,
                                       ),
-                                      fontSize: 20.0,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FontWeight.w600,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .labelLarge
-                                          .fontStyle,
-                                    ),
+                                builder: (context, snapshot) {
+                                  return FutureBuilder<int>(
+                                    future: snapshot.hasData
+                                        ? _countUnclaimedLots(
+                                            snapshot.data ??
+                                                const <MyLotsRecord>[])
+                                        : Future<int>.value(0),
+                                    builder: (context, countSnapshot) {
+                                      final count = countSnapshot.data ?? 0;
+                                      final label =
+                                          '$count lot${count > 1 ? 's' : ''} à récupérer';
+                                      return _buildMenuCard(
+                                        context,
+                                        icon: Icons.card_giftcard_rounded,
+                                        onTap: () {
+                                          context.pushNamed(
+                                              LotsJoueurPageWidget.routeName);
+                                        },
+                                        backgroundColor:
+                                            const Color(0xFFFDF5F8),
+                                        circleColor: const Color(0xFFF9E4EC),
+                                        iconColor: const Color(0xFFA0134D),
+                                        arrowColor: const Color(0xFFA0134D),
+                                        border: Border.all(
+                                          color: const Color(0xFFE7B8CB),
+                                          width: 1.2,
+                                        ),
+                                        title: Text(
+                                          label,
+                                          style: FlutterFlowTheme.of(context)
+                                              .bodyLarge
+                                              .override(
+                                                font: GoogleFonts.inter(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                                fontSize: 16.0,
+                                                color:
+                                                    const Color(0xFF2D2A72),
+                                                letterSpacing: 0.0,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 12.0, 0.0, 0.0),
-                              child: InkWell(
-                                splashColor: Colors.transparent,
-                                focusColor: Colors.transparent,
-                                hoverColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                                onTap: () async {
+                              padding: const EdgeInsets.only(bottom: 14.0),
+                              child: _buildMenuCard(
+                                context,
+                                icon: Icons.person_outline_rounded,
+                                onTap: () {
                                   context.pushNamed(
                                       EditJoueurPageWidget.routeName);
                                 },
-                                child: Container(
-                                  width: double.infinity,
-                                  height: 60.0,
-                                  decoration: BoxDecoration(
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    borderRadius: BorderRadius.circular(12.0),
-                                    shape: BoxShape.rectangle,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.max,
-                                      children: [
-                                        Icon(
-                                          Icons.person,
-                                          color: FlutterFlowTheme.of(context)
-                                              .primary,
-                                          size: 24.0,
+                                title: Text(
+                                  'Mes informations',
+                                  style: FlutterFlowTheme.of(context)
+                                      .bodyLarge
+                                      .override(
+                                        font: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w700,
                                         ),
-                                        Expanded(
-                                          child: Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 0.0, 0.0, 0.0),
-                                            child: Text(
-                                              'Mes informations',
-                                              style:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyLarge
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontStyle,
-                                                      ),
-                                            ),
-                                          ),
-                                        ),
-                                        Align(
-                                          alignment:
-                                              const AlignmentDirectional(0.9, 0.0),
-                                          child: Icon(
-                                            Icons.arrow_forward_ios,
-                                            color: FlutterFlowTheme.of(context)
-                                                .primary,
-                                            size: 18.0,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                        fontSize: 16.0,
+                                        color: const Color(0xFF2D2A72),
+                                        letterSpacing: 0.0,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                 ),
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 12.0, 0.0, 0.0),
-                              child: InkWell(
-                                splashColor: Colors.transparent,
-                                focusColor: Colors.transparent,
-                                hoverColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                                onTap: () async {
-                                  context.pushNamed(
-                                      LotsJoueurPageWidget.routeName);
-                                },
-                                child: Container(
-                                  width: double.infinity,
-                                  height: 60.0,
-                                  decoration: BoxDecoration(
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    borderRadius: BorderRadius.circular(12.0),
-                                    shape: BoxShape.rectangle,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.max,
-                                      children: [
-                                        Icon(
-                                          Icons.card_giftcard_rounded,
-                                          color: FlutterFlowTheme.of(context)
-                                              .primary,
-                                          size: 24.0,
-                                        ),
-                                        Expanded(
-                                          child: Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 0.0, 0.0, 0.0),
-                                            child: Text(
-                                              'Mes lots',
-                                              style:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyLarge
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontStyle,
-                                                      ),
-                                            ),
-                                          ),
-                                        ),
-                                        Align(
-                                          alignment:
-                                              const AlignmentDirectional(0.9, 0.0),
-                                          child: Icon(
-                                            Icons.arrow_forward_ios,
-                                            color: FlutterFlowTheme.of(context)
-                                                .primary,
-                                            size: 18.0,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 12.0, 0.0, 0.0),
-                              child: InkWell(
-                                splashColor: Colors.transparent,
-                                focusColor: Colors.transparent,
-                                hoverColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
+                              padding: const EdgeInsets.only(bottom: 28.0),
+                              child: _buildMenuCard(
+                                context,
+                                icon: Icons.logout_rounded,
                                 onTap: () async {
                                   GoRouter.of(context).clearRedirectLocation();
                                   FFAppState().update(
@@ -345,390 +374,86 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                   FFAppState().update(
                                       () => FFAppState().isLoggingOut = false);
                                 },
-                                child: Container(
-                                  width: double.infinity,
-                                  height: 60.0,
-                                  decoration: BoxDecoration(
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    borderRadius: BorderRadius.circular(12.0),
-                                    shape: BoxShape.rectangle,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsetsDirectional.fromSTEB(
-                                        8.0, 8.0, 8.0, 8.0),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.max,
-                                      children: [
-                                        Icon(
-                                          Icons.logout_rounded,
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
-                                          size: 24.0,
+                                title: Text(
+                                  'Se déconnecter',
+                                  style: FlutterFlowTheme.of(context)
+                                      .bodyLarge
+                                      .override(
+                                        font: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w700,
                                         ),
-                                        Expanded(
-                                          child: Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 0.0, 12.0, 0.0),
-                                            child: Text(
-                                              'Se déconnecter',
-                                              style:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyLarge
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontStyle,
-                                                        ),
-                                                        color:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .error,
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontStyle,
-                                                      ),
-                                            ),
-                                          ),
-                                        ),
-                                        Icon(
-                                          Icons.arrow_forward_ios,
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
-                                          size: 18.0,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 12.0, 0.0, 0.0),
-                              child: InkWell(
-                                splashColor: Colors.transparent,
-                                focusColor: Colors.transparent,
-                                hoverColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                                onTap: () async {
-                                  var confirmDialogResponse =
-                                      await showDialog<bool>(
-                                            context: context,
-                                            builder: (alertDialogContext) {
-                                              return WebViewAware(
-                                                child: AlertDialog(
-                                                  title: const Text(
-                                                      'Suppression du compte'),
-                                                  content: const Text(
-                                                      'Êtes-vous sur de vouloir supprimer votre compte ?'),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                              alertDialogContext,
-                                                              false),
-                                                      child: const Text('Annuler'),
-                                                    ),
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                              alertDialogContext,
-                                                              true),
-                                                      child: const Text('Confirmer'),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            },
-                                          ) ??
-                                          false;
-                                  if (!context.mounted) return;
-                                  if (confirmDialogResponse) {
-                                    await authManager.deleteUser(context);
-                                    if (!context.mounted) return;
-
-                                    context
-                                        .pushNamed(LoginPageWidget.routeName);
-                                  }
-                                },
-                                child: Container(
-                                  width: double.infinity,
-                                  height: 60.0,
-                                  decoration: BoxDecoration(
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    borderRadius: BorderRadius.circular(12.0),
-                                    shape: BoxShape.rectangle,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsetsDirectional.fromSTEB(
-                                        8.0, 8.0, 8.0, 8.0),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.max,
-                                      children: [
-                                        Icon(
-                                          Icons.delete_forever_rounded,
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
-                                          size: 24.0,
-                                        ),
-                                        Expanded(
-                                          child: Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 0.0, 12.0, 0.0),
-                                            child: Text(
-                                              'Supprimer mon compte',
-                                              style:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyLarge
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontStyle,
-                                                        ),
-                                                        color:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .error,
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontStyle,
-                                                      ),
-                                            ),
-                                          ),
-                                        ),
-                                        Icon(
-                                          Icons.arrow_forward_ios,
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
-                                          size: 18.0,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsetsDirectional.fromSTEB(
-                                  16.0, 30.0, 0.0, 0.0),
-                              child: Text(
-                                'ProxiPlay',
-                                style: FlutterFlowTheme.of(context)
-                                    .labelLarge
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w600,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .labelLarge
-                                            .fontStyle,
+                                        fontSize: 16.0,
+                                        color: const Color(0xFF2D2A72),
+                                        letterSpacing: 0.0,
+                                        fontWeight: FontWeight.w700,
                                       ),
-                                      fontSize: 20.0,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FontWeight.w600,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .labelLarge
-                                          .fontStyle,
-                                    ),
+                                ),
                               ),
                             ),
+                            _buildSectionTitle(context, 'PROXIPLAY'),
+                            const SizedBox(height: 14.0),
                             Padding(
-                              padding: const EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 12.0, 0.0, 0.0),
-                              child: InkWell(
-                                splashColor: Colors.transparent,
-                                focusColor: Colors.transparent,
-                                hoverColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                                onTap: () async {
-                                  context
-                                      .pushNamed(ContactPageWidget.routeName);
+                              padding: const EdgeInsets.only(bottom: 14.0),
+                              child: _buildMenuCard(
+                                context,
+                                icon: Icons.mail_outline_rounded,
+                                onTap: () {
+                                  context.pushNamed(ContactPageWidget.routeName);
                                 },
-                                child: Container(
-                                  width: double.infinity,
-                                  height: 60.0,
-                                  decoration: BoxDecoration(
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    borderRadius: BorderRadius.circular(12.0),
-                                    shape: BoxShape.rectangle,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.max,
-                                      children: [
-                                        Icon(
-                                          Icons.mail_rounded,
-                                          color: FlutterFlowTheme.of(context)
-                                              .primary,
-                                          size: 24.0,
+                                title: Text(
+                                  'Nous contacter',
+                                  style: FlutterFlowTheme.of(context)
+                                      .bodyLarge
+                                      .override(
+                                        font: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w700,
                                         ),
-                                        Expanded(
-                                          child: Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 0.0, 0.0, 0.0),
-                                            child: Text(
-                                              'Nous contacter',
-                                              style:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyLarge
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontStyle,
-                                                      ),
-                                            ),
-                                          ),
-                                        ),
-                                        Align(
-                                          alignment:
-                                              const AlignmentDirectional(0.9, 0.0),
-                                          child: Icon(
-                                            Icons.arrow_forward_ios,
-                                            color: FlutterFlowTheme.of(context)
-                                                .primary,
-                                            size: 18.0,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                        fontSize: 16.0,
+                                        color: const Color(0xFF2D2A72),
+                                        letterSpacing: 0.0,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                 ),
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 12.0, 0.0, 0.0),
-                              child: InkWell(
-                                splashColor: Colors.transparent,
-                                focusColor: Colors.transparent,
-                                hoverColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                                onTap: () async {
+                              padding: const EdgeInsets.only(bottom: 18.0),
+                              child: _buildMenuCard(
+                                context,
+                                icon: Icons.folder_outlined,
+                                onTap: () {
                                   context.pushNamed(LegalPageWidget.routeName);
                                 },
-                                child: Container(
-                                  width: double.infinity,
-                                  height: 60.0,
-                                  decoration: BoxDecoration(
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    borderRadius: BorderRadius.circular(12.0),
-                                    shape: BoxShape.rectangle,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.max,
-                                      children: [
-                                        Icon(
-                                          Icons.folder,
-                                          color: FlutterFlowTheme.of(context)
-                                              .primary,
-                                          size: 24.0,
+                                title: Text(
+                                  'Mentions légales',
+                                  style: FlutterFlowTheme.of(context)
+                                      .bodyLarge
+                                      .override(
+                                        font: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w700,
                                         ),
-                                        Expanded(
-                                          child: Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 0.0, 0.0, 0.0),
-                                            child: Text(
-                                              'Mentions légales',
-                                              style:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyLarge
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontStyle,
-                                                      ),
-                                            ),
-                                          ),
-                                        ),
-                                        Icon(
-                                          Icons.arrow_forward_ios,
-                                          color: FlutterFlowTheme.of(context)
-                                              .primary,
-                                          size: 18.0,
-                                        ),
-                                      ],
+                                        fontSize: 16.0,
+                                        color: const Color(0xFF2D2A72),
+                                        letterSpacing: 0.0,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () async {
+                                await _handleDeleteAccountTap();
+                              },
+                              child: const Padding(
+                                padding:
+                                    EdgeInsets.only(top: 18.0, bottom: 16.0),
+                                child: Center(
+                                  child: Text(
+                                    'Supprimer mon compte',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 13.0,
+                                      decoration: TextDecoration.underline,
                                     ),
                                   ),
                                 ),

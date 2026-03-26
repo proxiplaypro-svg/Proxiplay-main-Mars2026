@@ -587,8 +587,7 @@ class _ProfilCommercantPageWidgetState
                                         ),
                                         Icon(
                                           Icons.arrow_forward_ios,
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
+                                          color: const Color(0xFFA0134D),
                                           size: 18.0,
                                         ),
                                       ],

@@ -138,9 +138,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                 Colors.white.withOpacity(0.9),
                                             icon: Icon(
                                               Icons.favorite_border_rounded,
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .error,
+                                              color: const Color(0xFFA0134D),
                                               size: 22.0,
                                             ),
                                             onPressed: () async {

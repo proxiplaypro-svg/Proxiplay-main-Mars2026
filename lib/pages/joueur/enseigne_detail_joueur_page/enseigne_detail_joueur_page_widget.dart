@@ -416,9 +416,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                               buttonSize: 40.0,
                                               icon: Icon(
                                                 Icons.favorite_border_rounded,
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .error,
+                                                color: const Color(0xFFA0134D),
                                                 size: 24.0,
                                               ),
                                               onPressed: () async {
@@ -442,9 +440,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                               buttonSize: 40.0,
                                               icon: Icon(
                                                 Icons.favorite_rounded,
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .error,
+                                                color: const Color(0xFFA0134D),
                                                 size: 24.0,
                                               ),
                                               onPressed: () async {
