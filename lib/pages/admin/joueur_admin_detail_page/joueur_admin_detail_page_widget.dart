@@ -14,6 +14,18 @@ enum _DetailStatus {
   suspended,
 }
 
+class _JoueurDetailViewData {
+  const _JoueurDetailViewData({
+    required this.user,
+    required this.participations,
+    required this.participationsLoaded,
+  });
+
+  final UsersRecord user;
+  final List<ParticipantsRecord> participations;
+  final bool participationsLoaded;
+}
+
 class JoueurAdminDetailPageWidget extends StatefulWidget {
   const JoueurAdminDetailPageWidget({
     super.key,
@@ -30,6 +42,41 @@ class JoueurAdminDetailPageWidget extends StatefulWidget {
 class _JoueurAdminDetailPageWidgetState
     extends State<JoueurAdminDetailPageWidget> {
   int _refreshTick = 0;
+
+  Future<_JoueurDetailViewData> _loadViewData() async {
+    final user = await UsersRecord.getDocumentOnce(widget.userRef);
+
+    try {
+      final participations = await queryParticipantsRecordOnce(
+        queryBuilder: (q) => q.where('user_id', isEqualTo: widget.userRef),
+      );
+
+      return _JoueurDetailViewData(
+        user: user,
+        participations: participations,
+        participationsLoaded: true,
+      );
+    } catch (_) {
+      try {
+        final allParticipations = await queryParticipantsRecordOnce();
+        final fallbackParticipations = allParticipations
+            .where((entry) => entry.userId?.path == widget.userRef.path)
+            .toList(growable: false);
+
+        return _JoueurDetailViewData(
+          user: user,
+          participations: fallbackParticipations,
+          participationsLoaded: true,
+        );
+      } catch (_) {
+        return _JoueurDetailViewData(
+          user: user,
+          participations: const [],
+          participationsLoaded: false,
+        );
+      }
+    }
+  }
 
   bool _isSuspended(UsersRecord user) {
     final cached = user.playerStatusCached.trim().toLowerCase();
@@ -155,8 +202,8 @@ class _JoueurAdminDetailPageWidgetState
       ),
       body: KeyedSubtree(
         key: ValueKey(_refreshTick),
-        child: FutureBuilder<UsersRecord>(
-          future: UsersRecord.getDocumentOnce(widget.userRef),
+        child: FutureBuilder<_JoueurDetailViewData>(
+          future: _loadViewData(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -201,8 +248,29 @@ class _JoueurAdminDetailPageWidgetState
               );
             }
 
-            final user = snapshot.data!;
+            final data = snapshot.data!;
+            final user = data.user;
             final status = _deriveStatus(user);
+            final participations = [...data.participations]
+              ..sort((a, b) {
+                final aDate =
+                    a.participationDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+                final bDate =
+                    b.participationDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+                return bDate.compareTo(aDate);
+              });
+            final realParticipationsCount = participations.length;
+            final distinctGamesCount =
+                participations.map((entry) => entry.parentReference.path).toSet().length;
+            final distinctDaysCount = participations
+                .map(
+                  (entry) => entry.participationDate == null
+                      ? null
+                      : dateTimeFormat('d/M/y', entry.participationDate),
+                )
+                .whereType<String>()
+                .toSet()
+                .length;
             final displayName = user.pseudo.trim().isNotEmpty
                 ? user.pseudo.trim()
                 : ('${user.firstName} ${user.lastName}'.trim().isNotEmpty
@@ -317,9 +385,23 @@ class _JoueurAdminDetailPageWidgetState
                       ),
                       _buildInfoRow(
                         context,
-                        'Parties jouées',
-                        '${user.gamesPlayedCount}',
+                        'Participations enregistrées',
+                        data.participationsLoaded
+                            ? '$realParticipationsCount'
+                            : 'Indisponible',
                       ),
+                      if (data.participationsLoaded)
+                        _buildInfoRow(
+                          context,
+                          'Jeux distincts',
+                          '$distinctGamesCount',
+                        ),
+                      if (data.participationsLoaded)
+                        _buildInfoRow(
+                          context,
+                          'Jours joués',
+                          '$distinctDaysCount',
+                        ),
                       _buildInfoRow(
                         context,
                         'Parties restantes',
@@ -330,6 +412,16 @@ class _JoueurAdminDetailPageWidgetState
                         'Statut calculé',
                         _statusLabel(status),
                       ),
+                      if (!data.participationsLoaded)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6.0),
+                          child: Text(
+                            'Le détail des participations n’a pas pu être recalculé. Le compteur utilisateur n’est pas utilisé ici comme source principale.',
+                            style: theme.bodySmall.copyWith(
+                              color: theme.secondaryText,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
