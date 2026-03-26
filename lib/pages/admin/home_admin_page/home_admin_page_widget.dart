@@ -3,6 +3,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import '/pages/admin/commercants_admin_page/commercants_admin_page_widget.dart';
+import '/pages/admin/joueurs_admin_page/joueurs_admin_page_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -208,10 +209,10 @@ class _HomeAdminPageWidgetState extends State<HomeAdminPageWidget> {
     );
   }
 
-  void _showPlayersAccountsPlaceholder() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Gestion des comptes joueurs à venir.'),
+  void _openPlayersManagement() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const JoueursAdminPageWidget(),
       ),
     );
   }
@@ -284,7 +285,7 @@ class _HomeAdminPageWidgetState extends State<HomeAdminPageWidget> {
                     subtitle:
                         'Accéder à la gestion des comptes utilisateurs.',
                     accentColor: const Color(0xFFEF6820),
-                    onTap: _showPlayersAccountsPlaceholder,
+                    onTap: _openPlayersManagement,
                   ),
                   const SizedBox(height: 14.0),
                   _buildActionCard(
