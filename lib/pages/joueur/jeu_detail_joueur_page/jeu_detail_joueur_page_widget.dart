@@ -549,9 +549,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         .cloudFunction3sn!
                                                                         .succeeded!) {
                                                                       await refreshCurrentUserDocument();
-                                                                      if (context.mounted) {
-                                                                        safeSetState(() {});
+                                                                      if (!context.mounted) {
+                                                                        return;
                                                                       }
+                                                                      safeSetState(() {});
                                                                       context
                                                                           .pushNamed(
                                                                         PlayJoueurPageWidget
@@ -758,9 +759,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     .cloudFunction3sn2!
                                                                     .succeeded!) {
                                                                   await refreshCurrentUserDocument();
-                                                                  if (context.mounted) {
-                                                                    safeSetState(() {});
+                                                                  if (!context.mounted) {
+                                                                    return;
                                                                   }
+                                                                  safeSetState(() {});
                                                                   context
                                                                       .pushNamed(
                                                                     PlayJoueurPageWidget

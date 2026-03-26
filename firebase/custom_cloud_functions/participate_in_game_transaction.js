@@ -344,7 +344,7 @@ exports.participateInGameTransaction = functions.https.onCall(
             transaction.set(
               participantDetailRef,
               {
-                last_play: endOfDay,
+                last_play: now,
                 game_bonus: bonus,
                 user_id: userRef,
               },
@@ -353,7 +353,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           }
         } else {
           transaction.set(participantDetailRef, {
-            last_play: endOfDay,
+            last_play: now,
             game_bonus: 0,
             user_id: userRef,
           });
