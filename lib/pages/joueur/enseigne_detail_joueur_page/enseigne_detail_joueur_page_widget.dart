@@ -1778,29 +1778,8 @@ const SizedBox(height: 1.0),
                                                             BorderRadius
                                                                 .circular(20.0),
                                                       ),
-                                                      child: StreamBuilder<
-                                                          EnseignesRecord>(
-                                                        stream: EnseignesRecord
-                                                            .getDocument(
-                                                                listViewGamesRecord
-                                                                    .enseigneId!),
-                                                        builder: (context,
-                                                            snapshot) {
-                                                          // Customize what your widget looks like when it's loading.
-                                                          if (!snapshot
-                                                              .hasData) {
-                                                            return const Center(
-                                                              child: SizedBox(
-                                                                width: 50.0,
-                                                                height: 50.0,
-                                                                child: ProxiplayLoadingLogo(size: 42.0),
-                                                              ),
-                                                            );
-                                                          }
-
-                                                          final rowEnseignesRecord =
-                                                              snapshot.data!;
-
+                                                      child: Builder(
+                                                        builder: (context) {
                                                           return InkWell(
                                                             splashColor: Colors
                                                                 .transparent,
@@ -1954,7 +1933,7 @@ const SizedBox(height: 1.0),
                                                                                   size: 18.0,
                                                                                 ),
                                                                                 Text(
-                                                                                  rowEnseignesRecord.name,
+                                                                                  widget.enseigneDoc?.name ?? '',
                                                                                   style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                         font: GoogleFonts.inter(
                                                                                           fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -1976,7 +1955,7 @@ const SizedBox(height: 1.0),
                                                                                   size: 18.0,
                                                                                 ),
                                                                                 Text(
-                                                                                  rowEnseignesRecord.city,
+                                                                                  widget.enseigneDoc?.city ?? '',
                                                                                   style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                         font: GoogleFonts.inter(
                                                                                           fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -2150,28 +2129,8 @@ const SizedBox(height: 1.0),
                                                           BorderRadius.circular(
                                                               20.0),
                                                     ),
-                                                    child: StreamBuilder<
-                                                        EnseignesRecord>(
-                                                      stream: EnseignesRecord
-                                                          .getDocument(
-                                                              listViewGamesRecord
-                                                                  .enseigneId!),
-                                                      builder:
-                                                          (context, snapshot) {
-                                                        // Customize what your widget looks like when it's loading.
-                                                        if (!snapshot.hasData) {
-                                                          return const Center(
-                                                            child: SizedBox(
-                                                              width: 50.0,
-                                                              height: 50.0,
-                                                              child: ProxiplayLoadingLogo(size: 42.0),
-                                                            ),
-                                                          );
-                                                        }
-
-                                                        final rowEnseignesRecord =
-                                                            snapshot.data!;
-
+                                                    child: Builder(
+                                                      builder: (context) {
                                                         return InkWell(
                                                           splashColor: Colors
                                                               .transparent,
@@ -2312,7 +2271,7 @@ const SizedBox(height: 1.0),
                                                                                 size: 18.0,
                                                                               ),
                                                                               Text(
-                                                                                rowEnseignesRecord.name,
+                                                                                widget.enseigneDoc?.name ?? '',
                                                                                 style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                       font: GoogleFonts.inter(
                                                                                         fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -2335,7 +2294,7 @@ const SizedBox(height: 1.0),
                                                                                 size: 18.0,
                                                                               ),
                                                                               Text(
-                                                                                rowEnseignesRecord.city,
+                                                                                widget.enseigneDoc?.city ?? '',
                                                                                 style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                       font: GoogleFonts.inter(
                                                                                         fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -2512,27 +2471,8 @@ const SizedBox(height: 1.0),
                                                       BorderRadius.circular(
                                                           20.0),
                                                 ),
-                                                child: StreamBuilder<
-                                                    EnseignesRecord>(
-                                                  stream: EnseignesRecord
-                                                      .getDocument(
-                                                          listViewGamesRecord
-                                                              .enseigneId!),
-                                                  builder: (context, snapshot) {
-                                                    // Customize what your widget looks like when it's loading.
-                                                    if (!snapshot.hasData) {
-                                                      return const Center(
-                                                        child: SizedBox(
-                                                          width: 50.0,
-                                                          height: 50.0,
-                                                          child: ProxiplayLoadingLogo(size: 42.0),
-                                                        ),
-                                                      );
-                                                    }
-
-                                                    final rowEnseignesRecord =
-                                                        snapshot.data!;
-
+                                                child: Builder(
+                                                  builder: (context) {
                                                     return InkWell(
                                                       splashColor:
                                                           Colors.transparent,
@@ -2685,7 +2625,7 @@ const SizedBox(height: 1.0),
                                                                                 18.0,
                                                                           ),
                                                                           Text(
-                                                                            rowEnseignesRecord.name,
+                                                                            widget.enseigneDoc?.name ?? '',
                                                                             style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                   font: GoogleFonts.inter(
                                                                                     fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -2710,7 +2650,7 @@ const SizedBox(height: 1.0),
                                                                                 18.0,
                                                                           ),
                                                                           Text(
-                                                                            rowEnseignesRecord.city,
+                                                                            widget.enseigneDoc?.city ?? '',
                                                                             style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                   font: GoogleFonts.inter(
                                                                                     fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
