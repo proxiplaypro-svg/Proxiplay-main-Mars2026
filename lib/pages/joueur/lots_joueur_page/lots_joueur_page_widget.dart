@@ -180,23 +180,23 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
       color: Colors.transparent,
       elevation: 0.0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18.0),
+        borderRadius: BorderRadius.circular(28.0),
       ),
       child: Container(
         width: MediaQuery.sizeOf(context).width,
         decoration: BoxDecoration(
           color: FlutterFlowTheme.of(context).secondaryBackground,
-          borderRadius: BorderRadius.circular(18.0),
+          borderRadius: BorderRadius.circular(28.0),
           boxShadow: [
-              BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 18.0,
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.035),
+              blurRadius: 22.0,
               offset: const Offset(0.0, 8.0),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(20.0, 18.0, 20.0, 18.0),
+          padding: const EdgeInsetsDirectional.fromSTEB(22.0, 22.0, 22.0, 22.0),
           child: Row(
             children: [
               Expanded(
@@ -212,12 +212,13 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                                   .headlineSmall
                                   .fontStyle,
                             ),
-                            fontSize: 20.0,
+                            fontSize: 21.0,
                             letterSpacing: 0.0,
-                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF2D2A72),
+                            fontWeight: FontWeight.w800,
                           ),
                     ),
-                    const SizedBox(height: 6.0),
+                      const SizedBox(height: 10.0),
                     Text(
                       totalLots > 0
                           ? '$totalLots lot${totalLots > 1 ? 's' : ''} gagné${totalLots > 1 ? 's' : ''}'
@@ -228,26 +229,28 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                               fontStyle:
                                   FlutterFlowTheme.of(context).bodyLarge.fontStyle,
                             ),
-                            color: FlutterFlowTheme.of(context).secondaryText,
+                            fontSize: 18.0,
+                            color: const Color(0xFF4E586E),
                             letterSpacing: 0.0,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w700,
                           ),
                     ),
                     if (totalLots > 0)
                       Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
+                        padding: const EdgeInsets.only(top: 8.0),
                         child: Text(
                           '$unclaimedLots non réclamé${unclaimedLots > 1 ? 's' : ''}',
                           style: FlutterFlowTheme.of(context).bodyMedium.override(
                                 font: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w700,
                                   fontStyle: FlutterFlowTheme.of(context)
                                       .bodyMedium
                                       .fontStyle,
                                 ),
-                                color: FlutterFlowTheme.of(context).primary,
+                                fontSize: 16.0,
+                                color: const Color(0xFF6B5A80),
                                 letterSpacing: 0.0,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w700,
                               ),
                         ),
                       ),
@@ -255,16 +258,16 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                 ),
               ),
               Container(
-                width: 52.0,
-                height: 52.0,
+                width: 72.0,
+                height: 72.0,
                 decoration: BoxDecoration(
-                  color: FlutterFlowTheme.of(context).primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(16.0),
+                  color: const Color(0xFFF3F6FF),
+                  borderRadius: BorderRadius.circular(22.0),
                 ),
                 child: Icon(
                   Icons.emoji_events_rounded,
-                  color: FlutterFlowTheme.of(context).primary,
-                  size: 26.0,
+                  color: const Color(0xFF9BB1E5),
+                  size: 32.0,
                 ),
               ),
             ],
@@ -324,10 +327,11 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
         : 'Commerçant non renseigné';
 
     return InkWell(
-      splashColor: Colors.transparent,
-      focusColor: Colors.transparent,
-      hoverColor: Colors.transparent,
-      highlightColor: Colors.transparent,
+      splashColor: const Color(0x122D2A72),
+      focusColor: const Color(0x0A2D2A72),
+      hoverColor: const Color(0x082D2A72),
+      highlightColor: const Color(0x082D2A72),
+      borderRadius: BorderRadius.circular(28.0),
       onTap: () async {
         await _openLotDetail(prize);
       },
@@ -335,80 +339,112 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
         color: Colors.transparent,
         elevation: 0.0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18.0),
+          borderRadius: BorderRadius.circular(28.0),
         ),
         child: Container(
           width: MediaQuery.sizeOf(context).width,
           decoration: BoxDecoration(
             color: FlutterFlowTheme.of(context).secondaryBackground,
-            borderRadius: BorderRadius.circular(18.0),
+            borderRadius: BorderRadius.circular(28.0),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.035),
-                blurRadius: 16.0,
+                blurRadius: 18.0,
                 offset: const Offset(0.0, 8.0),
               ),
             ],
           ),
           child: Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(16.0, 14.0, 16.0, 14.0),
+            padding: const EdgeInsetsDirectional.fromSTEB(18.0, 18.0, 18.0, 18.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Container(
+                      width: 64.0,
+                      height: 64.0,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F6FF),
+                        borderRadius: BorderRadius.circular(20.0),
+                      ),
+                      child: const Icon(
+                        Icons.card_giftcard_rounded,
+                        color: Color(0xFF9BB1E5),
+                        size: 30.0,
+                      ),
+                    ),
+                    const SizedBox(width: 16.0),
                     Expanded(
-                      child: Text(
-                        prize.name,
-                        style: FlutterFlowTheme.of(context).titleMedium.override(
-                              font: GoogleFonts.interTight(
-                                fontWeight: FontWeight.w700,
-                                fontStyle:
-                                    FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                              ),
-                              letterSpacing: 0.0,
-                              fontWeight: FontWeight.w700,
-                            ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            merchantLabel,
+                            style: FlutterFlowTheme.of(context).titleMedium.override(
+                                  font: GoogleFonts.interTight(
+                                    fontWeight: FontWeight.w700,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .titleMedium
+                                        .fontStyle,
+                                  ),
+                                  fontSize: 19.0,
+                                  color: const Color(0xFF2D2A72),
+                                  letterSpacing: 0.0,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          const SizedBox(height: 6.0),
+                          Text(
+                            prize.name,
+                            style: FlutterFlowTheme.of(context).bodyLarge.override(
+                                  font: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w500,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .bodyLarge
+                                        .fontStyle,
+                                  ),
+                                  color: const Color(0xFF5E667E),
+                                  letterSpacing: 0.0,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 12.0),
-                    IconButton(
-                      onPressed: isDeleting ? null : () => _confirmDeleteLot(item),
-                      icon: isDeleting
-                          ? SizedBox(
-                              width: 18.0,
-                              height: 18.0,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.0,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  FlutterFlowTheme.of(context).secondaryText,
+                    Container(
+                      width: 56.0,
+                      height: 56.0,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF1F5),
+                        borderRadius: BorderRadius.circular(18.0),
+                      ),
+                      child: IconButton(
+                        onPressed: isDeleting ? null : () => _confirmDeleteLot(item),
+                        icon: isDeleting
+                            ? SizedBox(
+                                width: 18.0,
+                                height: 18.0,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.0,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    FlutterFlowTheme.of(context).secondaryText,
+                                  ),
                                 ),
+                              )
+                            : const Icon(
+                                Icons.delete_outline_rounded,
+                                color: Color(0xFFA0134D),
+                                size: 24.0,
                               ),
-                            )
-                          : Icon(
-                              Icons.delete_outline_rounded,
-                              color: FlutterFlowTheme.of(context).secondaryText,
-                              size: 20.0,
-                            ),
-                      splashRadius: 20.0,
-                      tooltip: 'Supprimer',
-                      visualDensity: VisualDensity.compact,
+                        splashRadius: 24.0,
+                        tooltip: 'Supprimer',
+                        visualDensity: VisualDensity.compact,
+                      ),
                     ),
                   ],
-                ),
-                Text(
-                  merchantLabel,
-                  style: FlutterFlowTheme.of(context).bodyMedium.override(
-                        font: GoogleFonts.inter(
-                          fontWeight: FontWeight.w500,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                        ),
-                        color: FlutterFlowTheme.of(context).secondaryText,
-                        letterSpacing: 0.0,
-                        fontWeight: FontWeight.w500,
-                      ),
                 ),
                 const SizedBox(height: 12.0),
                 Wrap(
@@ -423,9 +459,8 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                         prize.winDate,
                         locale: FFLocalizations.of(context).languageCode,
                       )}',
-                      backgroundColor:
-                          FlutterFlowTheme.of(context).secondary.withValues(alpha: 0.14),
-                      textColor: FlutterFlowTheme.of(context).secondary,
+                      backgroundColor: const Color(0xFFEFF4FF),
+                      textColor: const Color(0xFF7E98D2),
                     ),
                     _buildBadge(
                       context,
@@ -434,56 +469,14 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                           : Icons.schedule_rounded,
                       label: prize.claimed ? 'Réclamé' : 'Non réclamé',
                       backgroundColor: prize.claimed
-                          ? FlutterFlowTheme.of(context).secondary.withValues(alpha: 0.14)
-                          : FlutterFlowTheme.of(context).tertiary.withValues(alpha: 0.16),
+                          ? const Color(0xFFE9F8F0)
+                          : const Color(0xFFFFF1E8),
                       textColor: prize.claimed
-                          ? FlutterFlowTheme.of(context).secondary
-                          : FlutterFlowTheme.of(context).tertiary,
+                          ? const Color(0xFF2D9B64)
+                          : const Color(0xFFD8874D),
                     ),
                   ],
                 ),
-                if (prize.enseigneId != null)
-                  Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 12.0),
-                      child: TextButton.icon(
-                        onPressed: () async {
-                          await _openEnseigne(prize);
-                        },
-                        icon: Icon(
-                          Icons.storefront_outlined,
-                          color: FlutterFlowTheme.of(context).primary,
-                          size: 16.0,
-                        ),
-                        label: Text(
-                          'Voir le commerce',
-                          style: FlutterFlowTheme.of(context).bodySmall.override(
-                                font: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w600,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodySmall
-                                      .fontStyle,
-                                ),
-                                color: FlutterFlowTheme.of(context).primary,
-                                letterSpacing: 0.0,
-                                fontWeight: FontWeight.w600,
-                              ),
-                        ),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12.0,
-                            vertical: 8.0,
-                          ),
-                          backgroundColor:
-                              FlutterFlowTheme.of(context).primary.withValues(alpha: 0.06),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.0),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -503,7 +496,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
         key: scaffoldKey,
         backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
         appBar: AppBar(
-          backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+          backgroundColor: Colors.transparent,
           automaticallyImplyLeading: false,
           leading: FlutterFlowIconButton(
             borderRadius: 24.0,
@@ -545,19 +538,20 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
               ),
             ),
           ),
-          centerTitle: false,
+          centerTitle: true,
           elevation: 0.0,
         ),
         body: SafeArea(
           top: true,
           child: Container(
-            decoration: BoxDecoration(
-              image: DecorationImage(
-                fit: BoxFit.cover,
-                alignment: const AlignmentDirectional(-1.0, 1.0),
-                image: Image.asset(
-                  'assets/images/Background.png',
-                ).image,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFFCFCFF),
+                  Color(0xFFF2F4FF),
+                ],
               ),
             ),
             child: Column(
@@ -567,7 +561,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsetsDirectional.fromSTEB(
-                        20.0, 20.0, 20.0, 0.0),
+                        20.0, 18.0, 20.0, 0.0),
                     child: StreamBuilder<List<MyLotsRecord>>(
                       stream: currentUserReference == null
                           ? const Stream<List<MyLotsRecord>>.empty()
@@ -617,7 +611,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                                           padding: EdgeInsets.zero,
                                           itemCount: items.length,
                                           separatorBuilder: (_, __) =>
-                                              const SizedBox(height: 14.0),
+                                              const SizedBox(height: 18.0),
                                           itemBuilder: (context, index) =>
                                               _buildLotCard(context, items[index]),
                                         ),

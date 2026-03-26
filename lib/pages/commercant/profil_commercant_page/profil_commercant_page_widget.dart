@@ -1,4 +1,4 @@
-import '/auth/firebase_auth/auth_util.dart';
+﻿import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
 import '/components/delete_confirmation_account_widget.dart';
@@ -12,7 +12,7 @@ import 'package:webviewx_plus/webviewx_plus.dart';
 import 'profil_commercant_page_model.dart';
 export 'profil_commercant_page_model.dart';
 
-/// ajout d'un bouton de déconnexion et supression de compte
+/// ajout d'un bouton de dÃƒÂ©connexion et supression de compte
 class ProfilCommercantPageWidget extends StatefulWidget {
   const ProfilCommercantPageWidget({super.key});
 
@@ -46,6 +46,145 @@ class _ProfilCommercantPageWidgetState
     super.dispose();
   }
 
+  Future<void> _handleDeleteAccountTap() async {
+    _model.deleteRequestCountResult =
+        await queryAccountDeletionRequestsRecordCount(
+      queryBuilder: (accountDeletionRequestsRecord) =>
+          accountDeletionRequestsRecord.where(
+        'merchant_id',
+        isEqualTo: currentUserReference,
+      ),
+    );
+    if (_model.deleteRequestCountResult == 0) {
+      _model.resultEndGame = await queryGamesRecordCount(
+        queryBuilder: (gamesRecord) => gamesRecord
+            .where(
+              'create_by',
+              isEqualTo: currentUserReference,
+            )
+            .where(
+              'hasWinner',
+              isEqualTo: false,
+            )
+            .where(
+              'end_date',
+              isGreaterThan: getCurrentTimestamp,
+            ),
+      );
+      if (_model.resultEndGame == 0) {
+        await showDialog(
+          context: context,
+          builder: (dialogContext) {
+            return Dialog(
+              elevation: 0,
+              insetPadding: EdgeInsets.zero,
+              backgroundColor: Colors.transparent,
+              alignment: const AlignmentDirectional(0.0, 0.0)
+                  .resolve(Directionality.of(context)),
+              child: WebViewAware(
+                child: GestureDetector(
+                  onTap: () {
+                    FocusScope.of(dialogContext).unfocus();
+                    FocusManager.instance.primaryFocus?.unfocus();
+                  },
+                  child: DeleteConfirmationAccountWidget(
+                    actions: () async {
+                      await AccountDeletionRequestsRecord.collection.doc().set(
+                          createAccountDeletionRequestsRecordData(
+                        merchantId: currentUserReference,
+                        requestedAt: getCurrentTimestamp,
+                      ));
+                      await showDialog(
+                        context: context,
+                        builder: (dialogContext) {
+                          return Dialog(
+                            elevation: 0,
+                            insetPadding: EdgeInsets.zero,
+                            backgroundColor: Colors.transparent,
+                            alignment: const AlignmentDirectional(0.0, 0.0)
+                                .resolve(Directionality.of(context)),
+                            child: WebViewAware(
+                              child: GestureDetector(
+                                onTap: () {
+                                  FocusScope.of(dialogContext).unfocus();
+                                  FocusManager.instance.primaryFocus?.unfocus();
+                                },
+                                child: InformationalDialogCustomWidget(
+                                  title: 'Suppression du compte',
+                                  body: 'Une demande de suppression a été faite.',
+                                  action: () async {},
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      } else {
+        await showDialog(
+          context: context,
+          builder: (dialogContext) {
+            return Dialog(
+              elevation: 0,
+              insetPadding: EdgeInsets.zero,
+              backgroundColor: Colors.transparent,
+              alignment: const AlignmentDirectional(0.0, 0.0)
+                  .resolve(Directionality.of(context)),
+              child: WebViewAware(
+                child: GestureDetector(
+                  onTap: () {
+                    FocusScope.of(dialogContext).unfocus();
+                    FocusManager.instance.primaryFocus?.unfocus();
+                  },
+                  child: InformationalDialogCustomWidget(
+                    title: 'Suppression du compte',
+                    body:
+                        'vous ne devez pas avoir de jeux en cours pour supprimer votre compte',
+                    action: () async {},
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      }
+    } else {
+      await showDialog(
+        context: context,
+        builder: (dialogContext) {
+          return Dialog(
+            elevation: 0,
+            insetPadding: EdgeInsets.zero,
+            backgroundColor: Colors.transparent,
+            alignment: const AlignmentDirectional(0.0, 0.0)
+                .resolve(Directionality.of(context)),
+            child: WebViewAware(
+              child: GestureDetector(
+                onTap: () {
+                  FocusScope.of(dialogContext).unfocus();
+                  FocusManager.instance.primaryFocus?.unfocus();
+                },
+                child: InformationalDialogCustomWidget(
+                  title: 'Suppression du compte',
+                  body: 'Une demande est déjà en cours',
+                  action: () async {},
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    safeSetState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -73,7 +212,12 @@ class _ProfilCommercantPageWidgetState
                   children: [
                     AuthUserStreamWidget(
                       builder: (context) => Text(
-                        valueOrDefault(currentUserDocument?.firstName, ''),
+                        valueOrDefault(
+                          currentUserDocument?.firstName,
+                          '',
+                        ).isNotEmpty
+                            ? 'Bonjour ${valueOrDefault(currentUserDocument?.firstName, '')}'
+                            : 'Bonjour',
                         style:
                             FlutterFlowTheme.of(context).headlineSmall.override(
                                   font: GoogleFonts.interTight(
@@ -255,9 +399,42 @@ class _ProfilCommercantPageWidgetState
                                 hoverColor: Colors.transparent,
                                 highlightColor: Colors.transparent,
                                 onTap: () async {
-                                  context.pushNamed(
-                                      MesEnseignesCommercantPageWidget
-                                          .routeName);
+                                  final enseignes =
+                                      await queryEnseignesRecordOnce(
+                                    queryBuilder: (enseignesRecord) =>
+                                        enseignesRecord.where(
+                                      'owner',
+                                      isEqualTo: currentUserReference,
+                                    ),
+                                    singleRecord: true,
+                                  );
+                                  final enseigne = enseignes.isNotEmpty
+                                      ? enseignes.first
+                                      : null;
+
+                                  if (!context.mounted) {
+                                    return;
+                                  }
+
+                                  if (enseigne != null) {
+                                    context.pushNamed(
+                                      UpdateEnseigneCommercantPageWidget
+                                          .routeName,
+                                      queryParameters: {
+                                        'enseigneDocument': serializeParam(
+                                          enseigne,
+                                          ParamType.Document,
+                                        ),
+                                      }.withoutNulls,
+                                      extra: <String, dynamic>{
+                                        'enseigneDocument': enseigne,
+                                      },
+                                    );
+                                  } else {
+                                    context.pushNamed(
+                                      MesEnseignesCommercantPageWidget.routeName,
+                                    );
+                                  }
                                 },
                                 child: Container(
                                   width: double.infinity,
@@ -367,8 +544,7 @@ class _ProfilCommercantPageWidgetState
                                       children: [
                                         Icon(
                                           Icons.logout_rounded,
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
+                                          color: const Color(0xFFA0134D),
                                           size: 24.0,
                                         ),
                                         Expanded(
@@ -395,15 +571,11 @@ class _ProfilCommercantPageWidgetState
                                                                   .fontStyle,
                                                         ),
                                                         color:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .error,
+                                                            const Color(
+                                                                0xFFA0134D),
                                                         letterSpacing: 0.0,
                                                         fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontWeight,
+                                                            FontWeight.w600,
                                                         fontStyle:
                                                             FlutterFlowTheme.of(
                                                                     context)
@@ -415,8 +587,7 @@ class _ProfilCommercantPageWidgetState
                                         ),
                                         Icon(
                                           Icons.arrow_forward_ios,
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
+                                          color: const Color(0xFFA0134D),
                                           size: 18.0,
                                         ),
                                       ],
@@ -425,282 +596,7 @@ class _ProfilCommercantPageWidgetState
                                 ),
                               ),
                             ),
-                            Builder(
-                              builder: (context) => Padding(
-                                padding: const EdgeInsetsDirectional.fromSTEB(
-                                    0.0, 12.0, 0.0, 0.0),
-                                child: InkWell(
-                                  splashColor: Colors.transparent,
-                                  focusColor: Colors.transparent,
-                                  hoverColor: Colors.transparent,
-                                  highlightColor: Colors.transparent,
-                                  onTap: () async {
-                                    _model.deleteRequestCountResult =
-                                        await queryAccountDeletionRequestsRecordCount(
-                                      queryBuilder:
-                                          (accountDeletionRequestsRecord) =>
-                                              accountDeletionRequestsRecord
-                                                  .where(
-                                        'merchant_id',
-                                        isEqualTo: currentUserReference,
-                                      ),
-                                    );
-                                    if (_model.deleteRequestCountResult == 0) {
-                                      _model.resultEndGame =
-                                          await queryGamesRecordCount(
-                                        queryBuilder: (gamesRecord) =>
-                                            gamesRecord
-                                                .where(
-                                                  'create_by',
-                                                  isEqualTo:
-                                                      currentUserReference,
-                                                )
-                                                .where(
-                                                  'hasWinner',
-                                                  isEqualTo: false,
-                                                )
-                                                .where(
-                                                  'end_date',
-                                                  isGreaterThan:
-                                                      getCurrentTimestamp,
-                                                ),
-                                      );
-                                      if (_model.resultEndGame == 0) {
-                                        await showDialog(
-                                          context: context,
-                                          builder: (dialogContext) {
-                                            return Dialog(
-                                              elevation: 0,
-                                              insetPadding: EdgeInsets.zero,
-                                              backgroundColor:
-                                                  Colors.transparent,
-                                              alignment:
-                                                  const AlignmentDirectional(0.0, 0.0)
-                                                      .resolve(
-                                                          Directionality.of(
-                                                              context)),
-                                              child: WebViewAware(
-                                                child: GestureDetector(
-                                                  onTap: () {
-                                                    FocusScope.of(dialogContext)
-                                                        .unfocus();
-                                                    FocusManager
-                                                        .instance.primaryFocus
-                                                        ?.unfocus();
-                                                  },
-                                                  child:
-                                                      DeleteConfirmationAccountWidget(
-                                                    actions: () async {
-                                                      await AccountDeletionRequestsRecord
-                                                          .collection
-                                                          .doc()
-                                                          .set(
-                                                              createAccountDeletionRequestsRecordData(
-                                                            merchantId:
-                                                                currentUserReference,
-                                                            requestedAt:
-                                                                getCurrentTimestamp,
-                                                          ));
-                                                      await showDialog(
-                                                        context: context,
-                                                        builder:
-                                                            (dialogContext) {
-                                                          return Dialog(
-                                                            elevation: 0,
-                                                            insetPadding:
-                                                                EdgeInsets.zero,
-                                                            backgroundColor:
-                                                                Colors
-                                                                    .transparent,
-                                                            alignment: const AlignmentDirectional(
-                                                                    0.0, 0.0)
-                                                                .resolve(
-                                                                    Directionality.of(
-                                                                        context)),
-                                                            child: WebViewAware(
-                                                              child:
-                                                                  GestureDetector(
-                                                                onTap: () {
-                                                                  FocusScope.of(
-                                                                          dialogContext)
-                                                                      .unfocus();
-                                                                  FocusManager
-                                                                      .instance
-                                                                      .primaryFocus
-                                                                      ?.unfocus();
-                                                                },
-                                                                child:
-                                                                    InformationalDialogCustomWidget(
-                                                                  title:
-                                                                      'Suppression du compte',
-                                                                  body:
-                                                                      'Une demande de suppression a été faite.',
-                                                                  action:
-                                                                      () async {},
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          );
-                                                        },
-                                                      );
-                                                    },
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        );
-                                      } else {
-                                        await showDialog(
-                                          context: context,
-                                          builder: (dialogContext) {
-                                            return Dialog(
-                                              elevation: 0,
-                                              insetPadding: EdgeInsets.zero,
-                                              backgroundColor:
-                                                  Colors.transparent,
-                                              alignment:
-                                                  const AlignmentDirectional(0.0, 0.0)
-                                                      .resolve(
-                                                          Directionality.of(
-                                                              context)),
-                                              child: WebViewAware(
-                                                child: GestureDetector(
-                                                  onTap: () {
-                                                    FocusScope.of(dialogContext)
-                                                        .unfocus();
-                                                    FocusManager
-                                                        .instance.primaryFocus
-                                                        ?.unfocus();
-                                                  },
-                                                  child:
-                                                      InformationalDialogCustomWidget(
-                                                    title:
-                                                        'Suppression du compte',
-                                                    body:
-                                                        'vous ne devez pas avoir de jeux en cours pour supprimer votre compte',
-                                                    action: () async {},
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        );
-                                      }
-                                    } else {
-                                      await showDialog(
-                                        context: context,
-                                        builder: (dialogContext) {
-                                          return Dialog(
-                                            elevation: 0,
-                                            insetPadding: EdgeInsets.zero,
-                                            backgroundColor: Colors.transparent,
-                                            alignment: const AlignmentDirectional(
-                                                    0.0, 0.0)
-                                                .resolve(
-                                                    Directionality.of(context)),
-                                            child: WebViewAware(
-                                              child: GestureDetector(
-                                                onTap: () {
-                                                  FocusScope.of(dialogContext)
-                                                      .unfocus();
-                                                  FocusManager
-                                                      .instance.primaryFocus
-                                                      ?.unfocus();
-                                                },
-                                                child:
-                                                    InformationalDialogCustomWidget(
-                                                  title:
-                                                      'Suppression du compte',
-                                                  body:
-                                                      'Une demande est déjà en cours',
-                                                  action: () async {},
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      );
-                                    }
-
-                                    safeSetState(() {});
-                                  },
-                                  child: Container(
-                                    width: double.infinity,
-                                    height: 60.0,
-                                    decoration: BoxDecoration(
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryBackground,
-                                      borderRadius: BorderRadius.circular(12.0),
-                                      shape: BoxShape.rectangle,
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsetsDirectional.fromSTEB(
-                                          8.0, 8.0, 8.0, 8.0),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.max,
-                                        children: [
-                                          Icon(
-                                            Icons.delete_forever_rounded,
-                                            color: FlutterFlowTheme.of(context)
-                                                .error,
-                                            size: 24.0,
-                                          ),
-                                          Expanded(
-                                            child: Padding(
-                                              padding: const EdgeInsetsDirectional
-                                                  .fromSTEB(
-                                                      12.0, 0.0, 12.0, 0.0),
-                                              child: Text(
-                                                'Supprimer mon compte',
-                                                style: FlutterFlowTheme.of(
-                                                        context)
-                                                    .bodyLarge
-                                                    .override(
-                                                      font: GoogleFonts.inter(
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontStyle,
-                                                      ),
-                                                      color:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .error,
-                                                      letterSpacing: 0.0,
-                                                      fontWeight:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyLarge
-                                                              .fontWeight,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyLarge
-                                                              .fontStyle,
-                                                    ),
-                                              ),
-                                            ),
-                                          ),
-                                          Icon(
-                                            Icons.arrow_forward_ios,
-                                            color: FlutterFlowTheme.of(context)
-                                                .error,
-                                            size: 18.0,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
+                            const SizedBox.shrink(),
                             Padding(
                               padding: const EdgeInsetsDirectional.fromSTEB(
                                   16.0, 30.0, 0.0, 0.0),
@@ -891,6 +787,24 @@ class _ProfilCommercantPageWidgetState
                                 ),
                               ),
                             ),
+                            GestureDetector(
+                              onTap: () async {
+                                await _handleDeleteAccountTap();
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.only(top: 24.0, bottom: 16.0),
+                                child: Center(
+                                  child: Text(
+                                    'Supprimer mon compte',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 13.0,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -912,3 +826,5 @@ class _ProfilCommercantPageWidgetState
     );
   }
 }
+
+

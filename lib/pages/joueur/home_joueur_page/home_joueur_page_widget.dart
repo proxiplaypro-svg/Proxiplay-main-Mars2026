@@ -52,6 +52,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   late Future<SharePromoStateViewModel?> _sharePromoFuture;
   late Future<List<String>> _recentWinnerMessagesFuture;
   SharePromoStateViewModel? _latestSharePromoState;
+  final Map<String, Future<EnseignesRecord>> _enseigneFutureCache = {};
 
   @override
   void initState() {
@@ -106,13 +107,21 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     return true;
   }
 
+  Future<EnseignesRecord> _getCachedEnseigneFuture(
+      DocumentReference enseigneRef) {
+    return _enseigneFutureCache.putIfAbsent(
+      enseigneRef.path,
+      () => EnseignesRecord.getDocumentOnce(enseigneRef),
+    );
+  }
+
   Future<EnseignesRecord?> _loadEnseigneForGame(GamesRecord game) async {
     final enseigneRef = game.enseigneId;
     if (enseigneRef == null) {
       return null;
     }
     try {
-      return await EnseignesRecord.getDocumentOnce(enseigneRef);
+      return await _getCachedEnseigneFuture(enseigneRef);
     } catch (_) {
       return null;
     }
@@ -1352,7 +1361,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     return const SizedBox.shrink();
                                                                   }
                                                                   return FutureBuilder<EnseignesRecord>(
-                                                                      future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
+                                                                      future: _getCachedEnseigneFuture(listViewGamesRecord.enseigneId!),
                                                                       builder: (context, enseigneSnapshot) {
                                                                         final enseigne = enseigneSnapshot.data;
                                                                         return GameCardWidget(
@@ -1489,7 +1498,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     return const SizedBox.shrink();
                                                                   }
                                                                   return FutureBuilder<EnseignesRecord>(
-                                                                      future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
+                                                                      future: _getCachedEnseigneFuture(listViewGamesRecord.enseigneId!),
                                                                       builder: (context, enseigneSnapshot) {
                                                                         final enseigne = enseigneSnapshot.data;
                                                                         return GameCardWidget(
@@ -1633,7 +1642,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                   }
 
                                                                   return FutureBuilder<EnseignesRecord>(
-                                                                      future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
+                                                                      future: _getCachedEnseigneFuture(listViewGamesRecord.enseigneId!),
                                                                       builder: (context, enseigneSnapshot) {
                                                                         final enseigne = enseigneSnapshot.data;
                                                                         return GameCardWidget(
@@ -1782,7 +1791,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         recentlyEndedGames[
                                                                             idx];
                                                                     return FutureBuilder<EnseignesRecord>(
-                                                                        future: EnseignesRecord.getDocumentOnce(game.enseigneId!),
+                                                                        future: _getCachedEnseigneFuture(game.enseigneId!),
                                                                         builder: (context, enseigneSnapshot) {
                                                                           final enseigne = enseigneSnapshot.data;
                                                                           return FutureBuilder<UsersRecord>(
@@ -1964,7 +1973,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                   return const SizedBox.shrink();
                                                                 }
                                                                 return FutureBuilder<EnseignesRecord>(
-                                                                    future: EnseignesRecord.getDocumentOnce(
+                                                                    future: _getCachedEnseigneFuture(
                                                                         listViewGamesRecord.enseigneId!),
                                                                     builder: (context, enseigneSnapshot) {
                                                                       final enseigne =
@@ -2123,7 +2132,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                   return const SizedBox.shrink();
                                                                 }
                                                                 return FutureBuilder<EnseignesRecord>(
-                                                                    future: EnseignesRecord.getDocumentOnce(
+                                                                    future: _getCachedEnseigneFuture(
                                                                         listViewGamesRecord.enseigneId!),
                                                                     builder: (context, enseigneSnapshot) {
                                                                       final enseigne =
@@ -2279,7 +2288,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                   return const SizedBox.shrink();
                                                                 }
                                                                 return FutureBuilder<EnseignesRecord>(
-                                                                    future: EnseignesRecord.getDocumentOnce(
+                                                                    future: _getCachedEnseigneFuture(
                                                                         listViewGamesRecord.enseigneId!),
                                                                     builder: (context, enseigneSnapshot) {
                                                                       final enseigne =
@@ -2439,7 +2448,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               return const SizedBox.shrink();
                                                             }
                                                             return FutureBuilder<EnseignesRecord>(
-                                                                future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
+                                                                future: _getCachedEnseigneFuture(listViewGamesRecord.enseigneId!),
                                                                 builder: (context, enseigneSnapshot) {
                                                                   final enseigne = enseigneSnapshot.data;
                                                                   return GameCardWidget(
@@ -2571,7 +2580,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               return const SizedBox.shrink();
                                                             }
                                                             return FutureBuilder<EnseignesRecord>(
-                                                                future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
+                                                                future: _getCachedEnseigneFuture(listViewGamesRecord.enseigneId!),
                                                                 builder: (context, enseigneSnapshot) {
                                                                   final enseigne = enseigneSnapshot.data;
                                                                   return GameCardWidget(
@@ -2698,7 +2707,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               return const SizedBox.shrink();
                                                             }
                                                             return FutureBuilder<EnseignesRecord>(
-                                                                future: EnseignesRecord.getDocumentOnce(listViewGamesRecord.enseigneId!),
+                                                                future: _getCachedEnseigneFuture(listViewGamesRecord.enseigneId!),
                                                                 builder: (context, enseigneSnapshot) {
                                                                   final enseigne = enseigneSnapshot.data;
                                                                   return GameCardWidget(

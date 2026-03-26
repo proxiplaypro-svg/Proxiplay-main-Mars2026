@@ -9,14 +9,41 @@ Future<void> addInstantWinnersToGame(
   DocumentReference gameRef,
   DateTime startDate,
   DateTime endDate,
-  int numberOfWinners,
+  List<dynamic> secondaryPrizes,
 ) async {
   if (startDate.isAfter(endDate)) {
     throw Exception('La date de debut doit preceder la date de fin.');
   }
-  if (numberOfWinners < 0) {
-    throw Exception("Le nombre d'instants gagnants ne peut pas etre negatif.");
+
+  final expandedSecondaryPrizes = <Map<String, dynamic>>[];
+  for (var index = 0; index < secondaryPrizes.length; index++) {
+    final rawPrize = secondaryPrizes[index];
+    if (rawPrize is! Map) {
+      continue;
+    }
+
+    final name = (rawPrize['name'] ?? '').toString().trim();
+    final presentation = (rawPrize['presentation'] ?? '').toString().trim();
+    final rawCount = rawPrize['count'];
+    final count = rawCount is num
+        ? rawCount.toInt()
+        : int.tryParse(rawCount?.toString() ?? '') ?? 0;
+
+    if (count <= 0) {
+      continue;
+    }
+
+    for (var occurrence = 0; occurrence < count; occurrence++) {
+      expandedSecondaryPrizes.add({
+        'source_index': index,
+        'occurrence_index': occurrence,
+        'name': name,
+        if (presentation.isNotEmpty) 'presentation': presentation,
+      });
+    }
   }
+
+  final numberOfWinners = expandedSecondaryPrizes.length;
   if (numberOfWinners == 0) {
     return;
   }
@@ -27,6 +54,7 @@ Future<void> addInstantWinnersToGame(
       endDate.millisecondsSinceEpoch - startDate.millisecondsSinceEpoch;
 
   for (int i = 0; i < numberOfWinners; i++) {
+    final prizePayload = expandedSecondaryPrizes[i];
     // 1 instant gagnant par lot secondaire, borne strictement entre start/end.
     final ratio = (i + 0.5) / numberOfWinners;
     final candidateMs =
@@ -42,6 +70,11 @@ Future<void> addInstantWinnersToGame(
       'date': Timestamp.fromDate(winningDate),
       'hasWinner': false,
       'claimed': false,
+      'secondary_prize_index': prizePayload['source_index'],
+      'secondary_prize_occurrence_index': prizePayload['occurrence_index'],
+      'secondary_prize_name': prizePayload['name'],
+      if (prizePayload['presentation'] != null)
+        'secondary_prize_presentation': prizePayload['presentation'],
     });
   }
 

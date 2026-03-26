@@ -159,6 +159,25 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                 secondaryPrizeDescription != '0';
         final hasSecondaryPrizeContent =
             hasSecondaryPrizeEntries || hasSecondaryPrizeDescriptionText;
+        final secondaryPrizeCountText = secondaryPrizeCount > 0
+            ? hasMainPrize
+                ? '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} secondaire${secondaryPrizeCount > 1 ? 's' : ''}'
+                : hasSecondaryPrizeDescriptionText
+                    ? secondaryPrizeDescription
+                    : '$secondaryPrizeCount'
+            : hasMainPrize
+                ? 'Lots secondaires'
+                : 'Lots';
+        final secondaryPrizeWinnerText = !hasMainPrize && secondaryPrizeCount > 0
+            ? '$secondaryPrizeCount ${secondaryPrizeCount > 1 ? 'gagnants' : 'gagnant'}'
+            : null;
+        final secondaryPrizeRulesText = secondaryPrizeCount > 0
+            ? hasMainPrize
+                ? '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} secondaire${secondaryPrizeCount > 1 ? 's' : ''} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} à gagner instantanément'
+                : '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} à gagner instantanément'
+            : hasMainPrize
+                ? 'Des lots secondaires sont à gagner instantanément'
+                : 'Des lots sont à gagner instantanément';
         final leftActionVisible = (() {
           final isGuest = currentUserUid == '';
           if (isGuest) return true;
@@ -297,8 +316,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                       ? Icons.favorite_rounded
                                       : Icons.favorite_border_rounded,
                                   color: favoriteGame != null
-                                      ? Colors.red
-                                      : FlutterFlowTheme.of(context).primaryText,
+                                      ? const Color(0xFFA0134D)
+                                      : const Color(0xFFA0134D),
                                   size: 20.0,
                                                     ),
                                                     onPressed: () async {
@@ -529,6 +548,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     if (_model
                                                                         .cloudFunction3sn!
                                                                         .succeeded!) {
+                                                                      await refreshCurrentUserDocument();
+                                                                      if (!context.mounted) {
+                                                                        return;
+                                                                      }
+                                                                      safeSetState(() {});
                                                                       context
                                                                           .pushNamed(
                                                                         PlayJoueurPageWidget
@@ -735,9 +759,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     .cloudFunction3sn2!
                                                                     .succeeded!) {
                                                                   await refreshCurrentUserDocument();
-                                                                  if (context.mounted) {
-                                                                    safeSetState(() {});
+                                                                  if (!context.mounted) {
+                                                                    return;
                                                                   }
+                                                                  safeSetState(() {});
                                                                   context
                                                                       .pushNamed(
                                                                     PlayJoueurPageWidget
@@ -928,7 +953,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   color: Colors.white,
                                                   borderRadius: BorderRadius.circular(16.0),
                                                   border: Border.all(
-                                                    color: FlutterFlowTheme.of(context).primary,
+                                                    color: const Color(0xFFA0134D),
                                                     width: 2.0,
                                                   ),
                                                   boxShadow: [
@@ -944,7 +969,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   children: [
                                                     Icon(
                                                       Icons.store_rounded,
-                                                      color: FlutterFlowTheme.of(context).primary,
+                                                      color: const Color(0xFFA0134D),
                                                       size: 20.0,
                                                     ),
                                                     const SizedBox(width: 8.0),
@@ -960,7 +985,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                         style: GoogleFonts.inter(
                                                           fontSize: 16.0,
                                                           fontWeight: FontWeight.w600,
-                                                          color: FlutterFlowTheme.of(context).primary,
+                                                          color: const Color(0xFFA0134D),
                                                           letterSpacing: 0.0,
                                                         ),
                                                       ),
@@ -1872,16 +1897,6 @@ return Container(
                                             //   ),
                                             // ),
                                             // SizedBox(height: 12.0),
-                                                                Text(
-                                      widget.gameDoc!.name, 
-                                      style: GoogleFonts.inter(
-                                        fontSize:  widget.gameDoc!.name.isEmpty ? 0.0 : 23.0,
-                                        fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF111827),
-                                        letterSpacing: -0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12.0),
                                             if (hasMainPrize)
                                               Row(
                                                 crossAxisAlignment:
@@ -1958,9 +1973,7 @@ return Container(
                                                               .start,
                                                       children: [
                                                         Text(
-                                                          secondaryPrizeCount > 0
-                                                              ? '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} secondaire${secondaryPrizeCount > 1 ? 's' : ''}'
-                                                              : 'Lots secondaires',
+                                                          secondaryPrizeCountText,
                                                           style: GoogleFonts
                                                               .inter(
                                                             fontSize: 14.0,
@@ -1970,7 +1983,27 @@ return Container(
                                                                 0xFF111827),
                                                           ),
                                                         ),
-                                                        if (hasSecondaryPrizeDescriptionText)
+                                                        if (secondaryPrizeWinnerText !=
+                                                            null)
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsets.only(
+                                                                    top: 2.0),
+                                                            child: Text(
+                                                              secondaryPrizeWinnerText,
+                                                              style: GoogleFonts
+                                                                  .inter(
+                                                                fontSize: 13.0,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                                color: const Color(
+                                                                    0xFF374151),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        if (hasSecondaryPrizeDescriptionText &&
+                                                            hasMainPrize)
                                                           Padding(
                                                             padding:
                                                                 const EdgeInsets.only(
@@ -2074,7 +2107,9 @@ return Container(
                                                         const SizedBox(width: 8.0),
                                                         Expanded(
                                                           child: Text(
-                                                            'D\u00E9but du jeu le ${widget.gameDoc?.startDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.startDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
+                                                            hasMainPrize
+                                                                ? 'D\u00E9but du jeu le ${widget.gameDoc?.startDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.startDate, locale: FFLocalizations.of(context).languageCode) : '-'}'
+                                                                : 'Fin du jeu le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
                                                             style: GoogleFonts
                                                                 .inter(
                                                               fontSize: 13.0,
@@ -2191,9 +2226,7 @@ return Container(
                                                         const SizedBox(width: 8.0),
                                                         Expanded(
                                                           child: Text(
-                                                            secondaryPrizeCount > 0
-                                                                ? '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} secondaire${secondaryPrizeCount > 1 ? 's' : ''} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} à gagner instantanément'
-                                                                : 'Des lots secondaires sont à gagner instantanément',
+                                                            secondaryPrizeRulesText,
                                                             style: GoogleFonts
                                                                 .inter(
                                                               fontSize: 13.0,

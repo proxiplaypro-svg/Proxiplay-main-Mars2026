@@ -648,34 +648,6 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                                   ),
                                                                                 ],
                                                                               ),
-                                                                              if (containerEnseignesRecord.siteWebUrl != '')
-                                                                                Row(
-                                                                                  mainAxisSize: MainAxisSize.max,
-                                                                                  children: [
-                                                                                    Container(
-                                                                                      width: 30.0,
-                                                                                      decoration: const BoxDecoration(),
-                                                                                      alignment: const AlignmentDirectional(-1.0, 0.0),
-                                                                                      child: Icon(
-                                                                                        Icons.language,
-                                                                                        color: FlutterFlowTheme.of(context).primaryText,
-                                                                                        size: 18.0,
-                                                                                      ),
-                                                                                    ),
-                                                                                    Text(
-                                                                                      containerEnseignesRecord.siteWebUrl,
-                                                                                      style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                            font: GoogleFonts.inter(
-                                                                                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                            ),
-                                                                                            letterSpacing: 0.0,
-                                                                                            fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                            fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                          ),
-                                                                                    ),
-                                                                                  ],
-                                                                                ),
                                                                               Row(
                                                                                 mainAxisSize: MainAxisSize.max,
                                                                                 children: [

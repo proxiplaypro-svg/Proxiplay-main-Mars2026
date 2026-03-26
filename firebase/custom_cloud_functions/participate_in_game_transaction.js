@@ -344,7 +344,7 @@ exports.participateInGameTransaction = functions.https.onCall(
             transaction.set(
               participantDetailRef,
               {
-                last_play: endOfDay,
+                last_play: now,
                 game_bonus: bonus,
                 user_id: userRef,
               },
@@ -353,7 +353,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           }
         } else {
           transaction.set(participantDetailRef, {
-            last_play: endOfDay,
+            last_play: now,
             game_bonus: 0,
             user_id: userRef,
           });
@@ -412,8 +412,18 @@ exports.participateInGameTransaction = functions.https.onCall(
 
         if (!instantWinnerSnap.empty) {
           const instantWinnerDoc = instantWinnerSnap.docs[0];
+          const instantWinnerData = instantWinnerDoc.data() || {};
 
           const claim_code = `${Date.now().toString(36).toUpperCase()}`;
+          const selectedSecondaryPrizeName =
+            typeof instantWinnerData.secondary_prize_name === "string" &&
+            instantWinnerData.secondary_prize_name.trim().length > 0
+              ? instantWinnerData.secondary_prize_name.trim()
+              : (gameData.secondary_prize_description || "");
+          const selectedSecondaryPrizePresentation =
+            typeof instantWinnerData.secondary_prize_presentation === "string"
+              ? instantWinnerData.secondary_prize_presentation.trim()
+              : "";
 
           transaction.update(instantWinnerDoc.ref, {
             hasWinner: true,
@@ -424,7 +434,8 @@ exports.participateInGameTransaction = functions.https.onCall(
 
           transaction.set(prizeRef, {
             prize_type: "secondaire",
-            name: gameData.secondary_prize_description,
+            name: selectedSecondaryPrizeName,
+            description: selectedSecondaryPrizePresentation,
             winner_id: userRef,
             game_id: gameRef,
             enseigne_id: enseigneRef,
@@ -441,7 +452,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           });
 
           lotGagne = true;
-          lotDetails = gameData.secondary_prize_description;
+          lotDetails = selectedSecondaryPrizeName;
         }
 
         // Messages aleatoires a afficher en cas de perte

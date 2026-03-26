@@ -200,7 +200,7 @@ class _ValidationLotCommercantPageWidgetState
                                     mainAxisSize: MainAxisSize.max,
                                     children: [
                                       Text(
-                                        'DÃ©tails du Lot',
+                                        'Détails du Lot',
                                         style: FlutterFlowTheme.of(context)
                                             .headlineSmall
                                             .override(
@@ -424,7 +424,7 @@ class _ValidationLotCommercantPageWidgetState
                                     mainAxisSize: MainAxisSize.max,
                                     children: [
                                       Text(
-                                        'Statut de RÃ©cupÃ©ration',
+                                        'Statut de Récupération',
                                         style: FlutterFlowTheme.of(context)
                                             .headlineSmall
                                             .override(
@@ -466,7 +466,7 @@ class _ValidationLotCommercantPageWidgetState
                                                     .fromSTEB(
                                                         12.0, 16.0, 12.0, 16.0),
                                                 child: Text(
-                                                  'Lot RÃ©cupÃ©rÃ©',
+                                                  'Lot Récupéré',
                                                   textAlign: TextAlign.center,
                                                   style: FlutterFlowTheme.of(
                                                           context)
@@ -568,7 +568,7 @@ class _ValidationLotCommercantPageWidgetState
                                   ));
                                   context.safePop();
                                 },
-                                text: 'Valider la RÃ©cupÃ©ration',
+                                text: 'Valider la Récupération',
                                 options: FFButtonOptions(
                                   width: MediaQuery.sizeOf(context).width * 1.0,
                                   height: 56.0,
@@ -617,4 +617,5 @@ class _ValidationLotCommercantPageWidgetState
     );
   }
 }
+
 

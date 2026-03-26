@@ -1,4 +1,4 @@
-import '/flutter_flow/flutter_flow_util.dart';
+﻿import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import 'inscription_informations_page_widget.dart'
     show InscriptionInformationsPageWidget;
@@ -49,7 +49,7 @@ class InscriptionInformationsPageModel
     }
 
     if (val.length < 5) {
-      return 'Le pseudo doit comporter 5 caractÃ¨res au minimum';
+      return 'Le pseudo doit comporter 5 caractères au minimum';
     }
 
     return null;
@@ -74,7 +74,7 @@ class InscriptionInformationsPageModel
   String? Function(BuildContext, String?)? telephoneTextControllerValidator;
   String? _telephoneTextControllerValidator(BuildContext context, String? val) {
     if (val == null || val.isEmpty) {
-      return 'NumÃ©ro de tÃ©lÃ©phone obligatoire';
+      return 'Numéro de téléphone obligatoire';
     }
 
     return null;
@@ -107,3 +107,5 @@ class InscriptionInformationsPageModel
     telephoneTextController?.dispose();
   }
 }
+
+
