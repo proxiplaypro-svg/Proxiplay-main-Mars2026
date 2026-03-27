@@ -124,11 +124,6 @@ Future<List<SelectedFile>?> selectMediaWithSourceBottomSheet({
                 'Gallery',
                 MediaSource.videoGallery,
               ),
-            if (!kIsWeb) ...[
-              const Divider(),
-              createUploadMediaListTile('Camera', MediaSource.camera),
-              const Divider(),
-            ],
             const SizedBox(height: 10),
           ],
         );
@@ -142,7 +137,7 @@ Future<List<SelectedFile>?> selectMediaWithSourceBottomSheet({
     maxHeight: maxHeight,
     imageQuality: imageQuality,
     isVideo: mediaSource == MediaSource.videoGallery ||
-        (mediaSource == MediaSource.camera && allowVideo && !allowPhoto),
+        (mediaSource == MediaSource.photoGallery && allowVideo && !allowPhoto),
     mediaSource: mediaSource,
     includeDimensions: includeDimensions,
     includeBlurHash: includeBlurHash,
@@ -155,7 +150,7 @@ Future<List<SelectedFile>?> selectMedia({
   double? maxHeight,
   int? imageQuality,
   bool isVideo = false,
-  MediaSource mediaSource = MediaSource.camera,
+  MediaSource mediaSource = MediaSource.photoGallery,
   bool multiImage = false,
   bool includeDimensions = false,
   bool includeBlurHash = false,
@@ -381,4 +376,3 @@ String? _removeTrailingSlash(String? path) => path != null && path.endsWith('/')
     : path;
 
 String _firebasePathPrefix() => 'users/$currentUserUid/uploads';
-

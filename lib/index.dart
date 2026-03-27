@@ -48,10 +48,6 @@ export '/pages/joueur/favoris_joueur_page/favoris_joueur_page_widget.dart'
     show FavorisJoueurPageWidget;
 export '/pages/joueur/enseigne_joueur_page/enseigne_joueur_page_widget.dart'
     show EnseigneJoueurPageWidget;
-export '/pages/auth/inscription_identity_card_page/inscription_identity_card_page_widget.dart'
-    show InscriptionIdentityCardPageWidget;
-export '/pages/auth/inscription_identity_photo_page/inscription_identity_photo_page_widget.dart'
-    show InscriptionIdentityPhotoPageWidget;
 export '/pages/auth/waiting_validation_page/waiting_validation_page_widget.dart'
     show WaitingValidationPageWidget;
 export '/pages/commercant/edit_commercant_page/edit_commercant_page_widget.dart'

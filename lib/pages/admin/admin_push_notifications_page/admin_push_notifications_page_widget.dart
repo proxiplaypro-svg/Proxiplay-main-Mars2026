@@ -265,9 +265,8 @@ class _AdminPushNotificationsPageWidgetState
   }
 
   Future<void> _pickAndUploadImage() async {
-    final selectedMedia = await selectMediaWithSourceBottomSheet(
-      context: context,
-      allowPhoto: true,
+    final selectedMedia = await selectMedia(
+      mediaSource: MediaSource.photoGallery,
       imageQuality: 85,
     );
     if (selectedMedia == null || selectedMedia.isEmpty) return;

@@ -11,7 +11,6 @@ const kPermissionStateToBool = {
   PermissionStatus.permanentlyDenied: false,
 };
 
-const cameraPermission = Permission.camera;
 const photoLibraryPermission = Permission.photos;
 const notificationsPermission = Permission.notification;
 

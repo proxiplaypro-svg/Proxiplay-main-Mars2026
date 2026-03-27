@@ -267,17 +267,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               builder: (context, params) => const EnseigneJoueurPageWidget(),
             ),
             FFRoute(
-              name: InscriptionIdentityCardPageWidget.routeName,
-              path: InscriptionIdentityCardPageWidget.routePath,
-              builder: (context, params) => const InscriptionIdentityCardPageWidget(),
-            ),
-            FFRoute(
-              name: InscriptionIdentityPhotoPageWidget.routeName,
-              path: InscriptionIdentityPhotoPageWidget.routePath,
-              builder: (context, params) =>
-                  const InscriptionIdentityPhotoPageWidget(),
-            ),
-            FFRoute(
               name: WaitingValidationPageWidget.routeName,
               path: WaitingValidationPageWidget.routePath,
               builder: (context, params) => const WaitingValidationPageWidget(),

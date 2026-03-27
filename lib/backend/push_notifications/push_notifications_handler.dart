@@ -24,6 +24,16 @@ class PushNotificationsHandler extends StatefulWidget {
 class _PushNotificationsHandlerState extends State<PushNotificationsHandler> {
   bool _loading = false;
 
+  String _normalizeInitialPageName(String pageName) {
+    switch (pageName) {
+      case 'InscriptionIdentityCardPage':
+      case 'InscriptionIdentityPhotoPage':
+        return 'WaitingValidationPage';
+      default:
+        return pageName;
+    }
+  }
+
   Future handleOpenedPushNotification() async {
     if (isWeb) {
       return;
@@ -44,7 +54,9 @@ class _PushNotificationsHandlerState extends State<PushNotificationsHandler> {
 
     safeSetState(() => _loading = true);
     try {
-      final initialPageName = message.data['initialPageName'] as String;
+      final initialPageName = _normalizeInitialPageName(
+        message.data['initialPageName'] as String,
+      );
       final initialParameterData = getInitialParameterData(message.data);
       final parametersBuilder = parametersBuilderMap[initialPageName];
       if (parametersBuilder != null) {

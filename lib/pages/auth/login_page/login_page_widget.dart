@@ -623,7 +623,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                 AccountStatus
                                                     .pendingIdentityCard) {
                                               context.goNamedAuth(
-                                                InscriptionIdentityCardPageWidget
+                                                WaitingValidationPageWidget
                                                     .routeName,
                                                 context.mounted,
                                                 ignoreRedirect: true,
@@ -635,7 +635,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                                 AccountStatus
                                                     .pendingIdentityPhoto) {
                                               context.goNamedAuth(
-                                                InscriptionIdentityPhotoPageWidget
+                                                WaitingValidationPageWidget
                                                     .routeName,
                                                 context.mounted,
                                                 ignoreRedirect: true,
