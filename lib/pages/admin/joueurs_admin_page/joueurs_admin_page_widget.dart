@@ -247,7 +247,7 @@ class _JoueursAdminPageWidgetState extends State<JoueursAdminPageWidget> {
   }
 
   Widget _buildStatusChips() {
-    final filters = const [
+    const filters = [
       ('all', 'Tous'),
       ('active', 'Actifs'),
       ('relaunch', 'À relancer'),

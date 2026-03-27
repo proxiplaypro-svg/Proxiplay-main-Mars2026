@@ -205,7 +205,7 @@ class _CommercantsAdminPageWidgetState extends State<CommercantsAdminPageWidget>
         .toList();
 
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       isExpanded: true,
       items: normalizedItems,
       selectedItemBuilder: (context) => normalizedItems

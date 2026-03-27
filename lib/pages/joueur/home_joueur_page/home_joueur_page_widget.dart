@@ -398,18 +398,22 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           );
         }
 
-        return FutureBuilder<List<String>>(
-          future: _recentWinnerMessagesFuture,
-          builder: (context, snapshot) {
-            final messages = snapshot.data ?? const <String>[];
-            if (messages.isEmpty) {
-              return const SizedBox.shrink();
-            }
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: RecentWinnersTicker(messages: messages),
-            );
-          },
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  Widget _buildRecentWinnersZone() {
+    return FutureBuilder<List<String>>(
+      future: _recentWinnerMessagesFuture,
+      builder: (context, snapshot) {
+        final messages = snapshot.data ?? const <String>[];
+        if (messages.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: RecentWinnersTicker(messages: messages),
         );
       },
     );
@@ -842,6 +846,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                         children: [
                           if (!_model.searchActive)
                             _buildTopDynamicZone(context),
+                          if (!_model.searchActive &&
+                              !_hasActiveReferralBonus() &&
+                              valueOrDefault<int>(
+                                    currentUserDocument?.remainingPart,
+                                    0,
+                                  ) >
+                                  1)
+                            _buildRecentWinnersZone(),
                           if (_model.searchActive)
                             Expanded(
                               child: Container(

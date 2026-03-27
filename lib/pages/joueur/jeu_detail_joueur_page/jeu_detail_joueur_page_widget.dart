@@ -58,16 +58,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         !_hasUnlimitedAccess(user, now);
   }
 
-  String _formatEuros(num? value) {
-    final amount = value ?? 0;
-    if (amount % 1 == 0) {
-      return '${amount.toInt()} €';
-    }
-    var text = amount.toStringAsFixed(2);
-    text = text.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
-    return '${text.replaceAll('.', ',')} €';
-  }
-
   @override
   void initState() {
     super.initState();
@@ -137,6 +127,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             (widget.gameDoc?.hasWinner ?? false) &&
             (widget.gameDoc?.mainPrizeWinner != null);
         final hasMainPrize = (widget.gameDoc?.prizeValue ?? 0) > 0;
+        final mainPrizeDescription = (widget.gameDoc?.description ?? '').trim();
+        final hasMainPrizeDescription = mainPrizeDescription.isNotEmpty;
         final secondaryPrizes = widget.gameDoc?.secondaryPrizes ?? const [];
         final secondaryPrizeCount = secondaryPrizes.fold<int>(0, (total, item) {
           final countValue = item['count'];
@@ -442,11 +434,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                   ],
                                 ),
                                 child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    24.0, 
-                                    (widget.gameDoc?.description ?? '').trim().isEmpty ? 0.0 : 32.0, 
-                                    24.0, 
-                                    24.0
+                                padding: const EdgeInsetsDirectional.fromSTEB(
+                                    24.0,
+                                    32.0,
+                                    24.0,
+                                    24.0,
                                   ),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.max,
@@ -462,7 +454,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                         letterSpacing: -0.5,
                                       ),
                                     ),
-                                    SizedBox(height: (widget.gameDoc?.description ?? '').trim().isEmpty ? 16.0 : 24.0),
+                                    const SizedBox(height: 24.0),
                                     // Action Buttons Column
                                     Column(
                                       children: [
@@ -1145,44 +1137,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               );
                                             },
                                           ),
-                                        ),
-                                      ),
-                                    if ((widget.gameDoc?.description ?? '')
-                                        .trim()
-                                        .isNotEmpty)
-                                    Container(
-                                      width: double.infinity,
-                                        margin: const EdgeInsets.only(bottom: 16.0),
-                                        padding: const EdgeInsets.all(20.0),
-                                      decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(24.0),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(0.05),
-                                              blurRadius: 20.0,
-                                              offset: const Offset(0, 4),
-                                              spreadRadius: 0,
-                                            ),
-                                          ],
-                                        ),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.max,
-                                                      crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                                      children: [
-                                                        Text(
-                                              widget.gameDoc!.description
-                                                  .trim(),
-                                              style: GoogleFonts.inter(
-                                                fontSize: 15.0,
-                                                fontWeight: FontWeight.w400,
-                                                color: const Color(0xFF4B5563),
-                                                height: 1.6,
-                                                letterSpacing: 0.0,
-                                              ),
-                                            ),
-                                          ],
                                         ),
                                       ),
                                     // Store Information Section
@@ -1919,18 +1873,20 @@ return Container(
                                                                 0xFF111827),
                                                           ),
                                                         ),
-                                                        const SizedBox(height: 2.0),
-                                                        Text(
-                                                          _formatEuros(widget.gameDoc?.prizeValue),
-                                                          style: GoogleFonts
-                                                              .inter(
-                                                            fontSize: 13.0,
-                                                            fontWeight:
-                                                                FontWeight.w500,
-                                                            color: const Color(
-                                                                0xFF374151),
+                                                        if (hasMainPrizeDescription)
+                                                          const SizedBox(height: 6.0),
+                                                        if (hasMainPrizeDescription)
+                                                          Text(
+                                                            mainPrizeDescription,
+                                                            style: GoogleFonts
+                                                                .inter(
+                                                              fontSize: 13.0,
+                                                              fontWeight:
+                                                                  FontWeight.w500,
+                                                              color: const Color(
+                                                                  0xFF374151),
+                                                            ),
                                                           ),
-                                                        ),
                                                       ],
                                                     ),
                                                   ),

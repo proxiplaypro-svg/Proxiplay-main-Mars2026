@@ -314,6 +314,8 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     final rewardTextBonus = _resultMessageBonus ?? '';
     final hasMainPrizeGame =
         widget.game != null ? hasMainPrize(widget.game!) : false;
+    final mainPrizeDescription = (widget.game?.description ?? '').trim();
+    final hasMainPrizeDescription = mainPrizeDescription.isNotEmpty;
     final isCompactHeight = MediaQuery.sizeOf(context).height < 1000.0;
     final now = DateTime.now();
     final endDate = widget.game?.endDate;
@@ -1035,42 +1037,49 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                                     .fontStyle,
                                                           ),
                                                     ),
-                                                    Text(
-                                                      widget.game!.name,
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .override(
-                                                            font: GoogleFonts.inter(
-                                                              fontWeight:
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontWeight,
-                                                              fontStyle:
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                            ),
-                                                            color: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .secondaryText,
-                                                            letterSpacing: 0.0,
-                                                            fontWeight:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontWeight,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                    ),
+                                                    if (hasMainPrizeDescription)
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                                top: 4.0),
+                                                        child: Text(
+                                                          mainPrizeDescription,
+                                                          maxLines: 2,
+                                                          overflow:
+                                                              TextOverflow.ellipsis,
+                                                          style: FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodyMedium
+                                                              .override(
+                                                                font: GoogleFonts.inter(
+                                                                  fontWeight:
+                                                                      FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .bodyMedium
+                                                                          .fontWeight,
+                                                                  fontStyle:
+                                                                      FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .bodyMedium
+                                                                          .fontStyle,
+                                                                ),
+                                                                color: const Color(
+                                                                    0xFF374151),
+                                                                letterSpacing: 0.0,
+                                                                fontSize: 13.0,
+                                                                fontWeight:
+                                                                    FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodyMedium
+                                                                        .fontWeight,
+                                                                fontStyle:
+                                                                    FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodyMedium
+                                                                        .fontStyle,
+                                                              ),
+                                                        ),
+                                                      ),
                                                   ],
                                                 ),
                                               ),

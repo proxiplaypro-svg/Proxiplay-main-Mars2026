@@ -194,11 +194,11 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                                               onTap: () async {
                                                 await launchUrl(Uri(
                                                   scheme: 'tel',
-                                                  path: '0646307986',
+                                                  path: '0759606986',
                                                 ));
                                               },
                                               child: Text(
-                                                '+33 6 46 30 79 86',
+                                                '07 59 60 69 86',
                                                 style: FlutterFlowTheme.of(
                                                         context)
                                                     .bodyLarge
@@ -234,7 +234,7 @@ class _ContactPageWidgetState extends State<ContactPageWidget> {
                                         onPressed: () async {
                                           await launchUrl(Uri(
                                             scheme: 'tel',
-                                            path: '0646307986',
+                                            path: '0759606986',
                                           ));
                                         },
                                         text: 'Appeler',
