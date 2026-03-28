@@ -153,23 +153,57 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             hasSecondaryPrizeEntries || hasSecondaryPrizeDescriptionText;
         final secondaryPrizeCountText = secondaryPrizeCount > 0
             ? hasMainPrize
-                ? '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} secondaire${secondaryPrizeCount > 1 ? 's' : ''}'
+                ? '$secondaryPrizeCount ${secondaryPrizeCount > 1 ? 'gagnants' : 'gagnant'}'
                 : hasSecondaryPrizeDescriptionText
                     ? secondaryPrizeDescription
                     : '$secondaryPrizeCount'
             : hasMainPrize
-                ? 'Lots secondaires'
+                ? 'Gagnants'
                 : 'Lots';
         final secondaryPrizeWinnerText = !hasMainPrize && secondaryPrizeCount > 0
             ? '$secondaryPrizeCount ${secondaryPrizeCount > 1 ? 'gagnants' : 'gagnant'}'
             : null;
         final secondaryPrizeRulesText = secondaryPrizeCount > 0
             ? hasMainPrize
-                ? '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} secondaire${secondaryPrizeCount > 1 ? 's' : ''} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} à gagner instantanément'
+                ? '$secondaryPrizeCount ${secondaryPrizeCount > 1 ? 'gagnants' : 'gagnant'} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} à gagner instantanément'
                 : '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} à gagner instantanément'
             : hasMainPrize
-                ? 'Des lots secondaires sont à gagner instantanément'
+                ? 'Des gagnants sont à gagner instantanément'
                 : 'Des lots sont à gagner instantanément';
+        String getLotsTitle(int totalLots) =>
+            totalLots == 1 ? 'Présentation du lot' : 'Présentation des lots';
+        final totalLots = (hasMainPrize ? 1 : 0) + secondaryPrizeCount;
+        final detailCardDecoration = BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20.0),
+          border: Border.all(
+            color: const Color(0xFFE5E7EB),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 12.0,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        );
+        final detailSectionTitleStyle = GoogleFonts.inter(
+          fontSize: 20.0,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF1F2937),
+        );
+        final detailItemTitleStyle = GoogleFonts.inter(
+          fontSize: 14.0,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF111827),
+        );
+        final detailBodyStyle = GoogleFonts.inter(
+          fontSize: 13.0,
+          fontWeight: FontWeight.w500,
+          color: const Color(0xFF374151),
+          height: 1.35,
+        );
         final leftActionVisible = (() {
           final isGuest = currentUserUid == '';
           if (isGuest) return true;
@@ -1820,37 +1854,16 @@ return Container(
                                         margin:
                                             const EdgeInsets.only(bottom: 16.0),
                                         padding: const EdgeInsets.all(16.0),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                                            borderRadius:
-                                              BorderRadius.circular(20.0),
-                                          border: Border.all(
-                                            color: const Color(0xFFE5E7EB),
-                                            width: 1.0,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black
-                                                  .withOpacity(0.04),
-                                              blurRadius: 12.0,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
+                                        decoration: detailCardDecoration,
                                                             child: Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                                               children: [
-                                            // Text(
-                                            //   'Lots Ã  gagner',
-                                            //   style: GoogleFonts.inter(
-                                            //     fontSize: 22.0,
-                                            //     fontWeight: FontWeight.w700,
-                                            //     color: Color(0xFF1A1A1A),
-                                            //     letterSpacing: -0.3,
-                                            //   ),
-                                            // ),
-                                            // SizedBox(height: 12.0),
+                                            Text(
+                                              getLotsTitle(totalLots),
+                                              style: detailSectionTitleStyle,
+                                            ),
+                                            const SizedBox(height: 12.0),
                                             if (hasMainPrize)
                                               Row(
                                                 crossAxisAlignment:
@@ -1862,30 +1875,27 @@ return Container(
                                                           CrossAxisAlignment
                                                               .start,
                                                       children: [
-                                                        Text(
-                                                          'Lot principal',
-                                                          style: GoogleFonts
-                                                              .inter(
-                                                            fontSize: 14.0,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            color: const Color(
-                                                                0xFF111827),
-                                                          ),
+                                                        Row(
+                                                          children: [
+                                                            const Icon(
+                                                              Icons.workspace_premium_rounded,
+                                                              size: 15.0,
+                                                              color: Color(0xFF6B7280),
+                                                            ),
+                                                            const SizedBox(width: 6.0),
+                                                            Text(
+                                                              'Lot principal',
+                                                              style:
+                                                                  detailItemTitleStyle,
+                                                            ),
+                                                          ],
                                                         ),
                                                         if (hasMainPrizeDescription)
                                                           const SizedBox(height: 6.0),
                                                         if (hasMainPrizeDescription)
                                                           Text(
                                                             mainPrizeDescription,
-                                                            style: GoogleFonts
-                                                                .inter(
-                                                              fontSize: 13.0,
-                                                              fontWeight:
-                                                                  FontWeight.w500,
-                                                              color: const Color(
-                                                                  0xFF374151),
-                                                            ),
+                                                            style: detailBodyStyle,
                                                           ),
                                                       ],
                                                     ),
@@ -1928,16 +1938,25 @@ return Container(
                                                           CrossAxisAlignment
                                                               .start,
                                                       children: [
-                                                        Text(
-                                                          secondaryPrizeCountText,
-                                                          style: GoogleFonts
-                                                              .inter(
-                                                            fontSize: 14.0,
-                                                            fontWeight:
-                                                                FontWeight.w500,
-                                                            color: const Color(
-                                                                0xFF111827),
-                                                          ),
+                                                        Row(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .center,
+                                                          children: [
+                                                            const Icon(
+                                                              Icons.emoji_events_outlined,
+                                                              size: 15.0,
+                                                              color: Color(0xFF6B7280),
+                                                            ),
+                                                            const SizedBox(width: 6.0),
+                                                            Expanded(
+                                                              child: Text(
+                                                                secondaryPrizeCountText,
+                                                                style:
+                                                                    detailItemTitleStyle,
+                                                              ),
+                                                            ),
+                                                          ],
                                                         ),
                                                         if (secondaryPrizeWinnerText !=
                                                             null)
@@ -1947,15 +1966,8 @@ return Container(
                                                                     top: 2.0),
                                                             child: Text(
                                                               secondaryPrizeWinnerText,
-                                                              style: GoogleFonts
-                                                                  .inter(
-                                                                fontSize: 13.0,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                                color: const Color(
-                                                                    0xFF374151),
-                                                              ),
+                                                              style:
+                                                                  detailBodyStyle,
                                                             ),
                                                           ),
                                                         if (hasSecondaryPrizeDescriptionText &&
@@ -1966,15 +1978,8 @@ return Container(
                                                                     top: 2.0),
                                                             child: Text(
                                                               secondaryPrizeDescription,
-                                                              style: GoogleFonts
-                                                                  .inter(
-                                                                fontSize: 13.0,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                                color: const Color(
-                                                                    0xFF374151),
-                                                              ),
+                                                              style:
+                                                                  detailBodyStyle,
                                                             ),
                                                           ),
                                                       ],
@@ -2014,23 +2019,7 @@ return Container(
                                                 margin:
                                                     const EdgeInsets.only(bottom: 16.0),
                                                 padding: const EdgeInsets.all(16.0),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius:
-                                                      BorderRadius.circular(20.0),
-                                                  border: Border.all(
-                                                    color: const Color(0xFFE5E7EB),
-                                                    width: 1.0,
-                                                  ),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.black
-                                                          .withOpacity(0.04),
-                                                      blurRadius: 12.0,
-                                                      offset: const Offset(0, 2),
-                                                    ),
-                                                  ],
-                                                ),
+                                                decoration: detailCardDecoration,
 
                                                 
                                                 child: Column(
@@ -2040,13 +2029,8 @@ return Container(
                                                     
                                                                                                         Text(
                                                       'R\u00E8gles du jeu',
-                                                      style: GoogleFonts.inter(
-                                                        fontSize: 20.0,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        color:
-                                                            const Color(0xFF1F2937),
-                                                      ),
+                                                      style:
+                                                          detailSectionTitleStyle,
                                                     ),
                                                     const SizedBox(height: 12.0),
                                                     Row(
@@ -2066,16 +2050,8 @@ return Container(
                                                             hasMainPrize
                                                                 ? 'D\u00E9but du jeu le ${widget.gameDoc?.startDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.startDate, locale: FFLocalizations.of(context).languageCode) : '-'}'
                                                                 : 'Fin du jeu le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
-                                                            style: GoogleFonts
-                                                                .inter(
-                                                              fontSize: 13.0,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                              color: const Color(
-                                                                  0xFF374151),
-                                                              height: 1.35,
-                                                            ),
+                                                            style:
+                                                                detailBodyStyle,
                                                                                                               ),
                                                                                                         ),
                                                                                                       ],
@@ -2096,16 +2072,8 @@ return Container(
                                                         Expanded(
                                                           child: Text(
                                                             'Grattez la zone ci-dessus pour d\u00E9couvrir si vous avez gagn\u00E9',
-                                                            style: GoogleFonts
-                                                                .inter(
-                                                              fontSize: 13.0,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                              color: const Color(
-                                                                  0xFF374151),
-                                                              height: 1.35,
-                                                            ),
+                                                            style:
+                                                                detailBodyStyle,
                                                           ),
                                                                                     ),
                                                                                   ],
@@ -2133,32 +2101,14 @@ return Container(
                                                               Text(
                                                                 'Le lot principal sera attribu\u00E9 par tirage au sort le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
                                                                 style:
-                                                                    GoogleFonts
-                                                                        .inter(
-                                                                  fontSize: 13.0,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w500,
-                                                                  color: const Color(
-                                                                      0xFF374151),
-                                                                  height: 1.35,
-                                                                ),
+                                                                    detailBodyStyle,
                                                               ),
                                                               const SizedBox(
                                                                   height: 4.0),
                                                               Text(
                                                                 'Plus vous participez, plus vous augmentez vos chances lors du tirage au sort',
                                                                 style:
-                                                                    GoogleFonts
-                                                                        .inter(
-                                                                  fontSize: 13.0,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w500,
-                                                                  color: const Color(
-                                                                      0xFF374151),
-                                                                  height: 1.35,
-                                                                ),
+                                                                    detailBodyStyle,
                                                               ),
                                                             ],
                                                           ),
@@ -2183,18 +2133,10 @@ return Container(
                                                         Expanded(
                                                           child: Text(
                                                             secondaryPrizeRulesText,
-                                                            style: GoogleFonts
-                                                                .inter(
-                                                              fontSize: 13.0,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                              color: const Color(
-                                                                  0xFF374151),
-                                                              height: 1.35,
+                                                            style:
+                                                                detailBodyStyle,
+                                                          ),
                                                         ),
-                                                      ),
-                                                    ),
                                                       ],
                                                     ),
                                                   ],

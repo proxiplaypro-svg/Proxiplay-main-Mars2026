@@ -1524,6 +1524,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                       ),
                                                     ),
                                                     Container(
+                                                      width: double.infinity,
                                                       decoration:
                                                           const BoxDecoration(),
                                                       child: Column(
@@ -1584,7 +1585,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .where(
                                                                           _isGameVisibleForPlayer)
                                                                       .toList();
-
                                                               return FutureBuilder<
                                                                   Map<String,
                                                                       EnseignesRecord>>(
@@ -1626,11 +1626,31 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                           false,
                                                                       scrollDirection:
                                                                           Axis.horizontal,
-                                                                      separatorBuilder: (_,
-                                                                              __) =>
-                                                                          const SizedBox(
-                                                                              width:
-                                                                                  10.0),
+                                                                      separatorBuilder:
+                                                                          (context,
+                                                                              separatorIndex) {
+                                                                        final items =
+                                                                            endingSoonController.itemList ??
+                                                                                const <GamesRecord>[];
+                                                                        final currentItemVisible = separatorIndex <
+                                                                                items.length &&
+                                                                            _isGameVisibleForPlayer(
+                                                                                items[separatorIndex]);
+                                                                        final nextItemVisible = separatorIndex + 1 <
+                                                                                items.length &&
+                                                                            _isGameVisibleForPlayer(
+                                                                                items[separatorIndex + 1]);
+
+                                                                        if (!currentItemVisible ||
+                                                                            !nextItemVisible) {
+                                                                          return const SizedBox
+                                                                              .shrink();
+                                                                        }
+
+                                                                        return const SizedBox(
+                                                                            width:
+                                                                                10.0);
+                                                                      },
                                                                       builderDelegate:
                                                                           PagedChildBuilderDelegate<
                                                                               GamesRecord>(

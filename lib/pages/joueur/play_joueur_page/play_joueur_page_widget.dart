@@ -1311,7 +1311,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                           );
                                                         }
                                                         return Text(
-                                                          'Aucun lot secondaire',
+                                                          'Aucun gagnant',
                                                           style: FlutterFlowTheme
                                                                   .of(context)
                                                               .bodySmall
