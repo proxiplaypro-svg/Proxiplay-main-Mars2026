@@ -136,9 +136,7 @@ class _AddGameCommercantPageWidgetState
       return;
     }
 
-    final hasMainPrizeData = template.name.trim().isNotEmpty ||
-        template.description.trim().isNotEmpty ||
-        template.hasPrizeValue();
+    final hasMainPrizeData = template.hasMainPrize == true;
     _model.mainPrizeEnabled = hasMainPrizeData;
     _model.textController1?.text = template.name;
     _model.textController2?.text = template.description;
@@ -679,6 +677,13 @@ class _AddGameCommercantPageWidgetState
     final mainPrizeValue = mainPrizeValueText.isNotEmpty
         ? _parsePriceValue(mainPrizeValueText)
         : null;
+    // Regle produit :
+    // Le lot principal doit etre monetaire.
+    // On l'autorise uniquement si active, titre renseigne et valeur > 0.
+    final shouldPersistMainPrize =
+        _model.mainPrizeEnabled &&
+        mainPrizeName.isNotEmpty &&
+        (mainPrizeValue ?? 0) > 0;
     final startDate = _model.startDatePicked ?? getCurrentTimestamp;
     if (_model.datePicked != null && startDate.isAfter(_model.datePicked!)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -690,11 +695,11 @@ class _AddGameCommercantPageWidgetState
       return;
     }
     if (_model.mainPrizeEnabled &&
-        (mainPrizeName.isEmpty || mainPrizeDescription.isEmpty)) {
+        (mainPrizeName.isEmpty || (mainPrizeValue ?? 0) <= 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content:
-              Text('Veuillez remplir le lot principal ou désactivez-le.'),
+              Text('Le lot principal doit avoir un titre et une valeur monétaire supérieure à 0, ou être désactivé.'),
         ),
       );
       return;
@@ -707,10 +712,7 @@ class _AddGameCommercantPageWidgetState
       );
       return;
     }
-    final hasAnyPrize = (_model.mainPrizeEnabled &&
-            (mainPrizeName.isNotEmpty ||
-                mainPrizeDescription.isNotEmpty ||
-                mainPrizeValue != null)) ||
+    final hasAnyPrize = shouldPersistMainPrize ||
         secondaryPrizes.isNotEmpty;
     if (!hasAnyPrize) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -772,7 +774,7 @@ class _AddGameCommercantPageWidgetState
         enseigneId: widget.enseigneRef,
         createBy: currentUserReference,
         visiblePublic: true,
-        prizeValue: mainPrizeValue,
+        prizeValue: shouldPersistMainPrize ? mainPrizeValue : null,
         gameType: GameType.scratcher,
         photo: _model.uploadedFileUrl_uploadDataNyu,
         secondaryPrizeDescription: secondaryPrizeSummary,
@@ -783,6 +785,7 @@ class _AddGameCommercantPageWidgetState
         prohibitedForMinors: _model.switchValue,
         hasWinner: false,
         mainPrizeWinner: null,
+        hasMainPrize: shouldPersistMainPrize,
         startDate: startDate,
         enseigneName: widget.enseigne,
       ),
@@ -803,7 +806,7 @@ class _AddGameCommercantPageWidgetState
         enseigneId: widget.enseigneRef,
         createBy: currentUserReference,
         visiblePublic: true,
-        prizeValue: mainPrizeValue,
+        prizeValue: shouldPersistMainPrize ? mainPrizeValue : null,
         gameType: GameType.scratcher,
         photo: _model.uploadedFileUrl_uploadDataNyu,
         secondaryPrizeDescription: secondaryPrizeSummary,
@@ -814,6 +817,7 @@ class _AddGameCommercantPageWidgetState
         prohibitedForMinors: _model.switchValue,
         hasWinner: false,
         mainPrizeWinner: null,
+        hasMainPrize: shouldPersistMainPrize,
         startDate: startDate,
         enseigneName: widget.enseigne,
       ),
@@ -1116,6 +1120,30 @@ class _AddGameCommercantPageWidgetState
                                     ],
                                     validator: _model.textController3Validator
                                         .asValidator(context),
+                                  ),
+                                  const SizedBox(height: 8.0),
+                                  Text(
+                                    "Le lot principal doit être une valeur en € (ex : bon d'achat 20 €).\nPour les remises ou cadeaux clients, utilisez les gains immédiats.",
+                                    style: FlutterFlowTheme.of(context)
+                                        .bodySmall
+                                        .override(
+                                          font: GoogleFonts.inter(
+                                            fontWeight: FontWeight.w400,
+                                            fontStyle:
+                                                FlutterFlowTheme.of(context)
+                                                    .bodySmall
+                                                    .fontStyle,
+                                          ),
+                                          color: const Color(0xFF75728F),
+                                          letterSpacing: 0.0,
+                                          fontSize: 12.0,
+                                          fontWeight: FontWeight.w400,
+                                          fontStyle:
+                                              FlutterFlowTheme.of(context)
+                                                  .bodySmall
+                                                  .fontStyle,
+                                        )
+                                        .copyWith(height: 1.3),
                                   ),
                                 ],
                               ],

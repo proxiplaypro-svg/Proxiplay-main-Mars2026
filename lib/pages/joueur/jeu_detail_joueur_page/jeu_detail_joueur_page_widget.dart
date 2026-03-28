@@ -126,53 +126,41 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final hasWinnerAnnouncement = isWithinEndWindow &&
             (widget.gameDoc?.hasWinner ?? false) &&
             (widget.gameDoc?.mainPrizeWinner != null);
-        final hasMainPrize = (widget.gameDoc?.prizeValue ?? 0) > 0;
-        final mainPrizeDescription = (widget.gameDoc?.description ?? '').trim();
-        final hasMainPrizeDescription = mainPrizeDescription.isNotEmpty;
+        final hasMainPrizeFlag = widget.gameDoc?.hasMainPrize == true;
+        final prizeValue = widget.gameDoc?.prizeValue ?? 0;
+        final mainPrizeTitle = (widget.gameDoc?.name ?? '').trim();
+        // Regle produit :
+        // Le lot principal doit etre monetaire.
+        // On affiche uniquement si hasMainPrize == true ET prizeValue > 0
+        final shouldShowMainPrize =
+            hasMainPrizeFlag && prizeValue > 0 && mainPrizeTitle.isNotEmpty;
         final secondaryPrizes = widget.gameDoc?.secondaryPrizes ?? const [];
-        final secondaryPrizeCount = secondaryPrizes.fold<int>(0, (total, item) {
+        final validSecondaryPrizes = secondaryPrizes.where((item) {
+          final name = (item['name'] ?? '').toString().trim();
           final countValue = item['count'];
           final parsedCount = countValue is num
               ? countValue.toInt()
               : int.tryParse((countValue ?? '').toString()) ?? 0;
-          return total + (parsedCount > 0 ? parsedCount : 0);
-        });
-        final hasSecondaryPrizeEntries = secondaryPrizes.any((item) {
+          return name.isNotEmpty && parsedCount > 0;
+        }).toList();
+        final secondaryPrizeCount =
+            validSecondaryPrizes.fold<int>(0, (total, item) {
           final countValue = item['count'];
           final parsedCount = countValue is num
               ? countValue.toInt()
               : int.tryParse((countValue ?? '').toString()) ?? 0;
-          return parsedCount > 0;
+          return total + parsedCount;
         });
-        final secondaryPrizeDescription =
-            (widget.gameDoc?.secondaryPrizeDescription ?? '').trim();
-        final hasSecondaryPrizeDescriptionText =
-            secondaryPrizeDescription.isNotEmpty &&
-                secondaryPrizeDescription != '0';
-        final hasSecondaryPrizeContent =
-            hasSecondaryPrizeEntries || hasSecondaryPrizeDescriptionText;
-        final secondaryPrizeCountText = secondaryPrizeCount > 0
-            ? hasMainPrize
-                ? '$secondaryPrizeCount ${secondaryPrizeCount > 1 ? 'gagnants' : 'gagnant'}'
-                : hasSecondaryPrizeDescriptionText
-                    ? secondaryPrizeDescription
-                    : '$secondaryPrizeCount'
-            : hasMainPrize
-                ? 'Gagnants'
-                : 'Lots';
-        final secondaryPrizeWinnerText = !hasMainPrize && secondaryPrizeCount > 0
-            ? '$secondaryPrizeCount ${secondaryPrizeCount > 1 ? 'gagnants' : 'gagnant'}'
-            : null;
+        final hasSecondaryPrizeContent = validSecondaryPrizes.isNotEmpty;
         final secondaryPrizeRulesText = secondaryPrizeCount > 0
-            ? hasMainPrize
+            ? shouldShowMainPrize
                 ? '$secondaryPrizeCount ${secondaryPrizeCount > 1 ? 'gagnants' : 'gagnant'} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} à gagner instantanément'
                 : '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} à gagner instantanément'
-            : hasMainPrize
+            : shouldShowMainPrize
                 ? 'Des gagnants sont à gagner instantanément'
                 : 'Des lots sont à gagner instantanément';
         String getLotsTitle(int totalLots) =>
             totalLots == 1 ? 'Présentation du lot' : 'Présentation des lots';
-        final totalLots = (hasMainPrize ? 1 : 0) + secondaryPrizeCount;
         final detailCardDecoration = BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20.0),
@@ -204,6 +192,121 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
           color: const Color(0xFF374151),
           height: 1.35,
         );
+        Widget buildMainPrizeWidget(String title) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.workspace_premium_rounded,
+                          size: 15.0,
+                          color: Color(0xFF6B7280),
+                        ),
+                        const SizedBox(width: 6.0),
+                        Text(
+                          'Lot principal',
+                          style: detailItemTitleStyle,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6.0),
+                    Text(
+                      title,
+                      style: detailBodyStyle,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10.0,
+                  vertical: 4.0,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF4E6),
+                  borderRadius: BorderRadius.circular(20.0),
+                ),
+                child: Text(
+                  'Tirage au sort',
+                  style: GoogleFonts.inter(
+                    fontSize: 11.0,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFFFF9500),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+        Widget buildSecondaryPrizeWidget(
+          Map<String, dynamic> prize, {
+          required bool showBadge,
+        }) {
+          final name = (prize['name'] ?? '').toString().trim();
+          final countValue = prize['count'];
+          final count = countValue is num
+              ? countValue.toInt()
+              : int.tryParse((countValue ?? '').toString()) ?? 0;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.emoji_events_outlined,
+                          size: 15.0,
+                          color: Color(0xFF6B7280),
+                        ),
+                        const SizedBox(width: 6.0),
+                        Expanded(
+                          child: Text(
+                            '$count ${count > 1 ? 'gagnants' : 'gagnant'}',
+                            style: detailItemTitleStyle,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2.0),
+                    Text(
+                      name,
+                      style: detailBodyStyle,
+                    ),
+                  ],
+                ),
+              ),
+              if (showBadge)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10.0,
+                    vertical: 4.0,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAFBF2),
+                    borderRadius: BorderRadius.circular(20.0),
+                  ),
+                  child: Text(
+                    'Gains immédiats',
+                    style: GoogleFonts.inter(
+                      fontSize: 11.0,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF10B981),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        }
+        final totalLots = (shouldShowMainPrize ? 1 : 0) + secondaryPrizeCount;
         final leftActionVisible = (() {
           final isGuest = currentUserUid == '';
           if (isGuest) return true;
@@ -1848,7 +1951,7 @@ return Container(
                                                 return Container();
                                                 },
                                               ),
-  if (hasMainPrize || hasSecondaryPrizeContent)
+  if (shouldShowMainPrize || hasSecondaryPrizeContent)
                                       Container(
                                         width: double.infinity,
                                         margin:
@@ -1864,151 +1967,27 @@ return Container(
                                               style: detailSectionTitleStyle,
                                             ),
                                             const SizedBox(height: 12.0),
-                                            if (hasMainPrize)
-                                              Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Row(
-                                                          children: [
-                                                            const Icon(
-                                                              Icons.workspace_premium_rounded,
-                                                              size: 15.0,
-                                                              color: Color(0xFF6B7280),
-                                                            ),
-                                                            const SizedBox(width: 6.0),
-                                                            Text(
-                                                              'Lot principal',
-                                                              style:
-                                                                  detailItemTitleStyle,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        if (hasMainPrizeDescription)
-                                                          const SizedBox(height: 6.0),
-                                                        if (hasMainPrizeDescription)
-                                                          Text(
-                                                            mainPrizeDescription,
-                                                            style: detailBodyStyle,
-                                                          ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                                                Container(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                            horizontal: 10.0,
-                                                            vertical: 4.0),
-                                                                              decoration: BoxDecoration(
-                                                      color: const Color(0xFFFFF4E6),
-                                                      borderRadius:
-                                                          BorderRadius
-                                                              .circular(20.0),
-                                                    ),
-                                                    child: Text(
-                                                      'Tirage au sort',
-                                                      style:
-                                                          GoogleFonts.inter(
-                                                        fontSize: 11.0,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color:
-                                                            const Color(0xFFFF9500),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+                                            if (shouldShowMainPrize)
+                                              buildMainPrizeWidget(mainPrizeTitle),
                                             if (hasSecondaryPrizeContent)
                                               const SizedBox(height: 10.0),
                                             if (hasSecondaryPrizeContent)
-                                              Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                                                      children: [
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Row(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .center,
-                                                          children: [
-                                                            const Icon(
-                                                              Icons.emoji_events_outlined,
-                                                              size: 15.0,
-                                                              color: Color(0xFF6B7280),
-                                                            ),
-                                                            const SizedBox(width: 6.0),
-                                                            Expanded(
-                                                              child: Text(
-                                                                secondaryPrizeCountText,
-                                                                style:
-                                                                    detailItemTitleStyle,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        if (secondaryPrizeWinnerText !=
-                                                            null)
-                                                          Padding(
-                                                            padding:
-                                                                const EdgeInsets.only(
-                                                                    top: 2.0),
-                                                            child: Text(
-                                                              secondaryPrizeWinnerText,
-                                                              style:
-                                                                  detailBodyStyle,
-                                                            ),
-                                                          ),
-                                                        if (hasSecondaryPrizeDescriptionText &&
-                                                            hasMainPrize)
-                                                          Padding(
-                                                            padding:
-                                                                const EdgeInsets.only(
-                                                                    top: 2.0),
-                                                            child: Text(
-                                                              secondaryPrizeDescription,
-                                                              style:
-                                                                  detailBodyStyle,
-                                                            ),
-                                                          ),
-                                                      ],
-                                                    ),
+                                              ...List.generate(
+                                                validSecondaryPrizes.length,
+                                                (index) => Padding(
+                                                  padding: EdgeInsets.only(
+                                                    bottom: index ==
+                                                            validSecondaryPrizes
+                                                                    .length -
+                                                                1
+                                                        ? 0.0
+                                                        : 10.0,
                                                   ),
-                                                  Container(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                            horizontal: 10.0,
-                                                            vertical: 4.0),
-                                                    decoration: BoxDecoration(
-                                                      color: const Color(0xFFEAFBF2),
-                                                      borderRadius:
-                                                          BorderRadius
-                                                              .circular(20.0),
-                                                    ),
-                                                    child: Text(
-                                                      'Gains imm\u00E9diats',
-                                                      style:
-                                                          GoogleFonts.inter(
-                                                        fontSize: 11.0,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color:
-                                                            const Color(0xFF10B981),
-                                                      ),
-                                                    ),
+                                                  child: buildSecondaryPrizeWidget(
+                                                    validSecondaryPrizes[index],
+                                                    showBadge: index == 0,
                                                   ),
-                                                ],
+                                                ),
                                               ),
                                           ],
                                         ),
@@ -2047,7 +2026,7 @@ return Container(
                                                         const SizedBox(width: 8.0),
                                                         Expanded(
                                                           child: Text(
-                                                            hasMainPrize
+                                                            shouldShowMainPrize
                                                                 ? 'D\u00E9but du jeu le ${widget.gameDoc?.startDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.startDate, locale: FFLocalizations.of(context).languageCode) : '-'}'
                                                                 : 'Fin du jeu le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
                                                             style:
@@ -2079,7 +2058,7 @@ return Container(
                                                                                   ],
                                                                                 ),
                                                     const SizedBox(height: 8.0),
-                                               if (hasMainPrize)       Row(
+                                               if (shouldShowMainPrize)       Row(
                                                       crossAxisAlignment:
                                                           CrossAxisAlignment
                                                               .start,

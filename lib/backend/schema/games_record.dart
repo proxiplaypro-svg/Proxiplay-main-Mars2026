@@ -117,6 +117,11 @@ class GamesRecord extends FirestoreRecord {
   DocumentReference? get mainPrizeWinner => _mainPrizeWinner;
   bool hasMainPrizeWinner() => _mainPrizeWinner != null;
 
+  // "hasMainPrize" field.
+  bool? _hasMainPrize;
+  bool get hasMainPrize => _hasMainPrize ?? false;
+  bool hasHasMainPrize() => _hasMainPrize != null;
+
   void _initializeFields() {
     _name = snapshotData['name'] as String?;
     _description = snapshotData['description'] as String?;
@@ -142,6 +147,7 @@ class GamesRecord extends FirestoreRecord {
     _hasWinner = snapshotData['hasWinner'] as bool?;
     _enseigneName = snapshotData['enseigne_name'] as String?;
     _mainPrizeWinner = snapshotData['main_prize_winner'] as DocumentReference?;
+    _hasMainPrize = snapshotData['hasMainPrize'] as bool?;
   }
 
   static CollectionReference get collection =>
@@ -198,6 +204,7 @@ Map<String, dynamic> createGamesRecordData({
   bool? hasWinner,
   String? enseigneName,
   DocumentReference? mainPrizeWinner,
+  bool? hasMainPrize,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -221,6 +228,7 @@ Map<String, dynamic> createGamesRecordData({
       'hasWinner': hasWinner,
       'enseigne_name': enseigneName,
       'main_prize_winner': mainPrizeWinner,
+      'hasMainPrize': hasMainPrize,
     }.withoutNulls,
   );
 
@@ -251,7 +259,8 @@ class GamesRecordDocumentEquality implements Equality<GamesRecord> {
         e1?.prohibitedForMinors == e2?.prohibitedForMinors &&
         e1?.hasWinner == e2?.hasWinner &&
         e1?.enseigneName == e2?.enseigneName &&
-        e1?.mainPrizeWinner == e2?.mainPrizeWinner;
+        e1?.mainPrizeWinner == e2?.mainPrizeWinner &&
+        e1?.hasMainPrize == e2?.hasMainPrize;
   }
 
   @override
@@ -275,7 +284,8 @@ class GamesRecordDocumentEquality implements Equality<GamesRecord> {
         e?.prohibitedForMinors,
         e?.hasWinner,
         e?.enseigneName,
-        e?.mainPrizeWinner
+        e?.mainPrizeWinner,
+        e?.hasMainPrize
       ]);
 
   @override
