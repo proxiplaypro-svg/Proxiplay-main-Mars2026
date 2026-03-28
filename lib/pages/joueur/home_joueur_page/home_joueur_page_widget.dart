@@ -53,6 +53,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   late Future<List<String>> _recentWinnerMessagesFuture;
   SharePromoStateViewModel? _latestSharePromoState;
   final Map<String, Future<EnseignesRecord>> _enseigneFutureCache = {};
+  final Map<String, Future<Map<String, EnseignesRecord>>>
+      _featuredEnseignesSectionCache = {};
+  final Map<String, Future<Map<String, EnseignesRecord>>>
+      _endingSoonEnseignesSectionCache = {};
+  final Map<String, Future<Map<String, EnseignesRecord>>>
+      _newGamesEnseignesSectionCache = {};
 
   @override
   void initState() {
@@ -125,6 +131,90 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     } catch (_) {
       return null;
     }
+  }
+
+  Future<Map<String, EnseignesRecord>> _getFeaturedEnseignesForGames(
+    List<GamesRecord> games,
+  ) {
+    final enseignePaths = games
+        .map((game) => game.enseigneId?.path)
+        .whereType<String>()
+        .toSet()
+        .toList()
+      ..sort();
+    final cacheKey = enseignePaths.join('|');
+
+    return _featuredEnseignesSectionCache.putIfAbsent(cacheKey, () async {
+      final futures = games
+          .map((game) => game.enseigneId)
+          .whereType<DocumentReference>()
+          .toSet()
+          .map((enseigneRef) async {
+        final enseigne = await _getCachedEnseigneFuture(enseigneRef);
+        return MapEntry(enseigneRef.path, enseigne);
+      });
+
+      final entries = await Future.wait(futures);
+      return {
+        for (final entry in entries) entry.key: entry.value,
+      };
+    });
+  }
+
+  Future<Map<String, EnseignesRecord>> _getEndingSoonEnseignesForGames(
+    List<GamesRecord> games,
+  ) {
+    final enseignePaths = games
+        .map((game) => game.enseigneId?.path)
+        .whereType<String>()
+        .toSet()
+        .toList()
+      ..sort();
+    final cacheKey = enseignePaths.join('|');
+
+    return _endingSoonEnseignesSectionCache.putIfAbsent(cacheKey, () async {
+      final futures = games
+          .map((game) => game.enseigneId)
+          .whereType<DocumentReference>()
+          .toSet()
+          .map((enseigneRef) async {
+        final enseigne = await _getCachedEnseigneFuture(enseigneRef);
+        return MapEntry(enseigneRef.path, enseigne);
+      });
+
+      final entries = await Future.wait(futures);
+      return {
+        for (final entry in entries) entry.key: entry.value,
+      };
+    });
+  }
+
+  Future<Map<String, EnseignesRecord>> _getNewGamesEnseignesForGames(
+    List<GamesRecord> games,
+  ) {
+    final enseignePaths = games
+        .map((game) => game.enseigneId?.path)
+        .whereType<String>()
+        .toSet()
+        .toList()
+      ..sort();
+    final cacheKey = enseignePaths.join('|');
+
+    return _newGamesEnseignesSectionCache.putIfAbsent(cacheKey, () async {
+      final futures = games
+          .map((game) => game.enseigneId)
+          .whereType<DocumentReference>()
+          .toSet()
+          .map((enseigneRef) async {
+        final enseigne = await _getCachedEnseigneFuture(enseigneRef);
+        return MapEntry(enseigneRef.path, enseigne);
+      });
+
+      final entries = await Future.wait(futures);
+      return {
+        for (final entry in entries) entry.key: entry.value,
+      };
+    });
   }
 
   void _incrementGameViews(GamesRecord game) {
@@ -1302,17 +1392,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .fontStyle,
                                                                 ),
                                                           ),
-                                                          Container(
-                                                            width:
-                                                                double.infinity,
-                                                            height: AppStyles.gameCardHeight + 8.0,
-                                                            decoration:
-                                                                const BoxDecoration(),
-                                                            child: PagedListView<
-                                                                DocumentSnapshot<
-                                                                    Object?>?,
-                                                                GamesRecord>.separated(
-                                                              pagingController:
+                                                          Builder(
+                                                            builder: (context) {
+                                                              final featuredController =
                                                                   _model
                                                                       .setListViewController2(
                                                                 GamesRecord
@@ -1326,7 +1408,42 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         'prize_value',
                                                                         descending:
                                                                             true),
-                                                              ),
+                                                              );
+                                                              final featuredGames =
+                                                                  (featuredController
+                                                                              .itemList ??
+                                                                          const <GamesRecord>[])
+                                                                      .where(
+                                                                          _isGameVisibleForPlayer)
+                                                                      .toList();
+
+                                                              return FutureBuilder<
+                                                                  Map<String,
+                                                                      EnseignesRecord>>(
+                                                                future:
+                                                                    _getFeaturedEnseignesForGames(
+                                                                  featuredGames,
+                                                                ),
+                                                                builder: (context,
+                                                                    enseignesSnapshot) {
+                                                                  final enseignesByPath =
+                                                                      enseignesSnapshot
+                                                                              .data ??
+                                                                          const <String,
+                                                                              EnseignesRecord>{};
+
+                                                                  return Container(
+                                                            width:
+                                                                double.infinity,
+                                                            height: AppStyles.gameCardHeight + 8.0,
+                                                            decoration:
+                                                                const BoxDecoration(),
+                                                            child: PagedListView<
+                                                                DocumentSnapshot<
+                                                                    Object?>?,
+                                                                GamesRecord>.separated(
+                                                              pagingController:
+                                                                  featuredController,
                                                               padding:
                                                                   EdgeInsets
                                                                       .zero,
@@ -1363,19 +1480,20 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                   ),
                                                                 ),
                                                                 itemBuilder:
-                                                                    (context, _,
+                                                                    (context, listViewGamesRecord,
                                                                         listViewIndex) {
-                                                                  final listViewGamesRecord = _model
-                                                                          .listViewPagingController2!
-                                                                          .itemList![
-                                                                      listViewIndex];
                                                                   if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
                                                                     return const SizedBox.shrink();
                                                                   }
-                                                                  return FutureBuilder<EnseignesRecord>(
-                                                                      future: _getCachedEnseigneFuture(listViewGamesRecord.enseigneId!),
-                                                                      builder: (context, enseigneSnapshot) {
-                                                                        final enseigne = enseigneSnapshot.data;
+                                                                  final enseigne =
+                                                                      listViewGamesRecord
+                                                                                  .enseigneId !=
+                                                                              null
+                                                                          ? enseignesByPath[
+                                                                              listViewGamesRecord
+                                                                                  .enseigneId!
+                                                                                  .path]
+                                                                          : null;
                                                                         return GameCardWidget(
                                                                           title: listViewGamesRecord.name,
                                                                           imageUrl: listViewGamesRecord.photo,
@@ -1393,11 +1511,13 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                                 listViewGamesRecord);
                                                                           },
                                                                         );
-                                                                      },
-                                                                    );
                                                                 },
                                                               ),
                                                             ),
+                                                                  );
+                                                                },
+                                                              );
+                                                            },
                                                           ),
                                                         ].divide(const SizedBox(
                                                             height: 5.0)),
@@ -1442,20 +1562,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .fontStyle,
                                                                 ),
                                                           ),
-                                                          Container(
-                                                            width:
-                                                                double.infinity,
-                                                            height: AppStyles.gameCardHeight + 8.0,
-                                                            decoration:
-                                                                const BoxDecoration(
-                                                              color: Colors
-                                                                  .transparent,
-                                                            ),
-                                                            child: PagedListView<
-                                                                DocumentSnapshot<
-                                                                    Object?>?,
-                                                                GamesRecord>.separated(
-                                                              pagingController:
+                                                          Builder(
+                                                            builder: (context) {
+                                                              final endingSoonController =
                                                                   _model
                                                                       .setListViewController4(
                                                                 GamesRecord
@@ -1467,74 +1576,119 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     )
                                                                     .orderBy(
                                                                         'end_date'),
-                                                              ),
-                                                              padding:
-                                                                  EdgeInsets
-                                                                      .zero,
-                                                              primary: false,
-                                                              reverse: false,
-                                                              scrollDirection:
-                                                                  Axis.horizontal,
-                                                              separatorBuilder: (_,
-                                                                      __) =>
-                                                                  const SizedBox(
-                                                                      width:
-                                                                          10.0),
-                                                              builderDelegate:
-                                                                  PagedChildBuilderDelegate<
-                                                                      GamesRecord>(
-                                                                // Customize what your widget looks like when it's loading the first page.
-                                                                firstPageProgressIndicatorBuilder:
-                                                                    (_) => const SizedBox
-                                                                        .shrink(),
-                                                                // Customize what your widget looks like when it's loading another page.
-                                                                newPageProgressIndicatorBuilder:
-                                                                    (_) => const SizedBox
-                                                                        .shrink(),
-                                                                noItemsFoundIndicatorBuilder:
-                                                                    (_) =>
-                                                                        const ListEmptyComponentWidget(
-                                                                  title:
-                                                                      'Aucun jeux',
-                                                                  description:
-                                                                      ' ',
+                                                              );
+                                                              final endingSoonGames =
+                                                                  (endingSoonController
+                                                                              .itemList ??
+                                                                          const <GamesRecord>[])
+                                                                      .where(
+                                                                          _isGameVisibleForPlayer)
+                                                                      .toList();
+
+                                                              return FutureBuilder<
+                                                                  Map<String,
+                                                                      EnseignesRecord>>(
+                                                                future:
+                                                                    _getEndingSoonEnseignesForGames(
+                                                                  endingSoonGames,
                                                                 ),
-                                                                itemBuilder:
-                                                                    (context, _,
-                                                                        listViewIndex) {
-                                                                  final listViewGamesRecord = _model
-                                                                          .listViewPagingController4!
-                                                                          .itemList![
-                                                                      listViewIndex];
-                                                                  if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
-                                                                    return const SizedBox.shrink();
-                                                                  }
-                                                                  return FutureBuilder<EnseignesRecord>(
-                                                                      future: _getCachedEnseigneFuture(listViewGamesRecord.enseigneId!),
-                                                                      builder: (context, enseigneSnapshot) {
-                                                                        final enseigne = enseigneSnapshot.data;
-                                                                        return GameCardWidget(
-                                                                          title: listViewGamesRecord.name,
-                                                                          imageUrl: listViewGamesRecord.photo,
-                                                                          storeName: enseigne?.name ?? '',
-                                                                          city: enseigne?.city ?? '',
-                                                                          prizeText: listViewGamesRecord.prizeValue == 0
-                                                                              ? 'Gains instantanés'
-                                                                              : '${listViewGamesRecord.prizeValue} \u20AC',
-                                                                          endDateText: listViewGamesRecord.endDate != null
-                                                                              ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
-                                                                              : "Jusqu'au : -",
-                                                                          onTap:
-                                                                              () async {
-                                                                            await _openGameDetails(
-                                                                                listViewGamesRecord);
-                                                                          },
-                                                                        );
-                                                                      },
-                                                                    );
+                                                                builder: (context,
+                                                                    enseignesSnapshot) {
+                                                                  final enseignesByPath =
+                                                                      enseignesSnapshot
+                                                                              .data ??
+                                                                          const <String,
+                                                                              EnseignesRecord>{};
+
+                                                                  return Container(
+                                                                    width: double
+                                                                        .infinity,
+                                                                    height:
+                                                                        AppStyles.gameCardHeight +
+                                                                            8.0,
+                                                                    decoration:
+                                                                        const BoxDecoration(
+                                                                      color: Colors
+                                                                          .transparent,
+                                                                    ),
+                                                                    child: PagedListView<
+                                                                        DocumentSnapshot<
+                                                                            Object?>?,
+                                                                        GamesRecord>.separated(
+                                                                      pagingController:
+                                                                          endingSoonController,
+                                                                      padding:
+                                                                          EdgeInsets
+                                                                              .zero,
+                                                                      primary:
+                                                                          false,
+                                                                      reverse:
+                                                                          false,
+                                                                      scrollDirection:
+                                                                          Axis.horizontal,
+                                                                      separatorBuilder: (_,
+                                                                              __) =>
+                                                                          const SizedBox(
+                                                                              width:
+                                                                                  10.0),
+                                                                      builderDelegate:
+                                                                          PagedChildBuilderDelegate<
+                                                                              GamesRecord>(
+                                                                        // Customize what your widget looks like when it's loading the first page.
+                                                                        firstPageProgressIndicatorBuilder:
+                                                                            (_) =>
+                                                                                const SizedBox.shrink(),
+                                                                        // Customize what your widget looks like when it's loading another page.
+                                                                        newPageProgressIndicatorBuilder:
+                                                                            (_) =>
+                                                                                const SizedBox.shrink(),
+                                                                        noItemsFoundIndicatorBuilder:
+                                                                            (_) =>
+                                                                                const ListEmptyComponentWidget(
+                                                                          title:
+                                                                              'Aucun jeux',
+                                                                          description:
+                                                                              ' ',
+                                                                        ),
+                                                                        itemBuilder:
+                                                                            (context,
+                                                                                listViewGamesRecord,
+                                                                                listViewIndex) {
+                                                                          if (!_isGameVisibleForPlayer(
+                                                                              listViewGamesRecord)) {
+                                                                            return const SizedBox.shrink();
+                                                                          }
+                                                                          final enseigne = listViewGamesRecord.enseigneId !=
+                                                                                  null
+                                                                              ? enseignesByPath[listViewGamesRecord.enseigneId!.path]
+                                                                              : null;
+                                                                          return GameCardWidget(
+                                                                            title:
+                                                                                listViewGamesRecord.name,
+                                                                            imageUrl:
+                                                                                listViewGamesRecord.photo,
+                                                                            storeName:
+                                                                                enseigne?.name ?? '',
+                                                                            city:
+                                                                                enseigne?.city ?? '',
+                                                                            prizeText:
+                                                                                listViewGamesRecord.prizeValue == 0 ? 'Gains instantanés' : '${listViewGamesRecord.prizeValue} \u20AC',
+                                                                            endDateText: listViewGamesRecord.endDate != null
+                                                                                ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
+                                                                                : "Jusqu'au : -",
+                                                                            onTap:
+                                                                                () async {
+                                                                              await _openGameDetails(
+                                                                                  listViewGamesRecord);
+                                                                            },
+                                                                          );
+                                                                        },
+                                                                      ),
+                                                                    ),
+                                                                  );
                                                                 },
-                                                              ),
-                                                            ),
+                                                              );
+                                                            },
                                                           ),
                                                         ].divide(const SizedBox(
                                                             height: 5.0)),
@@ -1580,20 +1734,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .fontStyle,
                                                                 ),
                                                           ),
-                                                          Container(
-                                                            width:
-                                                                double.infinity,
-                                                            height: AppStyles.gameCardHeight + 8.0,
-                                                            decoration:
-                                                                const BoxDecoration(
-                                                              color: Colors
-                                                                  .transparent,
-                                                            ),
-                                                            child: PagedListView<
-                                                                DocumentSnapshot<
-                                                                    Object?>?,
-                                                                GamesRecord>.separated(
-                                                              pagingController:
+                                                          Builder(
+                                                            builder: (context) {
+                                                              final newGamesController =
                                                                   _model
                                                                       .setListViewController3(
                                                                 GamesRecord
@@ -1607,78 +1750,121 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         'created_time',
                                                                         descending:
                                                                             true),
-                                                              ),
-                                                              padding:
-                                                                  EdgeInsets
-                                                                      .zero,
-                                                              primary: false,
-                                                              reverse: false,
-                                                              scrollDirection:
-                                                                  Axis.horizontal,
-                                                              separatorBuilder: (_,
-                                                                      __) =>
-                                                                  const SizedBox(
-                                                                      width:
-                                                                          10.0),
-                                                              builderDelegate:
-                                                                  PagedChildBuilderDelegate<
-                                                                      GamesRecord>(
-                                                                // Customize what your widget looks like when it's loading the first page.
-                                                                firstPageProgressIndicatorBuilder:
-                                                                    (_) => const SizedBox
-                                                                        .shrink(),
-                                                                // Customize what your widget looks like when it's loading another page.
-                                                                newPageProgressIndicatorBuilder:
-                                                                    (_) => const SizedBox
-                                                                        .shrink(),
-                                                                noItemsFoundIndicatorBuilder:
-                                                                    (_) =>
-                                                                        const ListEmptyComponentWidget(
-                                                                  title:
-                                                                      'Aucune nouveaut\u00E9',
-                                                                  description:
-                                                                      'Votre liste est actuellement vide',
+                                                              );
+                                                              final newGames =
+                                                                  (newGamesController
+                                                                              .itemList ??
+                                                                          const <GamesRecord>[])
+                                                                      .where(
+                                                                          _isGameVisibleForPlayer)
+                                                                      .toList();
+
+                                                              return FutureBuilder<
+                                                                  Map<String,
+                                                                      EnseignesRecord>>(
+                                                                future:
+                                                                    _getNewGamesEnseignesForGames(
+                                                                  newGames,
                                                                 ),
-                                                                itemBuilder:
-                                                                    (context, _,
-                                                                        listViewIndex) {
-                                                                  final listViewGamesRecord = _model
-                                                                          .listViewPagingController3!
-                                                                          .itemList![
-                                                                      listViewIndex];
+                                                                builder: (context,
+                                                                    enseignesSnapshot) {
+                                                                  final enseignesByPath =
+                                                                      enseignesSnapshot
+                                                                              .data ??
+                                                                          const <String,
+                                                                              EnseignesRecord>{};
 
-                                                                  if (!_isGameVisibleForPlayer(listViewGamesRecord)) {
+                                                                  return Container(
+                                                                    width: double
+                                                                        .infinity,
+                                                                    height:
+                                                                        AppStyles.gameCardHeight +
+                                                                            8.0,
+                                                                    decoration:
+                                                                        const BoxDecoration(
+                                                                      color: Colors
+                                                                          .transparent,
+                                                                    ),
+                                                                    child: PagedListView<
+                                                                        DocumentSnapshot<
+                                                                            Object?>?,
+                                                                        GamesRecord>.separated(
+                                                                      pagingController:
+                                                                          newGamesController,
+                                                                      padding:
+                                                                          EdgeInsets
+                                                                              .zero,
+                                                                      primary:
+                                                                          false,
+                                                                      reverse:
+                                                                          false,
+                                                                      scrollDirection:
+                                                                          Axis.horizontal,
+                                                                      separatorBuilder: (_,
+                                                                              __) =>
+                                                                          const SizedBox(
+                                                                              width:
+                                                                                  10.0),
+                                                                      builderDelegate:
+                                                                          PagedChildBuilderDelegate<
+                                                                              GamesRecord>(
+                                                                        // Customize what your widget looks like when it's loading the first page.
+                                                                        firstPageProgressIndicatorBuilder:
+                                                                            (_) =>
+                                                                                const SizedBox.shrink(),
+                                                                        // Customize what your widget looks like when it's loading another page.
+                                                                        newPageProgressIndicatorBuilder:
+                                                                            (_) =>
+                                                                                const SizedBox.shrink(),
+                                                                        noItemsFoundIndicatorBuilder:
+                                                                            (_) =>
+                                                                                const ListEmptyComponentWidget(
+                                                                          title:
+                                                                              'Aucune nouveaut\u00E9',
+                                                                          description:
+                                                                              'Votre liste est actuellement vide',
+                                                                        ),
+                                                                        itemBuilder:
+                                                                            (context,
+                                                                                listViewGamesRecord,
+                                                                                listViewIndex) {
+                                                                          if (!_isGameVisibleForPlayer(
+                                                                              listViewGamesRecord)) {
+                                                                            return const SizedBox.shrink();
+                                                                          }
 
-                                                                    return const SizedBox.shrink();
+                                                                          final enseigne = listViewGamesRecord.enseigneId !=
+                                                                                  null
+                                                                              ? enseignesByPath[listViewGamesRecord.enseigneId!.path]
+                                                                              : null;
 
-                                                                  }
-
-                                                                  return FutureBuilder<EnseignesRecord>(
-                                                                      future: _getCachedEnseigneFuture(listViewGamesRecord.enseigneId!),
-                                                                      builder: (context, enseigneSnapshot) {
-                                                                        final enseigne = enseigneSnapshot.data;
-                                                                        return GameCardWidget(
-                                                                          title: listViewGamesRecord.name,
-                                                                          imageUrl: listViewGamesRecord.photo,
-                                                                          storeName: enseigne?.name ?? '',
-                                                                          city: enseigne?.city ?? '',
-                                                                          prizeText: listViewGamesRecord.prizeValue == 0
-                                                                              ? 'Gains instantanés'
-                                                                              : '${listViewGamesRecord.prizeValue} \u20AC',
-                                                                          endDateText: listViewGamesRecord.endDate != null
-                                                                              ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
-                                                                              : "Jusqu'au : -",
-                                                                          onTap:
-                                                                              () async {
-                                                                            await _openGameDetails(
-                                                                                listViewGamesRecord);
-                                                                          },
-                                                                        );
-                                                                      },
-                                                                    );
+                                                                          return GameCardWidget(
+                                                                            title:
+                                                                                listViewGamesRecord.name,
+                                                                            imageUrl:
+                                                                                listViewGamesRecord.photo,
+                                                                            storeName:
+                                                                                enseigne?.name ?? '',
+                                                                            city:
+                                                                                enseigne?.city ?? '',
+                                                                            prizeText:
+                                                                                listViewGamesRecord.prizeValue == 0 ? 'Gains instantanés' : '${listViewGamesRecord.prizeValue} \u20AC',
+                                                                            endDateText: listViewGamesRecord.endDate != null
+                                                                                ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
+                                                                                : "Jusqu'au : -",
+                                                                            onTap:
+                                                                                () async {
+                                                                              await _openGameDetails(
+                                                                                  listViewGamesRecord);
+                                                                            },
+                                                                          );
+                                                                        },
+                                                                      ),
+                                                                    ),
+                                                                  );
                                                                 },
-                                                              ),
-                                                            ),
+                                                              );
+                                                            },
                                                           ),
                                                           Text(
                                                             'JEUX TERMIN\u00C9S',

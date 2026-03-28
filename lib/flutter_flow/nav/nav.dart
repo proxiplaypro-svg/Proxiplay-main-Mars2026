@@ -823,10 +823,15 @@ class RootPageContext {
 
 extension GoRouterLocationExtension on GoRouter {
   String getCurrentLocation() {
-    final RouteMatch lastMatch = routerDelegate.currentConfiguration.last;
+    final currentConfiguration = routerDelegate.currentConfiguration;
+    if (currentConfiguration.isEmpty) {
+      return currentConfiguration.uri.toString();
+    }
+
+    final RouteMatch lastMatch = currentConfiguration.last;
     final RouteMatchList matchList = lastMatch is ImperativeRouteMatch
         ? lastMatch.matches
-        : routerDelegate.currentConfiguration;
+        : currentConfiguration;
     return matchList.uri.toString();
   }
 }

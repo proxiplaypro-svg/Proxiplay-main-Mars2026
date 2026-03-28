@@ -33,6 +33,27 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
   late StreamSubscription<bool> _keyboardVisibilitySubscription;
   bool _isKeyboardVisible = false;
+  final Map<String, Future<List<ImagesRecord>>> _searchImageFutureCache = {};
+  final Map<String, Future<int>> _searchGameCountFutureCache = {};
+
+  Future<List<ImagesRecord>> _getSearchImageFuture(EnseignesRecord enseigne) {
+    return _searchImageFutureCache.putIfAbsent(
+      enseigne.reference.path,
+      () => queryImagesRecordOnce(
+        parent: enseigne.reference,
+        singleRecord: true,
+      ),
+    );
+  }
+
+  Future<int> _getSearchGameCountFuture(EnseignesRecord enseigne) {
+    return _searchGameCountFutureCache.putIfAbsent(
+      enseigne.reference.path,
+      () => queryEnseigneGameRecordCount(
+        parent: enseigne.reference,
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -338,10 +359,8 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                       child: FutureBuilder<
                                                           List<ImagesRecord>>(
                                                         future:
-                                                            queryImagesRecordOnce(
-                                                          parent: searchItem
-                                                              .reference,
-                                                          singleRecord: true,
+                                                            _getSearchImageFuture(
+                                                          searchItem,
                                                         ),
                                                         builder: (context,
                                                             snapshot) {
@@ -484,9 +503,8 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                   FutureBuilder<
                                                                       int>(
                                                                     future:
-                                                                        queryEnseigneGameRecordCount(
-                                                                      parent: searchItem
-                                                                          .reference,
+                                                                        _getSearchGameCountFuture(
+                                                                      searchItem,
                                                                     ),
                                                                     builder:
                                                                         (context,

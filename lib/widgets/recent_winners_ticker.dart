@@ -18,6 +18,7 @@ class RecentWinnersTicker extends StatefulWidget {
 
 class _RecentWinnersTickerState extends State<RecentWinnersTicker> {
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey _sequenceKey = GlobalKey();
   Timer? _retryTimer;
   bool _isAutoScrolling = false;
 
@@ -61,8 +62,8 @@ class _RecentWinnersTickerState extends State<RecentWinnersTicker> {
     if (!mounted || _isAutoScrolling || !_scrollController.hasClients) {
       return;
     }
-    final maxExtent = _scrollController.position.maxScrollExtent;
-    if (maxExtent <= 0) {
+    final loopExtent = _singleSequenceWidth;
+    if (loopExtent <= 0 || _scrollController.position.maxScrollExtent <= 0) {
       _retryTimer?.cancel();
       _retryTimer = Timer(
         const Duration(milliseconds: 600),
@@ -74,8 +75,8 @@ class _RecentWinnersTickerState extends State<RecentWinnersTicker> {
     _isAutoScrolling = true;
     try {
       while (mounted && _scrollController.hasClients) {
-        final extent = _scrollController.position.maxScrollExtent;
-        if (extent <= 0) {
+        final extent = _singleSequenceWidth;
+        if (extent <= 0 || _scrollController.position.maxScrollExtent <= 0) {
           break;
         }
         final durationSeconds = (extent / 12.0).clamp(24.0, 54.0).round();
@@ -87,13 +88,55 @@ class _RecentWinnersTickerState extends State<RecentWinnersTicker> {
         if (!mounted || !_scrollController.hasClients) {
           break;
         }
-        await Future<void>.delayed(const Duration(milliseconds: 1400));
+        await Future<void>.delayed(const Duration(milliseconds: 300));
         _scrollController.jumpTo(0.0);
-        await Future<void>.delayed(const Duration(milliseconds: 800));
       }
     } finally {
       _isAutoScrolling = false;
     }
+  }
+
+  double get _singleSequenceWidth {
+    final context = _sequenceKey.currentContext;
+    if (context == null) {
+      return 0.0;
+    }
+    final renderBox = context.findRenderObject();
+    if (renderBox is! RenderBox || !renderBox.hasSize) {
+      return 0.0;
+    }
+    return renderBox.size.width;
+  }
+
+  Widget _buildMessageSequence(FlutterFlowTheme theme, {Key? key}) {
+    return Row(
+      key: key,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(width: 8.0),
+        ...widget.messages.map(
+          (message) => Padding(
+            padding: const EdgeInsets.only(right: 34.0),
+            child: Text(
+              message,
+              maxLines: 1,
+              overflow: TextOverflow.visible,
+              style: theme.bodySmall.override(
+                font: GoogleFonts.inter(
+                  fontWeight: FontWeight.w500,
+                  fontStyle: theme.bodySmall.fontStyle,
+                ),
+                color: const Color(0xFF2C2F5B).withValues(alpha: 0.86),
+                letterSpacing: 0.0,
+                fontWeight: FontWeight.w500,
+                fontStyle: theme.bodySmall.fontStyle,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12.0),
+      ],
+    );
   }
 
   @override
@@ -170,29 +213,8 @@ class _RecentWinnersTickerState extends State<RecentWinnersTicker> {
                       physics: const NeverScrollableScrollPhysics(),
                       child: Row(
                         children: [
-                          const SizedBox(width: 8.0),
-                          ...widget.messages.map(
-                            (message) => Padding(
-                              padding: const EdgeInsets.only(right: 34.0),
-                              child: Text(
-                                message,
-                                maxLines: 1,
-                                overflow: TextOverflow.visible,
-                                style: theme.bodySmall.override(
-                                  font: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w500,
-                                    fontStyle: theme.bodySmall.fontStyle,
-                                  ),
-                                  color: const Color(0xFF2C2F5B)
-                                      .withValues(alpha: 0.86),
-                                  letterSpacing: 0.0,
-                                  fontWeight: FontWeight.w500,
-                                  fontStyle: theme.bodySmall.fontStyle,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12.0),
+                          _buildMessageSequence(theme, key: _sequenceKey),
+                          _buildMessageSequence(theme),
                         ],
                       ),
                     ),

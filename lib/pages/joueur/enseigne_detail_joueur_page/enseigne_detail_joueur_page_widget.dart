@@ -39,6 +39,8 @@ class _EnseigneDetailJoueurPageWidgetState
   late EnseigneDetailJoueurPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  Future<List<GamesRecord>>? _ongoingGamesFuture;
+  String? _ongoingGamesFutureKey;
 
   bool _isGameVisibleForPlayer(GamesRecord game) {
     final now = getCurrentTimestamp;
@@ -60,6 +62,51 @@ class _EnseigneDetailJoueurPageWidgetState
       return 'Gains immédiats';
     }
     return game.prizeValue.toString();
+  }
+
+  bool get _canViewMinorRestrictedGames =>
+      currentUserUid == '' ||
+      isGuestOrAnonymous ||
+      ((currentUserDocument?.birthday != null) &&
+          functions.isAdult(currentUserDocument!.birthday!));
+
+  String _buildOngoingGamesFutureKey() =>
+      '${widget.enseigneDoc?.reference.path ?? 'no_enseigne'}|'
+      '${_canViewMinorRestrictedGames ? 'all_games' : 'adult_safe_only'}';
+
+  Future<List<GamesRecord>> _createOngoingGamesFuture() {
+    return queryGamesRecordOnce(
+      queryBuilder: (gamesRecord) {
+        var query = gamesRecord
+            .where(
+              'enseigne_id',
+              isEqualTo: widget.enseigneDoc?.reference,
+            )
+            .where(
+              'end_date',
+              isGreaterThan: getCurrentTimestamp,
+            );
+
+        if (!_canViewMinorRestrictedGames) {
+          query = query.where(
+            'prohibited_for_minors',
+            isEqualTo: false,
+          );
+        }
+
+        return query;
+      },
+      limit: 15,
+    );
+  }
+
+  Future<List<GamesRecord>> _getOngoingGamesFuture() {
+    final nextKey = _buildOngoingGamesFutureKey();
+    if (_ongoingGamesFuture == null || _ongoingGamesFutureKey != nextKey) {
+      _ongoingGamesFutureKey = nextKey;
+      _ongoingGamesFuture = _createOngoingGamesFuture();
+    }
+    return _ongoingGamesFuture!;
   }
 
   String? _ensureHttpScheme(String? raw) {
@@ -298,6 +345,8 @@ class _EnseigneDetailJoueurPageWidgetState
 
   @override
   Widget build(BuildContext context) {
+    final ongoingGamesFuture = _getOngoingGamesFuture();
+
     return GestureDetector(
       onTap: () {
         FocusScope.of(context).unfocus();
@@ -1705,22 +1754,7 @@ const SizedBox(height: 1.0),
                                                         .birthday!))) {
                                           return FutureBuilder<
                                               List<GamesRecord>>(
-                                            future: queryGamesRecordOnce(
-                                              queryBuilder: (gamesRecord) =>
-                                                  gamesRecord
-                                                      .where(
-                                                        'enseigne_id',
-                                                        isEqualTo: widget
-                                                            .enseigneDoc
-                                                            ?.reference,
-                                                      )
-                                                      .where(
-                                                        'end_date',
-                                                        isGreaterThan:
-                                                            getCurrentTimestamp,
-                                                      ),
-                                              limit: 15,
-                                            ),
+                                            future: ongoingGamesFuture,
                                             builder: (context, snapshot) {
                                               // Customize what your widget looks like when it's loading.
                                               if (!snapshot.hasData) {
@@ -2061,26 +2095,7 @@ const SizedBox(height: 1.0),
                                         } else {
                                           return FutureBuilder<
                                               List<GamesRecord>>(
-                                            future: queryGamesRecordOnce(
-                                              queryBuilder: (gamesRecord) =>
-                                                  gamesRecord
-                                                      .where(
-                                                        'enseigne_id',
-                                                        isEqualTo: widget
-                                                            .enseigneDoc
-                                                            ?.reference,
-                                                      )
-                                                      .where(
-                                                        'end_date',
-                                                        isGreaterThan:
-                                                            getCurrentTimestamp,
-                                                      )
-                                                      .where(
-                                                        'prohibited_for_minors',
-                                                        isEqualTo: false,
-                                                      ),
-                                              limit: 15,
-                                            ),
+                                            future: ongoingGamesFuture,
                                             builder: (context, snapshot) {
                                               // Customize what your widget looks like when it's loading.
                                               if (!snapshot.hasData) {
@@ -2404,21 +2419,7 @@ const SizedBox(height: 1.0),
                                     );
                                   } else {
                                     return FutureBuilder<List<GamesRecord>>(
-                                      future: queryGamesRecordOnce(
-                                        queryBuilder: (gamesRecord) =>
-                                            gamesRecord
-                                                .where(
-                                                  'enseigne_id',
-                                                  isEqualTo: widget
-                                                      .enseigneDoc?.reference,
-                                                )
-                                                .where(
-                                                  'end_date',
-                                                  isGreaterThan:
-                                                      getCurrentTimestamp,
-                                                ),
-                                        limit: 15,
-                                      ),
+                                      future: ongoingGamesFuture,
                                       builder: (context, snapshot) {
                                         // Customize what your widget looks like when it's loading.
                                         if (!snapshot.hasData) {
