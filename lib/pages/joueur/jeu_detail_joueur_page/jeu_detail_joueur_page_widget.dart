@@ -131,13 +131,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             (gameDoc.mainPrizeWinner != null);
         final hasMainPrizeFlag = gameDoc.hasMainPrize == true;
         final prizeValue = gameDoc.prizeValue;
-        final mainPrizeTitle = gameName.trim();
         final mainPrizeDescription = gameDoc.description.trim();
         // Regle produit :
         // Le lot principal doit etre monetaire.
         // On affiche uniquement si hasMainPrize == true ET prizeValue > 0
         final shouldShowMainPrize =
-            hasMainPrizeFlag && prizeValue > 0 && mainPrizeTitle.isNotEmpty;
+            hasMainPrizeFlag && prizeValue > 0 && mainPrizeDescription.isNotEmpty;
         final secondaryPrizes = gameDoc.secondaryPrizes;
         final validSecondaryPrizeItems =
             secondaryPrizes.fold<List<Map<String, dynamic>>>([], (items, item) {
@@ -169,7 +168,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                 ? 'Des lots sont à gagner instantanément'
                 : 'Des lots sont à gagner instantanément';
         String getLotsTitle(int totalLots) =>
-            totalLots == 1 ? 'Présentation du lot' : 'Présentation des lots';
+            totalLots == 1 ? 'Lot à gagner' : 'Lots à gagner';
         final detailCardDecoration = BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20.0),
@@ -311,7 +310,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             ],
           );
         }
-        final totalLots = (shouldShowMainPrize ? 1 : 0) + secondaryPrizeCount;
+        final totalLots =
+            (shouldShowMainPrize ? 1 : 0) + validSecondaryPrizeItems.length;
         final lotsTitle = getLotsTitle(totalLots);
         final secondaryPrizeWidgets = List<Widget>.generate(
           validSecondaryPrizeItems.length,
@@ -1974,34 +1974,62 @@ return Container(
                                                 return Container();
                                                 },
                                               ),
-  if (shouldShowMainPrize || hasSecondaryPrizeContent)
-                                      Container(
-                                        width: double.infinity,
-                                        margin:
-                                            const EdgeInsets.only(bottom: 16.0),
-                                        padding: const EdgeInsets.all(16.0),
-                                        decoration: detailCardDecoration,
-                                                            child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                                              children: [
-                                            Text(
-                                              lotsTitle,
-                                              style: detailSectionTitleStyle,
-                                            ),
-                                            const SizedBox(height: 12.0),
-                                            if (shouldShowMainPrize)
-                                              buildMainPrizeWidget(
-                                                mainPrizeDescription,
-                                              ),
-                                            if (hasSecondaryPrizeContent)
-                                              const SizedBox(height: 10.0),
-                                            if (hasSecondaryPrizeContent)
-                                              ...secondaryPrizeWidgets,
-                                          ],
-                                        ),
-                                      ),
-                                              
+                                              if (shouldShowMainPrize ||
+                                                  hasSecondaryPrizeContent)
+                                                Container(
+                                                  width: double.infinity,
+                                                  margin: const EdgeInsets.only(
+                                                      bottom: 16.0),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            20.0),
+                                                    border: Border.all(
+                                                      color: const Color(
+                                                          0xFFE7EAF3),
+                                                    ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        blurRadius: 18.0,
+                                                        color: const Color(
+                                                                0xFF1F3A5F)
+                                                            .withOpacity(0.06),
+                                                        offset:
+                                                            const Offset(0.0, 10.0),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(16.0),
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          lotsTitle,
+                                                          style:
+                                                              detailSectionTitleStyle,
+                                                        ),
+                                                        if (shouldShowMainPrize) ...[
+                                                          const SizedBox(
+                                                              height: 14.0),
+                                                          buildMainPrizeWidget(
+                                                            mainPrizeDescription,
+                                                          ),
+                                                        ],
+                                                        if (shouldShowMainPrize &&
+                                                            hasSecondaryPrizeContent)
+                                                          const SizedBox(
+                                                              height: 12.0),
+                                                        if (hasSecondaryPrizeContent)
+                                                          ...secondaryPrizeWidgets,
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
                                               Container(
                                                 width: double.infinity,
                                                 margin:

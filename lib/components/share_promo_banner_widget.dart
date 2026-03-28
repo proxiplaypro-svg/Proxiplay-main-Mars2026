@@ -25,6 +25,7 @@ class SharePromoData {
     this.buttonTextColor,
     this.iconBackgroundColor,
     this.iconColor,
+    this.animateCta = false,
   });
 
   final SharePromoKind kind;
@@ -40,9 +41,10 @@ class SharePromoData {
   final Color? buttonTextColor;
   final Color? iconBackgroundColor;
   final Color? iconColor;
+  final bool animateCta;
 }
 
-class SharePromoBanner extends StatelessWidget {
+class SharePromoBanner extends StatefulWidget {
   const SharePromoBanner({
     super.key,
     required this.data,
@@ -53,8 +55,55 @@ class SharePromoBanner extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
+  State<SharePromoBanner> createState() => _SharePromoBannerState();
+}
+
+class _SharePromoBannerState extends State<SharePromoBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _ctaOpacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _ctaOpacity = Tween<double>(begin: 1.0, end: 0.55).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+
+    if (widget.data.animateCta && widget.data.ctaLabel != null) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant SharePromoBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final shouldAnimate = widget.data.animateCta && widget.data.ctaLabel != null;
+    if (shouldAnimate) {
+      if (!_controller.isAnimating) {
+        _controller.repeat(reverse: true);
+      }
+    } else {
+      _controller.stop();
+      _controller.value = 0.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final data = widget.data;
     final theme = FlutterFlowTheme.of(context);
+    final hasTitle = data.title.trim().isNotEmpty;
     final titleColor = data.titleColor ?? const Color(0xFF2C2F5B);
     final subtitleColor =
         data.subtitleColor ?? const Color(0xFF2C2F5B).withValues(alpha: 0.78);
@@ -66,7 +115,7 @@ class SharePromoBanner extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16.0),
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Ink(
           decoration: BoxDecoration(
             color: data.primaryColor,
@@ -110,25 +159,26 @@ class SharePromoBanner extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        data.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.titleMedium.override(
-                          font: GoogleFonts.interTight(
+                      if (hasTitle)
+                        Text(
+                          data.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.titleMedium.override(
+                            font: GoogleFonts.interTight(
+                              fontWeight: FontWeight.w700,
+                              fontStyle: theme.titleMedium.fontStyle,
+                            ),
+                            color: titleColor,
+                            letterSpacing: 0.0,
                             fontWeight: FontWeight.w700,
                             fontStyle: theme.titleMedium.fontStyle,
                           ),
-                          color: titleColor,
-                          letterSpacing: 0.0,
-                          fontWeight: FontWeight.w700,
-                          fontStyle: theme.titleMedium.fontStyle,
                         ),
-                      ),
-                      const SizedBox(height: 4.0),
+                      if (hasTitle) const SizedBox(height: 4.0),
                       Text(
                         data.subtitle,
-                        maxLines: 2,
+                        maxLines: hasTitle ? 2 : 3,
                         overflow: TextOverflow.ellipsis,
                         style: theme.bodySmall.override(
                           font: GoogleFonts.inter(
@@ -155,17 +205,20 @@ class SharePromoBanner extends StatelessWidget {
                       color: buttonColor,
                       borderRadius: BorderRadius.circular(12.0),
                     ),
-                    child: Text(
-                      data.ctaLabel!,
-                      style: theme.bodySmall.override(
-                        font: GoogleFonts.inter(
+                    child: FadeTransition(
+                      opacity: data.animateCta ? _ctaOpacity : kAlwaysCompleteAnimation,
+                      child: Text(
+                        data.ctaLabel!,
+                        style: theme.bodySmall.override(
+                          font: GoogleFonts.inter(
+                            fontWeight: FontWeight.w700,
+                            fontStyle: theme.bodySmall.fontStyle,
+                          ),
+                          color: buttonTextColor,
+                          letterSpacing: 0.0,
                           fontWeight: FontWeight.w700,
                           fontStyle: theme.bodySmall.fontStyle,
                         ),
-                        color: buttonTextColor,
-                        letterSpacing: 0.0,
-                        fontWeight: FontWeight.w700,
-                        fontStyle: theme.bodySmall.fontStyle,
                       ),
                     ),
                   ),

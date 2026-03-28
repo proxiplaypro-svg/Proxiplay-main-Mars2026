@@ -4,6 +4,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/utils/share_links.dart';
+import '/widgets/proxiplay_network_image.dart';
 import '/widgets/tap_feedback.dart';
 import 'dart:convert';
 import 'dart:ui';
@@ -68,6 +69,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
   late PlayJoueurPageModel _model;
   String? _resultMessage;
   String? _resultMessageBonus;
+  bool _isPreparingShare = false;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -111,6 +113,35 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     final mainPrize = game != null && hasMainPrize(game);
     final messages = mainPrize ? _messagesTirage : _messagesInstant;
     return _pickDisplayMessage(messages);
+  }
+
+  Future<void> _shareGame() async {
+    if (_isPreparingShare) {
+      return;
+    }
+
+    safeSetState(() {
+      _isPreparingShare = true;
+    });
+
+    try {
+      await Future.delayed(const Duration(milliseconds: 140));
+      if (!mounted) {
+        return;
+      }
+      await Share.share(
+        buildAppShareText(
+          title: '${widget.game?.name ?? 'ce jeu'} sur ProxiPlay',
+        ),
+        sharePositionOrigin: getWidgetBoundingBox(context),
+      );
+    } finally {
+      if (mounted) {
+        safeSetState(() {
+          _isPreparingShare = false;
+        });
+      }
+    }
   }
 
   Future<void> _primeScratchSound() async {
@@ -755,72 +786,331 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                     return SizedBox(
                                       width: MediaQuery.sizeOf(context).width *
                                           0.9,
-                                      child: FFButtonWidget(
-                                        onPressed: () async {
-                                          context.pushNamed(
-                                            EnseigneDetailJoueurPageWidget
-                                                .routeName,
-                                            queryParameters: {
-                                              'enseigneDoc': serializeParam(
-                                                enseigneRecord,
-                                                ParamType.Document,
-                                              ),
-                                            }.withoutNulls,
-                                            extra: <String, dynamic>{
-                                              'enseigneDoc': enseigneRecord,
-                                            },
-                                          );
-                                        },
-                                        text: enseigneName,
-                                        options: FFButtonOptions(
-                                          width: double.infinity,
-                                          height: 40.0,
-                                          padding:
-                                              const EdgeInsetsDirectional.fromSTEB(
-                                                  16.0, 0.0, 16.0, 0.0),
-                                          iconPadding:
-                                              const EdgeInsetsDirectional.fromSTEB(
-                                                  0.0, 0.0, 0.0, 0.0),
-                                          color: FlutterFlowTheme.of(context)
-                                              .secondaryBackground,
-                                          textStyle: FlutterFlowTheme.of(
-                                                  context)
-                                              .titleSmall
-                                              .override(
-                                                font: GoogleFonts.interTight(
-                                                  fontWeight:
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Material(
+                                            color: Colors.transparent,
+                                            borderRadius:
+                                                BorderRadius.circular(16.0),
+                                            child: InkWell(
+                                              borderRadius:
+                                                  BorderRadius.circular(16.0),
+                                              splashColor:
+                                                  FlutterFlowTheme.of(context)
+                                                      .primary
+                                                      .withOpacity(0.08),
+                                              highlightColor:
+                                                  FlutterFlowTheme.of(context)
+                                                      .primary
+                                                      .withOpacity(0.04),
+                                              onTap: () async {
+                                                context.pushNamed(
+                                                  EnseigneDetailJoueurPageWidget
+                                                      .routeName,
+                                                  queryParameters: {
+                                                    'enseigneDoc':
+                                                        serializeParam(
+                                                      enseigneRecord,
+                                                      ParamType.Document,
+                                                    ),
+                                                  }.withoutNulls,
+                                                  extra: <String, dynamic>{
+                                                    'enseigneDoc':
+                                                        enseigneRecord,
+                                                  },
+                                                );
+                                              },
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color:
                                                       FlutterFlowTheme.of(
                                                               context)
-                                                          .titleSmall
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .titleSmall
-                                                          .fontStyle,
+                                                          .secondaryBackground,
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          16.0),
                                                 ),
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primary,
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .titleSmall
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .titleSmall
-                                                        .fontStyle,
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.all(
+                                                          10.0),
+                                                  child: Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.center,
+                                                  children: [
+                                                    SizedBox(
+                                                      width: 110.0,
+                                                      height: 110.0,
+                                                      child: FutureBuilder<
+                                                          List<ImagesRecord>>(
+                                                        future:
+                                                            queryImagesRecordOnce(
+                                                          parent: enseigneRecord
+                                                              .reference,
+                                                          singleRecord: true,
+                                                        ),
+                                                        builder: (context,
+                                                            imageSnapshot) {
+                                                          if (!imageSnapshot
+                                                              .hasData) {
+                                                            return const SizedBox
+                                                                .shrink();
+                                                          }
+                                                          final imageList =
+                                                              imageSnapshot
+                                                                  .data!;
+                                                          if (imageList
+                                                              .isEmpty) {
+                                                            return ClipRRect(
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          12.0),
+                                                              child:
+                                                                  ProxiplayNetworkImage(
+                                                                imageUrl: widget
+                                                                    .game!.photo,
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                              ),
+                                                            );
+                                                          }
+
+                                                          return ClipRRect(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        12.0),
+                                                            child:
+                                                                ProxiplayNetworkImage(
+                                                              imageUrl: imageList
+                                                                  .first.url,
+                                                              fit: BoxFit.cover,
+                                                            ),
+                                                          );
+                                                        },
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 12.0),
+                                                    Expanded(
+                                                      child: Column(
+                                                        mainAxisSize:
+                                                            MainAxisSize.max,
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            enseigneName,
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .titleSmall
+                                                                    .override(
+                                                                      font: GoogleFonts
+                                                                          .interTight(
+                                                                        fontWeight:
+                                                                            FontWeight.w700,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                      letterSpacing:
+                                                                          0.0,
+                                                                      fontWeight:
+                                                                          FontWeight.w700,
+                                                                      fontStyle: FlutterFlowTheme.of(context)
+                                                                          .titleSmall
+                                                                          .fontStyle,
+                                                                    ),
+                                                          ),
+                                                          const SizedBox(
+                                                              height: 10.0),
+                                                          Row(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .max,
+                                                            children: [
+                                                              Container(
+                                                                width: 26.0,
+                                                                alignment:
+                                                                    const AlignmentDirectional(
+                                                                        -1.0,
+                                                                        0.0),
+                                                                child: Icon(
+                                                                  Icons
+                                                                      .location_on_sharp,
+                                                                  color: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .primaryText,
+                                                                  size: 18.0,
+                                                                ),
+                                                              ),
+                                                              Expanded(
+                                                                child: Text(
+                                                                  enseigneRecord
+                                                                      .city,
+                                                                  maxLines: 1,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodySmall,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          const SizedBox(
+                                                              height: 6.0),
+                                                          Row(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .max,
+                                                            children: [
+                                                              Container(
+                                                                width: 26.0,
+                                                                alignment:
+                                                                    const AlignmentDirectional(
+                                                                        -1.0,
+                                                                        0.0),
+                                                                child: Icon(
+                                                                  Icons.phone,
+                                                                  color: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .primaryText,
+                                                                  size: 18.0,
+                                                                ),
+                                                              ),
+                                                              Expanded(
+                                                                child: Text(
+                                                                  enseigneRecord
+                                                                      .phoneNumber,
+                                                                  maxLines: 1,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodySmall,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8.0),
+                                                    Icon(
+                                                      Icons
+                                                          .arrow_forward_ios_rounded,
+                                                      size: 16.0,
+                                                      color:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .secondaryText,
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
-                                          elevation: 0.0,
-                                          borderRadius:
-                                              BorderRadius.circular(30.0),
-                                          borderSide: BorderSide(
-                                            color: FlutterFlowTheme.of(context)
-                                                .primary,
-                                            width: 1.0,
+                                            ),
                                           ),
-                                        ),
+                                          ),
+                                          const SizedBox(height: 10.0),
+                                          InkWell(
+                                            splashColor:
+                                                FlutterFlowTheme.of(context)
+                                                    .primary
+                                                    .withOpacity(0.08),
+                                            focusColor: Colors.transparent,
+                                            hoverColor: Colors.transparent,
+                                            highlightColor: Colors.transparent,
+                                            onTap: () async {
+                                              await _shareGame();
+                                            },
+                                            child: AnimatedScale(
+                                              duration: const Duration(
+                                                  milliseconds: 140),
+                                              curve: Curves.easeOut,
+                                              scale:
+                                                  _isPreparingShare ? 0.97 : 1.0,
+                                              child: AnimatedOpacity(
+                                                duration: const Duration(
+                                                    milliseconds: 140),
+                                                opacity: _isPreparingShare
+                                                    ? 0.72
+                                                    : 1.0,
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                    horizontal: 10.0,
+                                                    vertical: 8.0,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        const Color(0xFFA0134D)
+                                                            .withOpacity(0.06),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            999.0),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Icon(
+                                                        Icons
+                                                            .card_giftcard_rounded,
+                                                        size: 16.0,
+                                                        color: const Color(
+                                                            0xFFA0134D),
+                                                      ),
+                                                      const SizedBox(width: 6.0),
+                                                      Text(
+                                                        'Tu aimes tes amis ? Partage-leur ce jeu !',
+                                                        style:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .bodySmall
+                                                                .override(
+                                                                  font: GoogleFonts
+                                                                      .inter(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                    fontStyle: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodySmall
+                                                                        .fontStyle,
+                                                                  ),
+                                                                  color: const Color(
+                                                                      0xFFA0134D),
+                                                                  letterSpacing:
+                                                                      0.0,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodySmall
+                                                                      .fontStyle,
+                                                                ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     );
                                   },
@@ -950,7 +1240,9 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                     ),
                                   ),
                                 ),
-                              Padding(
+                              Visibility(
+                                visible: false,
+                                child: Padding(
                                 padding: EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, isCompactHeight ? 8.0 : 20.0),
                                 child: Container(
@@ -1406,6 +1698,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                     ),
                                   ),
                                 ),
+                              ),
                               ),
                             ].divide(SizedBox(height: isCompactHeight ? 12.0 : 20.0)),
                           ),

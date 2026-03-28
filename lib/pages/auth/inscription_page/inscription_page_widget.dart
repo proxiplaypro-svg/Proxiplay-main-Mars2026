@@ -547,7 +547,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                       decoration:
                                                           InputDecoration(
                                                         labelText:
-                                                            'Code de parrainage',
+                                                            'Code de parrainage (facultatif)',
                                                         labelStyle:
                                                             FlutterFlowTheme.of(
                                                                     context)
@@ -2012,7 +2012,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                           .characters,
                                                   decoration: InputDecoration(
                                                     labelText:
-                                                        'Code de parrainage',
+                                                        'Code de parrainage (facultatif)',
                                                     labelStyle: FlutterFlowTheme
                                                             .of(context)
                                                         .labelMedium

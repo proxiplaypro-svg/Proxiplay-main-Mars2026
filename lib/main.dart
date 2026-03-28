@@ -27,7 +27,7 @@ import 'utils/share_links.dart';
 
 import 'services/remote_config_service.dart';
 import 'pages/status_screens/maintenance_screen.dart';
-import 'pages/status_screens/update_required_screen.dart';
+import 'widgets/app_update_gate.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -78,7 +78,6 @@ class _MyAppState extends State<MyApp> {
 
   bool _isLoadingConfig = true;
   bool _isMaintenance = false;
-  bool _isUpdateRequired = false;
 
   StreamSubscription<BaseAuthUser>? _userStreamSub;
   VoidCallback? _routerReferralListener;
@@ -159,7 +158,6 @@ class _MyAppState extends State<MyApp> {
   Future<void> _checkRemoteConfig() async {
     final remoteService = RemoteConfigService();
     var maintenance = false;
-    var updateNeeded = false;
 
     try {
       // Prevent startup lock if Remote Config/network stalls.
@@ -168,14 +166,10 @@ class _MyAppState extends State<MyApp> {
           .timeout(const Duration(seconds: 8));
 
       maintenance = remoteService.isMaintenanceMode;
-      if (!maintenance) {
-        updateNeeded = remoteService.isUpdateRequired();
-      }
     } finally {
       if (mounted) {
         setState(() {
           _isMaintenance = maintenance;
-          _isUpdateRequired = updateNeeded;
           _isLoadingConfig = false;
         });
       }
@@ -268,14 +262,6 @@ class _MyAppState extends State<MyApp> {
     }
 
     // 3. Blocage Mise Ã  jour requise
-    if (_isUpdateRequired) {
-      return const MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: UpdateRequiredScreen(),
-      );
-    }
-
-    // 4. Application Normale
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'ProxiPlay',
@@ -314,6 +300,9 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       themeMode: _themeMode,
+      builder: (context, child) => AppUpdateGate(
+        child: child ?? const SizedBox.shrink(),
+      ),
       routerConfig: _router,
     );
   }
