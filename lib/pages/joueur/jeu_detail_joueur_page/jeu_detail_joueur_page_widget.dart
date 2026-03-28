@@ -123,41 +123,50 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             getCurrentTimestamp.isAfter(endDate) &&
             (endWindowEnd != null &&
                 getCurrentTimestamp.isBefore(endWindowEnd));
+        final gameDoc = widget.gameDoc!;
+        final gameName = gameDoc.name;
+        final gamePhoto = gameDoc.photo;
         final hasWinnerAnnouncement = isWithinEndWindow &&
-            (widget.gameDoc?.hasWinner ?? false) &&
-            (widget.gameDoc?.mainPrizeWinner != null);
-        final hasMainPrizeFlag = widget.gameDoc?.hasMainPrize == true;
-        final prizeValue = widget.gameDoc?.prizeValue ?? 0;
-        final mainPrizeTitle = (widget.gameDoc?.name ?? '').trim();
+            gameDoc.hasWinner &&
+            (gameDoc.mainPrizeWinner != null);
+        final hasMainPrizeFlag = gameDoc.hasMainPrize == true;
+        final prizeValue = gameDoc.prizeValue;
+        final mainPrizeTitle = gameName.trim();
+        final mainPrizeDescription = gameDoc.description.trim();
         // Regle produit :
         // Le lot principal doit etre monetaire.
         // On affiche uniquement si hasMainPrize == true ET prizeValue > 0
         final shouldShowMainPrize =
             hasMainPrizeFlag && prizeValue > 0 && mainPrizeTitle.isNotEmpty;
-        final secondaryPrizes = widget.gameDoc?.secondaryPrizes ?? const [];
-        final validSecondaryPrizes = secondaryPrizes.where((item) {
+        final secondaryPrizes = gameDoc.secondaryPrizes;
+        final validSecondaryPrizeItems =
+            secondaryPrizes.fold<List<Map<String, dynamic>>>([], (items, item) {
           final name = (item['name'] ?? '').toString().trim();
           final countValue = item['count'];
-          final parsedCount = countValue is num
+          final count = countValue is num
               ? countValue.toInt()
               : int.tryParse((countValue ?? '').toString()) ?? 0;
-          return name.isNotEmpty && parsedCount > 0;
-        }).toList();
-        final secondaryPrizeCount =
-            validSecondaryPrizes.fold<int>(0, (total, item) {
-          final countValue = item['count'];
-          final parsedCount = countValue is num
-              ? countValue.toInt()
-              : int.tryParse((countValue ?? '').toString()) ?? 0;
-          return total + parsedCount;
+          if (name.isEmpty || count <= 0) {
+            return items;
+          }
+          items.add({
+            'name': name,
+            'count': count,
+            'winnerLabel': '$count ${count > 1 ? 'gagnants' : 'gagnant'}',
+          });
+          return items;
         });
-        final hasSecondaryPrizeContent = validSecondaryPrizes.isNotEmpty;
+        final secondaryPrizeCount = validSecondaryPrizeItems.fold<int>(
+          0,
+          (total, item) => total + (item['count'] as int),
+        );
+        final hasSecondaryPrizeContent = validSecondaryPrizeItems.isNotEmpty;
         final secondaryPrizeRulesText = secondaryPrizeCount > 0
             ? shouldShowMainPrize
-                ? '$secondaryPrizeCount ${secondaryPrizeCount > 1 ? 'gagnants' : 'gagnant'} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} à gagner instantanément'
+                ? '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} à gagner instantanément'
                 : '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} à gagner instantanément'
             : shouldShowMainPrize
-                ? 'Des gagnants sont à gagner instantanément'
+                ? 'Des lots sont à gagner instantanément'
                 : 'Des lots sont à gagner instantanément';
         String getLotsTitle(int totalLots) =>
             totalLots == 1 ? 'Présentation du lot' : 'Présentation des lots';
@@ -192,7 +201,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
           color: const Color(0xFF374151),
           height: 1.35,
         );
-        Widget buildMainPrizeWidget(String title) {
+        Widget buildMainPrizeWidget(String description) {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -216,7 +225,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                     ),
                     const SizedBox(height: 6.0),
                     Text(
-                      title,
+                      description,
                       style: detailBodyStyle,
                     ),
                   ],
@@ -243,15 +252,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             ],
           );
         }
-        Widget buildSecondaryPrizeWidget(
-          Map<String, dynamic> prize, {
+        Widget buildSecondaryPrizeWidget({
+          required String winnerLabel,
+          required String name,
           required bool showBadge,
         }) {
-          final name = (prize['name'] ?? '').toString().trim();
-          final countValue = prize['count'];
-          final count = countValue is num
-              ? countValue.toInt()
-              : int.tryParse((countValue ?? '').toString()) ?? 0;
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -270,7 +275,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                         const SizedBox(width: 6.0),
                         Expanded(
                           child: Text(
-                            '$count ${count > 1 ? 'gagnants' : 'gagnant'}',
+                            winnerLabel,
                             style: detailItemTitleStyle,
                           ),
                         ),
@@ -307,6 +312,29 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
           );
         }
         final totalLots = (shouldShowMainPrize ? 1 : 0) + secondaryPrizeCount;
+        final lotsTitle = getLotsTitle(totalLots);
+        final secondaryPrizeWidgets = List<Widget>.generate(
+          validSecondaryPrizeItems.length,
+          (index) => Padding(
+            padding: EdgeInsets.only(
+              bottom: index == validSecondaryPrizeItems.length - 1 ? 0.0 : 10.0,
+            ),
+            child: buildSecondaryPrizeWidget(
+              winnerLabel:
+                  validSecondaryPrizeItems[index]['winnerLabel'] as String,
+              name: validSecondaryPrizeItems[index]['name'] as String,
+              showBadge: index == 0,
+            ),
+          ),
+        );
+        final heroImage = RepaintBoundary(
+          child: ProxiplayNetworkImage(
+            imageUrl: gamePhoto,
+            width: double.infinity,
+            height: 320.0,
+            fit: BoxFit.cover,
+          ),
+        );
         final leftActionVisible = (() {
           final isGuest = currentUserUid == '';
           if (isGuest) return true;
@@ -545,12 +573,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                             // Hero Image Section
-                            ProxiplayNetworkImage(
-                              imageUrl: widget.gameDoc!.photo,
-                              width: double.infinity,
-                              height: 320.0,
-                              fit: BoxFit.cover,
-                            ),
+                            heroImage,
                             // Main Content Card (White) - Overlapping using Transform
                             Transform.translate(
                               offset: const Offset(0, -30.0),
@@ -583,9 +606,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                   children: [
                                     // Game Title
                                     Text(
-                                      widget.gameDoc!.name, 
+                                      gameName, 
                                       style: GoogleFonts.inter(
-                                        fontSize:  widget.gameDoc!.name.isEmpty ? 0.0 : 28.0,
+                                        fontSize:  gameName.isEmpty ? 0.0 : 28.0,
                                         fontWeight: FontWeight.bold,
                                         color: const Color(0xFF1A1A1A),
                                         letterSpacing: -0.5,
@@ -1963,32 +1986,18 @@ return Container(
                                               CrossAxisAlignment.start,
                                                               children: [
                                             Text(
-                                              getLotsTitle(totalLots),
+                                              lotsTitle,
                                               style: detailSectionTitleStyle,
                                             ),
                                             const SizedBox(height: 12.0),
                                             if (shouldShowMainPrize)
-                                              buildMainPrizeWidget(mainPrizeTitle),
+                                              buildMainPrizeWidget(
+                                                mainPrizeDescription,
+                                              ),
                                             if (hasSecondaryPrizeContent)
                                               const SizedBox(height: 10.0),
                                             if (hasSecondaryPrizeContent)
-                                              ...List.generate(
-                                                validSecondaryPrizes.length,
-                                                (index) => Padding(
-                                                  padding: EdgeInsets.only(
-                                                    bottom: index ==
-                                                            validSecondaryPrizes
-                                                                    .length -
-                                                                1
-                                                        ? 0.0
-                                                        : 10.0,
-                                                  ),
-                                                  child: buildSecondaryPrizeWidget(
-                                                    validSecondaryPrizes[index],
-                                                    showBadge: index == 0,
-                                                  ),
-                                                ),
-                                              ),
+                                              ...secondaryPrizeWidgets,
                                           ],
                                         ),
                                       ),
