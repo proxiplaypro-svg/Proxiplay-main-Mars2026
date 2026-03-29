@@ -53,15 +53,12 @@ class AppUpdateService {
 
   Future<AppUpdateCheckResult> checkForUpdate() async {
     try {
-      print('APP_UPDATE_SERVICE_START');
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = _normalizeVersion(packageInfo.version);
-      print('APP_UPDATE_FIRESTORE_BEFORE_READ');
       final snapshot = await FirebaseFirestore.instance
           .collection(_collection)
           .doc(_document)
           .get();
-      print('APP_UPDATE_FIRESTORE_AFTER_READ exists=${snapshot.exists}');
 
       if (!snapshot.exists) {
         final result = AppUpdateCheckResult(
@@ -190,7 +187,6 @@ class AppUpdateService {
       _logResult(result);
       return result;
     } catch (error, stackTrace) {
-      print('APP_UPDATE_SERVICE_CATCH');
       debugPrint('[AppUpdateService] erreur_check=$error');
       debugPrint('[AppUpdateService] stack=$stackTrace');
       String currentVersion = '';

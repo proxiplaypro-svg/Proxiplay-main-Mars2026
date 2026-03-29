@@ -28,7 +28,6 @@ class _AppUpdateGateState extends State<AppUpdateGate>
   @override
   void initState() {
     super.initState();
-    debugPrint('🔥 AppUpdateGate initState');
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _runUpdateCheck(trigger: 'startup');
@@ -49,7 +48,6 @@ class _AppUpdateGateState extends State<AppUpdateGate>
   }
 
   Future<void> _runUpdateCheck({required String trigger}) async {
-    debugPrint('🔥 _runUpdateCheck lance trigger=$trigger');
     if (!mounted || _isChecking || _isDialogVisible) {
       return;
     }
@@ -68,7 +66,6 @@ class _AppUpdateGateState extends State<AppUpdateGate>
         return;
       }
 
-      print('APP_UPDATE_SHOW_DIALOG');
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _showUpdateDialog(result);
@@ -95,8 +92,6 @@ class _AppUpdateGateState extends State<AppUpdateGate>
   Future<void> _showRequiredUpdateDialog(AppUpdateCheckResult result) async {
     _isDialogVisible = true;
     try {
-      debugPrint('[AppUpdateGate] popup_affichee type=required');
-      print('APP_UPDATE_DIALOG_OPEN required');
       final navigatorContext = widget.navigatorKey.currentContext;
       if (navigatorContext == null) {
         return;
@@ -135,8 +130,6 @@ class _AppUpdateGateState extends State<AppUpdateGate>
   Future<void> _showOptionalUpdateDialog(AppUpdateCheckResult result) async {
     _isDialogVisible = true;
     try {
-      debugPrint('[AppUpdateGate] popup_affichee type=optional');
-      print('APP_UPDATE_DIALOG_OPEN optional');
       final navigatorContext = widget.navigatorKey.currentContext;
       if (navigatorContext == null) {
         return;
