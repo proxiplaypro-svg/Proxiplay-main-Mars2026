@@ -53,23 +53,24 @@ class AppUpdateService {
 
   Future<AppUpdateCheckResult> checkForUpdate() async {
     try {
+      print('APP_UPDATE_SERVICE_START');
       final packageInfo = await PackageInfo.fromPlatform();
       final currentVersion = _normalizeVersion(packageInfo.version);
+      print('APP_UPDATE_FIRESTORE_BEFORE_READ');
       final snapshot = await FirebaseFirestore.instance
           .collection(_collection)
           .doc(_document)
           .get();
+      print('APP_UPDATE_FIRESTORE_AFTER_READ exists=${snapshot.exists}');
 
       if (!snapshot.exists) {
-        _log(
-          'config_absente',
-          currentVersion: currentVersion,
-        );
-        return AppUpdateCheckResult(
+        final result = AppUpdateCheckResult(
           status: AppUpdateStatus.unavailable,
           currentVersion: currentVersion,
           debugReason: 'config_absente',
         );
+        _logResult(result);
+        return result;
       }
 
       final data = snapshot.data() ?? const <String, dynamic>{};
@@ -86,29 +87,36 @@ class AppUpdateService {
         currentVersion: currentVersion,
         latestVersion: latestVersion,
         minSupportedVersion: minSupportedVersion,
-        extra: 'enabled=$enabled remindLaterHours=$remindLaterHours',
+        extra:
+            'enabled=$enabled storeUrl=${storeUrl ?? ''} remindLaterHours=$remindLaterHours',
       );
 
       if (!enabled) {
-        return AppUpdateCheckResult(
+        final result = AppUpdateCheckResult(
           status: AppUpdateStatus.disabled,
           currentVersion: currentVersion,
           latestVersion: latestVersion,
           minSupportedVersion: minSupportedVersion,
+          storeUrl: storeUrl,
           remindLaterHours: remindLaterHours,
           debugReason: 'disabled',
         );
+        _logResult(result);
+        return result;
       }
 
       if (latestVersion.isEmpty || minSupportedVersion.isEmpty) {
-        return AppUpdateCheckResult(
+        final result = AppUpdateCheckResult(
           status: AppUpdateStatus.unavailable,
           currentVersion: currentVersion,
           latestVersion: latestVersion,
           minSupportedVersion: minSupportedVersion,
+          storeUrl: storeUrl,
           remindLaterHours: remindLaterHours,
           debugReason: 'version_config_incomplete',
         );
+        _logResult(result);
+        return result;
       }
 
       final minComparison =
@@ -182,6 +190,7 @@ class AppUpdateService {
       _logResult(result);
       return result;
     } catch (error, stackTrace) {
+      print('APP_UPDATE_SERVICE_CATCH');
       debugPrint('[AppUpdateService] erreur_check=$error');
       debugPrint('[AppUpdateService] stack=$stackTrace');
       String currentVersion = '';
@@ -189,11 +198,13 @@ class AppUpdateService {
         final packageInfo = await PackageInfo.fromPlatform();
         currentVersion = _normalizeVersion(packageInfo.version);
       } catch (_) {}
-      return AppUpdateCheckResult(
+      final result = AppUpdateCheckResult(
         status: AppUpdateStatus.unavailable,
         currentVersion: currentVersion,
         debugReason: 'exception',
       );
+      _logResult(result);
+      return result;
     }
   }
 
@@ -345,6 +356,7 @@ class AppUpdateService {
       'current=${result.currentVersion} '
       'latest=${result.latestVersion ?? ''} '
       'min=${result.minSupportedVersion ?? ''} '
+      'storeUrl=${result.storeUrl ?? ''} '
       'showDialog=${result.shouldShowDialog} '
       'reason=${result.debugReason}',
     );

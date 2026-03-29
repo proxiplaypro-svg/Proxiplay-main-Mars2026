@@ -70,6 +70,9 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  final GlobalKey<NavigatorState> _fallbackNavigatorKey =
+      GlobalKey<NavigatorState>();
+
   Locale? _locale;
   ThemeMode _themeMode = ThemeMode.system;
 
@@ -246,18 +249,28 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     // 1. Chargement
     if (_isLoadingConfig) {
-      return const MaterialApp(
-          debugShowCheckedModeBanner: false,
-          home: Scaffold(
-              backgroundColor: Colors.white,
-              body: SizedBox.shrink()));
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        navigatorKey: _fallbackNavigatorKey,
+        home: AppUpdateGate(
+          navigatorKey: _fallbackNavigatorKey,
+          child: const Scaffold(
+            backgroundColor: Colors.white,
+            body: SizedBox.shrink(),
+          ),
+        ),
+      );
     }
 
     // 2. Blocage Maintenance
     if (_isMaintenance) {
-      return const MaterialApp(
+      return MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: MaintenanceScreen(),
+        navigatorKey: _fallbackNavigatorKey,
+        home: AppUpdateGate(
+          navigatorKey: _fallbackNavigatorKey,
+          child: const MaintenanceScreen(),
+        ),
       );
     }
 
@@ -301,6 +314,7 @@ class _MyAppState extends State<MyApp> {
       ),
       themeMode: _themeMode,
       builder: (context, child) => AppUpdateGate(
+        navigatorKey: _router.routerDelegate.navigatorKey,
         child: child ?? const SizedBox.shrink(),
       ),
       routerConfig: _router,

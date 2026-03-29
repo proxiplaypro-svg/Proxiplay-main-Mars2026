@@ -7,9 +7,11 @@ import '/services/app_update_service.dart';
 class AppUpdateGate extends StatefulWidget {
   const AppUpdateGate({
     super.key,
+    required this.navigatorKey,
     required this.child,
   });
 
+  final GlobalKey<NavigatorState> navigatorKey;
   final Widget child;
 
   @override
@@ -26,6 +28,7 @@ class _AppUpdateGateState extends State<AppUpdateGate>
   @override
   void initState() {
     super.initState();
+    debugPrint('🔥 AppUpdateGate initState');
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _runUpdateCheck(trigger: 'startup');
@@ -46,6 +49,7 @@ class _AppUpdateGateState extends State<AppUpdateGate>
   }
 
   Future<void> _runUpdateCheck({required String trigger}) async {
+    debugPrint('🔥 _runUpdateCheck lance trigger=$trigger');
     if (!mounted || _isChecking || _isDialogVisible) {
       return;
     }
@@ -64,14 +68,11 @@ class _AppUpdateGateState extends State<AppUpdateGate>
         return;
       }
 
-      if (result.isRequired) {
-        await _showRequiredUpdateDialog(result);
-        return;
-      }
-
-      if (result.isOptional) {
-        await _showOptionalUpdateDialog(result);
-      }
+      print('APP_UPDATE_SHOW_DIALOG');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _showUpdateDialog(result);
+      });
     } catch (error, stackTrace) {
       debugPrint('[AppUpdateGate] erreur=$error');
       debugPrint('[AppUpdateGate] stack=$stackTrace');
@@ -80,12 +81,29 @@ class _AppUpdateGateState extends State<AppUpdateGate>
     }
   }
 
+  Future<void> _showUpdateDialog(AppUpdateCheckResult result) async {
+    if (result.isRequired) {
+      await _showRequiredUpdateDialog(result);
+      return;
+    }
+
+    if (result.isOptional) {
+      await _showOptionalUpdateDialog(result);
+    }
+  }
+
   Future<void> _showRequiredUpdateDialog(AppUpdateCheckResult result) async {
     _isDialogVisible = true;
     try {
       debugPrint('[AppUpdateGate] popup_affichee type=required');
+      print('APP_UPDATE_DIALOG_OPEN required');
+      final navigatorContext = widget.navigatorKey.currentContext;
+      if (navigatorContext == null) {
+        return;
+      }
       await showDialog<void>(
-        context: context,
+        context: navigatorContext,
+        useRootNavigator: true,
         barrierDismissible: false,
         builder: (context) => PopScope(
           canPop: false,
@@ -118,8 +136,14 @@ class _AppUpdateGateState extends State<AppUpdateGate>
     _isDialogVisible = true;
     try {
       debugPrint('[AppUpdateGate] popup_affichee type=optional');
+      print('APP_UPDATE_DIALOG_OPEN optional');
+      final navigatorContext = widget.navigatorKey.currentContext;
+      if (navigatorContext == null) {
+        return;
+      }
       await showDialog<void>(
-        context: context,
+        context: navigatorContext,
+        useRootNavigator: true,
         barrierDismissible: false,
         builder: (context) => _AppUpdateDialog(
           title: result.title ?? 'Mise à jour disponible',
