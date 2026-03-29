@@ -292,6 +292,52 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     }
   }
 
+  Widget _buildHomeGameCard({
+    required GamesRecord game,
+    EnseignesRecord? enseigne,
+    required String prizeText,
+    required String endDateText,
+    required Future<void> Function() onTap,
+    String? winnerText,
+    int winnerMaxLines = 1,
+    bool isFinished = false,
+    bool fitContent = true,
+    double? height,
+    double? imageHeight,
+  }) {
+    Widget buildCard(EnseignesRecord? resolvedEnseigne) {
+      return GameCardWidget(
+        title: game.name,
+        imageUrl: game.photo,
+        storeName: _getGameCardStoreName(game, resolvedEnseigne),
+        city: _getGameCardLocation(resolvedEnseigne),
+        prizeText: prizeText,
+        endDateText: endDateText,
+        winnerText: winnerText,
+        winnerMaxLines: winnerMaxLines,
+        isFinished: isFinished,
+        fitContent: fitContent,
+        height: height,
+        imageHeight: imageHeight,
+        onTap: () async {
+          await onTap();
+        },
+      );
+    }
+
+    final location = _getGameCardLocation(enseigne);
+    if (location.isNotEmpty || game.enseigneId == null) {
+      return buildCard(enseigne);
+    }
+
+    return FutureBuilder<EnseignesRecord>(
+      future: _getCachedEnseigneFuture(game.enseigneId!),
+      builder: (context, snapshot) {
+        return buildCard(snapshot.data ?? enseigne);
+      },
+    );
+  }
+
   Future<SharePromoStateViewModel?> _loadSharePromoState() async {
     if (isGuestOrAnonymous || currentUserUid.isEmpty) {
       _latestSharePromoState = null;
@@ -1535,11 +1581,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                                   .enseigneId!
                                                                                   .path]
                                                                           : null;
-                                                                        return GameCardWidget(
-                                                                          title: listViewGamesRecord.name,
-                                                                          imageUrl: listViewGamesRecord.photo,
-                                                                          storeName: _getGameCardStoreName(listViewGamesRecord, enseigne),
-                                                                          city: _getGameCardLocation(enseigne),
+                                                                        return _buildHomeGameCard(
+                                                                          game:
+                                                                              listViewGamesRecord,
+                                                                          enseigne:
+                                                                              enseigne,
                                                                           prizeText: listViewGamesRecord.prizeValue == 0
                                                                               ? 'Gains instantanés'
                                                                               : '${listViewGamesRecord.prizeValue} \u20AC',
@@ -1723,15 +1769,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                                   null
                                                                               ? enseignesByPath[listViewGamesRecord.enseigneId!.path]
                                                                               : null;
-                                                                          return GameCardWidget(
-                                                                            title:
-                                                                                listViewGamesRecord.name,
-                                                                            imageUrl:
-                                                                                listViewGamesRecord.photo,
-                                                                            storeName:
-                                                                                _getGameCardStoreName(listViewGamesRecord, enseigne),
-                                                                            city:
-                                                                                _getGameCardLocation(enseigne),
+                                                                          return _buildHomeGameCard(
+                                                                            game:
+                                                                                listViewGamesRecord,
+                                                                            enseigne:
+                                                                                enseigne,
                                                                             prizeText:
                                                                                 listViewGamesRecord.prizeValue == 0 ? 'Gains instantanés' : '${listViewGamesRecord.prizeValue} \u20AC',
                                                                             endDateText: listViewGamesRecord.endDate != null
@@ -1899,15 +1941,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                               ? enseignesByPath[listViewGamesRecord.enseigneId!.path]
                                                                               : null;
 
-                                                                          return GameCardWidget(
-                                                                            title:
-                                                                                listViewGamesRecord.name,
-                                                                            imageUrl:
-                                                                                listViewGamesRecord.photo,
-                                                                            storeName:
-                                                                                _getGameCardStoreName(listViewGamesRecord, enseigne),
-                                                                            city:
-                                                                                _getGameCardLocation(enseigne),
+                                                                          return _buildHomeGameCard(
+                                                                            game:
+                                                                                listViewGamesRecord,
+                                                                            enseigne:
+                                                                                enseigne,
                                                                             prizeText:
                                                                                 listViewGamesRecord.prizeValue == 0 ? 'Gains instantanés' : '${listViewGamesRecord.prizeValue} \u20AC',
                                                                             endDateText: listViewGamesRecord.endDate != null
@@ -2063,23 +2101,29 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                               final winnerLabel = winnerIdentity.isNotEmpty
                                                                                   ? 'Gagn\u00E9 par $winnerIdentity'
                                                                                   : 'Gagnant annonc\u00E9';
-                                                                              return GameCardWidget(
-                                                                                title: game.name,
-                                                                                imageUrl: game.photo,
-                                                                                storeName: _getGameCardStoreName(game, enseigne),
-                                                                                city: _getGameCardLocation(enseigne),
+                                                                              return _buildHomeGameCard(
+                                                                                game:
+                                                                                    game,
+                                                                                enseigne:
+                                                                                    enseigne,
                                                                                 prizeText: game.prizeValue == 0
                                                                                     ? 'Gains instantanés'
                                                                                     : '${game.prizeValue} \u20AC',
                                                                                 endDateText: game.endDate != null
                                                                                     ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}"
                                                                                     : "Jusqu'au : -",
-                                                                                winnerText: winnerLabel,
-                                                                                winnerMaxLines: 1,
-                                                                                isFinished: true,
-                                                                                fitContent: false,
-                                                                                height: AppStyles.finishedGameListHeight,
-                                                                                imageHeight: AppStyles.finishedGameImageHeight,
+                                                                                winnerText:
+                                                                                    winnerLabel,
+                                                                                winnerMaxLines:
+                                                                                    1,
+                                                                                isFinished:
+                                                                                    true,
+                                                                                fitContent:
+                                                                                    false,
+                                                                                height:
+                                                                                    AppStyles.finishedGameListHeight,
+                                                                                imageHeight:
+                                                                                    AppStyles.finishedGameImageHeight,
                                                                                 onTap: () async {
                                                                                   await _openGameDetails(
                                                                                       game);
@@ -2237,14 +2281,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     builder: (context, enseigneSnapshot) {
                                                                       final enseigne =
                                                                           enseigneSnapshot.data;
-                                                                      return GameCardWidget(
-                                                                        title:
-                                                                            listViewGamesRecord.name,
-                                                                        imageUrl:
-                                                                            listViewGamesRecord.photo,
-                                                                        storeName:
-                                                                            _getGameCardStoreName(listViewGamesRecord, enseigne),
-                                                                        city: _getGameCardLocation(enseigne),
+                                                                      return _buildHomeGameCard(
+                                                                        game:
+                                                                            listViewGamesRecord,
+                                                                        enseigne:
+                                                                            enseigne,
                                                                         prizeText: listViewGamesRecord
                                                                                     .prizeValue ==
                                                                                 0
@@ -2395,14 +2436,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     builder: (context, enseigneSnapshot) {
                                                                       final enseigne =
                                                                           enseigneSnapshot.data;
-                                                                      return GameCardWidget(
-                                                                            title:
-                                                                                listViewGamesRecord.name,
-                                                                            imageUrl:
-                                                                                listViewGamesRecord.photo,
-                                                                            storeName:
-                                                                                _getGameCardStoreName(listViewGamesRecord, enseigne),
-                                                                            city: _getGameCardLocation(enseigne),
+                                                                      return _buildHomeGameCard(
+                                                                            game:
+                                                                                listViewGamesRecord,
+                                                                            enseigne:
+                                                                                enseigne,
                                                                             prizeText: listViewGamesRecord
                                                                                         .prizeValue ==
                                                                                     0
@@ -2550,14 +2588,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     builder: (context, enseigneSnapshot) {
                                                                       final enseigne =
                                                                           enseigneSnapshot.data;
-                                                                      return GameCardWidget(
-                                                                            title:
-                                                                                listViewGamesRecord.name,
-                                                                            imageUrl:
-                                                                                listViewGamesRecord.photo,
-                                                                            storeName:
-                                                                                _getGameCardStoreName(listViewGamesRecord, enseigne),
-                                                                            city: _getGameCardLocation(enseigne),
+                                                                      return _buildHomeGameCard(
+                                                                            game:
+                                                                                listViewGamesRecord,
+                                                                            enseigne:
+                                                                                enseigne,
                                                                             prizeText: listViewGamesRecord
                                                                                         .prizeValue ==
                                                                                     0
@@ -2707,11 +2742,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 future: _getCachedEnseigneFuture(listViewGamesRecord.enseigneId!),
                                                                 builder: (context, enseigneSnapshot) {
                                                                   final enseigne = enseigneSnapshot.data;
-                                                                  return GameCardWidget(
-                                                                    title: listViewGamesRecord.name,
-                                                                    imageUrl: listViewGamesRecord.photo,
-                                                                    storeName: _getGameCardStoreName(listViewGamesRecord, enseigne),
-                                                                    city: _getGameCardLocation(enseigne),
+                                                                  return _buildHomeGameCard(
+                                                                    game: listViewGamesRecord,
+                                                                    enseigne: enseigne,
                                                                     prizeText: listViewGamesRecord.prizeValue == 0
                                                                         ? 'Gains instantanés'
                                                                         : '${listViewGamesRecord.prizeValue} \u20AC',
@@ -2839,11 +2872,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 future: _getCachedEnseigneFuture(listViewGamesRecord.enseigneId!),
                                                                 builder: (context, enseigneSnapshot) {
                                                                   final enseigne = enseigneSnapshot.data;
-                                                                  return GameCardWidget(
-                                                                    title: listViewGamesRecord.name,
-                                                                    imageUrl: listViewGamesRecord.photo,
-                                                                    storeName: _getGameCardStoreName(listViewGamesRecord, enseigne),
-                                                                    city: _getGameCardLocation(enseigne),
+                                                                  return _buildHomeGameCard(
+                                                                    game: listViewGamesRecord,
+                                                                    enseigne: enseigne,
                                                                     prizeText: listViewGamesRecord.prizeValue == 0
                                                                         ? 'Gains instantanés'
                                                                         : '${listViewGamesRecord.prizeValue} \u20AC',
@@ -2966,11 +2997,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 future: _getCachedEnseigneFuture(listViewGamesRecord.enseigneId!),
                                                                 builder: (context, enseigneSnapshot) {
                                                                   final enseigne = enseigneSnapshot.data;
-                                                                  return GameCardWidget(
-                                                                    title: listViewGamesRecord.name,
-                                                                    imageUrl: listViewGamesRecord.photo,
-                                                                    storeName: _getGameCardStoreName(listViewGamesRecord, enseigne),
-                                                                    city: _getGameCardLocation(enseigne),
+                                                                  return _buildHomeGameCard(
+                                                                    game: listViewGamesRecord,
+                                                                    enseigne: enseigne,
                                                                     prizeText: listViewGamesRecord.prizeValue == 0
                                                                         ? 'Gains instantanés'
                                                                         : '${listViewGamesRecord.prizeValue} \u20AC',

@@ -70,6 +70,8 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
   String? _resultMessage;
   String? _resultMessageBonus;
   bool _isPreparingShare = false;
+  bool _isShareDialogVisible = false;
+  late String _preparedShareText;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -125,22 +127,77 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
       return;
     }
 
+    final navigator = Navigator.of(context, rootNavigator: true);
     safeSetState(() {
       _isPreparingShare = true;
     });
 
     try {
-      await Future.delayed(const Duration(milliseconds: 140));
+      if (!mounted) {
+        return;
+      }
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return PopScope(
+            canPop: false,
+            child: Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20.0),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20.0,
+                  vertical: 18.0,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 20.0,
+                      height: 20.0,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: FlutterFlowTheme.of(context).primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12.0),
+                    Flexible(
+                      child: Text(
+                        'Préparation du partage...',
+                        style: FlutterFlowTheme.of(context).bodyMedium.override(
+                              font: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600,
+                                fontStyle: FlutterFlowTheme.of(context)
+                                    .bodyMedium
+                                    .fontStyle,
+                              ),
+                              letterSpacing: 0.0,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+      _isShareDialogVisible = true;
+      await Future<void>.delayed(const Duration(milliseconds: 16));
       if (!mounted) {
         return;
       }
       await Share.share(
-        buildAppShareText(
-          title: '${widget.game?.name ?? 'ce jeu'} sur ProxiPlay',
-        ),
+        _preparedShareText,
         sharePositionOrigin: getWidgetBoundingBox(context),
       );
     } finally {
+      if (_isShareDialogVisible && navigator.mounted && navigator.canPop()) {
+        navigator.pop();
+        _isShareDialogVisible = false;
+      }
       if (mounted) {
         safeSetState(() {
           _isPreparingShare = false;
@@ -332,6 +389,9 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     _resultMessage = _sanitizeRewardText(_resolveDisplayMessage());
     _resultMessageBonus =
         _sanitizeRewardText(widget.resultParticipation?.messageBonus ?? '');
+    _preparedShareText = buildAppShareText(
+      title: '${widget.game?.name ?? 'ce jeu'} sur ProxiPlay',
+    );
 
     _primeScratchSound();
     WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {}));
@@ -445,13 +505,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                         ),
                         icon: const Icon(Icons.share_rounded, size: 22.0),
                         onPressed: () async {
-                          await Share.share(
-                            buildAppShareText(
-                              title:
-                                  '${widget.game?.name ?? 'ce jeu'} sur ProxiPlay',
-                            ),
-                            sharePositionOrigin: getWidgetBoundingBox(context),
-                          );
+                          await _shareGame();
                         },
                       ),
                     ),
