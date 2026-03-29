@@ -102,10 +102,15 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     }
 
     final lowerBackendMessage = backendMessage.toLowerCase();
-    final isBackendStatusMessage = lowerBackendMessage.contains('déjà participé') ||
-        lowerBackendMessage.contains('deja participe') ||
+    final isAlreadyPlayedStatusMessage =
+        lowerBackendMessage.contains('déjà participé') ||
+            lowerBackendMessage.contains('deja participe');
+    final isBackendStatusMessage = isAlreadyPlayedStatusMessage ||
         lowerBackendMessage.contains('plus de parties');
     if (isBackendStatusMessage) {
+      if (isAlreadyPlayedStatusMessage) {
+        return 'Vous avez déjà participé à ce jeu.';
+      }
       return backendMessage;
     }
 
@@ -343,6 +348,11 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
   Widget build(BuildContext context) {
     final rewardText = _resultMessage ?? '';
     final rewardTextBonus = _resultMessageBonus ?? '';
+    final lowerBackendMessage =
+        (widget.resultParticipation?.message ?? '').trim().toLowerCase();
+    final isAlreadyPlayedStatus =
+        lowerBackendMessage.contains('déjà participé') ||
+            lowerBackendMessage.contains('deja participe');
     final hasMainPrizeGame =
         widget.game != null ? hasMainPrize(widget.game!) : false;
     final mainPrizeDescription = (widget.game?.description ?? '').trim();
@@ -1190,7 +1200,9 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                             context.goNamed(
                                                 HomeJoueurPageWidget.routeName);
                                           },
-                                          text: 'Revenez demain',
+                                          text: isAlreadyPlayedStatus
+                                              ? 'Retour à l\'accueil'
+                                              : 'Revenez demain',
                                           options: FFButtonOptions(
                                             width: double.infinity,
                                             height: 40.0,
