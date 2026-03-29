@@ -262,6 +262,7 @@ class _GameCardState extends State<GameCard> {
     final effectiveWinnerMaxLines = widget.isFinished ? 2 : widget.winnerMaxLines;
     final rowSpacing = widget.isFinished ? 6.0 : 4.0;
     final hasPrize = _hasVisibleText(widget.prizeText);
+    final hasCity = _hasVisibleText(widget.city);
     final titleTopSpacing = hasPrize ? 8.0 : 0.0;
     final contentPadding = (!widget.isFinished && hasPrize)
         ? const EdgeInsets.fromLTRB(10.0, 8.0, 10.0, 4.0)
@@ -296,8 +297,10 @@ class _GameCardState extends State<GameCard> {
               context,
               fontWeight: FontWeight.w700,
             ),
-            SizedBox(height: rowSpacing),
-            _infoRow(Icons.place_sharp, widget.city, context),
+            if (hasCity) ...[
+              SizedBox(height: rowSpacing),
+              _infoRow(Icons.place_sharp, widget.city, context),
+            ],
             if (!hasPrize) SizedBox(height: rowSpacing),
             if (!hasPrize) _infoRow(Icons.euro, widget.prizeText, context),
             SizedBox(height: rowSpacing),

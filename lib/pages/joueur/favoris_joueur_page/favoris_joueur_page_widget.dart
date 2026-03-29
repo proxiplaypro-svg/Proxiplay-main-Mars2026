@@ -31,6 +31,7 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
   late FavorisJoueurPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  final Map<String, Future<int>> _activeGamesCountByMerchantCache = {};
 
   int _readFavoriteCounter(Map<String, dynamic> data) {
     final dynamic raw = data['favoritesCount'] ??
@@ -48,11 +49,39 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
 
   bool _isGameVisibleForPlayer(GamesRecord game) {
     final now = getCurrentTimestamp;
+    final endDate = game.endDate;
+    if (endDate == null || !endDate.isAfter(now)) {
+      return false;
+    }
     final startDate = game.startDate;
     if (startDate != null && now.isBefore(startDate)) {
       return false;
     }
     return true;
+  }
+
+  Future<int> _getActiveGamesCountForMerchant(
+    DocumentReference? enseigneRef,
+  ) {
+    if (enseigneRef == null) {
+      return Future.value(0);
+    }
+
+    return _activeGamesCountByMerchantCache.putIfAbsent(enseigneRef.path, () async {
+      final games = await queryGamesRecordOnce(
+        queryBuilder: (gamesRecord) => gamesRecord
+            .where(
+              'enseigne_id',
+              isEqualTo: enseigneRef,
+            )
+            .where(
+              'end_date',
+              isGreaterThan: getCurrentTimestamp,
+            ),
+      );
+
+      return games.where(_isGameVisibleForPlayer).length;
+    });
   }
 
   Future<void> _removeMerchantFavorite(
@@ -316,10 +345,10 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                               8.0, 0.0, 8.0, 0.0),
                                       tabs: const [
                                         Tab(
-                                          text: 'Commerces favoris',
+                                          text: 'Mes favoris',
                                         ),
                                         Tab(
-                                          text: 'Jeux favoris',
+                                          text: 'Mes jeux',
                                         ),
                                       ],
                                       controller: _model.tabBarController,
@@ -581,16 +610,8 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                                         ),
                                                                                   ),
                                                                                   FutureBuilder<int>(
-                                                                                    future: queryGamesRecordCount(
-                                                                                      queryBuilder: (gamesRecord) => gamesRecord
-                                                                                          .where(
-                                                                                            'enseigne_id',
-                                                                                            isEqualTo: listViewFavoriteEnseignesRecord.enseigneId,
-                                                                                          )
-                                                                                          .where(
-                                                                                            'hasWinner',
-                                                                                            isEqualTo: false,
-                                                                                          ),
+                                                                                    future: _getActiveGamesCountForMerchant(
+                                                                                      listViewFavoriteEnseignesRecord.enseigneId,
                                                                                     ),
                                                                                     builder: (context, snapshot) {
                                                                                       // Customize what your widget looks like when it's loading.
@@ -603,7 +624,8 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                                           ),
                                                                                         );
                                                                                       }
-                                                                                      int textCount = snapshot.data!;
+                                                                                      final textCount =
+                                                                                          snapshot.data ?? 0;
 
                                                                                       return Text(
                                                                                         textCount.toString(),

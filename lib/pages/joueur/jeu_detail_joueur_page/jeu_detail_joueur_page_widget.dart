@@ -151,7 +151,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
           items.add({
             'name': name,
             'count': count,
-            'winnerLabel': '$count ${count > 1 ? 'gagnants' : 'gagnant'}',
+            'winnerLabel':
+                '$count ${count > 1 ? 'chances de gagner' : 'chance de gagner'}',
           });
           return items;
         });
@@ -313,6 +314,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final totalLots =
             (shouldShowMainPrize ? 1 : 0) + validSecondaryPrizeItems.length;
         final lotsTitle = getLotsTitle(totalLots);
+        final bool showShopCard = true;
         final secondaryPrizeWidgets = List<Widget>.generate(
           validSecondaryPrizeItems.length,
           (index) => Padding(
@@ -1072,81 +1074,210 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                     ),
                                         // if (leftActionVisible)
 
+                                        if (showShopCard &&
+                                            widget.enseigneDoc != null) ...[
                                           const SizedBox(height: 12.0),
-                                        SizedBox(
-                                          // width: 220.0,
-                                          child: InkWell(
-                                      splashColor: Colors.transparent,
-                                      focusColor: Colors.transparent,
-                                      hoverColor: Colors.transparent,
-                                      highlightColor: Colors.transparent,
-                                      onTap: () async {
-                                        context.pushNamed(
-                                          EnseigneDetailJoueurPageWidget
-                                              .routeName,
-                                          queryParameters: {
-                                            'enseigneDoc': serializeParam(
-                                              widget.enseigneDoc,
-                                              ParamType.Document,
-                                            ),
-                                          }.withoutNulls,
-                                          extra: <String, dynamic>{
-                                            'enseigneDoc': widget.enseigneDoc,
-                                          },
-                                        );
-                                      },
-                                      child: Container(
-                                                constraints: const BoxConstraints(minHeight: 56.0),
-                                                padding: const EdgeInsets.symmetric(
+                                          Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              borderRadius:
+                                                  BorderRadius.circular(16.0),
+                                              onTap: () async {
+                                                context.pushNamed(
+                                                  EnseigneDetailJoueurPageWidget
+                                                      .routeName,
+                                                  queryParameters: {
+                                                    'enseigneDoc':
+                                                        serializeParam(
+                                                      widget.enseigneDoc,
+                                                      ParamType.Document,
+                                                    ),
+                                                  }.withoutNulls,
+                                                  extra: <String, dynamic>{
+                                                    'enseigneDoc':
+                                                        widget.enseigneDoc,
+                                                  },
+                                                );
+                                              },
+                                              child: Container(
+                                                constraints:
+                                                    const BoxConstraints(
+                                                        minHeight: 72.0),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
                                                   horizontal: 12.0,
-                                                  vertical: 8.0,
+                                                  vertical: 10.0,
                                                 ),
                                                 decoration: BoxDecoration(
                                                   color: Colors.white,
-                                                  borderRadius: BorderRadius.circular(16.0),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          16.0),
                                                   border: Border.all(
-                                                    color: const Color(0xFFA0134D),
-                                                    width: 2.0,
+                                                    color: const Color(
+                                                        0xFFE5E7EB),
+                                                    width: 1.0,
                                                   ),
                                                   boxShadow: [
                                                     BoxShadow(
-                                                      color: Colors.black.withOpacity(0.05),
+                                                      color: Colors.black
+                                                          .withOpacity(0.04),
                                                       blurRadius: 10.0,
-                                                      offset: const Offset(0, 2),
+                                                      offset:
+                                                          const Offset(0, 2),
                                                     ),
                                                   ],
                                                 ),
                                                 child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
                                                   children: [
-                                                    Icon(
-                                                      Icons.store_rounded,
-                                                      color: const Color(0xFFA0134D),
-                                                      size: 20.0,
-                                                    ),
-                                                    const SizedBox(width: 8.0),
-                                                    Flexible(
-                                                      child: Text(
-                                                        //  here name of the store
-                                                        widget.enseigneDoc?.name ??
-                                                            'Enseigne partenaire',
-                                                        maxLines: 2,
-                                                        softWrap: true,
-                                                        overflow: TextOverflow.ellipsis,
-                                                        textAlign: TextAlign.center,
-                                                        style: GoogleFonts.inter(
-                                                          fontSize: 16.0,
-                                                          fontWeight: FontWeight.w600,
-                                                          color: const Color(0xFFA0134D),
-                                                          letterSpacing: 0.0,
+                                                    ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12.0),
+                                                      child: SizedBox(
+                                                        width: 52.0,
+                                                        height: 52.0,
+                                                        child: FutureBuilder<
+                                                            List<ImagesRecord>>(
+                                                          future:
+                                                              queryImagesRecordOnce(
+                                                            parent: widget
+                                                                .enseigneDoc!
+                                                                .reference,
+                                                            singleRecord: true,
+                                                          ),
+                                                          builder: (context,
+                                                              snapshot) {
+                                                            if (snapshot
+                                                                    .data
+                                                                    ?.isNotEmpty ==
+                                                                true) {
+                                                              return ProxiplayNetworkImage(
+                                                                imageUrl:
+                                                                    snapshot
+                                                                        .data!
+                                                                        .first
+                                                                        .url,
+                                                                fit: BoxFit
+                                                                    .cover,
+                                                              );
+                                                            }
+
+                                                            return Container(
+                                                              color: const Color(
+                                                                  0xFFF5F6FB),
+                                                              alignment:
+                                                                  Alignment
+                                                                      .center,
+                                                              child: const Icon(
+                                                                Icons
+                                                                    .storefront_rounded,
+                                                                color: Color(
+                                                                    0xFFA0134D),
+                                                                size: 22.0,
+                                                              ),
+                                                            );
+                                                          },
                                                         ),
                                                       ),
+                                                    ),
+                                                    const SizedBox(width: 12.0),
+                                                    Expanded(
+                                                      child: Column(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            widget.enseigneDoc!
+                                                                    .name
+                                                                    .trim()
+                                                                    .isNotEmpty
+                                                                ? widget
+                                                                    .enseigneDoc!
+                                                                    .name
+                                                                : 'Enseigne partenaire',
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style:
+                                                                GoogleFonts.inter(
+                                                              fontSize: 15.0,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                              color: const Color(
+                                                                  0xFF1F2937),
+                                                              letterSpacing:
+                                                                  0.0,
+                                                            ),
+                                                          ),
+                                                          if (widget
+                                                              .enseigneDoc!
+                                                              .city
+                                                              .trim()
+                                                              .isNotEmpty)
+                                                            Padding(
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .only(
+                                                                      top: 4.0),
+                                                              child: Row(
+                                                                children: [
+                                                                  const Icon(
+                                                                    Icons
+                                                                        .location_on_sharp,
+                                                                    size: 14.0,
+                                                                    color: Color(
+                                                                        0xFF6B7280),
+                                                                  ),
+                                                                  const SizedBox(
+                                                                      width:
+                                                                          4.0),
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      widget
+                                                                          .enseigneDoc!
+                                                                          .city,
+                                                                      maxLines:
+                                                                          1,
+                                                                      overflow:
+                                                                          TextOverflow
+                                                                              .ellipsis,
+                                                                      style: GoogleFonts
+                                                                          .inter(
+                                                                        fontSize:
+                                                                            13.0,
+                                                                        fontWeight:
+                                                                            FontWeight.w500,
+                                                                        color: const Color(
+                                                                            0xFF6B7280),
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8.0),
+                                                    const Icon(
+                                                      Icons.chevron_right_rounded,
+                                                      color: Color(0xFF9CA3AF),
+                                                      size: 22.0,
                                                     ),
                                                   ],
                                                 ),
                                               ),
                                             ),
-                                        ),
+                                          ),
+                                        ],
                                       ],
                                     ),
                                     const SizedBox(height: 24.0),

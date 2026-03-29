@@ -144,13 +144,17 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   String _getGameCardLocation(EnseignesRecord? enseigne) {
     final city = (enseigne?.city ?? '').trim();
     final areaCode = (enseigne?.areaCode ?? '').trim();
+    final address = (enseigne?.address ?? '').trim();
     if (city.isNotEmpty && areaCode.isNotEmpty) {
       return '$areaCode $city';
     }
     if (city.isNotEmpty) {
       return city;
     }
-    return areaCode;
+    if (areaCode.isNotEmpty) {
+      return areaCode;
+    }
+    return address;
   }
 
   Future<Map<String, EnseignesRecord>> _getFeaturedEnseignesForGames(
