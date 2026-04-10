@@ -1,5 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 admin.initializeApp();
 
@@ -12,6 +13,9 @@ const kPrizeNotificationsJobDocId = "prize_notifications";
 const kPrizeNotificationsEntriesCollection = "entries";
 const kDailyPartsResetBatchSize = 450;
 const kParisTimeZone = "Europe/Paris";
+const kGameDedupeWindowMs = 20 * 1000;
+const kGameDedupeGroupsCollection = "_game_dedupe_groups";
+const kGameDedupeReviewsCollection = "_game_dedupe_reviews";
 const kInvalidFcmErrorCodes = new Set([
   "messaging/invalid-registration-token",
   "messaging/registration-token-not-registered",
@@ -144,6 +148,165 @@ function timestampToMillis(value) {
     return value;
   }
   return null;
+}
+
+function normalizeGameText(value) {
+  return getTrimmedString(value).toLowerCase().replace(/\s+/g, " ");
+}
+
+function normalizeInteger(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+  const parsed = Number.parseInt(getTrimmedString(value), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizePrizeValueCents(value) {
+  if (value === null || typeof value === "undefined") {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return Math.round(parsed * 100);
+}
+
+function normalizeSecondaryPrizesForFingerprint(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      return {
+        name: normalizeGameText(entry.name),
+        presentation: normalizeGameText(entry.presentation),
+        count: normalizeInteger(entry.count) || 0,
+      };
+    })
+    .filter((entry) => entry && (entry.name || entry.presentation || entry.count > 0));
+}
+
+function getSnapshotCreateMillis(snapshot) {
+  if (!snapshot) {
+    return null;
+  }
+  if (snapshot.createTime && typeof snapshot.createTime.toMillis === "function") {
+    return snapshot.createTime.toMillis();
+  }
+  return null;
+}
+
+function buildGameDedupeSignature(gameData, snapshot) {
+  const createByRef = toDocRef(gameData && gameData.create_by);
+  const enseigneRef = toDocRef(gameData && gameData.enseigne_id);
+  const name = normalizeGameText(gameData && gameData.name);
+  const gameType = normalizeGameText(gameData && gameData.game_type);
+  const startDateMs = timestampToMillis(gameData && gameData.start_date);
+  const endDateMs = timestampToMillis(gameData && gameData.end_date);
+  const createdMs =
+    timestampToMillis(gameData && gameData.created_time) ||
+    getSnapshotCreateMillis(snapshot);
+
+  if (
+    !createByRef ||
+    !enseigneRef ||
+    !name ||
+    !gameType ||
+    !Number.isFinite(startDateMs) ||
+    !Number.isFinite(endDateMs) ||
+    !Number.isFinite(createdMs)
+  ) {
+    return null;
+  }
+
+  const payload = {
+    createByPath: createByRef.path,
+    enseignePath: enseigneRef.path,
+    name,
+    description: normalizeGameText(gameData && gameData.description),
+    startDateMs,
+    endDateMs,
+    gameType,
+    hasMainPrize: resolveHasMainPrize(gameData),
+    prizeValueCents: normalizePrizeValueCents(gameData && gameData.prize_value),
+    prohibitedForMinors: toBoolean(
+      gameData && gameData.prohibited_for_minors,
+      false,
+    ),
+    secondaryPrizes: normalizeSecondaryPrizesForFingerprint(
+      gameData && gameData.secondary_prizes,
+    ),
+  };
+
+  return {
+    createdMs,
+    fingerprint: crypto
+      .createHash("sha256")
+      .update(JSON.stringify(payload))
+      .digest("hex"),
+    payload,
+  };
+}
+
+function buildGameDedupeReviewPayload({
+  status,
+  gameId,
+  fingerprint,
+  signaturePayload,
+  createdMs,
+  primaryGameId,
+  reason,
+  autoDeleted,
+  deleteAttempted,
+  note,
+}) {
+  return {
+    status,
+    game_id: gameId,
+    primary_game_id: primaryGameId || gameId,
+    fingerprint,
+    reason,
+    checked_at: admin.firestore.FieldValue.serverTimestamp(),
+    created_ms: createdMs,
+    auto_deleted: autoDeleted === true,
+    delete_attempted: deleteAttempted === true,
+    note: note || "",
+    match_summary: signaturePayload,
+  };
+}
+
+function shouldAutoDeleteDuplicateGame(gameData) {
+  const views = normalizeInteger(gameData && gameData.views) || 0;
+  const favorites = normalizeInteger(gameData && gameData.favorites) || 0;
+  const participations = normalizeInteger(gameData && gameData.participations) || 0;
+
+  return (
+    views === 0 &&
+    favorites === 0 &&
+    participations === 0 &&
+    gameData &&
+    gameData.hasWinner !== true &&
+    !gameData.main_prize_winner
+  );
+}
+
+function comparePrimaryCandidate(current, existing) {
+  if (!existing || !Number.isFinite(existing.createdMs)) {
+    return -1;
+  }
+  if (current.createdMs < existing.createdMs) {
+    return -1;
+  }
+  if (current.createdMs > existing.createdMs) {
+    return 1;
+  }
+  return current.gameId.localeCompare(existing.gameId);
 }
 
 function isPublishedGame(gameData) {
@@ -1186,6 +1349,329 @@ exports.sendPushNotificationsTrigger = functions
       console.log(`Error: ${e}`);
       await snapshot.ref.update({ status: "failed", error: `${e}` });
     }
+  });
+
+exports.dedupeRapidDuplicateGames = functions.firestore
+  .document("games/{gameId}")
+  .onCreate(async (snapshot, context) => {
+    const gameId = context.params.gameId;
+    const initialData = snapshot.data() || {};
+    const initialSignature = buildGameDedupeSignature(initialData, snapshot);
+    const reviewRef = firestore.collection(kGameDedupeReviewsCollection).doc(gameId);
+
+    if (!initialSignature) {
+      await reviewRef.set(
+        {
+          status: "skipped_missing_fields",
+          game_id: gameId,
+          reason: "rapid_duplicate_create",
+          checked_at: admin.firestore.FieldValue.serverTimestamp(),
+          note: "Missing reliable fields for strict dedupe.",
+        },
+        { merge: true },
+      );
+      console.log(
+        `[GAME_DEDUPE] game=${gameId} skipped reason=missing_fields`,
+      );
+      return null;
+    }
+
+    const result = await firestore.runTransaction(async (transaction) => {
+      const currentReviewSnap = await transaction.get(reviewRef);
+      if (currentReviewSnap.exists) {
+        const currentReview = currentReviewSnap.data() || {};
+        const status = getTrimmedString(currentReview.status);
+        if (status) {
+          return { outcome: "already_processed", status };
+        }
+      }
+
+      const currentGameSnap = await transaction.get(snapshot.ref);
+      if (!currentGameSnap.exists) {
+        transaction.set(
+          reviewRef,
+          {
+            status: "skipped_missing_game",
+            game_id: gameId,
+            reason: "rapid_duplicate_create",
+            checked_at: admin.firestore.FieldValue.serverTimestamp(),
+            note: "Game document no longer exists when dedupe ran.",
+          },
+          { merge: true },
+        );
+        return { outcome: "missing_game" };
+      }
+
+      const currentGameData = currentGameSnap.data() || {};
+      const currentSignature = buildGameDedupeSignature(
+        currentGameData,
+        currentGameSnap,
+      );
+
+      if (!currentSignature) {
+        transaction.set(
+          reviewRef,
+          {
+            status: "skipped_missing_fields",
+            game_id: gameId,
+            reason: "rapid_duplicate_create",
+            checked_at: admin.firestore.FieldValue.serverTimestamp(),
+            note: "Reliable fields missing after fresh read.",
+          },
+          { merge: true },
+        );
+        return { outcome: "missing_fields_after_read" };
+      }
+
+      const groupRef = firestore
+        .collection(kGameDedupeGroupsCollection)
+        .doc(currentSignature.fingerprint);
+      const groupSnap = await transaction.get(groupRef);
+      const groupData = groupSnap.exists ? groupSnap.data() || {} : {};
+      const existingPrimaryGameId = getTrimmedString(groupData.primary_game_id);
+      const existingPrimaryCreatedMs = Number.isFinite(groupData.primary_created_ms)
+        ? Number(groupData.primary_created_ms)
+        : null;
+
+      const setGroupPrimary = () => {
+        transaction.set(
+          groupRef,
+          {
+            fingerprint: currentSignature.fingerprint,
+            primary_game_id: gameId,
+            primary_created_ms: currentSignature.createdMs,
+            window_ms: kGameDedupeWindowMs,
+            updated_at: admin.firestore.FieldValue.serverTimestamp(),
+            last_seen_game_id: gameId,
+            last_seen_created_ms: currentSignature.createdMs,
+          },
+          { merge: true },
+        );
+      };
+
+      const setCurrentPrimaryReview = (note = "") => {
+        transaction.set(
+          reviewRef,
+          buildGameDedupeReviewPayload({
+            status: "primary",
+            gameId,
+            fingerprint: currentSignature.fingerprint,
+            signaturePayload: currentSignature.payload,
+            createdMs: currentSignature.createdMs,
+            primaryGameId: gameId,
+            reason: "rapid_duplicate_create",
+            autoDeleted: false,
+            deleteAttempted: false,
+            note,
+          }),
+          { merge: true },
+        );
+      };
+
+      if (!existingPrimaryGameId || !Number.isFinite(existingPrimaryCreatedMs)) {
+        setCurrentPrimaryReview("Initialized new dedupe cluster.");
+        setGroupPrimary();
+        return {
+          outcome: "primary_new_cluster",
+          primaryGameId: gameId,
+        };
+      }
+
+      if (existingPrimaryGameId === gameId) {
+        setCurrentPrimaryReview("Recovered missing review for existing primary.");
+        setGroupPrimary();
+        return {
+          outcome: "primary_recovered",
+          primaryGameId: gameId,
+        };
+      }
+
+      const deltaMs = currentSignature.createdMs - existingPrimaryCreatedMs;
+      const withinWindow = Math.abs(deltaMs) <= kGameDedupeWindowMs;
+
+      if (!withinWindow) {
+        if (deltaMs > kGameDedupeWindowMs) {
+          setCurrentPrimaryReview("Started a new cluster outside dedupe window.");
+          setGroupPrimary();
+          return {
+            outcome: "primary_new_cluster",
+            primaryGameId: gameId,
+          };
+        }
+
+        transaction.set(
+          reviewRef,
+          buildGameDedupeReviewPayload({
+            status: "skipped_out_of_window",
+            gameId,
+            fingerprint: currentSignature.fingerprint,
+            signaturePayload: currentSignature.payload,
+            createdMs: currentSignature.createdMs,
+            primaryGameId: gameId,
+            reason: "rapid_duplicate_create",
+            autoDeleted: false,
+            deleteAttempted: false,
+            note: "Older event arrived outside the active dedupe window.",
+          }),
+          { merge: true },
+        );
+        return {
+          outcome: "skipped_out_of_window",
+        };
+      }
+
+      const existingPrimaryRef = firestore.collection("games").doc(existingPrimaryGameId);
+      const existingPrimaryGameSnap = await transaction.get(existingPrimaryRef);
+      if (!existingPrimaryGameSnap.exists) {
+        setCurrentPrimaryReview("Replaced a stale dedupe cluster with current game.");
+        setGroupPrimary();
+        return {
+          outcome: "primary_replaced_stale_cluster",
+          primaryGameId: gameId,
+        };
+      }
+
+      const existingPrimarySignature = buildGameDedupeSignature(
+        existingPrimaryGameSnap.data() || {},
+        existingPrimaryGameSnap,
+      );
+      if (
+        !existingPrimarySignature ||
+        existingPrimarySignature.fingerprint !== currentSignature.fingerprint
+      ) {
+        setCurrentPrimaryReview("Replaced a mismatched dedupe cluster with current game.");
+        setGroupPrimary();
+        return {
+          outcome: "primary_replaced_mismatched_cluster",
+          primaryGameId: gameId,
+        };
+      }
+
+      const primaryComparison = comparePrimaryCandidate(
+        { createdMs: currentSignature.createdMs, gameId },
+        {
+          createdMs: existingPrimaryCreatedMs,
+          gameId: existingPrimaryGameId,
+        },
+      );
+
+      if (primaryComparison < 0) {
+        const previousPrimaryRef = firestore.collection("games").doc(existingPrimaryGameId);
+        const previousPrimaryReviewRef = firestore
+          .collection(kGameDedupeReviewsCollection)
+          .doc(existingPrimaryGameId);
+        const previousPrimaryGameSnap = await transaction.get(previousPrimaryRef);
+
+        let previousDeleted = false;
+        if (previousPrimaryGameSnap.exists) {
+          const previousPrimaryData = previousPrimaryGameSnap.data() || {};
+          const previousPrimarySignature = buildGameDedupeSignature(
+            previousPrimaryData,
+            previousPrimaryGameSnap,
+          );
+          const sameFingerprint =
+            previousPrimarySignature &&
+            previousPrimarySignature.fingerprint === currentSignature.fingerprint;
+          const shouldDeletePrevious =
+            sameFingerprint && shouldAutoDeleteDuplicateGame(previousPrimaryData);
+
+          transaction.set(
+            previousPrimaryReviewRef,
+            buildGameDedupeReviewPayload({
+              status: "duplicate",
+              gameId: existingPrimaryGameId,
+              fingerprint: currentSignature.fingerprint,
+              signaturePayload: previousPrimarySignature
+                ? previousPrimarySignature.payload
+                : currentSignature.payload,
+              createdMs: previousPrimarySignature
+                ? previousPrimarySignature.createdMs
+                : existingPrimaryCreatedMs,
+              primaryGameId: gameId,
+              reason: "rapid_duplicate_create",
+              autoDeleted: shouldDeletePrevious,
+              deleteAttempted: shouldDeletePrevious,
+              note: "Demoted because an older equivalent game was created in the same short window.",
+            }),
+            { merge: true },
+          );
+
+          if (shouldDeletePrevious) {
+            transaction.delete(previousPrimaryRef);
+            previousDeleted = true;
+          }
+        } else {
+          transaction.set(
+            previousPrimaryReviewRef,
+            {
+              status: "duplicate",
+              game_id: existingPrimaryGameId,
+              primary_game_id: gameId,
+              fingerprint: currentSignature.fingerprint,
+              reason: "rapid_duplicate_create",
+              checked_at: admin.firestore.FieldValue.serverTimestamp(),
+              note: "Previous primary was already missing when current older game won.",
+            },
+            { merge: true },
+          );
+        }
+
+        setCurrentPrimaryReview("Promoted to primary inside dedupe window.");
+        setGroupPrimary();
+
+        return {
+          outcome: "primary_promoted",
+          primaryGameId: gameId,
+          deletedDuplicateGameId: previousDeleted ? existingPrimaryGameId : "",
+        };
+      }
+
+      const shouldDeleteCurrent = shouldAutoDeleteDuplicateGame(currentGameData);
+      transaction.set(
+        reviewRef,
+        buildGameDedupeReviewPayload({
+          status: "duplicate",
+          gameId,
+          fingerprint: currentSignature.fingerprint,
+          signaturePayload: currentSignature.payload,
+          createdMs: currentSignature.createdMs,
+          primaryGameId: existingPrimaryGameId,
+          reason: "rapid_duplicate_create",
+          autoDeleted: shouldDeleteCurrent,
+          deleteAttempted: shouldDeleteCurrent,
+          note: "Equivalent game created too quickly after the primary game.",
+        }),
+        { merge: true },
+      );
+      transaction.set(
+        groupRef,
+        {
+          fingerprint: currentSignature.fingerprint,
+          primary_game_id: existingPrimaryGameId,
+          primary_created_ms: existingPrimaryCreatedMs,
+          window_ms: kGameDedupeWindowMs,
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+          last_seen_game_id: gameId,
+          last_seen_created_ms: currentSignature.createdMs,
+        },
+        { merge: true },
+      );
+
+      if (shouldDeleteCurrent) {
+        transaction.delete(snapshot.ref);
+      }
+
+      return {
+        outcome: "duplicate",
+        primaryGameId: existingPrimaryGameId,
+        deletedDuplicateGameId: shouldDeleteCurrent ? gameId : "",
+      };
+    });
+
+    console.log(
+      `[GAME_DEDUPE] game=${gameId} outcome=${result.outcome || "unknown"} primary=${result.primaryGameId || ""} deleted=${result.deletedDuplicateGameId || ""}`,
+    );
+    return null;
   });
 
 exports.notifyFavoriteMerchantNewGame = functions

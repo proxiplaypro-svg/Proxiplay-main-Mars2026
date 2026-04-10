@@ -41,6 +41,7 @@ class AddGameCommercantPageWidget extends StatefulWidget {
 class _AddGameCommercantPageWidgetState
     extends State<AddGameCommercantPageWidget> {
   late AddGameCommercantPageModel _model;
+  bool _isSubmittingGameCreation = false;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -859,6 +860,10 @@ class _AddGameCommercantPageWidgetState
   }
 
   Future<void> _handleCreatePressed() async {
+    if (_isSubmittingGameCreation) {
+      return;
+    }
+
     if (_model.formKey.currentState == null ||
         !_model.formKey.currentState!.validate()) {
       return;
@@ -874,6 +879,7 @@ class _AddGameCommercantPageWidgetState
     if (widget.enseigneRef != null) {
       await showDialog(
         context: context,
+        barrierDismissible: false,
         builder: (dialogContext) {
           return Dialog(
             elevation: 0,
@@ -888,7 +894,7 @@ class _AddGameCommercantPageWidgetState
                   FocusManager.instance.primaryFocus?.unfocus();
                 },
                 child: ValidationCardWidget(
-                  callback: _submitGameCreation,
+                  callback: _submitGameCreationGuarded,
                 ),
               ),
             ),
@@ -916,6 +922,35 @@ class _AddGameCommercantPageWidgetState
     }
 
     safeSetState(() {});
+  }
+
+  Future<void> _submitGameCreationGuarded() async {
+    if (_isSubmittingGameCreation) {
+      return;
+    }
+
+    safeSetState(() => _isSubmittingGameCreation = true);
+
+    try {
+      await _submitGameCreation();
+    } catch (e, st) {
+      debugPrint('Game creation failed: $e');
+      debugPrintStack(stackTrace: st);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'La création du jeu a échoué. Veuillez réessayer.',
+            ),
+          ),
+        );
+      }
+      rethrow;
+    } finally {
+      if (mounted) {
+        safeSetState(() => _isSubmittingGameCreation = false);
+      }
+    }
   }
 
   @override

@@ -21,6 +21,29 @@ class ValidationCardWidget extends StatefulWidget {
 
 class _ValidationCardWidgetState extends State<ValidationCardWidget> {
   late ValidationCardModel _model;
+  bool _isSubmitting = false;
+
+  Future<void> _handleValidatePressed() async {
+    if (_isSubmitting) {
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await widget.callback?.call();
+      if (!context.mounted) {
+        return;
+      }
+      context.safePop();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isSubmitting = false);
+      rethrow;
+    }
+  }
 
   @override
   void setState(VoidCallback callback) {
@@ -43,31 +66,42 @@ class _ValidationCardWidgetState extends State<ValidationCardWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
-      child: Card(
-        clipBehavior: Clip.antiAliasWithSaveLayer,
-        color: FlutterFlowTheme.of(context).secondaryBackground,
-        elevation: 2.0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.0),
+    return PopScope(
+      canPop: !_isSubmitting,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.transparent,
         ),
-        child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.max,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Attention',
-                    textAlign: TextAlign.center,
-                    style: FlutterFlowTheme.of(context).headlineSmall.override(
-                          font: GoogleFonts.interTight(
+        child: Card(
+          clipBehavior: Clip.antiAliasWithSaveLayer,
+          color: FlutterFlowTheme.of(context).secondaryBackground,
+          elevation: 2.0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+          ),
+          child: Padding(
+            padding:
+                const EdgeInsetsDirectional.fromSTEB(16.0, 16.0, 16.0, 16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Attention',
+                      textAlign: TextAlign.center,
+                      style: FlutterFlowTheme.of(context).headlineSmall.override(
+                            font: GoogleFonts.interTight(
+                              fontWeight: FlutterFlowTheme.of(context)
+                                  .headlineSmall
+                                  .fontWeight,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .headlineSmall
+                                  .fontStyle,
+                            ),
+                            letterSpacing: 0.0,
                             fontWeight: FlutterFlowTheme.of(context)
                                 .headlineSmall
                                 .fontWeight,
@@ -75,72 +109,109 @@ class _ValidationCardWidgetState extends State<ValidationCardWidget> {
                                 .headlineSmall
                                 .fontStyle,
                           ),
-                          letterSpacing: 0.0,
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .headlineSmall
-                              .fontWeight,
-                          fontStyle: FlutterFlowTheme.of(context)
-                              .headlineSmall
-                              .fontStyle,
-                        ),
-                  ),
-                ],
-              ),
-              Container(
-                width: double.infinity,
-                height: 1.0,
-                decoration: BoxDecoration(
-                  color: FlutterFlowTheme.of(context).alternate,
+                    ),
+                  ],
                 ),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Le jeu ne pourra pas être modifié ou supprimé. Êtes-vous sûr ?',
-                    textAlign: TextAlign.center,
-                    style: FlutterFlowTheme.of(context).titleMedium.override(
-                          font: GoogleFonts.interTight(
+                Container(
+                  width: double.infinity,
+                  height: 1.0,
+                  decoration: BoxDecoration(
+                    color: FlutterFlowTheme.of(context).alternate,
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Le jeu ne pourra pas être modifié ou supprimé. Êtes-vous sûr ?',
+                      textAlign: TextAlign.center,
+                      style: FlutterFlowTheme.of(context).titleMedium.override(
+                            font: GoogleFonts.interTight(
+                              fontWeight: FontWeight.w600,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .titleMedium
+                                  .fontStyle,
+                            ),
+                            letterSpacing: 0.0,
                             fontWeight: FontWeight.w600,
                             fontStyle: FlutterFlowTheme.of(context)
                                 .titleMedium
                                 .fontStyle,
                           ),
-                          letterSpacing: 0.0,
-                          fontWeight: FontWeight.w600,
-                          fontStyle: FlutterFlowTheme.of(context)
-                              .titleMedium
-                              .fontStyle,
+                    ),
+                    if (_isSubmitting) ...[
+                      SizedBox(
+                        width: 24.0,
+                        height: 24.0,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            FlutterFlowTheme.of(context).primary,
+                          ),
                         ),
-                  ),
-                ].divide(const SizedBox(height: 8.0)),
-              ),
-              Container(
-                width: double.infinity,
-                height: 1.0,
-                decoration: BoxDecoration(
-                  color: FlutterFlowTheme.of(context).alternate,
+                      ),
+                      Text(
+                        'Création en cours...',
+                        textAlign: TextAlign.center,
+                        style: FlutterFlowTheme.of(context).bodyMedium.override(
+                              font: GoogleFonts.inter(
+                                fontWeight: FontWeight.w500,
+                                fontStyle: FlutterFlowTheme.of(context)
+                                    .bodyMedium
+                                    .fontStyle,
+                              ),
+                              color: FlutterFlowTheme.of(context).primaryText,
+                              letterSpacing: 0.0,
+                              fontWeight: FontWeight.w500,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .fontStyle,
+                            ),
+                      ),
+                    ],
+                  ].divide(const SizedBox(height: 8.0)),
                 ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.max,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  FFButtonWidget(
-                    onPressed: () async {
-                      Navigator.pop(context);
-                    },
-                    text: 'Annuler',
-                    options: FFButtonOptions(
-                      width: 100.0,
-                      height: 40.0,
-                      padding: const EdgeInsets.all(8.0),
-                      iconPadding:
-                          const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                      color: FlutterFlowTheme.of(context).secondaryBackground,
-                      textStyle:
-                          FlutterFlowTheme.of(context).bodyMedium.override(
-                                font: GoogleFonts.inter(
+                Container(
+                  width: double.infinity,
+                  height: 1.0,
+                  decoration: BoxDecoration(
+                    color: FlutterFlowTheme.of(context).alternate,
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FFButtonWidget(
+                      onPressed: _isSubmitting
+                          ? null
+                          : () async {
+                              Navigator.pop(context);
+                            },
+                      text: 'Annuler',
+                      options: FFButtonOptions(
+                        width: 120.0,
+                        height: 40.0,
+                        padding: const EdgeInsets.all(8.0),
+                        iconPadding: const EdgeInsetsDirectional.fromSTEB(
+                            0.0, 0.0, 0.0, 0.0),
+                        color: FlutterFlowTheme.of(context).secondaryBackground,
+                        disabledColor:
+                            FlutterFlowTheme.of(context).secondaryBackground,
+                        disabledTextColor:
+                            FlutterFlowTheme.of(context).alternate,
+                        textStyle:
+                            FlutterFlowTheme.of(context).bodyMedium.override(
+                                  font: GoogleFonts.inter(
+                                    fontWeight: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontWeight,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontStyle,
+                                  ),
+                                  color: FlutterFlowTheme.of(context).error,
+                                  letterSpacing: 0.0,
                                   fontWeight: FlutterFlowTheme.of(context)
                                       .bodyMedium
                                       .fontWeight,
@@ -148,42 +219,42 @@ class _ValidationCardWidgetState extends State<ValidationCardWidget> {
                                       .bodyMedium
                                       .fontStyle,
                                 ),
-                                color: FlutterFlowTheme.of(context).error,
-                                letterSpacing: 0.0,
-                                fontWeight: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .fontWeight,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .fontStyle,
-                              ),
-                      elevation: 0.0,
-                      borderSide: BorderSide(
-                        color: FlutterFlowTheme.of(context).error,
-                        width: 1.0,
+                        elevation: 0.0,
+                        borderSide: BorderSide(
+                          color: _isSubmitting
+                              ? FlutterFlowTheme.of(context).alternate
+                              : FlutterFlowTheme.of(context).error,
+                          width: 1.0,
+                        ),
+                        borderRadius: BorderRadius.circular(20.0),
                       ),
-                      borderRadius: BorderRadius.circular(20.0),
                     ),
-                  ),
-                  FFButtonWidget(
-                    onPressed: () async {
-                      await widget.callback?.call();
-                      if (!context.mounted) {
-                        return;
-                      }
-                      context.safePop();
-                    },
-                    text: 'Valider',
-                    options: FFButtonOptions(
-                      width: 100.0,
-                      height: 40.0,
-                      padding: const EdgeInsets.all(8.0),
-                      iconPadding:
-                          const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                      color: FlutterFlowTheme.of(context).primary,
-                      textStyle:
-                          FlutterFlowTheme.of(context).bodyMedium.override(
-                                font: GoogleFonts.inter(
+                    FFButtonWidget(
+                      onPressed: _isSubmitting ? null : _handleValidatePressed,
+                      text: _isSubmitting ? 'Création...' : 'Valider',
+                      options: FFButtonOptions(
+                        width: 140.0,
+                        height: 40.0,
+                        padding: const EdgeInsets.all(8.0),
+                        iconPadding: const EdgeInsetsDirectional.fromSTEB(
+                            0.0, 0.0, 0.0, 0.0),
+                        color: FlutterFlowTheme.of(context).primary,
+                        disabledColor:
+                            FlutterFlowTheme.of(context).alternate,
+                        disabledTextColor:
+                            FlutterFlowTheme.of(context).secondaryBackground,
+                        textStyle:
+                            FlutterFlowTheme.of(context).bodyMedium.override(
+                                  font: GoogleFonts.inter(
+                                    fontWeight: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontWeight,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontStyle,
+                                  ),
+                                  color: FlutterFlowTheme.of(context).info,
+                                  letterSpacing: 0.0,
                                   fontWeight: FlutterFlowTheme.of(context)
                                       .bodyMedium
                                       .fontWeight,
@@ -191,26 +262,18 @@ class _ValidationCardWidgetState extends State<ValidationCardWidget> {
                                       .bodyMedium
                                       .fontStyle,
                                 ),
-                                color: FlutterFlowTheme.of(context).info,
-                                letterSpacing: 0.0,
-                                fontWeight: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .fontWeight,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .fontStyle,
-                              ),
-                      elevation: 0.0,
-                      borderSide: const BorderSide(
-                        color: Colors.transparent,
-                        width: 1.0,
+                        elevation: 0.0,
+                        borderSide: const BorderSide(
+                          color: Colors.transparent,
+                          width: 1.0,
+                        ),
+                        borderRadius: BorderRadius.circular(20.0),
                       ),
-                      borderRadius: BorderRadius.circular(20.0),
                     ),
-                  ),
-                ].divide(const SizedBox(width: 12.0)),
-              ),
-            ].divide(const SizedBox(height: 16.0)),
+                  ].divide(const SizedBox(width: 12.0)),
+                ),
+              ].divide(const SizedBox(height: 16.0)),
+            ),
           ),
         ),
       ),
