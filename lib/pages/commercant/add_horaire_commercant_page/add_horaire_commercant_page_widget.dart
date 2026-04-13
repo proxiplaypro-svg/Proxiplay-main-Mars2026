@@ -53,6 +53,7 @@ class _AddHoraireCommercantPageWidgetState
   late AddHoraireCommercantPageModel _model;
   late List<_LocalDaySchedule> _draftSchedules;
   bool _didInitFromRecords = false;
+  bool _isSaving = false;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -168,10 +169,25 @@ class _AddHoraireCommercantPageWidgetState
 
   int _toMinutes(TimeOfDay value) => value.hour * 60 + value.minute;
 
+  DateTime _dateTimeFromTimeOfDay(TimeOfDay value) {
+    final now = getCurrentTimestamp;
+    return DateTime(
+      now.year,
+      now.month,
+      now.day,
+      value.hour,
+      value.minute,
+    );
+  }
+
   String? _validateDraft() {
     for (final schedule in _draftSchedules) {
       if (schedule.isClosed) {
         continue;
+      }
+
+      if (schedule.ranges.length > 2) {
+        return 'Chaque jour accepte au maximum deux plages.';
       }
 
       final sortedRanges = [...schedule.ranges]
@@ -191,6 +207,94 @@ class _AddHoraireCommercantPageWidgetState
       }
     }
     return null;
+  }
+
+  Future<void> _saveSchedules() async {
+    if (_isSaving || widget.enseigneRef == null) {
+      return;
+    }
+
+    final error = _validateDraft();
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error)),
+      );
+      return;
+    }
+
+    safeSetState(() => _isSaving = true);
+
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (var index = 0; index < _draftSchedules.length; index++) {
+        final schedule = _draftSchedules[index];
+        final docRef = HorairesRecord.createDoc(
+          widget.enseigneRef!,
+          id: schedule.day.name,
+        );
+
+        Map<String, dynamic> payload;
+        if (schedule.isClosed) {
+          payload = createHorairesRecordData(
+            isOpen: false,
+            isFullDay: false,
+            day: schedule.day,
+            order: index,
+          );
+        } else {
+          final sortedRanges = [...schedule.ranges]
+            ..sort((a, b) => _toMinutes(a.start).compareTo(_toMinutes(b.start)));
+          final firstRange = sortedRanges.first;
+          final secondRange =
+              sortedRanges.length > 1 ? sortedRanges[1] : null;
+
+          payload = createHorairesRecordData(
+            day: schedule.day,
+            order: index,
+            isOpen: true,
+            isFullDay: secondRange != null,
+            openingDay:
+                secondRange == null ? _dateTimeFromTimeOfDay(firstRange.start) : null,
+            closingDay:
+                secondRange == null ? _dateTimeFromTimeOfDay(firstRange.end) : null,
+            openingMorning:
+                secondRange != null ? _dateTimeFromTimeOfDay(firstRange.start) : null,
+            closingMorning:
+                secondRange != null ? _dateTimeFromTimeOfDay(firstRange.end) : null,
+            openingAfternoon:
+                secondRange != null ? _dateTimeFromTimeOfDay(secondRange.start) : null,
+            closingAfternoon:
+                secondRange != null ? _dateTimeFromTimeOfDay(secondRange.end) : null,
+          );
+        }
+
+        batch.set(docRef, {
+          ...payload,
+          ...mapToFirestore(
+            {
+              'created_time': FieldValue.serverTimestamp(),
+            },
+          ),
+        });
+      }
+
+      await batch.commit();
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Horaires enregistrés.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        safeSetState(() => _isSaving = false);
+      }
+    }
   }
 
   Future<void> _pickTime({
@@ -400,6 +504,16 @@ class _AddHoraireCommercantPageWidgetState
                 alignment: Alignment.centerLeft,
                 child: FFButtonWidget(
                   onPressed: () async {
+                    if (schedule.ranges.length >= 2) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Deux plages maximum par jour.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
                     safeSetState(() {
                       schedule.ranges.add(
                         _LocalTimeRange(
@@ -593,22 +707,10 @@ class _AddHoraireCommercantPageWidgetState
                             children: <Widget>[
                               Expanded(
                                 child: FFButtonWidget(
-                                  onPressed: () async {
-                                    final error = _validateDraft();
-                                    if (error != null) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text(error)),
-                                      );
-                                      return;
-                                    }
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                            'Modifications valides en local.'),
-                                      ),
-                                    );
-                                  },
-                                  text: 'Enregistrer',
+                                  onPressed: _isSaving ? null : _saveSchedules,
+                                  text: _isSaving
+                                      ? 'Enregistrement...'
+                                      : 'Enregistrer',
                                   options: FFButtonOptions(
                                     width: double.infinity,
                                     height: 40.0,
@@ -620,6 +722,9 @@ class _AddHoraireCommercantPageWidgetState
                                             0.0, 0.0, 0.0, 0.0),
                                     color:
                                         FlutterFlowTheme.of(context).primary,
+                                    disabledColor:
+                                        FlutterFlowTheme.of(context).alternate,
+                                    disabledTextColor: Colors.white,
                                     textStyle: FlutterFlowTheme.of(context)
                                         .titleSmall
                                         .override(
@@ -651,9 +756,11 @@ class _AddHoraireCommercantPageWidgetState
                               ),
                               Expanded(
                                 child: FFButtonWidget(
-                                  onPressed: () async {
-                                    context.safePop();
-                                  },
+                                  onPressed: _isSaving
+                                      ? null
+                                      : () async {
+                                          context.safePop();
+                                        },
                                   text: 'Fermer',
                                   options: FFButtonOptions(
                                     width: double.infinity,
@@ -666,6 +773,10 @@ class _AddHoraireCommercantPageWidgetState
                                             0.0, 0.0, 0.0, 0.0),
                                     color: FlutterFlowTheme.of(context)
                                         .primaryBackground,
+                                    disabledColor: FlutterFlowTheme.of(context)
+                                        .primaryBackground,
+                                    disabledTextColor: FlutterFlowTheme.of(context)
+                                        .secondaryText,
                                     textStyle: FlutterFlowTheme.of(context)
                                         .titleSmall
                                         .override(
