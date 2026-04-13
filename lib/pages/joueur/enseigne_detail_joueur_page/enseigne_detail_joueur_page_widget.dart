@@ -1,5 +1,6 @@
-﻿import '/auth/firebase_auth/auth_util.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/backend/schema/enums/enums.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_expanded_image_view.dart';
@@ -42,6 +43,14 @@ class _EnseigneDetailJoueurPageWidgetState
   Future<List<GamesRecord>>? _ongoingGamesFuture;
   String? _ongoingGamesFutureKey;
 
+  int _daySortIndex(HorairesRecord record) {
+    final day = record.day;
+    if (day != null) {
+      return DayOfTheWeek.values.indexOf(day);
+    }
+    return record.order;
+  }
+
   bool _isGameVisibleForPlayer(GamesRecord game) {
     final now = getCurrentTimestamp;
     final endDate = game.endDate;
@@ -59,7 +68,7 @@ class _EnseigneDetailJoueurPageWidgetState
     final hasSecondaryPrizes = game.secondaryPrizes.isNotEmpty ||
         game.secondaryPrizeDescription.trim().isNotEmpty;
     if (game.prizeValue == 0 && hasSecondaryPrizes) {
-      return 'Gains immédiats';
+      return 'Gains immediats';
     }
     return game.prizeValue.toString();
   }
@@ -134,78 +143,70 @@ class _EnseigneDetailJoueurPageWidgetState
   }
 
   Future<void> _addMerchantToFavorites(DocumentReference enseigneRef) async {
-    if (currentUserReference == null) return;
-    final favoriteRef =
-        FavoriteEnseignesRecord.createDoc(currentUserReference!, id: enseigneRef.id);
-
-    await FirebaseFirestore.instance.runTransaction((transaction) async {
-      final favoriteSnap = await transaction.get(favoriteRef);
-      if (favoriteSnap.exists) {
-        return;
-      }
-
-      final enseigneSnap = await transaction.get(enseigneRef);
-      final currentCount =
-          _readFavoriteCounter(enseigneSnap.data() as Map<String, dynamic>? ?? {});
-      final nextCount = currentCount + 1;
-
-      transaction.set(favoriteRef, {
-        ...createFavoriteEnseignesRecordData(
-          enseigneId: enseigneRef,
-        ),
-        ...mapToFirestore(
-          {
-            'added_at': FieldValue.serverTimestamp(),
-          },
-        ),
-      });
-
-      transaction.set(
-        enseigneRef,
-        {
-          'favoritesCount': nextCount,
-          'favorites': nextCount,
-          'favorisCount': nextCount,
-          'favoris': nextCount,
-          'stats_favorites': nextCount,
-          'stats_favoris': nextCount,
-        },
-        SetOptions(merge: true),
+    if (currentUserReference == null) {
+      debugPrint(
+        '[MERCHANT_PAGE_DEBUG] favorite_write_skipped_missing_user enseigneId=${enseigneRef.id}',
       );
-    });
+      return;
+    }
+    final favoriteRef = FavoriteEnseignesRecord.createDoc(
+      currentUserReference!,
+      id: enseigneRef.id,
+    );
+
+    debugPrint(
+        '[MERCHANT_PAGE_DEBUG] favorite_write_start enseigneId=${enseigneRef.id}');
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final favoriteSnap = await transaction.get(favoriteRef);
+        if (favoriteSnap.exists) {
+          return;
+        }
+
+        transaction.set(favoriteRef, {
+          ...createFavoriteEnseignesRecordData(
+            enseigneId: enseigneRef,
+          ),
+          ...mapToFirestore(
+            {
+              'added_at': FieldValue.serverTimestamp(),
+            },
+          ),
+        });
+      });
+      debugPrint(
+          '[MERCHANT_PAGE_DEBUG] favorite_write_success enseigneId=${enseigneRef.id}');
+    } catch (error) {
+      debugPrint(
+        '[MERCHANT_PAGE_DEBUG] favorite_write_error enseigneId=${enseigneRef.id} error=$error',
+      );
+      rethrow;
+    }
   }
 
   Future<void> _removeMerchantFromFavorites(
     FavoriteEnseignesRecord favoriteRecord,
   ) async {
-    final enseigneRef = favoriteRecord.enseigneId;
-    await FirebaseFirestore.instance.runTransaction((transaction) async {
-      final favoriteSnap = await transaction.get(favoriteRecord.reference);
-      if (!favoriteSnap.exists) {
-        return;
-      }
+    final enseigneId = favoriteRecord.enseigneId?.id ?? 'unknown';
+    debugPrint(
+        '[MERCHANT_PAGE_DEBUG] favorite_write_start enseigneId=$enseigneId');
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final favoriteSnap = await transaction.get(favoriteRecord.reference);
+        if (!favoriteSnap.exists) {
+          return;
+        }
 
-      if (enseigneRef != null) {
-        final enseigneSnap = await transaction.get(enseigneRef);
-        final currentCount =
-            _readFavoriteCounter(enseigneSnap.data() as Map<String, dynamic>? ?? {});
-        final nextCount = (currentCount - 1).clamp(0, 1 << 30);
-        transaction.set(
-          enseigneRef,
-          {
-            'favoritesCount': nextCount,
-            'favorites': nextCount,
-            'favorisCount': nextCount,
-            'favoris': nextCount,
-            'stats_favorites': nextCount,
-            'stats_favoris': nextCount,
-          },
-          SetOptions(merge: true),
-        );
-      }
-
-      transaction.delete(favoriteRecord.reference);
-    });
+        transaction.delete(favoriteRecord.reference);
+      });
+      debugPrint(
+          '[MERCHANT_PAGE_DEBUG] favorite_write_success enseigneId=$enseigneId');
+    } catch (error) {
+      debugPrint(
+        '[MERCHANT_PAGE_DEBUG] favorite_write_error enseigneId=$enseigneId error=$error',
+      );
+      rethrow;
+    }
   }
 
   bool _looksLikeUrl(String s) {
@@ -276,8 +277,8 @@ class _EnseigneDetailJoueurPageWidgetState
     final candidate = s.replaceAll('@', '').trim();
     if (candidate.isEmpty) return null;
     if (_hasWhitespace(candidate)) {
-      return Uri.https('www.instagram.com', '/explore/search/keyword/',
-              {'q': candidate})
+      return Uri.https(
+              'www.instagram.com', '/explore/search/keyword/', {'q': candidate})
           .toString();
     }
     final username = candidate.split('/').first.trim();
@@ -301,8 +302,8 @@ class _EnseigneDetailJoueurPageWidgetState
     final candidate = s.replaceAll('@', '').trim();
     if (candidate.isEmpty) return null;
     if (_hasWhitespace(candidate)) {
-      return Uri.https('x.com', '/search',
-              {'q': candidate, 'src': 'typed_query'})
+      return Uri.https(
+              'x.com', '/search', {'q': candidate, 'src': 'typed_query'})
           .toString();
     }
     final username = candidate.split('/').first.trim();
@@ -321,7 +322,8 @@ class _EnseigneDetailJoueurPageWidgetState
       if (_model.imagesScrollController!.hasClients) {
         final scrollPosition = _model.imagesScrollController!.offset;
         final screenWidth = MediaQuery.of(context).size.width;
-        final imageWidth = (screenWidth - 40.0 - 32.0) + 10.0; // (screen width - outer padding - card padding) + spacing
+        final imageWidth = (screenWidth - 40.0 - 32.0) +
+            10.0; // (screen width - outer padding - card padding) + spacing
         final currentIndex = (scrollPosition / imageWidth).round();
         final clampedIndex = currentIndex.clamp(0, 1000);
         if (clampedIndex != _model.currentImageIndex) {
@@ -365,15 +367,16 @@ class _EnseigneDetailJoueurPageWidgetState
               actions: const [],
               flexibleSpace: FlexibleSpaceBar(
                 title: Padding(
-                  padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
+                  padding:
+                      const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
                   child: Column(
                     mainAxisSize: MainAxisSize.max,
                     mainAxisAlignment: MainAxisAlignment.end,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding:
-                            const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 12.0, 8.0),
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                            0.0, 0.0, 12.0, 8.0),
                         child: Row(
                           mainAxisSize: MainAxisSize.max,
                           children: [
@@ -401,8 +404,8 @@ class _EnseigneDetailJoueurPageWidgetState
                                   buttonSize: 44.0,
                                   icon: Icon(
                                     Icons.chevron_left_rounded,
-                                    color:
-                                        FlutterFlowTheme.of(context).primaryText,
+                                    color: FlutterFlowTheme.of(context)
+                                        .primaryText,
                                     size: 28.0,
                                   ),
                                   onPressed: () async {
@@ -442,7 +445,8 @@ class _EnseigneDetailJoueurPageWidgetState
                                           child: SizedBox(
                                             width: 50.0,
                                             height: 50.0,
-                                            child: ProxiplayLoadingLogo(size: 42.0),
+                                            child: ProxiplayLoadingLogo(
+                                                size: 42.0),
                                           ),
                                         );
                                       }
@@ -469,13 +473,15 @@ class _EnseigneDetailJoueurPageWidgetState
                                                 size: 24.0,
                                               ),
                                               onPressed: () async {
-                                                final enseigneRef =
-                                                    widget.enseigneDoc?.reference;
+                                                final enseigneRef = widget
+                                                    .enseigneDoc?.reference;
+                                                debugPrint(
+                                                  '[MERCHANT_PAGE_DEBUG] favorite_tap enseigneId=${enseigneRef?.id ?? "unknown"}',
+                                                );
                                                 if (enseigneRef == null) {
                                                   return;
                                                 }
-                                                await _addMerchantToFavorites(
-                                                    enseigneRef);
+                                                await _addMerchantToFavorites(enseigneRef);
                                                 safeSetState(() => _model
                                                         .firestoreRequestCompleter =
                                                     null);
@@ -493,6 +499,9 @@ class _EnseigneDetailJoueurPageWidgetState
                                                 size: 24.0,
                                               ),
                                               onPressed: () async {
+                                                debugPrint(
+                                                  '[MERCHANT_PAGE_DEBUG] favorite_tap enseigneId=${conditionalBuilderFavoriteEnseignesRecord.enseigneId?.id ?? "unknown"}',
+                                                );
                                                 await _removeMerchantFromFavorites(
                                                   conditionalBuilderFavoriteEnseignesRecord,
                                                 );
@@ -534,23 +543,23 @@ class _EnseigneDetailJoueurPageWidgetState
             top: true,
             child: Container(
               decoration: const BoxDecoration(
-                // gradient: LinearGradient(
-                //   begin: Alignment.topCenter,
-                //   end: Alignment.bottomCenter,
-                //   colors: [
-                //     Color(0xFFF4F7FF),
-                //     Color(0xFFEFF2FB),
+                  // gradient: LinearGradient(
+                  //   begin: Alignment.topCenter,
+                  //   end: Alignment.bottomCenter,
+                  //   colors: [
+                  //     Color(0xFFF4F7FF),
+                  //     Color(0xFFEFF2FB),
                   // ],
-                // ),
-              ),
+                  // ),
+                  ),
               child: Column(
                 mainAxisSize: MainAxisSize.max,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
                     child: Padding(
-                      padding:
-                          const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                          20.0, 0.0, 20.0, 0.0),
                       child: SingleChildScrollView(
                         primary: false,
                         child: Column(
@@ -600,9 +609,8 @@ class _EnseigneDetailJoueurPageWidgetState
                                     if (!functions.checkValueIsEmpty(
                                         widget.enseigneDoc!.city))
                                       Padding(
-                                        padding:
-                                            const EdgeInsetsDirectional.fromSTEB(
-                                                0.0, 6.0, 0.0, 0.0),
+                                        padding: const EdgeInsetsDirectional
+                                            .fromSTEB(0.0, 6.0, 0.0, 0.0),
                                         child: Text(
                                           widget.enseigneDoc!.city,
                                           style: FlutterFlowTheme.of(context)
@@ -661,7 +669,8 @@ class _EnseigneDetailJoueurPageWidgetState
                                             child: SizedBox(
                                               width: 50.0,
                                               height: 50.0,
-                                              child: ProxiplayLoadingLogo(size: 42.0),
+                                              child: ProxiplayLoadingLogo(
+                                                  size: 42.0),
                                             ),
                                           );
                                         }
@@ -670,9 +679,8 @@ class _EnseigneDetailJoueurPageWidgetState
 
                                         final descriptionText =
                                             widget.enseigneDoc!.description;
-                                        final hasDescription =
-                                            !functions.checkValueIsEmpty(
-                                                descriptionText);
+                                        final hasDescription = !functions
+                                            .checkValueIsEmpty(descriptionText);
                                         final hasImages =
                                             rowImagesRecordList.isNotEmpty;
 
@@ -697,7 +705,8 @@ class _EnseigneDetailJoueurPageWidgetState
                                                       color: Colors.black
                                                           .withOpacity(0.10),
                                                       blurRadius: 16.0,
-                                                      offset: const Offset(0, 4),
+                                                      offset:
+                                                          const Offset(0, 4),
                                                     ),
                                                   ],
                                                 ),
@@ -714,9 +723,8 @@ class _EnseigneDetailJoueurPageWidgetState
                                                     await Navigator.push(
                                                       context,
                                                       PageTransition(
-                                                        type:
-                                                            PageTransitionType
-                                                                .fade,
+                                                        type: PageTransitionType
+                                                            .fade,
                                                         child:
                                                             FlutterFlowExpandedImageView(
                                                           image:
@@ -761,9 +769,9 @@ class _EnseigneDetailJoueurPageWidgetState
                                                 style: GoogleFonts.inter(
                                                   fontSize: 16.0,
                                                   height: 1.6,
-                                                  fontWeight:
-                                                      FontWeight.w400,
-                                                  color: const Color(0xFF2D3250),
+                                                  fontWeight: FontWeight.w400,
+                                                  color:
+                                                      const Color(0xFF2D3250),
                                                   letterSpacing: 0.2,
                                                 ),
                                               ),
@@ -771,10 +779,12 @@ class _EnseigneDetailJoueurPageWidgetState
                                           );
                                         }
 
-                                        final screenWidth = MediaQuery.of(context).size.width;
+                                        final screenWidth =
+                                            MediaQuery.of(context).size.width;
                                         // Account for outer padding (20px each side) and card padding (16px each side)
-                                        final imageWidth = screenWidth - 40.0 - 32.0;
-                                        
+                                        final imageWidth =
+                                            screenWidth - 40.0 - 32.0;
+
                                         return Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
@@ -784,17 +794,17 @@ class _EnseigneDetailJoueurPageWidgetState
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   SingleChildScrollView(
-                                                    controller: _model.imagesScrollController,
+                                                    controller: _model
+                                                        .imagesScrollController,
                                                     scrollDirection:
                                                         Axis.horizontal,
                                                     child: Row(
                                                       mainAxisSize:
                                                           MainAxisSize.max,
-                                                      children:
-                                                          List.generate(
-                                                              rowImagesRecordList
-                                                                  .length,
-                                                              (rowIndex) {
+                                                      children: List.generate(
+                                                          rowImagesRecordList
+                                                              .length,
+                                                          (rowIndex) {
                                                         final rowImagesRecord =
                                                             rowImagesRecordList[
                                                                 rowIndex];
@@ -814,9 +824,11 @@ class _EnseigneDetailJoueurPageWidgetState
                                                                     .black
                                                                     .withOpacity(
                                                                         0.10),
-                                                                blurRadius: 16.0,
+                                                                blurRadius:
+                                                                    16.0,
                                                                 offset:
-                                                                    const Offset(0, 4),
+                                                                    const Offset(
+                                                                        0, 4),
                                                               ),
                                                             ],
                                                           ),
@@ -849,9 +861,8 @@ class _EnseigneDetailJoueurPageWidgetState
                                                                     ),
                                                                     allowRotation:
                                                                         false,
-                                                                    tag:
-                                                                        rowImagesRecord
-                                                                            .url,
+                                                                    tag: rowImagesRecord
+                                                                        .url,
                                                                     useHeroAnimation:
                                                                         true,
                                                                   ),
@@ -885,28 +896,58 @@ class _EnseigneDetailJoueurPageWidgetState
                                                           ),
                                                         );
                                                       }).divide(const SizedBox(
-                                                              width: 10.0)),
+                                                          width: 10.0)),
                                                     ),
                                                   ),
-                                                  if (rowImagesRecordList.length > 1)
+                                                  if (rowImagesRecordList
+                                                          .length >
+                                                      1)
                                                     Padding(
-                                                      padding: const EdgeInsetsDirectional.fromSTEB(0.0, 12.0, 0.0, 0.0),
+                                                      padding:
+                                                          const EdgeInsetsDirectional
+                                                              .fromSTEB(0.0,
+                                                              12.0, 0.0, 0.0),
                                                       child: Row(
-                                                        mainAxisAlignment: MainAxisAlignment.center,
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
                                                         children: List.generate(
-                                                          rowImagesRecordList.length,
+                                                          rowImagesRecordList
+                                                              .length,
                                                           (index) {
-                                                            final currentIndex = _model.currentImageIndex.clamp(0, rowImagesRecordList.length - 1);
-                                                            final isActive = index == currentIndex;
+                                                            final currentIndex = _model
+                                                                .currentImageIndex
+                                                                .clamp(
+                                                                    0,
+                                                                    rowImagesRecordList
+                                                                            .length -
+                                                                        1);
+                                                            final isActive =
+                                                                index ==
+                                                                    currentIndex;
                                                             return Container(
-                                                              width: isActive ? 8.0 : 6.0,
-                                                              height: isActive ? 8.0 : 6.0,
-                                                              margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                                                              decoration: BoxDecoration(
-                                                                color: isActive 
-                                                                    ? const Color(0xFF6B70A7)
-                                                                    : const Color(0xFF6B70A7).withOpacity(0.3),
-                                                                shape: BoxShape.circle,
+                                                              width: isActive
+                                                                  ? 8.0
+                                                                  : 6.0,
+                                                              height: isActive
+                                                                  ? 8.0
+                                                                  : 6.0,
+                                                              margin:
+                                                                  const EdgeInsets
+                                                                      .symmetric(
+                                                                      horizontal:
+                                                                          4.0),
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                color: isActive
+                                                                    ? const Color(
+                                                                        0xFF6B70A7)
+                                                                    : const Color(
+                                                                            0xFF6B70A7)
+                                                                        .withOpacity(
+                                                                            0.3),
+                                                                shape: BoxShape
+                                                                    .circle,
                                                               ),
                                                             );
                                                           },
@@ -917,14 +958,20 @@ class _EnseigneDetailJoueurPageWidgetState
                                               ),
                                             if (hasDescription)
                                               Padding(
-                                                padding: EdgeInsetsDirectional.fromSTEB(0.0, hasImages ? 16.0 : 0.0, 0.0, 0.0),
+                                                padding: EdgeInsetsDirectional
+                                                    .fromSTEB(
+                                                        0.0,
+                                                        hasImages ? 16.0 : 0.0,
+                                                        0.0,
+                                                        0.0),
                                                 child: Text(
                                                   descriptionText,
                                                   style: GoogleFonts.inter(
                                                     fontSize: 16.0,
                                                     height: 1.6,
                                                     fontWeight: FontWeight.w400,
-                                                    color: const Color(0xFF2D3250),
+                                                    color:
+                                                        const Color(0xFF2D3250),
                                                     letterSpacing: 0.2,
                                                   ),
                                                 ),
@@ -974,9 +1021,10 @@ class _EnseigneDetailJoueurPageWidgetState
                                             width: 36.0,
                                             height: 36.0,
                                             decoration: BoxDecoration(
-                                              color: FlutterFlowTheme.of(context)
-                                                  .primary
-                                                  .withOpacity(0.12),
+                                              color:
+                                                  FlutterFlowTheme.of(context)
+                                                      .primary
+                                                      .withOpacity(0.12),
                                               borderRadius:
                                                   BorderRadius.circular(10.0),
                                             ),
@@ -991,35 +1039,46 @@ class _EnseigneDetailJoueurPageWidgetState
                                           const SizedBox(width: 12.0),
 
                                           Expanded(
-  child: InkWell(
-    onTap: () async {
-      final city = widget.enseigneDoc?.city.trim();
-      final address = widget.enseigneDoc?.address.trim();
+                                            child: InkWell(
+                                              onTap: () async {
+                                                final city = widget
+                                                    .enseigneDoc?.city
+                                                    .trim();
+                                                final address = widget
+                                                    .enseigneDoc?.address
+                                                    .trim();
 
-      if (city == null || address == null) return;
-      if (city.isEmpty || address.isEmpty) return;
+                                                if (city == null ||
+                                                    address == null) return;
+                                                if (city.isEmpty ||
+                                                    address.isEmpty) return;
 
-      final fullAddress = '$address, $city';
+                                                final fullAddress =
+                                                    '$address, $city';
 
-      // Encode for URL safety
-      final encodedAddress = Uri.encodeComponent(fullAddress);
+                                                // Encode for URL safety
+                                                final encodedAddress =
+                                                    Uri.encodeComponent(
+                                                        fullAddress);
 
-      final mapUrl = "https://www.google.com/maps/search/?api=1&query=$encodedAddress";
+                                                final mapUrl =
+                                                    "https://www.google.com/maps/search/?api=1&query=$encodedAddress";
 
-      await launchURL(mapUrl);
-    },
-    child: Text(
-      '${widget.enseigneDoc?.city} \u00B7 ${widget.enseigneDoc?.address}',
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      style: GoogleFonts.inter(
-        fontSize: 15.0,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xFF3B3F74),
-      ),
-    ),
-  ),
-),
+                                                await launchURL(mapUrl);
+                                              },
+                                              child: Text(
+                                                '${widget.enseigneDoc?.city} \u00B7 ${widget.enseigneDoc?.address}',
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 15.0,
+                                                  fontWeight: FontWeight.w600,
+                                                  color:
+                                                      const Color(0xFF3B3F74),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
 
                                           // Expanded(
                                           //   child: Text(
@@ -1063,19 +1122,18 @@ class _EnseigneDetailJoueurPageWidgetState
                                               width: 36.0,
                                               height: 36.0,
                                               decoration: BoxDecoration(
-                                                color: FlutterFlowTheme.of(
-                                                        context)
-                                                    .primary
-                                                    .withOpacity(0.12),
+                                                color:
+                                                    FlutterFlowTheme.of(context)
+                                                        .primary
+                                                        .withOpacity(0.12),
                                                 borderRadius:
-                                                    BorderRadius.circular(
-                                                        10.0),
+                                                    BorderRadius.circular(10.0),
                                               ),
                                               child: Icon(
                                                 Icons.phone_rounded,
-                                                color: FlutterFlowTheme.of(
-                                                        context)
-                                                    .primary,
+                                                color:
+                                                    FlutterFlowTheme.of(context)
+                                                        .primary,
                                                 size: 20.0,
                                               ),
                                             ),
@@ -1086,7 +1144,8 @@ class _EnseigneDetailJoueurPageWidgetState
                                                 style: GoogleFonts.inter(
                                                   fontSize: 15.0,
                                                   fontWeight: FontWeight.w700,
-                                                  color: const Color(0xFF3B3F74),
+                                                  color:
+                                                      const Color(0xFF3B3F74),
                                                 ),
                                               ),
                                             ),
@@ -1129,288 +1188,296 @@ class _EnseigneDetailJoueurPageWidgetState
                                   ],
                                 ),
                                 child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: 
-                                  
-                                     Column(
-                                      mainAxisSize: MainAxisSize.max,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        
-                                    
-                                  Wrap(
-                                    spacing: 8.0,
-                                    runSpacing: 8.0,
-                                    alignment: WrapAlignment.center,
-                                    runAlignment: WrapAlignment.center,
-                                    children: [
-                                      
-                                      if (!functions.checkValueIsEmpty(
-                                          widget.enseigneDoc!.siteWebUrl))
-                                        InkWell(
-                                          splashColor: Colors.transparent,
-                                          focusColor: Colors.transparent,
-                                          hoverColor: Colors.transparent,
-                                          highlightColor: Colors.transparent,
-                                          onTap: () async {
-                                            final link = _normalizeWebsiteUrl(
-                                                widget.enseigneDoc?.siteWebUrl);
-                                            if (link == null) return;
-                                            await launchURL(link);
-                                          },
-                                          child: Container(
-                                            width: 48.0,
-                                            height: 48.0,
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius:
-                                                  BorderRadius.circular(24.0),
-                                              border: Border.all(
-                                                color: Colors.black87,
-                                                width: 1.4,
-                                              ),
-                                            ),
-                                            alignment: Alignment.center,
-                                            child: const Icon(
-                                              Icons.language_rounded,
-                                              color: Colors.black87,
-                                              size: 24.0,
-                                            ),
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                        mainAxisSize: MainAxisSize.max,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Wrap(
+                                            spacing: 8.0,
+                                            runSpacing: 8.0,
+                                            alignment: WrapAlignment.center,
+                                            runAlignment: WrapAlignment.center,
+                                            children: [
+                                              if (!functions.checkValueIsEmpty(
+                                                  widget
+                                                      .enseigneDoc!.siteWebUrl))
+                                                InkWell(
+                                                  splashColor:
+                                                      Colors.transparent,
+                                                  focusColor:
+                                                      Colors.transparent,
+                                                  hoverColor:
+                                                      Colors.transparent,
+                                                  highlightColor:
+                                                      Colors.transparent,
+                                                  onTap: () async {
+                                                    final link =
+                                                        _normalizeWebsiteUrl(
+                                                            widget.enseigneDoc
+                                                                ?.siteWebUrl);
+                                                    if (link == null) return;
+                                                    await launchURL(link);
+                                                  },
+                                                  child: Container(
+                                                    width: 48.0,
+                                                    height: 48.0,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              24.0),
+                                                      border: Border.all(
+                                                        color: Colors.black87,
+                                                        width: 1.4,
+                                                      ),
+                                                    ),
+                                                    alignment: Alignment.center,
+                                                    child: const Icon(
+                                                      Icons.language_rounded,
+                                                      color: Colors.black87,
+                                                      size: 24.0,
+                                                    ),
+                                                  ),
+                                                  // child: Container(
+                                                  //   width: double.infinity,
+                                                  //   padding: EdgeInsets.all(14.0),
+                                                  //   decoration: BoxDecoration(
+                                                  //     color: Color(0xFFF7FAFF),
+                                                  //     borderRadius:
+                                                  //         BorderRadius.circular(14.0),
+                                                  //     border: Border.all(
+                                                  //       color: Color(0xFFE3E8F7),
+                                                  //       width: 1.0,
+                                                  //     ),
+                                                  //   ),
+                                                  //   child: Row(
+                                                  //     children: [
+                                                  //       Container(
+                                                  //         width: 36.0,
+                                                  //         height: 36.0,
+                                                  //         decoration: BoxDecoration(
+                                                  //           color: FlutterFlowTheme.of(
+                                                  //                   context)
+                                                  //               .primary
+                                                  //               .withOpacity(0.12),
+                                                  //           borderRadius:
+                                                  //               BorderRadius.circular(
+                                                  //                   10.0),
+                                                  //         ),
+                                                  //         child: Icon(
+                                                  //           Icons.language_rounded,
+                                                  //           color: FlutterFlowTheme.of(
+                                                  //                   context)
+                                                  //               .primary,
+                                                  //           size: 20.0,
+                                                  //         ),
+                                                  //       ),
+                                                  //       SizedBox(width: 10.0),
+                                                  //       Expanded(
+                                                  //         child: Text(
+                                                  //           widget!.enseigneDoc!
+                                                  //               .siteWebUrl,
+                                                  //           maxLines: 1,
+                                                  //           overflow:
+                                                  //               TextOverflow.ellipsis,
+                                                  //           style: GoogleFonts.inter(
+                                                  //             fontSize: 15.0,
+                                                  //             fontWeight:
+                                                  //                 FontWeight.w600,
+                                                  //             color: Color(0xFF3B3F74),
+                                                  //           ),
+                                                  //         ),
+                                                  //       ),
+                                                  //       Icon(
+                                                  //         Icons.open_in_new_rounded,
+                                                  //         color: FlutterFlowTheme.of(
+                                                  //                 context)
+                                                  //             .primary,
+                                                  //         size: 18.0,
+                                                  //       ),
+                                                  //     ],
+                                                  //   ),
+                                                  // ),
+                                                ),
+                                              if (!functions.checkValueIsEmpty(
+                                                  widget.enseigneDoc!
+                                                      .facebookLink))
+                                                InkWell(
+                                                  splashColor:
+                                                      Colors.transparent,
+                                                  focusColor:
+                                                      Colors.transparent,
+                                                  hoverColor:
+                                                      Colors.transparent,
+                                                  highlightColor:
+                                                      Colors.transparent,
+                                                  onTap: () async {
+                                                    final link =
+                                                        _normalizeFacebookUrl(
+                                                            widget.enseigneDoc
+                                                                ?.facebookLink);
+                                                    if (link == null) {
+                                                      return;
+                                                    }
+                                                    await launchURL(link);
+                                                  },
+                                                  child: Container(
+                                                    width: 48.0,
+                                                    height: 48.0,
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(
+                                                          0xFF4267B2),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              24.0),
+                                                    ),
+                                                    alignment: Alignment.center,
+                                                    child: const FaIcon(
+                                                      FontAwesomeIcons
+                                                          .facebookF,
+                                                      color: Colors.white,
+                                                      size: 24.0,
+                                                    ),
+                                                  ),
+                                                ),
+                                              // instagram link
+                                              if (!functions.checkValueIsEmpty(
+                                                  widget.enseigneDoc!
+                                                      .instagramLink))
+                                                InkWell(
+                                                  splashColor:
+                                                      Colors.transparent,
+                                                  focusColor:
+                                                      Colors.transparent,
+                                                  hoverColor:
+                                                      Colors.transparent,
+                                                  highlightColor:
+                                                      Colors.transparent,
+                                                  onTap: () async {
+                                                    final link =
+                                                        _normalizeInstagramUrl(
+                                                            widget.enseigneDoc
+                                                                ?.instagramLink);
+                                                    if (link == null) {
+                                                      return;
+                                                    }
+                                                    await launchURL(link);
+                                                    // await launchURL(widget!
+                                                    //     .enseigneDoc!
+                                                    //     .instagramLink);
+                                                  },
+                                                  child: Container(
+                                                    width: 48.0,
+                                                    height: 48.0,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12.0),
+                                                      gradient:
+                                                          const LinearGradient(
+                                                        begin: Alignment(
+                                                            -1.0, -1.0),
+                                                        end:
+                                                            Alignment(1.0, 1.0),
+                                                        colors: [
+                                                          Color(0xFFFEDA75),
+                                                          Color(0xFFFA7E1E),
+                                                          Color(0xFFD62976),
+                                                          Color(0xFF962FBF),
+                                                          Color(0xFF4F5BD5),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    alignment: Alignment.center,
+                                                    child: const FaIcon(
+                                                      FontAwesomeIcons
+                                                          .instagram,
+                                                      color: Colors.white,
+                                                      size: 24.0,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
                                           ),
-                                          // child: Container(
-                                          //   width: double.infinity,
-                                          //   padding: EdgeInsets.all(14.0),
-                                          //   decoration: BoxDecoration(
-                                          //     color: Color(0xFFF7FAFF),
-                                          //     borderRadius:
-                                          //         BorderRadius.circular(14.0),
-                                          //     border: Border.all(
-                                          //       color: Color(0xFFE3E8F7),
-                                          //       width: 1.0,
-                                          //     ),
-                                          //   ),
-                                          //   child: Row(
-                                          //     children: [
-                                          //       Container(
-                                          //         width: 36.0,
-                                          //         height: 36.0,
-                                          //         decoration: BoxDecoration(
-                                          //           color: FlutterFlowTheme.of(
-                                          //                   context)
-                                          //               .primary
-                                          //               .withOpacity(0.12),
-                                          //           borderRadius:
-                                          //               BorderRadius.circular(
-                                          //                   10.0),
-                                          //         ),
-                                          //         child: Icon(
-                                          //           Icons.language_rounded,
-                                          //           color: FlutterFlowTheme.of(
-                                          //                   context)
-                                          //               .primary,
-                                          //           size: 20.0,
-                                          //         ),
-                                          //       ),
-                                          //       SizedBox(width: 10.0),
-                                          //       Expanded(
-                                          //         child: Text(
-                                          //           widget!.enseigneDoc!
-                                          //               .siteWebUrl,
-                                          //           maxLines: 1,
-                                          //           overflow:
-                                          //               TextOverflow.ellipsis,
-                                          //           style: GoogleFonts.inter(
-                                          //             fontSize: 15.0,
-                                          //             fontWeight:
-                                          //                 FontWeight.w600,
-                                          //             color: Color(0xFF3B3F74),
-                                          //           ),
-                                          //         ),
-                                          //       ),
-                                          //       Icon(
-                                          //         Icons.open_in_new_rounded,
-                                          //         color: FlutterFlowTheme.of(
-                                          //                 context)
-                                          //             .primary,
-                                          //         size: 18.0,
-                                          //       ),
-                                          //     ],
-                                          //   ),
-                                          // ),
-                                        ),
-                                      if (!functions.checkValueIsEmpty(
-                                          widget.enseigneDoc!.facebookLink ))
-                                     InkWell(
-                                                          splashColor: Colors.transparent,
-                                                          focusColor: Colors.transparent,
-                                                          hoverColor: Colors.transparent,
-                                                          highlightColor: Colors.transparent,
-                                                          onTap: () async {
-                                                            final link =
-                                                                _normalizeFacebookUrl(
-                                                                    widget.enseigneDoc
-                                                                        ?.facebookLink);
-                                                            if (link == null) {
-                                                              return;
-                                                            }
-                                                            await launchURL(link);
-                                                          },
-                                                          child: Container(
-                                                            width: 48.0,
-                                                            height: 48.0,
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              color: const Color(
-                                                                  0xFF4267B2),
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          24.0),
-                                                            ),
-                                                            alignment:
-                                                                Alignment.center,
-                                                            child: const FaIcon(
-                                                              FontAwesomeIcons
-                                                                  .facebookF,
-                                                              color:
-                                                                  Colors.white,
-                                                              size: 24.0,
-                                                            ),
-                                                          ),
-                                                            ),
-                                                            // instagram link
-                                      if (!functions.checkValueIsEmpty(
-                                          widget.enseigneDoc!.instagramLink))
-                                       InkWell(
-                                                          splashColor: Colors.transparent,
-                                                          focusColor: Colors.transparent,
-                                                          hoverColor: Colors.transparent,
-                                                          highlightColor: Colors.transparent,
-                                                          onTap: () async {
-                                                            final link =
-                                                                _normalizeInstagramUrl(
-                                                                    widget.enseigneDoc
-                                                                        ?.instagramLink);
-                                                            if (link == null) {
-                                                              return;
-                                                            }
-                                                            await launchURL(link);
-                                                                      // await launchURL(widget!
-                                                                      //     .enseigneDoc!
-                                                                      //     .instagramLink);
-                                                                    },
-                                                          child: Container(
-                                                            width: 48.0,
-                                                            height: 48.0,
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          12.0),
-                                                              gradient:
-                                                                  const LinearGradient(
-                                                                begin: Alignment(
-                                                                    -1.0, -1.0),
-                                                                end: Alignment(
-                                                                    1.0, 1.0),
-                                                                colors: [
-                                                                  Color(
-                                                                      0xFFFEDA75),
-                                                                  Color(
-                                                                      0xFFFA7E1E),
-                                                                  Color(
-                                                                      0xFFD62976),
-                                                                  Color(
-                                                                      0xFF962FBF),
-                                                                  Color(
-                                                                      0xFF4F5BD5),
-                                                                ],
-                                                              ),
-                                                            ),
-                                                            alignment:
-                                                                Alignment.center,
-                                                            child: const FaIcon(
-                                                              FontAwesomeIcons
-                                                                  .instagram,
-                                                              color:
-                                                                  Colors.white,
-                                                              size: 24.0,
-                                                            ),
-                                                          ),
-                                                            ),
-                                  
 
+                                          const SizedBox(height: 1.0),
 
-                                        
-                                    ],
-                                  ),
-
-const SizedBox(height: 1.0),
-
-                                  // Social Media Links
-                                  Wrap(
-                                    spacing: 8.0,
-                                    runSpacing: 8.0,
-                                    alignment: WrapAlignment.center,
-                                    runAlignment: WrapAlignment.center,
-                                    children: [
-
-                                  
-
-
-                                      // Twitter
-                                          if (!functions.checkValueIsEmpty(
-                                          widget.enseigneDoc!.twitterLink))
-                                          InkWell(
-                                                          splashColor: Colors.transparent,
-                                                          focusColor: Colors.transparent,
-                                                          hoverColor: Colors.transparent,
-                                                          highlightColor: Colors.transparent,
-                                                          onTap: () async {
-                                                            final link =
-                                                                _normalizeTwitterUrl(
-                                                                    widget.enseigneDoc
-                                                                        ?.twitterLink);
-                                                            if (link == null) {
-                                                              return;
-                                                            }
-                                                            await launchURL(link);
-                                                                    },
-                                                          child: Container(
-                                                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                                            decoration: BoxDecoration(
-                                                              color: const Color(0xFF1DA1F2).withOpacity(0.1),
-                                                              borderRadius: BorderRadius.circular(12.0),
-                                                            ),
-                                                            child: Row(
-                                                              mainAxisSize: MainAxisSize.min,
-                                                              children: [
-                                                                const FaIcon(
-                                                                  FontAwesomeIcons.twitter,
-                                                                  color: Color(0xFF1DA1F2),
-                                                                  size: 18.0,
-                                                                ),
-                                                                const SizedBox(width: 6.0),
-                                                                Text(
-                                                                  'Twitter',
-                                                                  style: GoogleFonts.inter(
-                                                                    fontSize: 13.0,
-                                                                    fontWeight: FontWeight.w600,
-                                                                    color: const Color(0xFF1DA1F2),
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
+                                          // Social Media Links
+                                          Wrap(
+                                            spacing: 8.0,
+                                            runSpacing: 8.0,
+                                            alignment: WrapAlignment.center,
+                                            runAlignment: WrapAlignment.center,
+                                            children: [
+                                              // Twitter
+                                              if (!functions.checkValueIsEmpty(
+                                                  widget.enseigneDoc!
+                                                      .twitterLink))
+                                                InkWell(
+                                                  splashColor:
+                                                      Colors.transparent,
+                                                  focusColor:
+                                                      Colors.transparent,
+                                                  hoverColor:
+                                                      Colors.transparent,
+                                                  highlightColor:
+                                                      Colors.transparent,
+                                                  onTap: () async {
+                                                    final link =
+                                                        _normalizeTwitterUrl(
+                                                            widget.enseigneDoc
+                                                                ?.twitterLink);
+                                                    if (link == null) {
+                                                      return;
+                                                    }
+                                                    await launchURL(link);
+                                                  },
+                                                  child: Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 12.0,
+                                                        vertical: 8.0),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(
+                                                              0xFF1DA1F2)
+                                                          .withOpacity(0.1),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12.0),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        const FaIcon(
+                                                          FontAwesomeIcons
+                                                              .twitter,
+                                                          color:
+                                                              Color(0xFF1DA1F2),
+                                                          size: 18.0,
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 6.0),
+                                                        Text(
+                                                          'Twitter',
+                                                          style:
+                                                              GoogleFonts.inter(
+                                                            fontSize: 13.0,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: const Color(
+                                                                0xFF1DA1F2),
                                                           ),
                                                         ),
-
-
-
-                                    ],
-                                  ),
-                                  ])
-                                ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ])),
                               ),
                             Container(
                               width: double.infinity,
@@ -1479,13 +1546,19 @@ const SizedBox(height: 1.0),
                                             child: SizedBox(
                                               width: 50.0,
                                               height: 50.0,
-                                              child: ProxiplayLoadingLogo(size: 42.0),
+                                              child: ProxiplayLoadingLogo(
+                                                  size: 42.0),
                                             ),
                                           );
                                         }
                                         List<HorairesRecord>
                                             columnHorairesRecordList =
-                                            snapshot.data!;
+                                            List.of(snapshot.data!)
+                                              ..sort(
+                                                (a, b) => _daySortIndex(a)
+                                                    .compareTo(
+                                                        _daySortIndex(b)),
+                                              );
 
                                         return Column(
                                           mainAxisSize: MainAxisSize.max,
@@ -1496,8 +1569,10 @@ const SizedBox(height: 1.0),
                                                 columnHorairesRecordList[
                                                     columnIndex];
                                             return Padding(
-                                              padding: const EdgeInsetsDirectional
-                                                  .fromSTEB(8.0, 0.0, 8.0, 0.0),
+                                              padding:
+                                                  const EdgeInsetsDirectional
+                                                      .fromSTEB(
+                                                      8.0, 0.0, 8.0, 0.0),
                                               child: Container(
                                                 width: double.infinity,
                                                 decoration: BoxDecoration(
@@ -1506,8 +1581,9 @@ const SizedBox(height: 1.0),
                                                       .secondaryBackground,
                                                 ),
                                                 child: Padding(
-                                                  padding: const EdgeInsetsDirectional
-                                                      .fromSTEB(
+                                                  padding:
+                                                      const EdgeInsetsDirectional
+                                                          .fromSTEB(
                                                           8.0, 6.0, 8.0, 0.0),
                                                   child: Row(
                                                     mainAxisSize:
@@ -1746,10 +1822,10 @@ const SizedBox(height: 1.0),
                                   if (currentUserUid != '') {
                                     return Builder(
                                       builder: (context) {
-                                          if (isGuestOrAnonymous ||
-                                              ((currentUserDocument?.birthday !=
-                                                      null) &&
-                                                  functions.isAdult(
+                                        if (isGuestOrAnonymous ||
+                                            ((currentUserDocument?.birthday !=
+                                                    null) &&
+                                                functions.isAdult(
                                                     currentUserDocument!
                                                         .birthday!))) {
                                           return FutureBuilder<
@@ -1762,14 +1838,16 @@ const SizedBox(height: 1.0),
                                                   child: SizedBox(
                                                     width: 50.0,
                                                     height: 50.0,
-                                                    child: ProxiplayLoadingLogo(size: 42.0),
+                                                    child: ProxiplayLoadingLogo(
+                                                        size: 42.0),
                                                   ),
                                                 );
                                               }
                                               List<GamesRecord>
                                                   listViewGamesRecordList =
                                                   snapshot.data!
-                                                      .where(_isGameVisibleForPlayer)
+                                                      .where(
+                                                          _isGameVisibleForPlayer)
                                                       .toList();
                                               if (listViewGamesRecordList
                                                   .isEmpty) {
@@ -1788,7 +1866,8 @@ const SizedBox(height: 1.0),
                                                     listViewGamesRecordList
                                                         .length,
                                                 separatorBuilder: (_, __) =>
-                                                    const SizedBox(height: 10.0),
+                                                    const SizedBox(
+                                                        height: 10.0),
                                                 itemBuilder:
                                                     (context, listViewIndex) {
                                                   final listViewGamesRecord =
@@ -1825,19 +1904,9 @@ const SizedBox(height: 1.0),
                                                                 Colors
                                                                     .transparent,
                                                             onTap: () async {
-                                                              await listViewGamesRecord
-                                                                  .reference
-                                                                  .update({
-                                                                ...mapToFirestore(
-                                                                  {
-                                                                    'views': FieldValue
-                                                                        .increment(
-                                                                            1),
-                                                                  },
-                                                                ),
-                                                              });
-
-                                                              context.pushNamed(
+                                                            debugPrint('[MERCHANT_PAGE_DEBUG] game_card_tap gameId=${listViewGamesRecord.reference.id}');
+                                                            debugPrint('[MERCHANT_PAGE_DEBUG] navigate_to_game gameId=${listViewGamesRecord.reference.id}');
+                                                            context.pushNamed(
                                                                 JeuDetailJoueurPageWidget
                                                                     .routeName,
                                                                 queryParameters:
@@ -1911,10 +1980,10 @@ const SizedBox(height: 1.0),
                                                                       Padding(
                                                                     padding: const EdgeInsetsDirectional
                                                                         .fromSTEB(
-                                                                            10.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
+                                                                        10.0,
+                                                                        0.0,
+                                                                        0.0,
+                                                                        0.0),
                                                                     child:
                                                                         Column(
                                                                       mainAxisSize:
@@ -2103,14 +2172,16 @@ const SizedBox(height: 1.0),
                                                   child: SizedBox(
                                                     width: 50.0,
                                                     height: 50.0,
-                                                    child: ProxiplayLoadingLogo(size: 42.0),
+                                                    child: ProxiplayLoadingLogo(
+                                                        size: 42.0),
                                                   ),
                                                 );
                                               }
                                               List<GamesRecord>
                                                   listViewGamesRecordList =
                                                   snapshot.data!
-                                                      .where(_isGameVisibleForPlayer)
+                                                      .where(
+                                                          _isGameVisibleForPlayer)
                                                       .toList();
                                               if (listViewGamesRecordList
                                                   .isEmpty) {
@@ -2129,7 +2200,8 @@ const SizedBox(height: 1.0),
                                                     listViewGamesRecordList
                                                         .length,
                                                 separatorBuilder: (_, __) =>
-                                                    const SizedBox(height: 10.0),
+                                                    const SizedBox(
+                                                        height: 10.0),
                                                 itemBuilder:
                                                     (context, listViewIndex) {
                                                   final listViewGamesRecord =
@@ -2156,18 +2228,8 @@ const SizedBox(height: 1.0),
                                                           highlightColor: Colors
                                                               .transparent,
                                                           onTap: () async {
-                                                            await listViewGamesRecord
-                                                                .reference
-                                                                .update({
-                                                              ...mapToFirestore(
-                                                                {
-                                                                  'views': FieldValue
-                                                                      .increment(
-                                                                          1),
-                                                                },
-                                                              ),
-                                                            });
-
+                                                            debugPrint('[MERCHANT_PAGE_DEBUG] game_card_tap gameId=${listViewGamesRecord.reference.id}');
+                                                            debugPrint('[MERCHANT_PAGE_DEBUG] navigate_to_game gameId=${listViewGamesRecord.reference.id}');
                                                             context.pushNamed(
                                                               JeuDetailJoueurPageWidget
                                                                   .routeName,
@@ -2237,8 +2299,9 @@ const SizedBox(height: 1.0),
                                                               Expanded(
                                                                 flex: 2,
                                                                 child: Padding(
-                                                                  padding: const EdgeInsetsDirectional
-                                                                      .fromSTEB(
+                                                                  padding:
+                                                                      const EdgeInsetsDirectional
+                                                                          .fromSTEB(
                                                                           10.0,
                                                                           0.0,
                                                                           0.0,
@@ -2427,13 +2490,14 @@ const SizedBox(height: 1.0),
                                             child: SizedBox(
                                               width: 50.0,
                                               height: 50.0,
-                                              child: ProxiplayLoadingLogo(size: 42.0),
+                                              child: ProxiplayLoadingLogo(
+                                                  size: 42.0),
                                             ),
                                           );
                                         }
                                         List<GamesRecord>
-                                            listViewGamesRecordList =
-                                            snapshot.data!
+                                            listViewGamesRecordList = snapshot
+                                                .data!
                                                 .where(_isGameVisibleForPlayer)
                                                 .toList();
                                         if (listViewGamesRecordList.isEmpty) {
@@ -2484,18 +2548,9 @@ const SizedBox(height: 1.0),
                                                       highlightColor:
                                                           Colors.transparent,
                                                       onTap: () async {
-                                                        await listViewGamesRecord
-                                                            .reference
-                                                            .update({
-                                                          ...mapToFirestore(
-                                                            {
-                                                              'views': FieldValue
-                                                                  .increment(1),
-                                                            },
-                                                          ),
-                                                        });
-
-                                                        context.pushNamed(
+                                                            debugPrint('[MERCHANT_PAGE_DEBUG] game_card_tap gameId=${listViewGamesRecord.reference.id}');
+                                                            debugPrint('[MERCHANT_PAGE_DEBUG] navigate_to_game gameId=${listViewGamesRecord.reference.id}');
+                                                            context.pushNamed(
                                                           JeuDetailJoueurPageWidget
                                                               .routeName,
                                                           queryParameters: {
@@ -2517,9 +2572,8 @@ const SizedBox(height: 1.0),
                                                               dynamic>{
                                                             'gameDoc':
                                                                 listViewGamesRecord,
-                                                            'enseigneDoc':
-                                                                widget
-                                                                    .enseigneDoc,
+                                                            'enseigneDoc': widget
+                                                                .enseigneDoc,
                                                             kTransitionInfoKey:
                                                                 const TransitionInfo(
                                                               hasTransition:
@@ -2565,10 +2619,10 @@ const SizedBox(height: 1.0),
                                                               padding:
                                                                   const EdgeInsetsDirectional
                                                                       .fromSTEB(
-                                                                          10.0,
-                                                                          0.0,
-                                                                          0.0,
-                                                                          0.0),
+                                                                      10.0,
+                                                                      0.0,
+                                                                      0.0,
+                                                                      0.0),
                                                               child: Column(
                                                                 mainAxisSize:
                                                                     MainAxisSize
@@ -2626,7 +2680,8 @@ const SizedBox(height: 1.0),
                                                                                 18.0,
                                                                           ),
                                                                           Text(
-                                                                            widget.enseigneDoc?.name ?? '',
+                                                                            widget.enseigneDoc?.name ??
+                                                                                '',
                                                                             style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                   font: GoogleFonts.inter(
                                                                                     fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -2651,7 +2706,8 @@ const SizedBox(height: 1.0),
                                                                                 18.0,
                                                                           ),
                                                                           Text(
-                                                                            widget.enseigneDoc?.city ?? '',
+                                                                            widget.enseigneDoc?.city ??
+                                                                                '',
                                                                             style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                   font: GoogleFonts.inter(
                                                                                     fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -2687,7 +2743,7 @@ const SizedBox(height: 1.0),
                                                                                   fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
                                                                                 ),
                                                                           ),
-                                                                        Text(
+                                                                          Text(
                                                                             _formatPrizeLabel(listViewGamesRecord),
                                                                             style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                   font: GoogleFonts.inter(
@@ -2746,9 +2802,10 @@ const SizedBox(height: 1.0),
                                                                         height:
                                                                             5.0)),
                                                                   ),
-                                                                ].divide(const SizedBox(
-                                                                    height:
-                                                                        5.0)),
+                                                                ].divide(
+                                                                    const SizedBox(
+                                                                        height:
+                                                                            5.0)),
                                                               ),
                                                             ),
                                                           ),
