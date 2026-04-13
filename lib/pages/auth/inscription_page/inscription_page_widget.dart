@@ -2643,9 +2643,6 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                             );
                                                           }
 
-                                                          await authManager
-                                                              .sendEmailVerification();
-
                                                           context.goNamedAuth(
                                                             InscriptionInformationsPageWidget
                                                                 .routeName,

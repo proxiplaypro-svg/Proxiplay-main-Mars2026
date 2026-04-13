@@ -568,9 +568,13 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                               return;
                                             }
 
-                                            if (currentUserEmailVerified ==
-                                                true) {
-                                            } else {
+                                            final requiresEmailVerification =
+                                                currentUserDocument?.userRole !=
+                                                    Roles.commercant;
+
+                                            if (requiresEmailVerification &&
+                                                currentUserEmailVerified !=
+                                                    true) {
                                               await showDialog(
                                                 context: context,
                                                 builder: (dialogContext) {
