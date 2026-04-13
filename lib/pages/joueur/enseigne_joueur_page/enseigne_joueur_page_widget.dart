@@ -34,7 +34,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
   late StreamSubscription<bool> _keyboardVisibilitySubscription;
   bool _isKeyboardVisible = false;
   final Map<String, Future<List<ImagesRecord>>> _searchImageFutureCache = {};
-  final Map<String, Future<int>> _searchGameCountFutureCache = {};
+  final Map<String, Future<int>> _visibleGameCountFutureCache = {};
 
   Future<List<ImagesRecord>> _getSearchImageFuture(EnseignesRecord enseigne) {
     return _searchImageFutureCache.putIfAbsent(
@@ -46,12 +46,31 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
     );
   }
 
-  Future<int> _getSearchGameCountFuture(EnseignesRecord enseigne) {
-    return _searchGameCountFutureCache.putIfAbsent(
+  bool _isGameVisibleForPlayer(GamesRecord game) {
+    final now = getCurrentTimestamp;
+    final endDate = game.endDate;
+    if (endDate == null || !endDate.isAfter(now)) {
+      return false;
+    }
+    final startDate = game.startDate;
+    if (startDate != null && now.isBefore(startDate)) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<int> _getVisibleGameCountFuture(EnseignesRecord enseigne) {
+    return _visibleGameCountFutureCache.putIfAbsent(
       enseigne.reference.path,
-      () => queryEnseigneGameRecordCount(
-        parent: enseigne.reference,
-      ),
+      () async {
+        final games = await queryGamesRecordOnce(
+          queryBuilder: (gamesRecord) => gamesRecord.where(
+            'enseigne_id',
+            isEqualTo: enseigne.reference,
+          ),
+        );
+        return games.where(_isGameVisibleForPlayer).length;
+      },
     );
   }
 
@@ -503,7 +522,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                   FutureBuilder<
                                                                       int>(
                                                                     future:
-                                                                        _getSearchGameCountFuture(
+                                                                        _getVisibleGameCountFuture(
                                                                       searchItem,
                                                                     ),
                                                                     builder:
@@ -957,16 +976,8 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                                                     ),
                                                                                               ),
                                                                                               FutureBuilder<int>(
-                                                                                                future: queryGamesRecordCount(
-                                                                                                  queryBuilder: (gamesRecord) => gamesRecord
-                                                                                                      .where(
-                                                                                                        'hasWinner',
-                                                                                                        isEqualTo: false,
-                                                                                                      )
-                                                                                                      .where(
-                                                                                                        'enseigne_id',
-                                                                                                        isEqualTo: enseigneItem.reference,
-                                                                                                      ),
+                                                                                                future: _getVisibleGameCountFuture(
+                                                                                                  enseigneItem,
                                                                                                 ),
                                                                                                 builder: (context, snapshot) {
                                                                                                   // Customize what your widget looks like when it's loading.
