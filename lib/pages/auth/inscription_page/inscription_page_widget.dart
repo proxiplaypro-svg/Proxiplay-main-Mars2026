@@ -9,6 +9,8 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import '/index.dart';
 import '/services/share_promo_service.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -158,6 +160,74 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     _model.dispose();
 
     super.dispose();
+  }
+
+  Future<void> _ensureGooglePlayerProfileBootstrap() async {
+    final userRef = currentUserReference;
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (userRef == null || firebaseUser == null) {
+      return;
+    }
+
+    final userDoc = await refreshCurrentUserDocument();
+
+    await userRef.set(
+      createUsersRecordData(
+        email: userDoc?.hasEmail() == true ? null : firebaseUser.email,
+        displayName:
+            userDoc?.hasDisplayName() == true ? null : firebaseUser.displayName,
+        photoUrl: userDoc?.hasPhotoUrl() == true ? null : firebaseUser.photoURL,
+        uid: userDoc?.hasUid() == true ? null : firebaseUser.uid,
+        phoneNumber:
+            userDoc?.hasPhoneNumber() == true ? null : firebaseUser.phoneNumber,
+        userRole: userDoc?.hasUserRole() == true ? null : Roles.joueur,
+        accountStatus: userDoc?.accountStatus ?? AccountStatus.pendingInfo,
+        remainingPart: userDoc?.hasRemainingPart() == true ? null : 3,
+      ),
+      SetOptions(merge: true),
+    );
+
+    await refreshCurrentUserDocument();
+  }
+
+  Future<void> _handleGooglePlayerSignup() async {
+    GoRouter.of(context).prepareAuthEvent(true);
+    _persistReferralCodeInput(
+      _model.referralCodeJoueurTextController?.text ?? '',
+    );
+
+    final user = await authManager.signInWithGoogle(context);
+    if (user == null || !context.mounted) {
+      return;
+    }
+
+    await _ensureGooglePlayerProfileBootstrap();
+
+    final referralApplied = await _applyPendingReferralCodeIfNeeded();
+    if (!referralApplied && (_lastReferralErrorMessage ?? '').isNotEmpty) {
+      _showReferralErrorMessage(
+        _lastReferralErrorMessage!,
+      );
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+
+    if (currentUserDocument?.accountStatus == AccountStatus.pendingInfo) {
+      context.goNamedAuth(
+        InscriptionInformationsPageWidget.routeName,
+        context.mounted,
+        ignoreRedirect: true,
+      );
+      return;
+    }
+
+    context.goNamedAuth(
+      HomeJoueurPageWidget.routeName,
+      context.mounted,
+      ignoreRedirect: true,
+    );
   }
 
   @override
@@ -1415,6 +1485,94 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                         borderSide: const BorderSide(
                                                           color: Colors
                                                               .transparent,
+                                                          width: 1.0,
+                                                        ),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(12.0),
+                                                        disabledColor:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .fieldText,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Align(
+                                                  alignment:
+                                                      const AlignmentDirectional(
+                                                          0.0, 0.0),
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsetsDirectional
+                                                            .fromSTEB(0.0, 0.0,
+                                                                0.0, 16.0),
+                                                    child: FFButtonWidget(
+                                                      onPressed: !_model
+                                                              .checkboxJoueurValue!
+                                                          ? null
+                                                          : () async {
+                                                              await _handleGooglePlayerSignup();
+                                                            },
+                                                      text:
+                                                          'Continuer avec Google',
+                                                      icon: const FaIcon(
+                                                        FontAwesomeIcons.google,
+                                                        size: 18.0,
+                                                      ),
+                                                      options: FFButtonOptions(
+                                                        width: double.infinity,
+                                                        height: 52.0,
+                                                        padding:
+                                                            const EdgeInsetsDirectional
+                                                                .fromSTEB(
+                                                                    0.0,
+                                                                    0.0,
+                                                                    0.0,
+                                                                    0.0),
+                                                        iconPadding:
+                                                            const EdgeInsetsDirectional
+                                                                .fromSTEB(
+                                                                    0.0,
+                                                                    0.0,
+                                                                    0.0,
+                                                                    0.0),
+                                                        color: Colors.white,
+                                                        textStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .titleSmall
+                                                                .override(
+                                                                  font: GoogleFonts
+                                                                      .interTight(
+                                                                    fontWeight: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .titleSmall
+                                                                        .fontWeight,
+                                                                    fontStyle: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .titleSmall
+                                                                        .fontStyle,
+                                                                  ),
+                                                                  color: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .primaryText,
+                                                                  letterSpacing:
+                                                                      0.0,
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .fontStyle,
+                                                                ),
+                                                        elevation: 0.0,
+                                                        borderSide:
+                                                            const BorderSide(
+                                                          color:
+                                                              Color(0xFFDADADA),
                                                           width: 1.0,
                                                         ),
                                                         borderRadius:

@@ -6,6 +6,9 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/index.dart';
+import '/services/city_autocomplete_service.dart';
+import '/utils/city_compat.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -29,6 +32,12 @@ class _InscriptionInformationsPageWidgetState
     extends State<InscriptionInformationsPageWidget>
     with TickerProviderStateMixin {
   late InscriptionInformationsPageModel _model;
+  final CityAutocompleteService _cityAutocompleteService =
+      const CityAutocompleteService();
+  Timer? _citySearchDebounce;
+  List<CityAutocompleteSuggestion> _citySuggestions = const [];
+  bool _isCityLoading = false;
+  String? _citySearchError;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -49,6 +58,14 @@ class _InscriptionInformationsPageWidgetState
 
     _model.villeTextController ??= TextEditingController();
     _model.villeFocusNode ??= FocusNode();
+    _model.villeFocusNode?.addListener(() {
+      if (!(_model.villeFocusNode?.hasFocus ?? false) && mounted) {
+        safeSetState(() {
+          _citySuggestions = const [];
+          _citySearchError = null;
+        });
+      }
+    });
 
     _model.telephoneTextController ??= TextEditingController();
     _model.telephoneFocusNode ??= FocusNode();
@@ -100,9 +117,88 @@ class _InscriptionInformationsPageWidgetState
 
   @override
   void dispose() {
+    _citySearchDebounce?.cancel();
     _model.dispose();
 
     super.dispose();
+  }
+
+  Future<void> _searchCities(String rawQuery) async {
+    final query = rawQuery.trim();
+
+    if (query.length < 3) {
+      if (!mounted) {
+        return;
+      }
+      safeSetState(() {
+        _isCityLoading = false;
+        _citySuggestions = const [];
+        _citySearchError = null;
+      });
+      return;
+    }
+
+    safeSetState(() {
+      _isCityLoading = true;
+      _citySearchError = null;
+    });
+
+    try {
+      final suggestions = await _cityAutocompleteService.searchCommunes(query);
+      if (!mounted ||
+          !(_model.villeFocusNode?.hasFocus ?? false) ||
+          _model.villeTextController.text.trim() != query) {
+        return;
+      }
+
+      safeSetState(() {
+        _citySuggestions = suggestions;
+        _isCityLoading = false;
+      });
+    } catch (_) {
+      if (!mounted ||
+          !(_model.villeFocusNode?.hasFocus ?? false) ||
+          _model.villeTextController.text.trim() != query) {
+        return;
+      }
+
+      safeSetState(() {
+        _citySuggestions = const [];
+        _isCityLoading = false;
+        _citySearchError = 'Recherche indisponible pour le moment.';
+      });
+    }
+  }
+
+  void _onCityChanged(String value) {
+    final trimmedValue = value.trim();
+    final selectedLabel = (_model.selectedCityLabel ?? '').trim();
+
+    if (trimmedValue != selectedLabel) {
+      _model.cityInseeCode = null;
+      _model.selectedCityLabel = null;
+    }
+
+    _citySearchDebounce?.cancel();
+    _citySearchDebounce = Timer(const Duration(milliseconds: 350), () {
+      _searchCities(trimmedValue);
+    });
+  }
+
+  void _selectCitySuggestion(CityAutocompleteSuggestion suggestion) {
+    _citySearchDebounce?.cancel();
+    _model.villeTextController?.text = suggestion.name;
+    _model.villeTextController?.selection = TextSelection.collapsed(
+      offset: suggestion.name.length,
+    );
+    safeSetState(() {
+      _model.cityInseeCode = suggestion.inseeCode;
+      _model.selectedCityLabel = suggestion.name;
+      _citySuggestions = const [];
+      _citySearchError = null;
+      _isCityLoading = false;
+    });
+    FocusScope.of(context).unfocus();
   }
 
   @override
@@ -720,6 +816,7 @@ class _InscriptionInformationsPageWidgetState
                                     focusNode: _model.villeFocusNode,
                                     autofocus: false,
                                     obscureText: false,
+                                    onChanged: _onCityChanged,
                                     decoration: InputDecoration(
                                       labelText: 'Ville de résidence',
                                       labelStyle: FlutterFlowTheme.of(context)
@@ -816,6 +913,70 @@ class _InscriptionInformationsPageWidgetState
                                         .villeTextControllerValidator
                                         .asValidator(context),
                                   ),
+                                ),
+                              ),
+                            ),
+                          if (currentUserDocument?.userRole == Roles.joueur &&
+                              (_isCityLoading ||
+                                  _citySearchError != null ||
+                                  _citySuggestions.isNotEmpty))
+                            Padding(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
+                                  0.0, -8.0, 0.0, 16.0),
+                              child: Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: FlutterFlowTheme.of(context)
+                                      .secondaryBackground,
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  border: Border.all(
+                                    color:
+                                        FlutterFlowTheme.of(context).alternate,
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_isCityLoading)
+                                      const Padding(
+                                        padding: EdgeInsets.all(16.0),
+                                        child: SizedBox(
+                                          width: 20.0,
+                                          height: 20.0,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.0,
+                                          ),
+                                        ),
+                                      ),
+                                    if (!_isCityLoading &&
+                                        _citySearchError != null)
+                                      Padding(
+                                        padding: const EdgeInsets.all(16.0),
+                                        child: Text(
+                                          _citySearchError!,
+                                          style: FlutterFlowTheme.of(context)
+                                              .bodySmall,
+                                        ),
+                                      ),
+                                    if (!_isCityLoading)
+                                      ..._citySuggestions.map(
+                                        (suggestion) => ListTile(
+                                          dense: true,
+                                          title: Text(
+                                            suggestion.name,
+                                            style: FlutterFlowTheme.of(context)
+                                                .bodyMedium,
+                                          ),
+                                          subtitle: Text(
+                                            suggestion.subtitle,
+                                            style: FlutterFlowTheme.of(context)
+                                                .bodySmall,
+                                          ),
+                                          onTap: () =>
+                                              _selectCitySuggestion(suggestion),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -949,6 +1110,9 @@ class _InscriptionInformationsPageWidgetState
                                     return;
                                   }
 
+                                  final normalizedCityInseeCode =
+                                      normalizeInseeCode(_model.cityInseeCode);
+
                                   await currentUserReference!
                                       .update(createUsersRecordData(
                                     phoneNumber:
@@ -961,6 +1125,10 @@ class _InscriptionInformationsPageWidgetState
                                             ? AccountStatus.pendingValidation
                                             : AccountStatus.approved,
                                     city: _model.villeTextController.text,
+                                    cityInseeCode:
+                                        normalizedCityInseeCode.isNotEmpty
+                                            ? normalizedCityInseeCode
+                                            : null,
                                     remainingPart: 3,
                                     partLastUpdate: getCurrentTimestamp,
                                     birthday:

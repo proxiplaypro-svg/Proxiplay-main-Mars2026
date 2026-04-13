@@ -82,6 +82,11 @@ class UsersRecord extends FirestoreRecord {
   String get city => _city ?? '';
   bool hasCity() => _city != null;
 
+  // "city_insee_code" field.
+  String? _cityInseeCode;
+  String get cityInseeCode => _cityInseeCode ?? '';
+  bool hasCityInseeCode() => _cityInseeCode != null;
+
   // "part_last_update" field.
   DateTime? _partLastUpdate;
   DateTime? get partLastUpdate => _partLastUpdate;
@@ -140,6 +145,7 @@ class UsersRecord extends FirestoreRecord {
     _photoUrl = snapshotData['photo_url'] as String?;
     _remainingPart = castToType<int>(snapshotData['remaining_part']);
     _city = snapshotData['city'] as String?;
+    _cityInseeCode = snapshotData['city_insee_code'] as String?;
     _partLastUpdate = snapshotData['part_last_update'] as DateTime?;
     _birthday = snapshotData['birthday'] as DateTime?;
     _professionalCategory = snapshotData['professional_category'] as String?;
@@ -197,6 +203,7 @@ Map<String, dynamic> createUsersRecordData({
   String? photoUrl,
   int? remainingPart,
   String? city,
+  String? cityInseeCode,
   DateTime? partLastUpdate,
   DateTime? birthday,
   String? professionalCategory,
@@ -220,6 +227,7 @@ Map<String, dynamic> createUsersRecordData({
       'photo_url': photoUrl,
       'remaining_part': remainingPart,
       'city': city,
+      'city_insee_code': cityInseeCode,
       'part_last_update': partLastUpdate,
       'birthday': birthday,
       'professional_category': professionalCategory,
@@ -251,6 +259,7 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e1?.photoUrl == e2?.photoUrl &&
         e1?.remainingPart == e2?.remainingPart &&
         e1?.city == e2?.city &&
+        e1?.cityInseeCode == e2?.cityInseeCode &&
         e1?.partLastUpdate == e2?.partLastUpdate &&
         e1?.birthday == e2?.birthday &&
         e1?.professionalCategory == e2?.professionalCategory &&
@@ -276,6 +285,7 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e?.photoUrl,
         e?.remainingPart,
         e?.city,
+        e?.cityInseeCode,
         e?.partLastUpdate,
         e?.birthday,
         e?.professionalCategory,

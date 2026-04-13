@@ -1,4 +1,4 @@
-﻿import '/auth/firebase_auth/auth_util.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/app_bar_joueur_widget.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
@@ -7,6 +7,7 @@ import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_button_tabbar.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/utils/winner_identity.dart';
 import '/widgets/proxiplay_network_image.dart';
 import '/index.dart';
 import 'package:flutter/material.dart';
@@ -50,14 +51,28 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
   bool _isGameVisibleForPlayer(GamesRecord game) {
     final now = getCurrentTimestamp;
     final endDate = game.endDate;
-    if (endDate == null || !endDate.isAfter(now)) {
+    if (endDate == null) {
       return false;
+    }
+    if (!endDate.isAfter(now)) {
+      return _shouldKeepFinishedGameVisibleForPlayer(game);
     }
     final startDate = game.startDate;
     if (startDate != null && now.isBefore(startDate)) {
       return false;
     }
     return true;
+  }
+
+  bool _hasVisibleMainPrizeForPlayer(GamesRecord game) {
+    return game.hasMainPrize == true && game.prizeValue > 0;
+  }
+
+  bool _shouldKeepFinishedGameVisibleForPlayer(GamesRecord game) {
+    if (!_isGameFinished(game)) {
+      return false;
+    }
+    return !_hasVisibleMainPrizeForPlayer(game);
   }
 
   Future<int> _getActiveGamesCountForMerchant(
@@ -67,7 +82,8 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
       return Future.value(0);
     }
 
-    return _activeGamesCountByMerchantCache.putIfAbsent(enseigneRef.path, () async {
+    return _activeGamesCountByMerchantCache.putIfAbsent(enseigneRef.path,
+        () async {
       final games = await queryGamesRecordOnce(
         queryBuilder: (gamesRecord) => gamesRecord
             .where(
@@ -96,8 +112,8 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
       final enseigneRef = favoriteRecord.enseigneId;
       if (enseigneRef != null) {
         final enseigneSnap = await transaction.get(enseigneRef);
-        final currentCount =
-            _readFavoriteCounter(enseigneSnap.data() as Map<String, dynamic>? ?? {});
+        final currentCount = _readFavoriteCounter(
+            enseigneSnap.data() as Map<String, dynamic>? ?? {});
         final nextCount = (currentCount - 1).clamp(0, 1 << 30);
         transaction.set(
           enseigneRef,
@@ -254,8 +270,8 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                 children: [
                   Expanded(
                     child: Padding(
-                      padding:
-                          const EdgeInsetsDirectional.fromSTEB(20.0, 30.0, 20.0, 0.0),
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                          20.0, 30.0, 20.0, 0.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -362,9 +378,8 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                       controller: _model.tabBarController,
                                       children: [
                                         Padding(
-                                          padding:
-                                              const EdgeInsetsDirectional.fromSTEB(
-                                                  0.0, 5.0, 0.0, 0.0),
+                                          padding: const EdgeInsetsDirectional
+                                              .fromSTEB(0.0, 5.0, 0.0, 0.0),
                                           child: Container(
                                             decoration: const BoxDecoration(),
                                             child: PagedListView<
@@ -391,8 +406,7 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                   child: SizedBox(
                                                     width: 50.0,
                                                     height: 50.0,
-                                                    child:
-                                                        SizedBox.shrink(),
+                                                    child: SizedBox.shrink(),
                                                   ),
                                                 ),
                                                 // Customize what your widget looks like when it's loading another page.
@@ -401,13 +415,11 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                   child: SizedBox(
                                                     width: 50.0,
                                                     height: 50.0,
-                                                    child:
-                                                        SizedBox.shrink(),
+                                                    child: SizedBox.shrink(),
                                                   ),
                                                 ),
-                                                noItemsFoundIndicatorBuilder:
-                                                    (_) =>
-                                                        const ListEmptyComponentWidget(
+                                                noItemsFoundIndicatorBuilder: (_) =>
+                                                    const ListEmptyComponentWidget(
                                                   title: 'Aucun Favori',
                                                   description:
                                                       'Votre liste est actuellement vide',
@@ -432,8 +444,8 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                           child: SizedBox(
                                                             width: 50.0,
                                                             height: 50.0,
-                                                            child:
-                                                                SizedBox.shrink(),
+                                                            child: SizedBox
+                                                                .shrink(),
                                                           ),
                                                         );
                                                       }
@@ -507,7 +519,8 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                       decoration:
                                                                           const BoxDecoration(),
                                                                       child: FutureBuilder<
-                                                                          List<ImagesRecord>>(
+                                                                          List<
+                                                                              ImagesRecord>>(
                                                                         future:
                                                                             queryImagesRecordOnce(
                                                                           parent:
@@ -516,9 +529,11 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                               true,
                                                                         ),
                                                                         builder:
-                                                                            (context, snapshot) {
+                                                                            (context,
+                                                                                snapshot) {
                                                                           // Customize what your widget looks like when it's loading.
-                                                                          if (!snapshot.hasData) {
+                                                                          if (!snapshot
+                                                                              .hasData) {
                                                                             return const Center(
                                                                               child: SizedBox(
                                                                                 width: 50.0,
@@ -531,7 +546,9 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                               imageImagesRecordList =
                                                                               snapshot.data!;
                                                                           // Return an empty Container when the item does not exist.
-                                                                          if (snapshot.data!.isEmpty) {
+                                                                          if (snapshot
+                                                                              .data!
+                                                                              .isEmpty) {
                                                                             return Container();
                                                                           }
                                                                           final imageImagesRecord = imageImagesRecordList.isNotEmpty
@@ -539,13 +556,15 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                               : null;
 
                                                                           return ClipRRect(
-                                                                              borderRadius: BorderRadius.circular(8.0),
-                                                                              child: ProxiplayNetworkImage(
-                                                                                imageUrl: imageImagesRecord!.url,
-                                                                                fit: BoxFit.cover,
-                                                                              ),
-                                                                            );
-                                                                          },
+                                                                            borderRadius:
+                                                                                BorderRadius.circular(8.0),
+                                                                            child:
+                                                                                ProxiplayNetworkImage(
+                                                                              imageUrl: imageImagesRecord!.url,
+                                                                              fit: BoxFit.cover,
+                                                                            ),
+                                                                          );
+                                                                        },
                                                                       ),
                                                                     ),
                                                                   ),
@@ -553,7 +572,8 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                     flex: 2,
                                                                     child:
                                                                         Padding(
-                                                                      padding: const EdgeInsetsDirectional.fromSTEB(
+                                                                      padding: const EdgeInsetsDirectional
+                                                                          .fromSTEB(
                                                                           10.0,
                                                                           0.0,
                                                                           0.0,
@@ -581,9 +601,12 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                                 ),
                                                                           ),
                                                                           Column(
-                                                                            mainAxisSize: MainAxisSize.max,
-                                                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                                                            children: [
+                                                                            mainAxisSize:
+                                                                                MainAxisSize.max,
+                                                                            mainAxisAlignment:
+                                                                                MainAxisAlignment.spaceEvenly,
+                                                                            children:
+                                                                                [
                                                                               Row(
                                                                                 mainAxisSize: MainAxisSize.max,
                                                                                 children: [
@@ -624,8 +647,7 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                                           ),
                                                                                         );
                                                                                       }
-                                                                                      final textCount =
-                                                                                          snapshot.data ?? 0;
+                                                                                      final textCount = snapshot.data ?? 0;
 
                                                                                       return Text(
                                                                                         textCount.toString(),
@@ -705,7 +727,7 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                   ),
                                                                 ],
                                                               );
-                                                                                                                        },
+                                                            },
                                                           ),
                                                         ),
                                                       );
@@ -717,14 +739,14 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                           ),
                                         ),
                                         Padding(
-                                          padding:
-                                              const EdgeInsetsDirectional.fromSTEB(
-                                                  0.0, 5.0, 0.0, 0.0),
+                                          padding: const EdgeInsetsDirectional
+                                              .fromSTEB(0.0, 5.0, 0.0, 0.0),
                                           child: Container(
                                             decoration: const BoxDecoration(),
                                             child: FutureBuilder<
                                                 List<_FavoriteGameListItem>>(
-                                              future: _loadSortedFavoriteGames(),
+                                              future:
+                                                  _loadSortedFavoriteGames(),
                                               builder: (context, snapshot) {
                                                 if (!snapshot.hasData) {
                                                   return const Center(
@@ -778,6 +800,18 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
 
                                                     Widget buildCard(
                                                         {String? winnerText}) {
+                                                      final hasVisibleMainPrize =
+                                                          _hasVisibleMainPrizeForPlayer(
+                                                              containerGamesRecord);
+                                                      final finishedBadgeText =
+                                                          isFinished &&
+                                                                  !hasVisibleMainPrize
+                                                              ? 'Lots attribués'
+                                                              : null;
+                                                      final finishedInfoText =
+                                                          !hasVisibleMainPrize
+                                                              ? 'Lots attribués'
+                                                              : 'Jeu terminé';
                                                       return GameCardWidget(
                                                         title:
                                                             containerGamesRecord
@@ -788,40 +822,29 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                         storeName:
                                                             rowEnseignesRecord
                                                                 .name,
-                                                        city:
-                                                            rowEnseignesRecord
-                                                                .city,
-                                                        prizeText:
-                                                            containerGamesRecord
-                                                                        .prizeValue ==
-                                                                    0
-                                                                ? 'Gains instantanés'
-                                                                : '${containerGamesRecord.prizeValue} €',
-                                                        endDateText:
-                                                            containerGamesRecord
-                                                                        .endDate !=
-                                                                    null
-                                                                ? 'Valable jusqu\'au : ${dateTimeFormat("d/M/y", containerGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}'
-                                                                : 'Valable jusqu\'au : -',
+                                                        city: rowEnseignesRecord
+                                                            .city,
+                                                        prizeText: containerGamesRecord
+                                                                    .prizeValue ==
+                                                                0
+                                                            ? 'Gains instantanés'
+                                                            : '${containerGamesRecord.prizeValue} €',
+                                                        endDateText: containerGamesRecord
+                                                                    .endDate !=
+                                                                null
+                                                            ? 'Valable jusqu\'au : ${dateTimeFormat("d/M/y", containerGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}'
+                                                            : 'Valable jusqu\'au : -',
+                                                        badgeText:
+                                                            finishedBadgeText,
                                                         winnerText: winnerText,
                                                         winnerMaxLines: 1,
                                                         isFinished: isFinished,
+                                                        finishedInfoText:
+                                                            finishedInfoText,
                                                         width: double.infinity,
                                                         onTap: () async {
-                                                          await containerGamesRecord
-                                                              .reference
-                                                              .update({
-                                                            ...mapToFirestore(
-                                                              {
-                                                                'views':
-                                                                    FieldValue
-                                                                        .increment(
-                                                                            1),
-                                                              },
-                                                            ),
-                                                          });
-
-                                                          if (!context.mounted) {
+                                                          if (!context
+                                                              .mounted) {
                                                             return;
                                                           }
 
@@ -848,6 +871,8 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                   containerGamesRecord,
                                                               'enseigneDoc':
                                                                   rowEnseignesRecord,
+                                                              'source':
+                                                                  'favoris',
                                                               kTransitionInfoKey:
                                                                   const TransitionInfo(
                                                                 hasTransition:
@@ -876,22 +901,15 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                           winnerSnapshot) {
                                                         final winner =
                                                             winnerSnapshot.data;
-                                                        final firstName =
-                                                            (winner?.firstName ??
-                                                                    '')
-                                                                .trim();
-                                                        final city =
-                                                            (winner?.city ?? '')
-                                                                .trim();
-                                                        final winnerIdentity =
-                                                            city.isNotEmpty
-                                                                ? '$firstName - $city'
-                                                                : firstName;
                                                         final winnerLabel =
-                                                            winnerIdentity
-                                                                    .isNotEmpty
-                                                                ? 'Gagné par $winnerIdentity'
-                                                                : 'Gagnant annoncé';
+                                                            buildWinnerLabelFromSources(
+                                                          gameData:
+                                                              containerGamesRecord
+                                                                  .snapshotData,
+                                                          user: winner,
+                                                          fallback:
+                                                              'Gagnant annonc\u00E9',
+                                                        );
                                                         return buildCard(
                                                           winnerText:
                                                               winnerLabel,
@@ -943,7 +961,3 @@ class _FavoriteGameListItem {
   final GamesRecord game;
   final EnseignesRecord enseigne;
 }
-
-
-
-

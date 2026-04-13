@@ -41,7 +41,6 @@ class _ValidationCardWidgetState extends State<ValidationCardWidget> {
         return;
       }
       setState(() => _isSubmitting = false);
-      rethrow;
     }
   }
 

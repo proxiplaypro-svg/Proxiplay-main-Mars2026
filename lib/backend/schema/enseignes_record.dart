@@ -40,6 +40,11 @@ class EnseignesRecord extends FirestoreRecord {
   String get city => _city ?? '';
   bool hasCity() => _city != null;
 
+  // "city_insee_code" field.
+  String? _cityInseeCode;
+  String get cityInseeCode => _cityInseeCode ?? '';
+  bool hasCityInseeCode() => _cityInseeCode != null;
+
   // "area_code" field.
   String? _areaCode;
   String get areaCode => _areaCode ?? '';
@@ -86,6 +91,7 @@ class EnseignesRecord extends FirestoreRecord {
     _name = snapshotData['name'] as String?;
     _address = snapshotData['address'] as String?;
     _city = snapshotData['city'] as String?;
+    _cityInseeCode = snapshotData['city_insee_code'] as String?;
     _areaCode = snapshotData['area_code'] as String?;
     _phoneNumber = snapshotData['phone_number'] as String?;
     _description = snapshotData['description'] as String?;
@@ -136,6 +142,7 @@ Map<String, dynamic> createEnseignesRecordData({
   String? name,
   String? address,
   String? city,
+  String? cityInseeCode,
   String? areaCode,
   String? phoneNumber,
   String? description,
@@ -151,6 +158,7 @@ Map<String, dynamic> createEnseignesRecordData({
       'name': name,
       'address': address,
       'city': city,
+      'city_insee_code': cityInseeCode,
       'area_code': areaCode,
       'phone_number': phoneNumber,
       'description': description,
@@ -175,6 +183,7 @@ class EnseignesRecordDocumentEquality implements Equality<EnseignesRecord> {
         e1?.name == e2?.name &&
         e1?.address == e2?.address &&
         e1?.city == e2?.city &&
+        e1?.cityInseeCode == e2?.cityInseeCode &&
         e1?.areaCode == e2?.areaCode &&
         e1?.phoneNumber == e2?.phoneNumber &&
         e1?.description == e2?.description &&
@@ -192,6 +201,7 @@ class EnseignesRecordDocumentEquality implements Equality<EnseignesRecord> {
         e?.name,
         e?.address,
         e?.city,
+        e?.cityInseeCode,
         e?.areaCode,
         e?.phoneNumber,
         e?.description,

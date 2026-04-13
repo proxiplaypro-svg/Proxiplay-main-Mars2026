@@ -157,6 +157,16 @@ class FirebaseAuthManager extends AuthManager
   }
 
   @override
+  Future sendEmailVerification() async {
+    if (!loggedIn) {
+      return;
+    }
+
+    await FirebaseAuth.instance.setLanguageCode('fr');
+    await currentUser?.sendEmailVerification();
+  }
+
+  @override
   Future<BaseAuthUser?> signInWithEmail(
     BuildContext context,
     String email,
@@ -327,6 +337,8 @@ class FirebaseAuthManager extends AuthManager
       final errorMsg = switch (e.code) {
         'email-already-in-use' =>
           'Error: The email is already in use by a different account',
+        'account-exists-with-different-credential' =>
+          'Un compte existe déjà avec cette adresse email. Connectez-vous avec votre méthode habituelle.',
         'INVALID_LOGIN_CREDENTIALS' =>
           'Error: The supplied auth credential is incorrect, malformed or has expired',
         _ => 'Error: ${e.message!}',

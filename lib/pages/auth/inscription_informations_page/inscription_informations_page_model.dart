@@ -10,6 +10,8 @@ class InscriptionInformationsPageModel
   ///  Local state fields for this page.
 
   FFUploadedFile? photoCarteIdentite;
+  String? cityInseeCode;
+  String? selectedCityLabel;
 
   ///  State fields for stateful widgets in this page.
 

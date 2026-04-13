@@ -178,6 +178,127 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
     super.dispose();
   }
 
+  Future<void> _routeAfterAuthenticatedLogin({
+    required bool shouldCheckEmailVerification,
+  }) async {
+    var shouldSetState = false;
+
+    if (shouldCheckEmailVerification) {
+      final requiresEmailVerification =
+          currentUserDocument?.userRole != Roles.commercant;
+
+      if (requiresEmailVerification && currentUserEmailVerified != true) {
+        await showDialog(
+          context: context,
+          builder: (dialogContext) {
+            return Dialog(
+              elevation: 0,
+              insetPadding: EdgeInsets.zero,
+              backgroundColor: Colors.transparent,
+              alignment: const AlignmentDirectional(0.0, 0.0)
+                  .resolve(Directionality.of(context)),
+              child: WebViewAware(
+                child: GestureDetector(
+                  onTap: () {
+                    FocusScope.of(dialogContext).unfocus();
+                    FocusManager.instance.primaryFocus?.unfocus();
+                  },
+                  child: const ResendEmailVerificationWidget(),
+                ),
+              ),
+            );
+          },
+        );
+
+        return;
+      }
+    }
+
+    if (currentUserDocument?.accountStatus == AccountStatus.pendingInfo) {
+      context.goNamedAuth(
+        InscriptionInformationsPageWidget.routeName,
+        context.mounted,
+        ignoreRedirect: true,
+      );
+      return;
+    } else if (currentUserDocument?.accountStatus ==
+        AccountStatus.pendingIdentityCard) {
+      context.goNamedAuth(
+        WaitingValidationPageWidget.routeName,
+        context.mounted,
+        ignoreRedirect: true,
+      );
+      return;
+    } else if (currentUserDocument?.accountStatus ==
+        AccountStatus.pendingIdentityPhoto) {
+      context.goNamedAuth(
+        WaitingValidationPageWidget.routeName,
+        context.mounted,
+        ignoreRedirect: true,
+      );
+      return;
+    } else if (currentUserDocument?.accountStatus ==
+        AccountStatus.pendingValidation) {
+      context.goNamedAuth(
+        WaitingValidationPageWidget.routeName,
+        context.mounted,
+        ignoreRedirect: true,
+      );
+      return;
+    } else if (currentUserDocument?.accountStatus == AccountStatus.rejected) {
+      context.goNamedAuth(
+        RejetInscriptionPageWidget.routeName,
+        context.mounted,
+        ignoreRedirect: true,
+      );
+      return;
+    } else {
+      if (currentUserDocument?.userRole == Roles.joueur) {
+        if (currentUserDocument?.birthday != null) {
+          _model.isMineur2 = await actions.isMineur(
+            currentUserDocument!.birthday!,
+          );
+          shouldSetState = true;
+          FFAppState().isMineur = _model.isMineur2 ?? false;
+        } else {
+          FFAppState().isMineur = false;
+        }
+        if (!mounted) {
+          return;
+        }
+
+        context.goNamedAuth(
+          HomeJoueurPageWidget.routeName,
+          mounted,
+          ignoreRedirect: true,
+        );
+      } else if (currentUserDocument?.userRole == Roles.admin) {
+        if (!context.mounted) {
+          return;
+        }
+        context.goNamedAuth(
+          HomeAdminPageWidget.routeName,
+          context.mounted,
+          ignoreRedirect: true,
+        );
+      } else {
+        if (!context.mounted) {
+          return;
+        }
+        context.goNamedAuth(
+          HomeCommercantPageWidget.routeName,
+          context.mounted,
+          ignoreRedirect: true,
+        );
+      }
+
+      if (shouldSetState) {
+        safeSetState(() {});
+      }
+      return;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     context.watch<FFAppState>();
@@ -543,7 +664,6 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                             if (!context.mounted) {
                                               return;
                                             }
-                                            var shouldSetState = false;
                                             if (_model.formKey.currentState ==
                                                     null ||
                                                 !_model.formKey.currentState!
@@ -567,164 +687,10 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                             if (!context.mounted) {
                                               return;
                                             }
-
-                                            final requiresEmailVerification =
-                                                currentUserDocument?.userRole !=
-                                                    Roles.commercant;
-
-                                            if (requiresEmailVerification &&
-                                                currentUserEmailVerified !=
-                                                    true) {
-                                              await showDialog(
-                                                context: context,
-                                                builder: (dialogContext) {
-                                                  return Dialog(
-                                                    elevation: 0,
-                                                    insetPadding:
-                                                        EdgeInsets.zero,
-                                                    backgroundColor:
-                                                        Colors.transparent,
-                                                    alignment:
-                                                        const AlignmentDirectional(
-                                                                0.0, 0.0)
-                                                            .resolve(
-                                                                Directionality.of(
-                                                                    context)),
-                                                    child: WebViewAware(
-                                                      child: GestureDetector(
-                                                        onTap: () {
-                                                          FocusScope.of(
-                                                                  dialogContext)
-                                                              .unfocus();
-                                                          FocusManager.instance
-                                                              .primaryFocus
-                                                              ?.unfocus();
-                                                        },
-                                                        child:
-                                                            const ResendEmailVerificationWidget(),
-                                                      ),
-                                                    ),
-                                                  );
-                                                },
-                                              );
-
-                                              return;
-                                            }
-
-                                            if (currentUserDocument
-                                                    ?.accountStatus ==
-                                                AccountStatus.pendingInfo) {
-                                              context.goNamedAuth(
-                                                InscriptionInformationsPageWidget
-                                                    .routeName,
-                                                context.mounted,
-                                                ignoreRedirect: true,
-                                              );
-
-                                              return;
-                                            } else if (currentUserDocument
-                                                    ?.accountStatus ==
-                                                AccountStatus
-                                                    .pendingIdentityCard) {
-                                              context.goNamedAuth(
-                                                WaitingValidationPageWidget
-                                                    .routeName,
-                                                context.mounted,
-                                                ignoreRedirect: true,
-                                              );
-
-                                              return;
-                                            } else if (currentUserDocument
-                                                    ?.accountStatus ==
-                                                AccountStatus
-                                                    .pendingIdentityPhoto) {
-                                              context.goNamedAuth(
-                                                WaitingValidationPageWidget
-                                                    .routeName,
-                                                context.mounted,
-                                                ignoreRedirect: true,
-                                              );
-
-                                              return;
-                                            } else if (currentUserDocument
-                                                    ?.accountStatus ==
-                                                AccountStatus
-                                                    .pendingValidation) {
-                                              context.goNamedAuth(
-                                                WaitingValidationPageWidget
-                                                    .routeName,
-                                                context.mounted,
-                                                ignoreRedirect: true,
-                                              );
-
-                                              return;
-                                            } else if (currentUserDocument
-                                                    ?.accountStatus ==
-                                                AccountStatus.rejected) {
-                                              context.goNamedAuth(
-                                                RejetInscriptionPageWidget
-                                                    .routeName,
-                                                context.mounted,
-                                                ignoreRedirect: true,
-                                              );
-
-                                              return;
-                                            } else {
-                                              if (currentUserDocument
-                                                      ?.userRole ==
-                                                  Roles.joueur) {
-                                                if (currentUserDocument
-                                                        ?.birthday !=
-                                                    null) {
-                                                  _model.isMineur2 =
-                                                      await actions.isMineur(
-                                                    currentUserDocument!
-                                                        .birthday!,
-                                                  );
-                                                  shouldSetState = true;
-                                                  FFAppState().isMineur =
-                                                      _model.isMineur2 ?? false;
-                                                } else {
-                                                  FFAppState().isMineur = false;
-                                                }
-                                                if (!context.mounted) {
-                                                  return;
-                                                }
-
-                                                context.goNamedAuth(
-                                                  HomeJoueurPageWidget
-                                                      .routeName,
-                                                  context.mounted,
-                                                  ignoreRedirect: true,
-                                                );
-                                              } else if (currentUserDocument
-                                                      ?.userRole ==
-                                                  Roles.admin) {
-                                                if (!context.mounted) {
-                                                  return;
-                                                }
-                                                context.goNamedAuth(
-                                                  HomeAdminPageWidget.routeName,
-                                                  context.mounted,
-                                                  ignoreRedirect: true,
-                                                );
-                                              } else {
-                                                if (!context.mounted) {
-                                                  return;
-                                                }
-                                                context.goNamedAuth(
-                                                  HomeCommercantPageWidget
-                                                      .routeName,
-                                                  context.mounted,
-                                                  ignoreRedirect: true,
-                                                );
-                                              }
-
-                                              if (shouldSetState) {
-                                                safeSetState(() {});
-                                              }
-                                              return;
-                                            }
+                                            await _routeAfterAuthenticatedLogin(
+                                              shouldCheckEmailVerification:
+                                                  true,
+                                            );
                                           },
                                           text: 'Connexion',
                                           options: FFButtonOptions(
