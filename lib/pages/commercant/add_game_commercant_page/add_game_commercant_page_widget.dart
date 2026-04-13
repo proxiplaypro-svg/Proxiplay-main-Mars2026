@@ -590,7 +590,7 @@ class _AddGameCommercantPageWidgetState
             decoration: _fieldDecoration(
               context,
               label: 'Titre du lot',
-              hintText: 'ex : 20% de réduction hors soldes...',
+              hintText: 'Titre du lot',
             ),
             style: _fieldTextStyle(context),
           ),
@@ -600,8 +600,8 @@ class _AddGameCommercantPageWidgetState
             focusNode: entry.presentationFocusNode,
             decoration: _fieldDecoration(
               context,
-              label: 'Description',
-              hintText: 'ex : 20% en caisse, hors soldes...',
+              label: 'Description (facultatif)',
+              hintText: 'Description (facultatif)',
             ),
             style: _fieldTextStyle(context),
           ),
