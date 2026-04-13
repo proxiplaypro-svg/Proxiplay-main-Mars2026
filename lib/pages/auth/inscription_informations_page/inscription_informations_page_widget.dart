@@ -971,6 +971,11 @@ class _InscriptionInformationsPageWidgetState
                                     context.goNamed(
                                         WaitingValidationPageWidget.routeName);
                                   } else {
+                                    await authManager.refreshUser();
+                                    if (!currentUserEmailVerified) {
+                                      await authManager
+                                          .sendEmailVerification();
+                                    }
                                     context.goNamed(LoginPageWidget.routeName);
                                   }
                                 },
