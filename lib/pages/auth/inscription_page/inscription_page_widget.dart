@@ -33,6 +33,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
   late InscriptionPageModel _model;
   final SharePromoService _sharePromoService = SharePromoService();
   bool _isApplyingPendingReferralCode = false;
+  bool _showEmailForm = false;
   String? _lastAppliedReferralGuardKey;
   String? _lastReferralErrorMessage;
 
@@ -230,6 +231,254 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     );
   }
 
+  void _showTermsRequiredMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Veuillez accepter les conditions générales d\'utilisation pour continuer.',
+        ),
+      ),
+    );
+  }
+
+  void _focusPlayerEmailForm() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _model.emailAddressJoueurFocusNode?.requestFocus();
+    });
+  }
+
+  void _openPlayerEmailForm() {
+    safeSetState(() {
+      _showEmailForm = true;
+    });
+    _focusPlayerEmailForm();
+  }
+
+  void _closePlayerEmailForm() {
+    FocusScope.of(context).unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
+    safeSetState(() {
+      _showEmailForm = false;
+    });
+  }
+
+  Widget _buildPlayerTermsCheckbox() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Theme(
+          data: ThemeData(
+            checkboxTheme: CheckboxThemeData(
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4.0),
+              ),
+            ),
+            unselectedWidgetColor: FlutterFlowTheme.of(context).primaryText,
+          ),
+          child: Checkbox(
+            value: _model.checkboxJoueurValue ??= false,
+            onChanged: (newValue) async {
+              safeSetState(() => _model.checkboxJoueurValue = newValue!);
+            },
+            side: BorderSide(
+              width: 2,
+              color: FlutterFlowTheme.of(context).primaryText,
+            ),
+            activeColor: FlutterFlowTheme.of(context).primary,
+            checkColor: FlutterFlowTheme.of(context).info,
+          ),
+        ),
+        Flexible(
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(0.0, 5.0, 0.0, 0.0),
+            child: InkWell(
+              splashColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              onTap: () async {
+                context.pushNamed(LegalPageWidget.routeName);
+              },
+              child: RichText(
+                textScaler: MediaQuery.of(context).textScaler,
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'En cochant la case, vous acceptez nos',
+                      style: FlutterFlowTheme.of(context).bodyMedium.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .fontWeight,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .fontStyle,
+                            ),
+                            letterSpacing: 0.0,
+                            fontWeight: FlutterFlowTheme.of(context)
+                                .bodyMedium
+                                .fontWeight,
+                            fontStyle: FlutterFlowTheme.of(context)
+                                .bodyMedium
+                                .fontStyle,
+                          ),
+                    ),
+                    const TextSpan(text: ' '),
+                    TextSpan(
+                      text: 'conditions générales d\'utilisation',
+                      style: FlutterFlowTheme.of(context).bodyMedium.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .fontStyle,
+                            ),
+                            letterSpacing: 0.0,
+                            fontWeight: FontWeight.bold,
+                            fontStyle: FlutterFlowTheme.of(context)
+                                .bodyMedium
+                                .fontStyle,
+                          ),
+                    ),
+                    const TextSpan(text: ' ainsi que notre '),
+                    TextSpan(
+                      text: 'politique de confidentialité',
+                      style: FlutterFlowTheme.of(context).bodyMedium.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .fontStyle,
+                            ),
+                            letterSpacing: 0.0,
+                            fontWeight: FontWeight.bold,
+                            fontStyle: FlutterFlowTheme.of(context)
+                                .bodyMedium
+                                .fontStyle,
+                          ),
+                    ),
+                  ],
+                  style: FlutterFlowTheme.of(context).bodyMedium.override(
+                        font: GoogleFonts.inter(
+                          fontWeight:
+                              FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                          fontStyle:
+                              FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                        ),
+                        letterSpacing: 0.0,
+                        fontWeight:
+                            FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                        fontStyle:
+                            FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                      ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlayerEntryButtons() {
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
+      child: Column(
+        children: [
+          FFButtonWidget(
+            onPressed: () async {
+              if (_model.checkboxJoueurValue != true) {
+                _showTermsRequiredMessage();
+                return;
+              }
+
+              await _handleGooglePlayerSignup();
+            },
+            text: 'Continuer avec Google',
+            icon: const FaIcon(
+              FontAwesomeIcons.google,
+              size: 18.0,
+            ),
+            options: FFButtonOptions(
+              width: double.infinity,
+              height: 52.0,
+              padding:
+                  const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
+              iconPadding:
+                  const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
+              color: Colors.white,
+              textStyle: FlutterFlowTheme.of(context).titleSmall.override(
+                    font: GoogleFonts.interTight(
+                      fontWeight:
+                          FlutterFlowTheme.of(context).titleSmall.fontWeight,
+                      fontStyle:
+                          FlutterFlowTheme.of(context).titleSmall.fontStyle,
+                    ),
+                    color: FlutterFlowTheme.of(context).primaryText,
+                    letterSpacing: 0.0,
+                    fontWeight:
+                        FlutterFlowTheme.of(context).titleSmall.fontWeight,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).titleSmall.fontStyle,
+                  ),
+              elevation: 0.0,
+              borderSide: const BorderSide(
+                color: Color(0xFFDADADA),
+                width: 1.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+          ),
+          const SizedBox(height: 12.0),
+          FFButtonWidget(
+            onPressed: () async {
+              _openPlayerEmailForm();
+            },
+            text: 'Continuer avec l\'e-mail',
+            icon: const Icon(
+              Icons.mail_outline_rounded,
+              size: 22.0,
+            ),
+            options: FFButtonOptions(
+              width: double.infinity,
+              height: 52.0,
+              padding:
+                  const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
+              iconPadding:
+                  const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
+              color: Colors.white,
+              textStyle: FlutterFlowTheme.of(context).titleSmall.override(
+                    font: GoogleFonts.interTight(
+                      fontWeight:
+                          FlutterFlowTheme.of(context).titleSmall.fontWeight,
+                      fontStyle:
+                          FlutterFlowTheme.of(context).titleSmall.fontStyle,
+                    ),
+                    color: FlutterFlowTheme.of(context).primaryText,
+                    letterSpacing: 0.0,
+                    fontWeight:
+                        FlutterFlowTheme.of(context).titleSmall.fontWeight,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).titleSmall.fontStyle,
+                  ),
+              elevation: 0.0,
+              borderSide: const BorderSide(
+                color: Color(0xFFDADADA),
+                width: 1.0,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -399,6 +648,9 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                             ],
                             controller: _model.tabBarController,
                             onTap: (i) async {
+                              safeSetState(() {
+                                _showEmailForm = false;
+                              });
                               [
                                 () async {
                                   _model.userType = Roles.joueur;
@@ -431,7 +683,98 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Form(
+                                          if (!_showEmailForm) ...[
+                                            _buildPlayerEntryButtons(),
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsetsDirectional
+                                                      .fromSTEB(
+                                                          0.0, 0.0, 0.0, 16.0),
+                                              child: _buildPlayerTermsCheckbox(),
+                                            ),
+                                          ],
+                                          if (_showEmailForm)
+                                            Align(
+                                              alignment: Alignment.centerLeft,
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsetsDirectional
+                                                        .fromSTEB(
+                                                            0.0, 0.0, 0.0, 16.0),
+                                                child: TextButton.icon(
+                                                  onPressed: _closePlayerEmailForm,
+                                                  style: TextButton.styleFrom(
+                                                    foregroundColor:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .primary,
+                                                    backgroundColor:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .primary
+                                                            .withValues(
+                                                                alpha: 0.08),
+                                                    padding:
+                                                        const EdgeInsetsDirectional
+                                                            .fromSTEB(
+                                                                12.0,
+                                                                8.0,
+                                                                14.0,
+                                                                8.0),
+                                                    minimumSize: Size.zero,
+                                                    tapTargetSize:
+                                                        MaterialTapTargetSize
+                                                            .shrinkWrap,
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              999.0),
+                                                    ),
+                                                  ),
+                                                  icon: Icon(
+                                                    Icons.arrow_back_rounded,
+                                                    size: 18.0,
+                                                    color:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .primary,
+                                                  ),
+                                                  label: Text(
+                                                    'Retour',
+                                                    style: FlutterFlowTheme.of(
+                                                            context)
+                                                        .bodyMedium
+                                                        .override(
+                                                          font:
+                                                              GoogleFonts.inter(
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            fontStyle:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontStyle,
+                                                          ),
+                                                          color:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .primary,
+                                                          letterSpacing: 0.0,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .bodyMedium
+                                                                  .fontStyle,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          if (_showEmailForm)
+                                            Form(
                                             key: _model.formKey2,
                                             autovalidateMode:
                                                 AutovalidateMode.disabled,
@@ -1327,10 +1670,14 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                             .fromSTEB(0.0, 0.0,
                                                                 0.0, 16.0),
                                                     child: FFButtonWidget(
-                                                      onPressed: !_model
-                                                              .checkboxJoueurValue!
-                                                          ? null
-                                                          : () async {
+                                                      onPressed: () async {
+                                                        if (_model
+                                                                .checkboxJoueurValue !=
+                                                            true) {
+                                                          _showTermsRequiredMessage();
+                                                          return;
+                                                        }
+                                                        
                                                               if (_model.formKey2
                                                                           .currentState ==
                                                                       null ||
@@ -1498,98 +1845,11 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                     ),
                                                   ),
                                                 ),
-                                                Align(
-                                                  alignment:
-                                                      const AlignmentDirectional(
-                                                          0.0, 0.0),
-                                                  child: Padding(
-                                                    padding:
-                                                        const EdgeInsetsDirectional
-                                                            .fromSTEB(0.0, 0.0,
-                                                                0.0, 16.0),
-                                                    child: FFButtonWidget(
-                                                      onPressed: !_model
-                                                              .checkboxJoueurValue!
-                                                          ? null
-                                                          : () async {
-                                                              await _handleGooglePlayerSignup();
-                                                            },
-                                                      text:
-                                                          'Continuer avec Google',
-                                                      icon: const FaIcon(
-                                                        FontAwesomeIcons.google,
-                                                        size: 18.0,
-                                                      ),
-                                                      options: FFButtonOptions(
-                                                        width: double.infinity,
-                                                        height: 52.0,
-                                                        padding:
-                                                            const EdgeInsetsDirectional
-                                                                .fromSTEB(
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0),
-                                                        iconPadding:
-                                                            const EdgeInsetsDirectional
-                                                                .fromSTEB(
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0),
-                                                        color: Colors.white,
-                                                        textStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .titleSmall
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .interTight(
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primaryText,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleSmall
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleSmall
-                                                                      .fontStyle,
-                                                                ),
-                                                        elevation: 0.0,
-                                                        borderSide:
-                                                            const BorderSide(
-                                                          color:
-                                                              Color(0xFFDADADA),
-                                                          width: 1.0,
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(12.0),
-                                                        disabledColor:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .fieldText,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
 	                                              ],
 	                                            ),
 	                                          ),
-                                          Column(
+                                          if (_showEmailForm)
+                                            Column(
                                             mainAxisSize: MainAxisSize.max,
                                             children: [
                                               InkWell(
