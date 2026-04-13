@@ -30,18 +30,11 @@ class _ValidationCardWidgetState extends State<ValidationCardWidget> {
 
     setState(() => _isSubmitting = true);
 
-    try {
-      await widget.callback?.call();
-      if (!context.mounted) {
-        return;
-      }
+    if (context.mounted) {
       context.safePop();
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _isSubmitting = false);
     }
+
+    await widget.callback?.call();
   }
 
   @override
