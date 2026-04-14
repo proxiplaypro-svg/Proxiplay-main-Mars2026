@@ -35,6 +35,180 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
+  Widget _buildStatusBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 7.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      child: Text(
+        'Actif',
+        style: FlutterFlowTheme.of(context).bodySmall.override(
+              font: GoogleFonts.inter(
+                fontWeight: FontWeight.w700,
+                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+              ),
+              color: const Color(0xFF2E7D32),
+              letterSpacing: 0.0,
+              fontWeight: FontWeight.w700,
+            ),
+      ),
+    );
+  }
+
+  Widget _buildMetricChip({
+    required IconData icon,
+    required String text,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 18.0,
+          color: FlutterFlowTheme.of(context).primary,
+        ),
+        const SizedBox(width: 6.0),
+        Text(
+          text,
+          style: FlutterFlowTheme.of(context).bodySmall.override(
+                font: GoogleFonts.inter(
+                  fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                  fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                ),
+                color: FlutterFlowTheme.of(context).primaryText,
+                letterSpacing: 0.0,
+              ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCurrentGameCard(GamesRecord game) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 154.0),
+      decoration: BoxDecoration(
+        color: FlutterFlowTheme.of(context).secondaryBackground,
+        borderRadius: BorderRadius.circular(22.0),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0C0E1220),
+            blurRadius: 14.0,
+            offset: Offset(0.0, 4.0),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 104.0,
+              height: 104.0,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18.0),
+                color: FlutterFlowTheme.of(context).primary,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: CachedNetworkImage(
+                fadeInDuration: const Duration(milliseconds: 300),
+                fadeOutDuration: const Duration(milliseconds: 300),
+                imageUrl: game.photo,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 16.0),
+            Expanded(
+              child: SizedBox(
+                height: 104.0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            game.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: FlutterFlowTheme.of(context)
+                                .titleLarge
+                                .override(
+                                  font: GoogleFonts.interTight(
+                                    fontWeight: FontWeight.w700,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .titleLarge
+                                        .fontStyle,
+                                  ),
+                                  letterSpacing: 0.0,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        ),
+                        const SizedBox(width: 10.0),
+                        _buildStatusBadge(),
+                      ],
+                    ),
+                    const SizedBox(height: 10.0),
+                    Text(
+                      'Du ${dateTimeFormat(
+                        "d/M/y",
+                        game.startDate,
+                        locale: FFLocalizations.of(context).languageCode,
+                      )} au ${dateTimeFormat(
+                        "d/M/y",
+                        game.endDate,
+                        locale: FFLocalizations.of(context).languageCode,
+                      )}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: FlutterFlowTheme.of(context).bodyMedium.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .fontWeight,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .fontStyle,
+                            ),
+                            color: FlutterFlowTheme.of(context).secondaryText,
+                            letterSpacing: 0.0,
+                          ),
+                    ),
+                    const Spacer(),
+                    Wrap(
+                      spacing: 16.0,
+                      runSpacing: 8.0,
+                      children: [
+                        _buildMetricChip(
+                          icon: Icons.remove_red_eye,
+                          text:
+                              'Ouvertures fiche ${gameViewsDisplayValue(game)}',
+                        ),
+                        _buildMetricChip(
+                          icon: Icons.sports_esports_rounded,
+                          text: 'Joueurs ${game.participations}',
+                        ),
+                        _buildMetricChip(
+                          icon: Icons.star_rounded,
+                          text: 'Favoris ${game.favorites}',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -575,302 +749,8 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
 
                                                 safeSetState(() {});
                                               },
-                                              child: Container(
-                                                width: double.infinity,
-                                                height: 145.0,
-                                                decoration: BoxDecoration(
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .secondaryBackground,
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          20.0),
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.max,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.center,
-                                                  children: [
-                                                    Expanded(
-                                                      flex: 1,
-                                                      child: Container(
-                                                        height: double.infinity,
-                                                        decoration:
-                                                            const BoxDecoration(),
-                                                        child: ClipRRect(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      8.0),
-                                                          child:
-                                                              CachedNetworkImage(
-                                                            fadeInDuration:
-                                                                const Duration(
-                                                                    milliseconds:
-                                                                        500),
-                                                            fadeOutDuration:
-                                                                const Duration(
-                                                                    milliseconds:
-                                                                        500),
-                                                            imageUrl:
-                                                                listViewGamesRecord
-                                                                    .photo,
-                                                            fit: BoxFit.cover,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Flexible(
-                                                      flex: 2,
-                                                      child: Padding(
-                                                        padding: const EdgeInsets.all(
-                                                            10.0),
-                                                        child: Column(
-                                                          mainAxisSize:
-                                                              MainAxisSize.max,
-                                                          mainAxisAlignment:
-                                                              MainAxisAlignment
-                                                                  .start,
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            SingleChildScrollView(
-                                                              scrollDirection:
-                                                                  Axis.horizontal,
-                                                              child: Row(
-                                                                mainAxisSize:
-                                                                    MainAxisSize
-                                                                        .max,
-                                                                children: [
-                                                                  Text(
-                                                                    listViewGamesRecord
-                                                                        .name,
-                                                                    style: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.inter(
-                                                                            fontWeight:
-                                                                                FontWeight.w600,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                          ),
-                                                                          letterSpacing:
-                                                                              0.0,
-                                                                          fontWeight:
-                                                                              FontWeight.w600,
-                                                                          fontStyle: FlutterFlowTheme.of(context)
-                                                                              .bodyMedium
-                                                                              .fontStyle,
-                                                                        ),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            ),
-                                                            Flexible(
-                                                              child: Row(
-                                                                mainAxisSize:
-                                                                    MainAxisSize
-                                                                        .max,
-                                                                crossAxisAlignment:
-                                                                    CrossAxisAlignment
-                                                                        .start,
-                                                                children: [
-                                                                  Expanded(
-                                                                    child:
-                                                                        Column(
-                                                                      mainAxisSize:
-                                                                          MainAxisSize
-                                                                              .max,
-                                                                      mainAxisAlignment:
-                                                                          MainAxisAlignment
-                                                                              .start,
-                                                                      children:
-                                                                          [
-                                                                        Row(
-                                                                          mainAxisSize:
-                                                                              MainAxisSize.max,
-                                                                          children: [
-                                                                            Padding(
-                                                                              padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 4.0, 0.0),
-                                                                              child: Icon(
-                                                                                Icons.remove_red_eye,
-                                                                                color: FlutterFlowTheme.of(context).primaryText,
-                                                                                size: 18.0,
-                                                                              ),
-                                                                            ),
-                                                                            Text(
-                                                                              'Ouvertures fiche : ',
-                                                                              style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                    font: GoogleFonts.inter(
-                                                                                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                    ),
-                                                                                    letterSpacing: 0.0,
-                                                                                    fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                    fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                  ),
-                                                                            ),
-                                                                            Text(
-                                                                              gameViewsDisplayValue(
-                                                                                listViewGamesRecord,
-                                                                              ),
-                                                                              style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                    font: GoogleFonts.inter(
-                                                                                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                    ),
-                                                                                    letterSpacing: 0.0,
-                                                                                    fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                    fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                  ),
-                                                                            ),
-                                                                          ],
-                                                                        ),
-                                                                        Row(
-                                                                          mainAxisSize:
-                                                                              MainAxisSize.max,
-                                                                          children: [
-                                                                            Padding(
-                                                                              padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 4.0, 0.0),
-                                                                              child: Icon(
-                                                                                Icons.person_rounded,
-                                                                                color: FlutterFlowTheme.of(context).primaryText,
-                                                                                size: 18.0,
-                                                                              ),
-                                                                            ),
-                                                                            Text(
-                                                                              'Joueurs : ',
-                                                                              style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                    font: GoogleFonts.inter(
-                                                                                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                    ),
-                                                                                    letterSpacing: 0.0,
-                                                                                    fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                    fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                  ),
-                                                                            ),
-                                                                            Text(
-                                                                              listViewGamesRecord.participations.toString(),
-                                                                              style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                    font: GoogleFonts.inter(
-                                                                                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                    ),
-                                                                                    letterSpacing: 0.0,
-                                                                                    fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                    fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                  ),
-                                                                            ),
-                                                                          ],
-                                                                        ),
-                                                                        Row(
-                                                                          mainAxisSize:
-                                                                              MainAxisSize.max,
-                                                                          children: [
-                                                                            Padding(
-                                                                              padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 4.0, 0.0),
-                                                                              child: Icon(
-                                                                                Icons.edit_calendar,
-                                                                                color: FlutterFlowTheme.of(context).primaryText,
-                                                                                size: 18.0,
-                                                                              ),
-                                                                            ),
-                                                                            Expanded(
-                                                                              child: Text(
-                                                                                'Jusqu\'au ${dateTimeFormat(
-                                                                                  "dd/MM/y",
-                                                                                  listViewGamesRecord.endDate,
-                                                                                  locale: FFLocalizations.of(context).languageCode,
-                                                                                )}',
-                                                                                maxLines: 2,
-                                                                                softWrap: true,
-                                                                                overflow: TextOverflow.visible,
-                                                                                style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                      font: GoogleFonts.inter(
-                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                      ),
-                                                                                      letterSpacing: 0.0,
-                                                                                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                    ),
-                                                                              ),
-                                                                            ),
-                                                                          ],
-                                                                        ),
-                                                                      ].divide(const SizedBox(
-                                                                              height: 10.0)),
-                                                                    ),
-                                                                  ),
-                                                                  Expanded(
-                                                                    child:
-                                                                        Column(
-                                                                      mainAxisSize:
-                                                                          MainAxisSize
-                                                                              .max,
-                                                                      mainAxisAlignment:
-                                                                          MainAxisAlignment
-                                                                              .start,
-                                                                      children: [
-                                                                        Flexible(
-                                                                          child:
-                                                                              Row(
-                                                                            mainAxisSize:
-                                                                                MainAxisSize.max,
-                                                                            children: [
-                                                                              Padding(
-                                                                                padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 4.0, 0.0),
-                                                                                child: Icon(
-                                                                                  Icons.star_rounded,
-                                                                                  color: FlutterFlowTheme.of(context).primaryText,
-                                                                                  size: 18.0,
-                                                                                ),
-                                                                              ),
-                                                                              Text(
-                                                                                'Favoris : ',
-                                                                                style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                      font: GoogleFonts.inter(
-                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                      ),
-                                                                                      letterSpacing: 0.0,
-                                                                                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                    ),
-                                                                              ),
-                                                                              Text(
-                                                                                listViewGamesRecord.favorites.toString(),
-                                                                                style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                      font: GoogleFonts.inter(
-                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                      ),
-                                                                                      letterSpacing: 0.0,
-                                                                                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                    ),
-                                                                              ),
-                                                                            ],
-                                                                          ),
-                                                                        ),
-                                                                      ],
-                                                                    ),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            ),
-                                                          ].divide(const SizedBox(
-                                                              height: 10.0)),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
+                                              child: _buildCurrentGameCard(
+                                                listViewGamesRecord,
                                               ),
                                             );
                                           },
