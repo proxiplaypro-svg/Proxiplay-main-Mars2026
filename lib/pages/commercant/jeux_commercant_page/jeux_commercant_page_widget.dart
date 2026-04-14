@@ -125,14 +125,13 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
     return afterStart && now.isBefore(end);
   }
 
-  GamesRecord? _pickCurrentGame(List<GamesRecord> games) {
-    final activeGames = games.where(_isGameActive).toList()
+  List<GamesRecord> _activeGames(List<GamesRecord> games) {
+    return games.where(_isGameActive).toList()
       ..sort((a, b) {
         final aDate = a.endDate ?? DateTime.fromMillisecondsSinceEpoch(0);
         final bDate = b.endDate ?? DateTime.fromMillisecondsSinceEpoch(0);
         return aDate.compareTo(bDate);
       });
-    return activeGames.isEmpty ? null : activeGames.first;
   }
 
   List<GamesRecord> _finishedGames(List<GamesRecord> games) {
@@ -620,7 +619,7 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                     );
                                   }
 
-                                  final currentGame = _pickCurrentGame(
+                                  final activeGames = _activeGames(
                                       listViewGamesRecordList);
                                   final finishedGames = _finishedGames(
                                       listViewGamesRecordList);
@@ -631,7 +630,7 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                     return ListView(
                                       padding: EdgeInsets.zero,
                                       children: [
-                                      if (currentGame != null) ...[
+                                      if (activeGames.isNotEmpty) ...[
                                         Align(
                                           alignment: Alignment.centerLeft,
                                           child: Text(
@@ -653,10 +652,17 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                           ),
                                         ),
                                         const SizedBox(height: 10.0),
-                                        _statStyleCard(
-                                          currentGame,
-                                          isActive: true,
-                                          showActions: false,
+                                        ...activeGames.map(
+                                          (game) => Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 10.0,
+                                            ),
+                                            child: _statStyleCard(
+                                              game,
+                                              isActive: true,
+                                              showActions: false,
+                                            ),
+                                          ),
                                         ),
                                         const SizedBox(height: 14.0),
                                       ],
