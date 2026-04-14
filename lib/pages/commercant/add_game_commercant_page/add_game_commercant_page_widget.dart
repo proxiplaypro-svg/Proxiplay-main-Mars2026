@@ -364,6 +364,8 @@ class _AddGameCommercantPageWidgetState
   }
 
   Future<void> _pickStartDate() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    FocusScope.of(context).unfocus();
     final initialDate = _model.startDatePicked ?? getCurrentTimestamp;
     final datePickedDate = await showDatePicker(
       context: context,
@@ -401,6 +403,9 @@ class _AddGameCommercantPageWidgetState
       },
     );
 
+    FocusManager.instance.primaryFocus?.unfocus();
+    FocusScope.of(context).unfocus();
+
     if (datePickedDate != null) {
       safeSetState(() {
         _model.startDatePicked = DateTime(
@@ -413,6 +418,8 @@ class _AddGameCommercantPageWidgetState
   }
 
   Future<void> _pickEndDate() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    FocusScope.of(context).unfocus();
     final initialDate =
         _model.datePicked ?? _model.startDatePicked ?? getCurrentTimestamp;
     final firstDate = _model.startDatePicked ?? getCurrentTimestamp;
@@ -451,6 +458,9 @@ class _AddGameCommercantPageWidgetState
         );
       },
     );
+
+    FocusManager.instance.primaryFocus?.unfocus();
+    FocusScope.of(context).unfocus();
 
     if (datePickedDate != null) {
       safeSetState(() {
@@ -536,6 +546,7 @@ class _AddGameCommercantPageWidgetState
     SecondaryPrizeEntry entry,
   ) {
     return Container(
+      key: ValueKey('secondary-prize-${entry.stableId}'),
       decoration: BoxDecoration(
         color: const Color(0xFFFFFAFD),
         borderRadius: BorderRadius.circular(18.0),
@@ -587,6 +598,7 @@ class _AddGameCommercantPageWidgetState
           TextFormField(
             controller: entry.nameController,
             focusNode: entry.nameFocusNode,
+            autofocus: false,
             decoration: _fieldDecoration(
               context,
               label: 'Titre du lot',
@@ -598,6 +610,7 @@ class _AddGameCommercantPageWidgetState
           TextFormField(
             controller: entry.presentationController,
             focusNode: entry.presentationFocusNode,
+            autofocus: false,
             decoration: _fieldDecoration(
               context,
               label: 'Description (facultatif)',
@@ -609,6 +622,7 @@ class _AddGameCommercantPageWidgetState
           TextFormField(
             controller: entry.countController,
             focusNode: entry.countFocusNode,
+            autofocus: false,
             decoration: _fieldDecoration(
               context,
               label: 'Nombre de lots',

@@ -97,6 +97,9 @@ class AddGameCommercantPageModel
 }
 
 class SecondaryPrizeEntry {
+  static int _nextStableId = 0;
+
+  final int stableId = _nextStableId++;
   final FocusNode nameFocusNode = FocusNode();
   final TextEditingController nameController = TextEditingController();
   final FocusNode presentationFocusNode = FocusNode();
