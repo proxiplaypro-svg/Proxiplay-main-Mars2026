@@ -2382,7 +2382,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           padding:
                                                               const EdgeInsetsDirectional
                                                                   .fromSTEB(
-                                                                  0.0,
+                                                                  _homeSectionTitleLeftInset,
                                                                   0.0,
                                                                   0.0,
                                                                   16.0),
