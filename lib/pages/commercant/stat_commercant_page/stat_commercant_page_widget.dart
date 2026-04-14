@@ -6,6 +6,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/utils/game_metrics.dart';
+import '/utils/merchant_game_visibility.dart';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -107,23 +108,16 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
   }
 
   bool _isGameActive(GamesRecord game) {
-    final now = getCurrentTimestamp;
-    final start = game.startDate;
-    final end = game.endDate;
-    if (end == null) return false;
-    if (game.snapshotData['hidden_from_merchant_stats'] == true) return false;
-    final afterStart = start == null || !now.isBefore(start);
-    return afterStart && now.isBefore(end);
+    return isMerchantActiveGame(game);
   }
 
-  GamesRecord? _pickCurrentGame(List<GamesRecord> games) {
-    final activeGames = games.where(_isGameActive).toList()
+  List<GamesRecord> _activeGames(List<GamesRecord> games) {
+    return games.where(_isGameActive).toList()
       ..sort((a, b) {
         final aDate = a.endDate ?? DateTime.fromMillisecondsSinceEpoch(0);
         final bDate = b.endDate ?? DateTime.fromMillisecondsSinceEpoch(0);
         return aDate.compareTo(bDate);
       });
-    return activeGames.isEmpty ? null : activeGames.first;
   }
 
   List<GamesRecord> _normalizeFinishedGames(List<GamesRecord> input) {
@@ -677,9 +671,8 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
 
                         final allGames = snapshot.data!;
                         final finishedGames = _normalizeFinishedGames(allGames);
-                        final currentGame = _pickCurrentGame(allGames);
-                        final totalViews =
-                            totalViewsDisplayValue(allGames);
+                        final activeGames = _activeGames(allGames);
+                        final totalViews = totalViewsDisplayValue(allGames);
                         final totalParticipations = allGames.fold<int>(
                             0, (sum, game) => sum + game.participations);
                         final widgets = <Widget>[
@@ -714,7 +707,9 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'Jeu en cours',
+                              activeGames.length > 1
+                                  ? 'Jeux en cours'
+                                  : 'Jeu en cours',
                               style: FlutterFlowTheme.of(context).titleMedium.override(
                                     font: GoogleFonts.interTight(
                                       fontWeight: FontWeight.w700,
@@ -728,11 +723,13 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                             ),
                           ),
                           const SizedBox(height: 8.0),
-                          if (currentGame != null)
-                            _buildGameCard(
-                              currentGame,
-                              isActiveCard: true,
-                              showActions: false,
+                          if (activeGames.isNotEmpty)
+                            ...activeGames.map(
+                              (game) => _buildGameCard(
+                                game,
+                                isActiveCard: true,
+                                showActions: false,
+                              ),
                             )
                           else
                             _buildCurrentGameEmptyState(),

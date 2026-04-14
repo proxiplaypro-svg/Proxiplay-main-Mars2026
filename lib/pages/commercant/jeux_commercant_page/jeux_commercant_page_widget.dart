@@ -6,6 +6,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/utils/game_metrics.dart';
+import '/utils/merchant_game_visibility.dart';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -116,13 +117,7 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
   }
 
   bool _isGameActive(GamesRecord game) {
-    final now = getCurrentTimestamp;
-    final start = game.startDate;
-    final end = game.endDate;
-    if (end == null) return false;
-    if (game.snapshotData['hidden_from_merchant_stats'] == true) return false;
-    final afterStart = start == null || !now.isBefore(start);
-    return afterStart && now.isBefore(end);
+    return isMerchantActiveGame(game);
   }
 
   List<GamesRecord> _activeGames(List<GamesRecord> games) {
