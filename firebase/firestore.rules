@@ -74,7 +74,10 @@ service cloud.firestore {
     }
 
     match /games/{parent}/participants/{document} {
-      allow create: if request.auth != null;
+      // Les participations sont créées exclusivement via la Cloud Function
+      // participateInGameTransaction afin d'empêcher plusieurs parties
+      // sur un même jeu le même jour.
+      allow create: if false;
       allow read: if true;
       allow write: if false;
       allow delete: if false;
@@ -142,11 +145,11 @@ service cloud.firestore {
 
     match /games/{parent}/winners/{document} {
       allow create, update, delete: if false;
-      allow read: if isSignedIn();
+      allow read: if true;
     }
 
     match /{path=**}/winners/{document} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update, delete: if false;
     }
 
@@ -163,24 +166,33 @@ service cloud.firestore {
       allow delete: if request.auth.uid == parent;
     }
 
+    match /users/{parent}/fcm_tokens/{document} {
+      allow create: if request.auth.uid == parent;
+      allow read: if request.auth.uid == parent || isAdmin();
+      allow write: if request.auth.uid == parent || isAdmin();
+      allow delete: if request.auth.uid == parent || isAdmin();
+    }
+
     match /games/{parent}/participants_details/{document} {
       allow create, update, delete: if false;
-      allow read: if isSignedIn();
+      allow read: if true;
     }
 
     match /{path=**}/participants_details/{document} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update, delete: if false;
     }
 
 
     match /games/{parent}/instant_winners/{document} {
-      allow create, update, delete: if false;
-      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin() ||
+        get(/databases/$(database)/documents/games/$(parent)).data.create_by ==
+          /databases/$(database)/documents/users/$(request.auth.uid);
+      allow read: if true;
     }
 
     match /{path=**}/instant_winners/{document} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update, delete: if false;
     }
 
@@ -199,6 +211,11 @@ service cloud.firestore {
     }
 
     match /app_config/share_promo {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /app_config/mobile_versioning {
       allow read: if true;
       allow write: if isAdmin();
     }
@@ -222,7 +239,7 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
-    match /admin_stats/share_promo {
+    match /admin_stats/{document} {
       allow read: if isAdmin();
       allow write: if false;
     }
