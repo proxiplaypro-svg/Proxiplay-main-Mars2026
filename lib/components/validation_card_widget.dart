@@ -13,7 +13,7 @@ class ValidationCardWidget extends StatefulWidget {
     required this.callback,
   });
 
-  final Future Function()? callback;
+  final Future<bool> Function()? callback;
 
   @override
   State<ValidationCardWidget> createState() => _ValidationCardWidgetState();
@@ -28,13 +28,26 @@ class _ValidationCardWidgetState extends State<ValidationCardWidget> {
       return;
     }
 
+    FocusScope.of(context).unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _isSubmitting = true);
 
-    if (context.mounted) {
-      context.safePop();
+    try {
+      final success = await widget.callback?.call() ?? false;
+      if (!mounted) {
+        return;
+      }
+      if (success) {
+        Navigator.of(context).pop(true);
+        return;
+      }
+    } catch (_) {
+      // Parent widget shows the user-facing error message.
     }
 
-    await widget.callback?.call();
+    if (mounted) {
+      setState(() => _isSubmitting = false);
+    }
   }
 
   @override

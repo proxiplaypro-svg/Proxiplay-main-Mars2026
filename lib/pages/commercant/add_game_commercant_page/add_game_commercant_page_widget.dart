@@ -642,22 +642,22 @@ class _AddGameCommercantPageWidgetState
     );
   }
 
-  Future<void> _submitGameCreation() async {
+  Future<bool> _submitGameCreation() async {
     if (_model.formKey.currentState == null ||
         !_model.formKey.currentState!.validate()) {
-      return;
+      return false;
     }
     if ((_model.uploadedLocalFile_uploadGameData5ir.bytes?.isEmpty ?? true) &&
         _model.uploadedFileUrl_uploadDataNyu.isEmpty) {
       await _showMissingImageDialog();
-      return;
+      return false;
     }
     if (_model.datePicked == null) {
-      return;
+      return false;
     }
     final secondaryPrizes = _collectSecondaryPrizes();
     if (secondaryPrizes == null) {
-      return;
+      return false;
     }
     final totalSecondaryCount = secondaryPrizes.fold<int>(
       0,
@@ -693,7 +693,7 @@ class _AddGameCommercantPageWidgetState
               Text('La date de début doit être avant la date de fin.'),
         ),
       );
-      return;
+      return false;
     }
     if (_model.mainPrizeEnabled &&
         (mainPrizeName.isEmpty || (mainPrizeValue ?? 0) <= 0)) {
@@ -703,7 +703,7 @@ class _AddGameCommercantPageWidgetState
               Text('Le lot principal doit avoir un titre et une valeur monétaire supérieure à 0, ou être désactivé.'),
         ),
       );
-      return;
+      return false;
     }
     if (gameName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -711,7 +711,7 @@ class _AddGameCommercantPageWidgetState
           content: Text('Le nom du jeu est requis.'),
         ),
       );
-      return;
+      return false;
     }
     final hasAnyPrize = shouldPersistMainPrize ||
         secondaryPrizes.isNotEmpty;
@@ -721,7 +721,7 @@ class _AddGameCommercantPageWidgetState
           content: Text('Ajoutez au moins un lot principal ou secondaire.'),
         ),
       );
-      return;
+      return false;
     }
     if (_model.uploadedLocalFile_uploadGameData5ir.bytes?.isNotEmpty ?? false) {
       safeSetState(() => _model.isDataUploading_uploadDataNyu = true);
@@ -755,10 +755,10 @@ class _AddGameCommercantPageWidgetState
         });
       } else {
         safeSetState(() {});
-        return;
+        return false;
       }
     } else if (_model.uploadedFileUrl_uploadDataNyu.isEmpty) {
-      return;
+      return false;
     }
 
     _model.endDateTransformCopy = actions.setEndOfDay(
@@ -845,24 +845,16 @@ class _AddGameCommercantPageWidgetState
         originalFilename: '',
       );
     });
-    if (!context.mounted) return;
-
-    context.goNamed(
-      JeuxCommercantPageWidget.routeName,
-      extra: <String, dynamic>{
-        kTransitionInfoKey: const TransitionInfo(
-          hasTransition: true,
-          transitionType: PageTransitionType.fade,
-          duration: Duration(milliseconds: 0),
-        ),
-      },
-    );
+    return true;
   }
 
   Future<void> _handleCreatePressed() async {
     if (_isSubmittingGameCreation) {
       return;
     }
+
+    FocusScope.of(context).unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
 
     if (_model.formKey.currentState == null ||
         !_model.formKey.currentState!.validate()) {
@@ -877,7 +869,7 @@ class _AddGameCommercantPageWidgetState
       return;
     }
     if (widget.enseigneRef != null) {
-      await showDialog(
+      final didCreateGame = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) {
@@ -901,6 +893,20 @@ class _AddGameCommercantPageWidgetState
           );
         },
       );
+      if (didCreateGame == true && context.mounted) {
+        FocusScope.of(context).unfocus();
+        FocusManager.instance.primaryFocus?.unfocus();
+        context.goNamed(
+          JeuxCommercantPageWidget.routeName,
+          extra: <String, dynamic>{
+            kTransitionInfoKey: const TransitionInfo(
+              hasTransition: true,
+              transitionType: PageTransitionType.fade,
+              duration: Duration(milliseconds: 0),
+            ),
+          },
+        );
+      }
     } else {
       await showDialog(
         context: context,
@@ -924,15 +930,15 @@ class _AddGameCommercantPageWidgetState
     safeSetState(() {});
   }
 
-  Future<void> _submitGameCreationGuarded() async {
+  Future<bool> _submitGameCreationGuarded() async {
     if (_isSubmittingGameCreation) {
-      return;
+      return false;
     }
 
     safeSetState(() => _isSubmittingGameCreation = true);
 
     try {
-      await _submitGameCreation();
+      return await _submitGameCreation();
     } catch (e, st) {
       debugPrint('Game creation failed: $e');
       debugPrintStack(stackTrace: st);
@@ -945,7 +951,7 @@ class _AddGameCommercantPageWidgetState
           ),
         );
       }
-      rethrow;
+      return false;
     } finally {
       if (mounted) {
         safeSetState(() => _isSubmittingGameCreation = false);
