@@ -252,9 +252,12 @@ class _MyAppState extends State<MyApp> {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         navigatorKey: _fallbackNavigatorKey,
-        home: const Scaffold(
-          backgroundColor: Colors.white,
-          body: SizedBox.shrink(),
+        home: AppUpdateGate(
+          navigatorKey: _fallbackNavigatorKey,
+          child: const Scaffold(
+            backgroundColor: Colors.white,
+            body: SizedBox.shrink(),
+          ),
         ),
       );
     }
@@ -264,7 +267,10 @@ class _MyAppState extends State<MyApp> {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         navigatorKey: _fallbackNavigatorKey,
-        home: const MaintenanceScreen(),
+        home: AppUpdateGate(
+          navigatorKey: _fallbackNavigatorKey,
+          child: const MaintenanceScreen(),
+        ),
       );
     }
 

@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -52,7 +50,6 @@ class AppUpdateService {
   static const _document = 'mobile_versioning';
   static const _dismissedVersionKey = 'app_update_dismissed_version';
   static const _dismissedAtKey = 'app_update_dismissed_at_ms';
-  static const _optionalDismissCooldownHours = 24;
 
   Future<AppUpdateCheckResult> checkForUpdate() async {
     try {
@@ -75,21 +72,10 @@ class AppUpdateService {
 
       final data = snapshot.data() ?? const <String, dynamic>{};
       final enabled = data['enabled'] == true;
-      final isAndroid = !kIsWeb && Platform.isAndroid;
-      final latestVersion = _normalizeVersion(
-        (isAndroid
-                ? (data['latest_version_android'] ?? data['latest_version'])
-                : (data['latest_version_ios'] ?? data['latest_version']))
-            .toString(),
-      );
-      final minSupportedVersion = _normalizeVersion(
-        (isAndroid
-                ? (data['min_supported_version_android'] ??
-                    data['min_supported_version'])
-                : (data['min_supported_version_ios'] ??
-                    data['min_supported_version']))
-            .toString(),
-      );
+      final latestVersion =
+          _normalizeVersion((data['latest_version'] ?? '').toString());
+      final minSupportedVersion =
+          _normalizeVersion((data['min_supported_version'] ?? '').toString());
       final remindLaterHours = _readRemindLaterHours(data);
       final storeUrl = _resolveStoreUrl(data);
 
@@ -130,26 +116,18 @@ class AppUpdateService {
         return result;
       }
 
-      final minComparison = compareVersions(currentVersion, minSupportedVersion);
+      final minComparison =
+          compareVersions(currentVersion, minSupportedVersion);
       final latestComparison = compareVersions(currentVersion, latestVersion);
 
       if (minComparison < 0) {
         if (storeUrl == null || storeUrl.isEmpty) {
-          debugPrint(
-            '[AppUpdateService] required_update_store_url_missing '
-            'current=$currentVersion latest=$latestVersion min=$minSupportedVersion',
-          );
           final result = AppUpdateCheckResult(
-            status: AppUpdateStatus.requiredUpdate,
+            status: AppUpdateStatus.unavailable,
             currentVersion: currentVersion,
             latestVersion: latestVersion,
             minSupportedVersion: minSupportedVersion,
-            title: (data['force_title'] ?? 'Mise à jour requise').toString(),
-            message: (data['force_message'] ??
-                    'Une mise à jour obligatoire est requise pour continuer à utiliser Proxiplay. Le lien vers le store est momentanément indisponible.')
-                .toString(),
-            remindLaterHours: _optionalDismissCooldownHours,
-            shouldShowDialog: true,
+            remindLaterHours: remindLaterHours,
             debugReason: 'required_update_but_store_url_missing',
           );
           _logResult(result);
@@ -166,7 +144,7 @@ class AppUpdateService {
                   'Votre version de Proxiplay n’est plus compatible. Veuillez mettre à jour l’application pour continuer.')
               .toString(),
           storeUrl: storeUrl,
-          remindLaterHours: _optionalDismissCooldownHours,
+          remindLaterHours: remindLaterHours,
           shouldShowDialog: true,
           debugReason: 'required_update',
         );
@@ -188,7 +166,7 @@ class AppUpdateService {
                   'Une nouvelle version de Proxiplay est disponible.')
               .toString(),
           storeUrl: storeUrl,
-          remindLaterHours: _optionalDismissCooldownHours,
+          remindLaterHours: remindLaterHours,
           shouldShowDialog: shouldShowDialog,
           debugReason: shouldShowDialog
               ? 'optional_update'
@@ -270,8 +248,7 @@ class AppUpdateService {
   int compareVersions(String a, String b) {
     final aParts = _parseVersion(a);
     final bParts = _parseVersion(b);
-    final maxLength =
-        aParts.length > bParts.length ? aParts.length : bParts.length;
+    final maxLength = aParts.length > bParts.length ? aParts.length : bParts.length;
 
     for (var index = 0; index < maxLength; index++) {
       final aPart = index < aParts.length ? aParts[index] : 0;
@@ -299,22 +276,25 @@ class AppUpdateService {
     }
 
     final dismissedAt = DateTime.fromMillisecondsSinceEpoch(dismissedAtMs);
-    final nextAllowedAt = dismissedAt.add(
-      const Duration(hours: _optionalDismissCooldownHours),
-    );
+    final nextAllowedAt =
+        dismissedAt.add(Duration(hours: remindLaterHours));
     final shouldShow = DateTime.now().isAfter(nextAllowedAt);
 
     debugPrint(
       '[AppUpdateService] optional_dialog_allowed=$shouldShow '
       'dismissedVersion=$dismissedVersion dismissedAt=$dismissedAt '
-      'nextAllowedAt=$nextAllowedAt remindLaterHours=$remindLaterHours',
+      'nextAllowedAt=$nextAllowedAt',
     );
 
     return shouldShow;
   }
 
   int _readRemindLaterHours(Map<String, dynamic> data) {
-    return _optionalDismissCooldownHours;
+    final rawValue = data['remind_later_hours'];
+    if (rawValue is num && rawValue > 0) {
+      return rawValue.toInt();
+    }
+    return 24;
   }
 
   String? _resolveStoreUrl(Map<String, dynamic> data) {
