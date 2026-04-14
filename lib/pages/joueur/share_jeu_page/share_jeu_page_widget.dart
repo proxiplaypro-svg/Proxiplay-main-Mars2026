@@ -1,25 +1,25 @@
-import [/auth/firebase_auth/auth_util.dart[;
-import [/backend/backend.dart[;
-import [/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart[;
-import [/components/custom_nav_bar_joueur_widget.dart[;
-import [/flutter_flow/flutter_flow_icon_button.dart[;
-import [/flutter_flow/flutter_flow_theme.dart[;
-import [/flutter_flow/flutter_flow_util.dart[;
-import [/flutter_flow/flutter_flow_widgets.dart[;
-import [/flutter_flow/custom_functions.dart[ as functions;
-import [/utils/create_account_to_play_dialog.dart[;
-import [/utils/share_links.dart[;
-import [/utils/game_view_tracker.dart[;
-import [/widgets/proxiplay_network_image.dart[;
-import [/index.dart[;
-import [package:cloud_functions/cloud_functions.dart[;
-import [package:flutter/material.dart[;
-import [package:font_awesome_flutter/font_awesome_flutter.dart[;
-import [package:google_fonts/google_fonts.dart[;
-import [package:share_plus/share_plus.dart[;
-import [package:webviewx_plus/webviewx_plus.dart[;
-import [share_jeu_page_model.dart[;
-export [share_jeu_page_model.dart[;
+import '/auth/firebase_auth/auth_util.dart';
+import '/backend/backend.dart';
+import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
+import '/components/custom_nav_bar_joueur_widget.dart';
+import '/flutter_flow/flutter_flow_icon_button.dart';
+import '/flutter_flow/flutter_flow_theme.dart';
+import '/flutter_flow/flutter_flow_util.dart';
+import '/flutter_flow/flutter_flow_widgets.dart';
+import '/flutter_flow/custom_functions.dart' as functions;
+import '/utils/create_account_to_play_dialog.dart';
+import '/utils/share_links.dart';
+import '/utils/game_view_tracker.dart';
+import '/widgets/proxiplay_network_image.dart';
+import '/index.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:webviewx_plus/webviewx_plus.dart';
+import 'share_jeu_page_model.dart';
+export 'share_jeu_page_model.dart';
 
 /// remplir le container sous l[image par une liste de text
 class ShareJeuPageWidget extends StatefulWidget {
@@ -34,8 +34,8 @@ class ShareJeuPageWidget extends StatefulWidget {
   final EnseignesRecord? enseigneDoc;
   final String? source;
 
-  static String routeName = [ShareJeuPage[;
-  static String routePath = [shareJeuPage[;
+  static String routeName = 'ShareJeuPage';
+  static String routePath = 'shareJeuPage';
 
   @override
   State<ShareJeuPageWidget> createState() => _ShareJeuPageWidgetState();
@@ -54,7 +54,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
     _hasTrackedView = true;
     await trackGamePresentationView(
       widget.gameDoc,
-      [ShareJeuPage[,
+      'ShareJeuPage',
       source: widget.source,
     );
   }
@@ -68,8 +68,8 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
       '[GAME_VIEW_PROD_CHECK] build_marker screen=ShareJeuPage marker=fiche_jeu_v2 gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
     );
 
-    logFirebaseEvent([screen_view[,
-        parameters: {[screen_name[: [ShareJeuPage[});
+    logFirebaseEvent('screen_view',
+        parameters: {'screen_name': 'ShareJeuPage'});
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _trackViewOnce();
     });
@@ -89,7 +89,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
         parent: widget.gameDoc?.reference,
         queryBuilder: (participantsDetailsRecord) =>
             participantsDetailsRecord.where(
-          [user_id[,
+          'user_id',
           isEqualTo: currentUserReference,
         ),
         singleRecord: true,
@@ -153,7 +153,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                   children: [
                                     Builder(
                                       builder: (context) {
-                                        if (currentUserUid != [[) {
+                                        if (currentUserUid != '') {
                                           return FlutterFlowIconButton(
                                             borderRadius: 12.0,
                                             buttonSize: 48.0,
@@ -175,7 +175,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                 ),
                                                 ...mapToFirestore(
                                                   {
-                                                    [added_at[: FieldValue
+                                                    'added_at': FieldValue
                                                         .serverTimestamp(),
                                                   },
                                                 ),
@@ -185,7 +185,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                   .update({
                                                 ...mapToFirestore(
                                                   {
-                                                    [favorites[:
+                                                    'favorites':
                                                         FieldValue.increment(1),
                                                   },
                                                 ),
@@ -215,13 +215,13 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                           await Share.share(
                                             buildAppShareText(
                                               title:
-                                                  [${widget.gameDoc?.name ?? [ce jeu[} sur ProxiPlay[,
+                                                  '${widget.gameDoc?.name ?? 'ce jeu'} sur ProxiPlay',
                                               description: widget
                                                           .enseigneDoc?.name
                                                           .trim()
                                                           .isNotEmpty ==
                                                       true
-                                                  ? [Disponible chez ${widget.enseigneDoc!.name}.[
+                                                  ? 'Disponible chez ${widget.enseigneDoc!.name}.'
                                                   : null,
                                             ),
                                             sharePositionOrigin:
@@ -292,7 +292,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                           const AlignmentDirectional(0.0, 0.0),
                                       child: Builder(
                                         builder: (context) {
-                                          if (currentUserUid != [[) {
+                                          if (currentUserUid != '') {
                                             return Builder(
                                               builder: (context) {
                                                 if (isGuestOrAnonymous ||
@@ -393,14 +393,14 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                         .routeName,
                                                                     queryParameters:
                                                                         {
-                                                                      [game[:
+                                                                      'game':
                                                                           serializeParam(
                                                                         widget
                                                                             .gameDoc,
                                                                         ParamType
                                                                             .Document,
                                                                       ),
-                                                                      [resultParticipation[:
+                                                                      'resultParticipation':
                                                                           serializeParam(
                                                                         ResultParticipationGameStruct.maybeFromMap(_model
                                                                             .cloudFunction3sn
@@ -411,7 +411,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                     }.withoutNulls,
                                                                     extra: <String,
                                                                         dynamic>{
-                                                                      [game[: widget
+                                                                      'game': widget
                                                                           .gameDoc,
                                                                     },
                                                                   );
@@ -428,12 +428,12 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                               Text(
                                                                             _model.cloudFunction3sn?.data?.message.isNotEmpty == true
                                                                                 ? _model.cloudFunction3sn!.data!.message
-                                                                                : "Une erreur est survenue (${_model.cloudFunction3sn?.errorCode ?? [inconnue[}).",
+                                                                                : "Une erreur est survenue (${_model.cloudFunction3sn?.errorCode ?? 'inconnue'}).",
                                                                           ),
                                                                           actions: [
                                                                             TextButton(
                                                                               onPressed: () => Navigator.pop(alertDialogContext),
-                                                                              child: const Text([Ok[),
+                                                                              child: const Text('Ok'),
                                                                             ),
                                                                           ],
                                                                         ),
@@ -449,21 +449,21 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                           if (widget.gameDoc!
                                                                   .endDate! <
                                                               getCurrentTimestamp) {
-                                                            return [Le jeu est termin\u00E9[;
+                                                            return 'Le jeu est termin\u00E9';
                                                           } else if ((shareJeuPageParticipantsDetailsRecord !=
                                                                   null) &&
                                                               (shareJeuPageParticipantsDetailsRecord
                                                                       .lastPlay! >=
                                                                   getCurrentTimestamp)) {
-                                                            return [Vous avez d\u00E9j\u00E0 jou\u00E9[;
+                                                            return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
                                                           } else if ((shareJeuPageParticipantsDetailsRecord !=
                                                                   null) &&
                                                               (shareJeuPageParticipantsDetailsRecord
                                                                       .lastPlay! <
                                                                   getCurrentTimestamp)) {
-                                                            return [Rejouer[;
+                                                            return 'Rejouer';
                                                           } else {
-                                                            return [Participer[;
+                                                            return 'Participer';
                                                           }
                                                         }(),
                                                         options:
@@ -525,7 +525,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                   );
                                                 } else {
                                                   return Text(
-                                                    [Interdit au mineur[,
+                                                    'Interdit au mineur',
                                                     style: FlutterFlowTheme.of(
                                                             context)
                                                         .titleLarge
@@ -1040,7 +1040,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                             mainAxisSize: MainAxisSize.max,
                                             children: [
                                               Text(
-                                                [Horaires d\[ouverture[,
+                                                'Horaires d\'ouverture',
                                                 style:
                                                     FlutterFlowTheme.of(context)
                                                         .headlineSmall
@@ -1175,7 +1175,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                           if (listViewHorairesRecord
                                                                               .isFullDay) {
                                                                             return Text(
-                                                                              [${dateTimeFormat(
+                                                                              '${dateTimeFormat(
                                                                                 "Hm",
                                                                                 listViewHorairesRecord.openingDay,
                                                                                 locale: FFLocalizations.of(context).languageCode,
@@ -1183,7 +1183,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                                 "Hm",
                                                                                 listViewHorairesRecord.closingDay,
                                                                                 locale: FFLocalizations.of(context).languageCode,
-                                                                              )}[,
+                                                                              )}',
                                                                               style: FlutterFlowTheme.of(context).bodyMedium.override(
                                                                                     font: GoogleFonts.inter(
                                                                                       fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
@@ -1200,7 +1200,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                               crossAxisAlignment: CrossAxisAlignment.end,
                                                                               children: [
                                                                                 Text(
-                                                                                  [${dateTimeFormat(
+                                                                                  '${dateTimeFormat(
                                                                                     "Hm",
                                                                                     listViewHorairesRecord.openingMorning,
                                                                                     locale: FFLocalizations.of(context).languageCode,
@@ -1208,7 +1208,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                                     "Hm",
                                                                                     listViewHorairesRecord.closingMorning,
                                                                                     locale: FFLocalizations.of(context).languageCode,
-                                                                                  )}[,
+                                                                                  )}',
                                                                                   style: FlutterFlowTheme.of(context).bodyMedium.override(
                                                                                         font: GoogleFonts.inter(
                                                                                           fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
@@ -1220,7 +1220,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                                       ),
                                                                                 ),
                                                                                 Text(
-                                                                                  [${dateTimeFormat(
+                                                                                  '${dateTimeFormat(
                                                                                     "Hm",
                                                                                     listViewHorairesRecord.openingAfternoon,
                                                                                     locale: FFLocalizations.of(context).languageCode,
@@ -1228,7 +1228,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                                     "Hm",
                                                                                     listViewHorairesRecord.closingAfternoon,
                                                                                     locale: FFLocalizations.of(context).languageCode,
-                                                                                  )}[,
+                                                                                  )}',
                                                                                   style: FlutterFlowTheme.of(context).bodyMedium.override(
                                                                                         font: GoogleFonts.inter(
                                                                                           fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
@@ -1246,7 +1246,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                       );
                                                                     } else {
                                                                       return Text(
-                                                                        [Ferm\u00E9[,
+                                                                        'Ferm\u00E9',
                                                                         style: FlutterFlowTheme.of(context)
                                                                             .bodyMedium
                                                                             .override(
