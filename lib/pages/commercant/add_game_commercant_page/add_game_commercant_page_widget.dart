@@ -872,6 +872,7 @@ class _AddGameCommercantPageWidgetState
       final didCreateGame = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
+        requestFocus: false,
         builder: (dialogContext) {
           return Dialog(
             elevation: 0,
@@ -926,8 +927,6 @@ class _AddGameCommercantPageWidgetState
         },
       );
     }
-
-    safeSetState(() {});
   }
 
   Future<bool> _submitGameCreationGuarded() async {
