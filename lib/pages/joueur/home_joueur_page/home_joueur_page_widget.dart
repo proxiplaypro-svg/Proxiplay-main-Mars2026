@@ -43,6 +43,7 @@ class HomeJoueurPageWidget extends StatefulWidget {
 class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     with WidgetsBindingObserver {
   static final Random _random = Random();
+  static const double _homeSectionTitleLeftInset = 4.0;
 
   late HomeJoueurPageModel _model;
   final _sharePromoService = SharePromoService();
@@ -1814,14 +1815,32 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             CrossAxisAlignment
                                                                 .stretch,
                                                         children: [
-                                                          Text(
-                                                            'NOUVEAUT\u00C9S',
-                                                            style: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .titleLarge
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .interTight(
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsetsDirectional
+                                                                    .only(
+                                                              start:
+                                                                  _homeSectionTitleLeftInset,
+                                                            ),
+                                                            child: Text(
+                                                              'NOUVEAUT\u00C9S',
+                                                              style: FlutterFlowTheme
+                                                                      .of(context)
+                                                                  .titleLarge
+                                                                  .override(
+                                                                    font: GoogleFonts
+                                                                        .interTight(
+                                                                      fontWeight: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .titleLarge
+                                                                          .fontWeight,
+                                                                      fontStyle: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .titleLarge
+                                                                          .fontStyle,
+                                                                    ),
+                                                                    letterSpacing:
+                                                                        0.0,
                                                                     fontWeight: FlutterFlowTheme.of(
                                                                             context)
                                                                         .titleLarge
@@ -1831,17 +1850,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         .titleLarge
                                                                         .fontStyle,
                                                                   ),
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleLarge
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleLarge
-                                                                      .fontStyle,
-                                                                ),
+                                                            ),
                                                           ),
                                                           Builder(
                                                             builder: (context) {
@@ -1967,14 +1976,32 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               );
                                                             },
                                                           ),
-                                                          Text(
-                                                            'JEUX TERMIN\u00C9S',
-                                                            style: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .titleLarge
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .interTight(
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsetsDirectional
+                                                                    .only(
+                                                              start:
+                                                                  _homeSectionTitleLeftInset,
+                                                            ),
+                                                            child: Text(
+                                                              'JEUX TERMIN\u00C9S',
+                                                              style: FlutterFlowTheme
+                                                                      .of(context)
+                                                                  .titleLarge
+                                                                  .override(
+                                                                    font: GoogleFonts
+                                                                        .interTight(
+                                                                      fontWeight: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .titleLarge
+                                                                          .fontWeight,
+                                                                      fontStyle: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .titleLarge
+                                                                          .fontStyle,
+                                                                    ),
+                                                                    letterSpacing:
+                                                                        0.0,
                                                                     fontWeight: FlutterFlowTheme.of(
                                                                             context)
                                                                         .titleLarge
@@ -1984,17 +2011,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         .titleLarge
                                                                         .fontStyle,
                                                                   ),
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleLarge
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleLarge
-                                                                      .fontStyle,
-                                                                ),
+                                                            ),
                                                           ),
                                                           StreamBuilder<
                                                               List<
@@ -2198,7 +2215,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           padding:
                                                               const EdgeInsetsDirectional
                                                                   .fromSTEB(
-                                                                  0.0,
+                                                                  _homeSectionTitleLeftInset,
                                                                   0.0,
                                                                   0.0,
                                                                   16.0),
@@ -2857,15 +2874,33 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                       CrossAxisAlignment
                                                           .stretch,
                                                   children: [
-                                                    Text(
-                                                      'NOUVEAUT\u00C9S',
-                                                      style:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .titleLarge
-                                                              .override(
-                                                                font: GoogleFonts
-                                                                    .interTight(
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsetsDirectional
+                                                              .only(
+                                                        start:
+                                                            _homeSectionTitleLeftInset,
+                                                      ),
+                                                      child: Text(
+                                                        'NOUVEAUT\u00C9S',
+                                                        style:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .titleLarge
+                                                                .override(
+                                                                  font: GoogleFonts
+                                                                      .interTight(
+                                                                    fontWeight: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .titleLarge
+                                                                        .fontWeight,
+                                                                    fontStyle: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .titleLarge
+                                                                        .fontStyle,
+                                                                  ),
+                                                                  letterSpacing:
+                                                                      0.0,
                                                                   fontWeight: FlutterFlowTheme.of(
                                                                           context)
                                                                       .titleLarge
@@ -2875,17 +2910,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .titleLarge
                                                                       .fontStyle,
                                                                 ),
-                                                                letterSpacing:
-                                                                    0.0,
-                                                                fontWeight: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .titleLarge
-                                                                    .fontWeight,
-                                                                fontStyle: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .titleLarge
-                                                                    .fontStyle,
-                                                              ),
+                                                      ),
                                                     ),
                                                     Container(
                                                       width: double.infinity,
