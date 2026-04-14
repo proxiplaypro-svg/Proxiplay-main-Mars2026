@@ -703,7 +703,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                                               ),
                                                                             ),
                                                                             Text(
-                                                                              'Vues : ',
+                                                                              'Ouvertures fiche : ',
                                                                               style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                     font: GoogleFonts.inter(
                                                                                       fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -715,8 +715,9 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                                                   ),
                                                                             ),
                                                                             Text(
-                                                                              effectiveGameViews(listViewGamesRecord)
-                                                                                  .toString(),
+                                                                              gameViewsDisplayValue(
+                                                                                listViewGamesRecord,
+                                                                              ),
                                                                               style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                     font: GoogleFonts.inter(
                                                                                       fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -901,4 +902,3 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
     );
   }
 }
-

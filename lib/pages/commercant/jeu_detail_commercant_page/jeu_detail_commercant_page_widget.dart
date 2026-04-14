@@ -550,9 +550,8 @@ class _JeuDetailCommercantPageWidgetState
                                   children: [
                                     _buildStatCard(
                                       icon: Icons.remove_red_eye,
-                                      label: 'Vues',
-                                      value:
-                                          effectiveGameViews(game).toString(),
+                                      label: 'Ouvertures fiche',
+                                      value: gameViewsDisplayValue(game),
                                     ),
                                     _buildStatCard(
                                       icon: Icons.star,

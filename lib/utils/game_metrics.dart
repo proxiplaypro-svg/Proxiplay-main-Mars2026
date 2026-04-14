@@ -1,11 +1,20 @@
 import '/backend/schema/games_record.dart';
 
-int effectiveGameViews(GamesRecord game) {
-  if (game.views > 0) {
-    return game.views;
+bool hasBrokenViewsTracking(GamesRecord game) {
+  return game.views == 0 && game.participations > 0;
+}
+
+String gameViewsDisplayValue(GamesRecord game) {
+  if (hasBrokenViewsTracking(game)) {
+    return 'non remontees';
   }
-  if (game.participations > 0) {
-    return game.participations;
+  return game.views.toString();
+}
+
+String totalViewsDisplayValue(Iterable<GamesRecord> games) {
+  if (games.any(hasBrokenViewsTracking)) {
+    return 'non remontees';
   }
-  return 0;
+  final totalViews = games.fold<int>(0, (sum, game) => sum + game.views);
+  return totalViews.toString();
 }

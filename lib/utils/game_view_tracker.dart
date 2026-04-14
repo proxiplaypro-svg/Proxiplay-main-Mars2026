@@ -1,6 +1,9 @@
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
+
+const _kGameViewsFunctionsRegion = 'us-central1';
 
 Future<void> trackGamePresentationView(
   GamesRecord? game,
@@ -25,13 +28,13 @@ Future<void> trackGamePresentationView(
     debugPrint(
       '[GAME_VIEW_PROD_CHECK] increment_start gameId=$gameId screen=$screenName source=$sourceLabel',
     );
-    await gameRef.update(
-      mapToFirestore(
-        {
-          'views': FieldValue.increment(1),
-        },
-      ),
-    );
+    await FirebaseFunctions.instanceFor(region: _kGameViewsFunctionsRegion)
+        .httpsCallable('incrementGameView')
+        .call({
+      'gameId': gameId,
+      'screenName': screenName,
+      'source': sourceLabel,
+    });
     debugPrint(
       '[GAME_VIEW_PROD_CHECK] increment_success gameId=$gameId screen=$screenName source=$sourceLabel',
     );

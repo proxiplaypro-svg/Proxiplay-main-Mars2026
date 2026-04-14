@@ -174,7 +174,7 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
   Widget _buildGlobalLine({
     required IconData icon,
     required String label,
-    required int value,
+    required String value,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
@@ -199,7 +199,7 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
           ),
           const SizedBox(width: 8.0),
           Text(
-            '$value',
+            value,
             style: FlutterFlowTheme.of(context).titleMedium.override(
                   font: GoogleFonts.interTight(
                     fontWeight: FontWeight.w700,
@@ -386,7 +386,7 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                       child: Row(
                         children: [
                           _statChip(Icons.remove_red_eye,
-                              'Vues ${effectiveGameViews(game)}'),
+                              'Ouvertures fiche ${gameViewsDisplayValue(game)}'),
                           const SizedBox(width: 12.0),
                           _statChip(Icons.sports_esports_rounded,
                               'Participations ${game.participations}'),
@@ -679,8 +679,7 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                         final finishedGames = _normalizeFinishedGames(allGames);
                         final currentGame = _pickCurrentGame(allGames);
                         final totalViews =
-                            allGames.fold<int>(
-                                0, (sum, game) => sum + effectiveGameViews(game));
+                            totalViewsDisplayValue(allGames);
                         final totalParticipations = allGames.fold<int>(
                             0, (sum, game) => sum + game.participations);
                         final widgets = <Widget>[
@@ -699,13 +698,13 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                                   _buildGlobalLine(
                                     icon: Icons.sports_esports_rounded,
                                     label: 'Participations',
-                                    value: totalParticipations,
+                                    value: totalParticipations.toString(),
                                   ),
                                   const SizedBox(height: 8.0),
                                   _buildGlobalLine(
                                     icon: Icons.storefront_rounded,
                                     label: 'Followers',
-                                    value: followers,
+                                    value: followers.toString(),
                                   ),
                                 ],
                               );

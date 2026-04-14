@@ -272,7 +272,7 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                       child: Row(
                         children: [
                           _chip(Icons.remove_red_eye,
-                              'Vues ${effectiveGameViews(game)}'),
+                              'Ouvertures fiche ${gameViewsDisplayValue(game)}'),
                           const SizedBox(width: 12.0),
                           _chip(Icons.sports_esports_rounded, 'Participations ${game.participations}'),
                           const SizedBox(width: 12.0),
@@ -895,7 +895,7 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                                                                 size: 18.0,
                                                                               ),
                                                                               Text(
-                                                                                'Vues : ',
+                                                                                'Ouvertures fiche : ',
                                                                                 style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                       font: GoogleFonts.inter(
                                                                                         fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -907,8 +907,9 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                                                                     ),
                                                                               ),
                                                                               Text(
-                                                                                effectiveGameViews(listViewGamesRecord)
-                                                                                    .toString(),
+                                                                                gameViewsDisplayValue(
+                                                                                  listViewGamesRecord,
+                                                                                ),
                                                                                 style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                       font: GoogleFonts.inter(
                                                                                         fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,

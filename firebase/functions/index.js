@@ -13,6 +13,7 @@ const kPrizeNotificationsJobDocId = "prize_notifications";
 const kPrizeNotificationsEntriesCollection = "entries";
 const kDailyPartsResetBatchSize = 450;
 const kParisTimeZone = "Europe/Paris";
+const kFunctionsRegion = "us-central1";
 const kGameDedupeWindowMs = 20 * 1000;
 const kGameDedupeGroupsCollection = "_game_dedupe_groups";
 const kGameDedupeReviewsCollection = "_game_dedupe_reviews";
@@ -1011,6 +1012,62 @@ exports.addFcmToken = functions.https.onCall(async (data, context) => {
   });
   return "Successfully added FCM token!";
 });
+
+exports.incrementGameView = functions
+  .region(kFunctionsRegion)
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Unauthenticated calls are not allowed.",
+      );
+    }
+
+    const gameId = getTrimmedString(data && data.gameId);
+    const screenName = getTrimmedString(data && data.screenName) || "unknown";
+    const source = getTrimmedString(data && data.source) || "unknown";
+
+    if (!gameId || gameId.includes("/")) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "A valid gameId is required.",
+      );
+    }
+
+    const gameRef = firestore.collection("games").doc(gameId);
+
+    try {
+      await gameRef.update({
+        views: admin.firestore.FieldValue.increment(1),
+      });
+    } catch (error) {
+      const message = getTrimmedString(error && error.message);
+      if (message.toLowerCase().includes("no document to update")) {
+        throw new functions.https.HttpsError(
+          "not-found",
+          "Game not found.",
+        );
+      }
+      throw new functions.https.HttpsError(
+        "internal",
+        "Unable to increment game views.",
+      );
+    }
+
+    // Keep structured logs so we can add rate-limiting / abuse detection later
+    // without changing the client contract again.
+    console.log(
+      "[incrementGameView] success",
+      JSON.stringify({
+        gameId,
+        uid: context.auth.uid,
+        screenName,
+        source,
+      }),
+    );
+
+    return { success: true };
+  });
 
 async function assertIsAdmin(uid) {
   const userSnap = await firestore.doc(`users/${uid}`).get();
