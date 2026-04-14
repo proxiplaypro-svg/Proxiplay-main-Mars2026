@@ -6,6 +6,7 @@ import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/utils/game_metrics.dart';
 import '/widgets/proxiplay_loading_logo.dart';
 import '/index.dart';
 import 'dart:async';
@@ -714,7 +715,8 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                                                   ),
                                                                             ),
                                                                             Text(
-                                                                              listViewGamesRecord.views.toString(),
+                                                                              effectiveGameViews(listViewGamesRecord)
+                                                                                  .toString(),
                                                                               style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                     font: GoogleFonts.inter(
                                                                                       fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -899,5 +901,4 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
     );
   }
 }
-
 

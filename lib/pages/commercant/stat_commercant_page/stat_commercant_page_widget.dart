@@ -5,6 +5,7 @@ import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/utils/game_metrics.dart';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -384,7 +385,8 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          _statChip(Icons.remove_red_eye, 'Vues ${game.views}'),
+                          _statChip(Icons.remove_red_eye,
+                              'Vues ${effectiveGameViews(game)}'),
                           const SizedBox(width: 12.0),
                           _statChip(Icons.sports_esports_rounded,
                               'Participations ${game.participations}'),
@@ -677,7 +679,8 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                         final finishedGames = _normalizeFinishedGames(allGames);
                         final currentGame = _pickCurrentGame(allGames);
                         final totalViews =
-                            allGames.fold<int>(0, (sum, game) => sum + game.views);
+                            allGames.fold<int>(
+                                0, (sum, game) => sum + effectiveGameViews(game));
                         final totalParticipations = allGames.fold<int>(
                             0, (sum, game) => sum + game.participations);
                         final widgets = <Widget>[
