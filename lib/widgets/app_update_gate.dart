@@ -22,7 +22,6 @@ class _AppUpdateGateState extends State<AppUpdateGate>
     with WidgetsBindingObserver {
   bool _isChecking = false;
   bool _isDialogVisible = false;
-  
   bool _hasCheckedOnce = false;
 
   @override
@@ -92,12 +91,15 @@ class _AppUpdateGateState extends State<AppUpdateGate>
   Future<void> _showRequiredUpdateDialog(AppUpdateCheckResult result) async {
     _isDialogVisible = true;
     try {
-      final navigatorContext = widget.navigatorKey.currentContext;
-      if (navigatorContext == null) {
+      final dialogContext = widget.navigatorKey.currentContext ?? context;
+      if (!mounted) {
+        debugPrint(
+          '[AppUpdateGate] required_dialog_aborted reason=widget_not_mounted',
+        );
         return;
       }
       await showDialog<void>(
-        context: navigatorContext,
+        context: dialogContext,
         useRootNavigator: true,
         barrierDismissible: false,
         builder: (context) => PopScope(
@@ -107,6 +109,7 @@ class _AppUpdateGateState extends State<AppUpdateGate>
             message: result.message ??
                 'Votre version de Proxiplay n’est plus compatible. Veuillez mettre à jour l’application pour continuer.',
             isRequired: true,
+            showUpdateButton: (result.storeUrl ?? '').isNotEmpty,
             onUpdatePressed: () async {
               final opened = await _openUpdate(result);
               if (!opened && context.mounted) {
@@ -130,12 +133,15 @@ class _AppUpdateGateState extends State<AppUpdateGate>
   Future<void> _showOptionalUpdateDialog(AppUpdateCheckResult result) async {
     _isDialogVisible = true;
     try {
-      final navigatorContext = widget.navigatorKey.currentContext;
-      if (navigatorContext == null) {
+      final dialogContext = widget.navigatorKey.currentContext ?? context;
+      if (!mounted) {
+        debugPrint(
+          '[AppUpdateGate] optional_dialog_aborted reason=widget_not_mounted',
+        );
         return;
       }
       await showDialog<void>(
-        context: navigatorContext,
+        context: dialogContext,
         useRootNavigator: true,
         barrierDismissible: false,
         builder: (context) => _AppUpdateDialog(
@@ -145,17 +151,8 @@ class _AppUpdateGateState extends State<AppUpdateGate>
           isRequired: false,
           onUpdatePressed: () async {
             final opened = await _openUpdate(result);
-            if (context.mounted) {
+            if (opened && context.mounted) {
               Navigator.of(context).pop();
-            }
-            if (!opened && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Impossible d’ouvrir le store pour le moment.',
-                  ),
-                ),
-              );
             }
           },
           onLaterPressed: () async {
@@ -192,6 +189,7 @@ class _AppUpdateDialog extends StatefulWidget {
     required this.message,
     required this.isRequired,
     required this.onUpdatePressed,
+    this.showUpdateButton = true,
     this.onLaterPressed,
   });
 
@@ -199,6 +197,7 @@ class _AppUpdateDialog extends StatefulWidget {
   final String message;
   final bool isRequired;
   final Future<void> Function() onUpdatePressed;
+  final bool showUpdateButton;
   final Future<void> Function()? onLaterPressed;
 
   @override
@@ -280,29 +279,31 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
                 height: 1.4,
               ),
             ),
-            const SizedBox(height: 24.0),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isSubmitting ? null : _handleUpdatePressed,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.primary,
-                  foregroundColor: Colors.white,
-                  elevation: 0.0,
-                  padding: const EdgeInsets.symmetric(vertical: 14.0),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14.0),
+            if (widget.showUpdateButton) ...[
+              const SizedBox(height: 24.0),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _handleUpdatePressed,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0.0,
+                    padding: const EdgeInsets.symmetric(vertical: 14.0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14.0),
+                    ),
                   ),
-                ),
-                child: Text(
-                  'Mettre à jour',
-                  style: GoogleFonts.inter(
-                    fontSize: 15.0,
-                    fontWeight: FontWeight.w700,
+                  child: Text(
+                    'Mettre à jour',
+                    style: GoogleFonts.inter(
+                      fontSize: 15.0,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
             if (!widget.isRequired) ...[
               const SizedBox(height: 10.0),
               SizedBox(
@@ -313,7 +314,7 @@ class _AppUpdateDialogState extends State<_AppUpdateDialog> {
                     foregroundColor: theme.secondaryText,
                     padding: const EdgeInsets.symmetric(vertical: 12.0),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14.0),
+                      borderRadius: BorderRadius.circular(12.0),
                     ),
                   ),
                   child: Text(
