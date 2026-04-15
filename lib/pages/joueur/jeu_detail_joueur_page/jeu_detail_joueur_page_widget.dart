@@ -1,23 +1,24 @@
-import [/auth/firebase_auth/auth_util.dart[;
-import [/backend/backend.dart[;
-import [/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart[;
-import [/components/custom_nav_bar_joueur_widget.dart[;
-import [/flutter_flow/flutter_flow_theme.dart[;
-import [/flutter_flow/flutter_flow_util.dart[;
-import [/flutter_flow/flutter_flow_widgets.dart[;
-import [/utils/create_account_to_play_dialog.dart[;
-import [/utils/share_links.dart[;
-import [/utils/game_view_tracker.dart[;
-import [/widgets/proxiplay_network_image.dart[;
-import [/flutter_flow/custom_functions.dart[ as functions;
-import [/index.dart[;
-import [package:cloud_functions/cloud_functions.dart[;
-import [package:flutter/material.dart[;
-import [package:google_fonts/google_fonts.dart[;
-import [package:share_plus/share_plus.dart[;
-import [package:webviewx_plus/webviewx_plus.dart[;
-import [jeu_detail_joueur_page_model.dart[;
-export [jeu_detail_joueur_page_model.dart[;
+import '/auth/firebase_auth/auth_util.dart';
+import '/backend/backend.dart';
+import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
+import '/components/custom_nav_bar_joueur_widget.dart';
+import '/flutter_flow/flutter_flow_theme.dart';
+import '/flutter_flow/flutter_flow_util.dart';
+import '/flutter_flow/flutter_flow_widgets.dart';
+import '/utils/create_account_to_play_dialog.dart';
+import '/utils/share_links.dart';
+import '/utils/game_view_tracker.dart';
+import '/utils/winner_identity.dart';
+import '/widgets/proxiplay_network_image.dart';
+import '/flutter_flow/custom_functions.dart' as functions;
+import '/index.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:webviewx_plus/webviewx_plus.dart';
+import 'jeu_detail_joueur_page_model.dart';
+export 'jeu_detail_joueur_page_model.dart';
 
 /// remplir le container sous l[image par une liste de text
 class JeuDetailJoueurPageWidget extends StatefulWidget {
@@ -32,8 +33,8 @@ class JeuDetailJoueurPageWidget extends StatefulWidget {
   final EnseignesRecord? enseigneDoc;
   final String? source;
 
-  static String routeName = [JeuDetailJoueurPage[;
-  static String routePath = [jeuDetailJoueurPage[;
+  static String routeName = 'JeuDetailJoueurPage';
+  static String routePath = 'jeuDetailJoueurPage';
 
   @override
   State<JeuDetailJoueurPageWidget> createState() =>
@@ -53,7 +54,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     _hasTrackedView = true;
     await trackGamePresentationView(
       widget.gameDoc,
-      [JeuDetailJoueurPage[,
+      'JeuDetailJoueurPage',
       source: widget.source,
     );
   }
@@ -83,8 +84,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
       '[GAME_VIEW_PROD_CHECK] build_marker screen=JeuDetailJoueurPage marker=fiche_jeu_v2 gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
     );
 
-    logFirebaseEvent([screen_view[,
-        parameters: {[screen_name[: [JeuDetailJoueurPage[});
+    logFirebaseEvent('screen_view',
+        parameters: {'screen_name': 'JeuDetailJoueurPage'});
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _trackViewOnce();
     });
@@ -107,7 +108,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                   parent: widget.gameDoc?.reference,
                   queryBuilder: (participantsDetailsRecord) =>
                       participantsDetailsRecord.where(
-                    [user_id[,
+                    'user_id',
                     isEqualTo: currentUserReference,
                   ),
                   singleRecord: true,
@@ -142,15 +143,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final hasPlayedBefore = lastPlay != null && !hasPlayedToday;
         final noRemainingParts = _hasNoRemainingParts(currentUserDocument, now);
         final endDate = widget.gameDoc?.endDate;
-        final endWindowEnd = endDate?.add(const Duration(hours: 48));
-        final isWithinEndWindow = endDate != null &&
-            getCurrentTimestamp.isAfter(endDate) &&
-            (endWindowEnd != null &&
-                getCurrentTimestamp.isBefore(endWindowEnd));
         final gameDoc = widget.gameDoc!;
         final gameName = gameDoc.name;
         final gamePhoto = gameDoc.photo;
-        final hasWinnerAnnouncement = isWithinEndWindow &&
+        final hasWinnerAnnouncement = endDate != null &&
+            getCurrentTimestamp.isAfter(endDate) &&
             gameDoc.hasWinner &&
             (gameDoc.mainPrizeWinner != null);
         final hasMainPrizeFlag = gameDoc.hasMainPrize == true;
@@ -165,36 +162,33 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final secondaryPrizes = gameDoc.secondaryPrizes;
         final validSecondaryPrizeItems =
             secondaryPrizes.fold<List<Map<String, dynamic>>>([], (items, item) {
-          final name = (item[[name[] ?? [[).toString().trim();
-          final countValue = item[[count[];
+          final name = (item['name'] ?? '').toString().trim();
+          final presentation = (item['presentation'] ?? '').toString().trim();
+          final countValue = item['count'];
           final count = countValue is num
               ? countValue.toInt()
-              : int.tryParse((countValue ?? [[).toString()) ?? 0;
+              : int.tryParse((countValue ?? '').toString()) ?? 0;
           if (name.isEmpty || count <= 0) {
             return items;
           }
           items.add({
-            [name[: name,
-            [count[: count,
-            [winnerLabel[:
-                [$count ${count > 1 ? [chances de gagner[ : [chance de gagner[}[,
+            'name': name,
+            'presentation': presentation,
+            'count': count,
+            'countLabel': '$count ${count > 1 ? 'lots' : 'lot'}',
           });
           return items;
         });
         final secondaryPrizeCount = validSecondaryPrizeItems.fold<int>(
           0,
-          (total, item) => total + (item[[count[] as int),
+          (total, item) => total + (item['count'] as int),
         );
         final hasSecondaryPrizeContent = validSecondaryPrizeItems.isNotEmpty;
         final secondaryPrizeRulesText = secondaryPrizeCount > 0
-            ? shouldShowMainPrize
-                ? [$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? [s[ : [[} ${secondaryPrizeCount > 1 ? [sont[ : [est[} à gagner instantanément[
-                : [$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? [s[ : [[} ${secondaryPrizeCount > 1 ? [sont[ : [est[} à gagner instantanément[
-            : shouldShowMainPrize
-                ? [Des lots sont à gagner instantanément[
-                : [Des lots sont à gagner instantanément[;
+            ? '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} \u00e0 gagner imm\u00e9diatement'
+            : 'Des lots sont \u00e0 gagner imm\u00e9diatement';
         String getLotsTitle(int totalLots) =>
-            totalLots == 1 ? [Lot à gagner[ : [Lots à gagner[;
+            totalLots == 1 ? 'Lot \u00e0 gagner' : 'Lots \u00e0 gagner';
         final detailCardDecoration = BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20.0),
@@ -243,7 +237,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                         ),
                         const SizedBox(width: 6.0),
                         Text(
-                          [Lot principal[,
+                          'Lot principal',
                           style: detailItemTitleStyle,
                         ),
                       ],
@@ -266,7 +260,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                   borderRadius: BorderRadius.circular(20.0),
                 ),
                 child: Text(
-                  [Tirage au sort[,
+                  'Tirage au sort',
                   style: GoogleFonts.inter(
                     fontSize: 11.0,
                     fontWeight: FontWeight.w600,
@@ -279,9 +273,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         }
 
         Widget buildSecondaryPrizeWidget({
-          required String winnerLabel,
+          required String countLabel,
           required String name,
-          required bool showBadge,
+          String? presentation,
         }) {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,22 +295,28 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                         const SizedBox(width: 6.0),
                         Expanded(
                           child: Text(
-                            winnerLabel,
+                            name,
                             style: detailItemTitleStyle,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 2.0),
+                    const SizedBox(height: 6.0),
                     Text(
-                      name,
+                      countLabel,
                       style: detailBodyStyle,
                     ),
+                    if ((presentation ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 4.0),
+                      Text(
+                        presentation!,
+                        style: detailBodyStyle,
+                      ),
+                    ],
                   ],
                 ),
               ),
-              if (showBadge)
-                Container(
+              Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10.0,
                     vertical: 4.0,
@@ -326,7 +326,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                     borderRadius: BorderRadius.circular(20.0),
                   ),
                   child: Text(
-                    [Gains immédiats[,
+                    'Gains imm\u00e9diats',
                     style: GoogleFonts.inter(
                       fontSize: 11.0,
                       fontWeight: FontWeight.w600,
@@ -349,10 +349,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
               bottom: index == validSecondaryPrizeItems.length - 1 ? 0.0 : 10.0,
             ),
             child: buildSecondaryPrizeWidget(
-              winnerLabel:
-                  validSecondaryPrizeItems[index][[winnerLabel[] as String,
-              name: validSecondaryPrizeItems[index][[name[] as String,
-              showBadge: index == 0,
+              countLabel:
+                  validSecondaryPrizeItems[index]['countLabel'] as String,
+              name: validSecondaryPrizeItems[index]['name'] as String,
+              presentation:
+                  validSecondaryPrizeItems[index]['presentation'] as String?,
             ),
           ),
         );
@@ -365,7 +366,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
           ),
         );
         final leftActionVisible = (() {
-          final isGuest = currentUserUid == [[;
+          final isGuest = currentUserUid == '';
           if (isGuest) return true;
           final endDate = widget.gameDoc?.endDate;
           final isGameOpen =
@@ -423,7 +424,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                 child: SizedBox(
                   height: 40.0,
                   child: Image.asset(
-                    [assets/images/logo_D_secondaire.png[,
+                    'assets/images/logo_D_secondaire.png',
                     height: 40.0,
                     fit: BoxFit.contain,
                   ),
@@ -432,13 +433,13 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
               actions: [
                 Builder(
                   builder: (context) {
-                    if (currentUserUid != [[) {
+                    if (currentUserUid != '') {
                       return StreamBuilder<List<FavoriteGamesRecord>>(
                         stream: queryFavoriteGamesRecord(
                           parent: currentUserReference,
                           queryBuilder: (favoriteGamesRecord) =>
                               favoriteGamesRecord.where(
-                            [game_id[,
+                            'game_id',
                             isEqualTo: widget.gameDoc?.reference,
                           ),
                           singleRecord: true,
@@ -517,14 +518,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                         gameId: widget.gameDoc?.reference,
                                       ),
                                       ...mapToFirestore({
-                                        [added_at[:
+                                        'added_at':
                                             FieldValue.serverTimestamp(),
                                       }),
                                     });
 
                                     await widget.gameDoc!.reference.update({
                                       ...mapToFirestore({
-                                        [favorites[: FieldValue.increment(1),
+                                        'favorites': FieldValue.increment(1),
                                       }),
                                     });
                                     safeSetState(() => _model
@@ -563,12 +564,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                       await Share.share(
                         buildAppShareText(
                           title:
-                              [${widget.gameDoc?.name ?? [ce jeu[} sur ProxiPlay[,
+                              '${widget.gameDoc?.name ?? 'ce jeu'} sur ProxiPlay',
                           description: widget.enseigneDoc?.name
                                       .trim()
                                       .isNotEmpty ==
                                   true
-                              ? [Disponible chez ${widget.enseigneDoc!.name}.[
+                              ? 'Disponible chez ${widget.enseigneDoc!.name}.'
                               : null,
                         ),
                         sharePositionOrigin: getWidgetBoundingBox(context),
@@ -657,7 +658,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             // child:
                                             Builder(
                                               builder: (context) {
-                                                if (currentUserUid != [[) {
+                                                if (currentUserUid != '') {
                                                   return Builder(
                                                     builder: (context) {
                                                       if (widget.gameDoc
@@ -730,17 +731,17 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                             context.pushNamed(
                                                                               PlayJoueurPageWidget.routeName,
                                                                               queryParameters: {
-                                                                                [game[: serializeParam(
+                                                                                'game': serializeParam(
                                                                                   widget.gameDoc,
                                                                                   ParamType.Document,
                                                                                 ),
-                                                                                [resultParticipation[: serializeParam(
+                                                                                'resultParticipation': serializeParam(
                                                                                   ResultParticipationGameStruct.maybeFromMap(_model.cloudFunction3sn?.jsonBody),
                                                                                   ParamType.DataStruct,
                                                                                 ),
                                                                               }.withoutNulls,
                                                                               extra: <String, dynamic>{
-                                                                                [game[: widget.gameDoc,
+                                                                                'game': widget.gameDoc,
                                                                               },
                                                                             );
                                                                           } else {
@@ -750,12 +751,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                 return WebViewAware(
                                                                                   child: AlertDialog(
                                                                                     title: Text(
-                                                                                      _model.cloudFunction3sn?.data?.message.isNotEmpty == true ? _model.cloudFunction3sn!.data!.message : "Une erreur est survenue (${_model.cloudFunction3sn?.errorCode ?? [inconnue[}).",
+                                                                                      _model.cloudFunction3sn?.data?.message.isNotEmpty == true ? _model.cloudFunction3sn!.data!.message : "Une erreur est survenue (${_model.cloudFunction3sn?.errorCode ?? 'inconnue'}).",
                                                                                     ),
                                                                                     actions: [
                                                                                       TextButton(
                                                                                         onPressed: () => Navigator.pop(alertDialogContext),
-                                                                                        child: const Text([Ok[),
+                                                                                        child: const Text('Ok'),
                                                                                       ),
                                                                                     ],
                                                                                   ),
@@ -774,18 +775,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       getCurrentTimestamp,
                                                                     );
                                                                     if (noRemainingPartsLive) {
-                                                                      return [Vous n\[avez plus de parties[;
+                                                                      return 'Vous n\'avez plus de parties';
                                                                     } else if (widget
                                                                             .gameDoc!
                                                                             .endDate! <
                                                                         getCurrentTimestamp) {
-                                                                      return [Le jeu est termin\u00E9[;
+                                                                      return 'Le jeu est termin\u00E9';
                                                                     } else if (hasPlayedToday) {
-                                                                      return [Vous avez d\u00E9j\u00E0 jou\u00E9[;
+                                                                      return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
                                                                     } else if (hasPlayedBefore) {
-                                                                      return [Rejouer[;
+                                                                      return 'Rejouer';
                                                                     } else {
-                                                                      return [Jouer[;
+                                                                      return 'Jouer';
                                                                     }
                                                                   }(),
                                                                   options:
@@ -845,7 +846,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 ),
                                                                 child: Center(
                                                                   child: Text(
-                                                                    [Interdit au mineur[,
+                                                                    'Interdit au mineur',
                                                                     style: GoogleFonts
                                                                         .inter(
                                                                       fontWeight:
@@ -941,18 +942,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                             PlayJoueurPageWidget.routeName,
                                                                             queryParameters:
                                                                                 {
-                                                                              [game[: serializeParam(
+                                                                              'game': serializeParam(
                                                                                 widget.gameDoc,
                                                                                 ParamType.Document,
                                                                               ),
-                                                                              [resultParticipation[: serializeParam(
+                                                                              'resultParticipation': serializeParam(
                                                                                 ResultParticipationGameStruct.maybeFromMap(_model.cloudFunction3sn2?.jsonBody),
                                                                                 ParamType.DataStruct,
                                                                               ),
                                                                             }.withoutNulls,
                                                                             extra: <String,
                                                                                 dynamic>{
-                                                                              [game[: widget.gameDoc,
+                                                                              'game': widget.gameDoc,
                                                                             },
                                                                           );
                                                                         } else {
@@ -964,12 +965,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                               return WebViewAware(
                                                                                 child: AlertDialog(
                                                                                   title: Text(
-                                                                                    _model.cloudFunction3sn2?.data?.message.isNotEmpty == true ? _model.cloudFunction3sn2!.data!.message : "Une erreur est survenue (${_model.cloudFunction3sn2?.errorCode ?? [inconnue[}).",
+                                                                                    _model.cloudFunction3sn2?.data?.message.isNotEmpty == true ? _model.cloudFunction3sn2!.data!.message : "Une erreur est survenue (${_model.cloudFunction3sn2?.errorCode ?? 'inconnue'}).",
                                                                                   ),
                                                                                   actions: [
                                                                                     TextButton(
                                                                                       onPressed: () => Navigator.pop(alertDialogContext),
-                                                                                      child: const Text([Ok[),
+                                                                                      child: const Text('Ok'),
                                                                                     ),
                                                                                   ],
                                                                                 ),
@@ -983,18 +984,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       },
                                                                 text: () {
                                                                   if (noRemainingPartsLive) {
-                                                                    return [Vous n\[avez plus de parties[;
+                                                                    return 'Vous n\'avez plus de parties';
                                                                   } else if (widget
                                                                           .gameDoc!
                                                                           .endDate! <
                                                                       getCurrentTimestamp) {
-                                                                    return [Le jeu est termin\u00E9[;
+                                                                    return 'Le jeu est termin\u00E9';
                                                                   } else if (hasPlayedToday) {
-                                                                    return [Vous avez d\u00E9j\u00E0 jou\u00E9[;
+                                                                    return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
                                                                   } else if (hasPlayedBefore) {
-                                                                    return [Rejouer[;
+                                                                    return 'Rejouer';
                                                                   } else {
-                                                                    return [Jouer[;
+                                                                    return 'Jouer';
                                                                   }
                                                                 }(),
                                                                 options:
@@ -1050,7 +1051,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       await showCreateAccountToPlayDialog(
                                                           context);
                                                     },
-                                                    text: [Jouer[,
+                                                    text: 'Jouer',
                                                     options: FFButtonOptions(
                                                       width: double.infinity,
                                                       height: 56.0,
@@ -1107,14 +1108,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     EnseigneDetailJoueurPageWidget
                                                         .routeName,
                                                     queryParameters: {
-                                                      [enseigneDoc[:
+                                                      'enseigneDoc':
                                                           serializeParam(
                                                         widget.enseigneDoc,
                                                         ParamType.Document,
                                                       ),
                                                     }.withoutNulls,
                                                     extra: <String, dynamic>{
-                                                      [enseigneDoc[:
+                                                      'enseigneDoc':
                                                           widget.enseigneDoc,
                                                     },
                                                   );
@@ -1221,7 +1222,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   ? widget
                                                                       .enseigneDoc!
                                                                       .name
-                                                                  : [Enseigne partenaire[,
+                                                                  : 'Enseigne partenaire',
                                                               maxLines: 1,
                                                               overflow:
                                                                   TextOverflow
@@ -1349,17 +1350,28 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       widget.gameDoc!
                                                           .mainPrizeWinner!),
                                               builder: (context, snapshot) {
-                                                final winnerName = snapshot
+                                                final winnerMessage = snapshot
                                                         .hasData
-                                                    ? snapshot.data!.firstName
-                                                    : [[;
+                                                    ? buildWinnerCongratulationsFromSources(
+                                                        gameData: widget.gameDoc!
+                                                            .snapshotData,
+                                                        user: snapshot.data,
+                                                        fallback:
+                                                            'F\u00E9licitations !',
+                                                      )
+                                                    : buildWinnerCongratulationsFromSources(
+                                                        gameData: widget.gameDoc!
+                                                            .snapshotData,
+                                                        fallback:
+                                                            'F\u00E9licitations !',
+                                                      );
                                                 return Column(
                                                   mainAxisSize:
                                                       MainAxisSize.max,
                                                   children: [
-                                                    if (winnerName.isNotEmpty)
+                                                    if (winnerMessage.isNotEmpty)
                                                       // Text(
-                                                      //   [FÃ©licitations Ã  $winnerName de ${snapshot.data!.city} ![,
+                                                      //   'FÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©licitations ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  $winnerName de ${snapshot.data!.city} !',
                                                       //   textAlign:
                                                       //       TextAlign.center,
                                                       //   style:
@@ -1397,7 +1409,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       Text(
                                                         textAlign:
                                                             TextAlign.center,
-                                                        [F\u00E9licitations \u00E0 $winnerName de ${snapshot.data!.city} ![,
+                                                        winnerMessage,
                                                         style:
                                                             FlutterFlowTheme.of(
                                                                     context)
@@ -1427,7 +1439,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 ),
                                                       ),
                                                     Text(
-                                                      [Le jeu est termin\u00E9. Revenez bient\u00F4t pour d\u00E9couvrir les prochains jeux ![,
+                                                      'Le jeu est termin\u00E9. Revenez bient\u00F4t pour d\u00E9couvrir les prochains jeux !',
                                                       textAlign:
                                                           TextAlign.center,
                                                       style:
@@ -1669,7 +1681,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   //               crossAxisAlignment: CrossAxisAlignment.start,
                                                   //               children: [
                                                   //                 Text(
-                                                  //                   [Site Web[,
+                                                  //                   'Site Web',
                                                   //                   style: GoogleFonts.inter(
                                                   //                     fontSize: 12.0,
                                                   //                     fontWeight: FontWeight.w500,
@@ -1773,7 +1785,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   //                   ),
                                                   //                   SizedBox(width: 6.0),
                                                   //                   Text(
-                                                  //                     [Facebook[,
+                                                  //                     'Facebook',
                                                   //                     style: GoogleFonts.inter(
                                                   //                       fontSize: 13.0,
                                                   //                       fontWeight: FontWeight.w600,
@@ -1814,7 +1826,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   //                   ),
                                                   //                   SizedBox(width: 6.0),
                                                   //                   Text(
-                                                  //                     [Instagram[,
+                                                  //                     'Instagram',
                                                   //                     style: GoogleFonts.inter(
                                                   //                       fontSize: 13.0,
                                                   //                       fontWeight: FontWeight.w600,
@@ -1855,7 +1867,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   //                   ),
                                                   //                   SizedBox(width: 6.0),
                                                   //                   Text(
-                                                  //                     [Twitter[,
+                                                  //                     'Twitter',
                                                   //                     style: GoogleFonts.inter(
                                                   //                       fontSize: 13.0,
                                                   //                       fontWeight: FontWeight.w600,
@@ -1879,7 +1891,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                           (horairesRecord) =>
                                                               horairesRecord
                                                                   .orderBy(
-                                                                      [created_time[),
+                                                                      'created_time'),
                                                     ),
                                                     builder:
                                                         (context, snapshot) {
@@ -1909,7 +1921,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     queryBuilder:
                                                         (horairesRecord) =>
                                                             horairesRecord.orderBy(
-                                                                [created_time[),
+                                                                'created_time'),
                                                   ),
                                                   builder: (context, snapshot) {
                                                     // Customize what your widget looks like when it[s loading.
@@ -1954,7 +1966,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     //         crossAxisAlignment: CrossAxisAlignment.start,
                                                     //         children: [
                                                     //           Text(
-                                                    //             [Horaires d\[ouverture[,
+                                                    //             'Horaires d\'ouverture[,
                                                     //             style: GoogleFonts.inter(
                                                     //               fontSize: 20.0,
                                                     //               fontWeight: FontWeight.bold,
@@ -2118,7 +2130,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     //                                         );
                                                     //                                       } else {
                                                     //                                         return Text(
-                                                    //                                           [FermÃ©[,
+                                                    //                                           'FermÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©',
                                                     //                                           textAlign: TextAlign.right,
                                                     //                                           style: GoogleFonts.inter(
                                                     //                                             fontSize: 14.0,
@@ -2221,7 +2233,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                             .start,
                                                     children: [
                                                       Text(
-                                                        [R\u00E8gles du jeu[,
+                                                        'R\u00E8gles du jeu',
                                                         style:
                                                             detailSectionTitleStyle,
                                                       ),
@@ -2244,8 +2256,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                           Expanded(
                                                             child: Text(
                                                               shouldShowMainPrize
-                                                                  ? [D\u00E9but du jeu le ${widget.gameDoc?.startDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.startDate, locale: FFLocalizations.of(context).languageCode) : [-[}[
-                                                                  : [Fin du jeu le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : [-[}[,
+                                                                  ? 'D\u00E9but du jeu le ${widget.gameDoc?.startDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.startDate, locale: FFLocalizations.of(context).languageCode) : '-'}'
+                                                                  : 'Fin du jeu le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
                                                               style:
                                                                   detailBodyStyle,
                                                             ),
@@ -2270,7 +2282,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                               width: 8.0),
                                                           Expanded(
                                                             child: Text(
-                                                              [Grattez la zone ci-dessus pour d\u00E9couvrir si vous avez gagn\u00E9[,
+                                                              'Grattez la zone ci-dessus pour d\u00E9couvrir si vous avez gagn\u00E9',
                                                               style:
                                                                   detailBodyStyle,
                                                             ),
@@ -2301,7 +2313,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         .start,
                                                                 children: [
                                                                   Text(
-                                                                    [Le lot principal sera attribu\u00E9 par tirage au sort le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : [-[}[,
+                                                                    'Le lot principal sera attribu\u00E9 par tirage au sort le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
                                                                     style:
                                                                         detailBodyStyle,
                                                                   ),
@@ -2309,7 +2321,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       height:
                                                                           4.0),
                                                                   Text(
-                                                                    [Plus vous participez, plus vous augmentez vos chances lors du tirage au sort[,
+                                                                    'Plus vous participez, plus vous augmentez vos chances lors du tirage au sort',
                                                                     style:
                                                                         detailBodyStyle,
                                                                   ),
@@ -2368,7 +2380,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       MainAxisSize.max,
                                                   children: [
                                                     Text(
-                                                      [Cette enseigne n\[existe plus.[,
+                                                      'Cette enseigne n\'existe plus.',
                                                       style:
                                                           FlutterFlowTheme.of(
                                                                   context)
@@ -2430,3 +2442,4 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     );
   }
 }
+
