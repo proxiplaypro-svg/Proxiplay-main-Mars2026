@@ -37,6 +37,14 @@ String extractWinnerFirstNameFromValue(String value) {
   return trimmed.split(RegExp(r'\s+')).first;
 }
 
+String _capitalizeFirst(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) {
+    return '';
+  }
+  return trimmed[0].toUpperCase() + trimmed.substring(1).toLowerCase();
+}
+
 Map<String, String> extractWinnerDisplayFromGameData(
   Map<String, dynamic> gameData,
 ) {
@@ -76,17 +84,19 @@ String buildWinnerLabelFromSources({
   final city = gameDisplay['city']?.trim().isNotEmpty == true
       ? gameDisplay['city']!.trim()
       : (user?.city ?? '').trim();
+  final formattedFirstName = _capitalizeFirst(firstName);
+  final formattedCity = _capitalizeFirst(city);
 
-  if (firstName.isNotEmpty && city.isNotEmpty) {
-    return 'Gagne par $firstName - $city';
+  if (formattedFirstName.isNotEmpty && formattedCity.isNotEmpty) {
+    return 'Gagné par $formattedFirstName - $formattedCity';
   }
 
-  if (firstName.isNotEmpty) {
-    return 'Gagne par $firstName';
+  if (formattedFirstName.isNotEmpty) {
+    return 'Gagné par $formattedFirstName';
   }
 
-  if (city.isNotEmpty) {
-    return 'Gagne par un joueur de $city';
+  if (formattedCity.isNotEmpty) {
+    return 'Gagné par un joueur de $formattedCity';
   }
 
   return fallback;
@@ -95,7 +105,7 @@ String buildWinnerLabelFromSources({
 String buildWinnerCongratulationsFromSources({
   required Map<String, dynamic> gameData,
   UsersRecord? user,
-  String fallback = 'Felicitations !',
+  String fallback = 'Félicitations !',
 }) {
   final gameDisplay = extractWinnerDisplayFromGameData(gameData);
   final firstName = gameDisplay['firstName']?.trim().isNotEmpty == true
@@ -104,12 +114,14 @@ String buildWinnerCongratulationsFromSources({
   final city = gameDisplay['city']?.trim().isNotEmpty == true
       ? gameDisplay['city']!.trim()
       : (user?.city ?? '').trim();
+  final formattedFirstName = _capitalizeFirst(firstName);
+  final formattedCity = _capitalizeFirst(city);
 
-  if (firstName.isEmpty) {
+  if (formattedFirstName.isEmpty) {
     return fallback;
   }
 
-  return city.isNotEmpty
-      ? 'Felicitations a $firstName de $city !'
-      : 'Felicitations a $firstName !';
+  return formattedCity.isNotEmpty
+      ? 'Félicitations à $formattedFirstName de $formattedCity !'
+      : 'Félicitations à $formattedFirstName !';
 }

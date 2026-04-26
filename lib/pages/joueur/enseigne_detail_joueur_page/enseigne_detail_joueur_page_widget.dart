@@ -68,9 +68,18 @@ class _EnseigneDetailJoueurPageWidgetState
     final hasSecondaryPrizes = game.secondaryPrizes.isNotEmpty ||
         game.secondaryPrizeDescription.trim().isNotEmpty;
     if (game.prizeValue == 0 && hasSecondaryPrizes) {
-      return 'Gains immediats';
+      return 'Gains immédiats';
     }
-    return game.prizeValue.toString();
+    return _formatPrice(game.prizeValue);
+  }
+
+  String _formatPrice(double value) {
+    final hasDecimals = value != value.truncateToDouble();
+    if (!hasDecimals) {
+      return '${value.toStringAsFixed(0)} €';
+    }
+
+    return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
   }
 
   bool get _canViewMinorRestrictedGames =>
@@ -1049,9 +1058,13 @@ class _EnseigneDetailJoueurPageWidgetState
                                                     .trim();
 
                                                 if (city == null ||
-                                                    address == null) return;
+                                                    address == null) {
+                                                  return;
+                                                }
                                                 if (city.isEmpty ||
-                                                    address.isEmpty) return;
+                                                    address.isEmpty) {
+                                                  return;
+                                                }
 
                                                 final fullAddress =
                                                     '$address, $city';

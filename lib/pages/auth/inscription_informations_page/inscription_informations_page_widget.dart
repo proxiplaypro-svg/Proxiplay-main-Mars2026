@@ -1035,7 +1035,7 @@ class _InscriptionInformationsPageWidgetState
                                 autofillHints: const [AutofillHints.telephoneNumber],
                                 obscureText: false,
                                 decoration: InputDecoration(
-                                  labelText: 'Numéro du téléphone',
+                                  labelText: 'Numéro de téléphone',
                                   labelStyle: FlutterFlowTheme.of(context)
                                       .labelMedium
                                       .override(

@@ -86,12 +86,12 @@ class _SharePromoStatsAdminPageWidgetState
   String _formatRewardType(String value) {
     switch (value.trim()) {
       case 'all_games_until_midnight':
-        return 'Tous les jeux jusqu a minuit';
+        return 'Tous les jeux jusqu à minuit';
       case 'play_credit':
       case 'plays':
       case 'remaining_part':
       case 'extra_play':
-        return 'Parties supplementaires';
+        return 'Parties supplémentaires';
       case 'game_bonus':
         return 'Bonus de jeu';
       default:
@@ -308,7 +308,7 @@ class _SharePromoStatsAdminPageWidgetState
             _readValue(row, const ['uid', 'userId', 'user_id']),
           ),
           _buildInfoRow(
-            'Recompense',
+            'Récompense',
             _formatRewardType(
               _readValue(row, const ['type', 'rewardType', 'reward_type']),
             ),
@@ -317,7 +317,7 @@ class _SharePromoStatsAdminPageWidgetState
             'Valeur',
             _readValue(row, const ['value', 'rewardValue']),
           ),
-          _buildInfoRow('Cree le', _readValue(row, const ['createdAt'])),
+          _buildInfoRow('Créé le', _readValue(row, const ['createdAt'])),
         ],
       ),
     );
@@ -364,7 +364,7 @@ class _SharePromoStatsAdminPageWidgetState
                   _statsFuture = _loadStats();
                 });
               },
-              child: const Text('Reessayer'),
+              child: const Text('Réessayer'),
             ),
           ],
         ),
@@ -414,7 +414,7 @@ class _SharePromoStatsAdminPageWidgetState
                   _buildSection(
                     context: context,
                     title: 'SECTION 1 - KPI',
-                    subtitle: 'Vue rapide de l activite de parrainage.',
+                    subtitle: 'Vue rapide de l’activité de parrainage.',
                     child: GridView.count(
                       crossAxisCount: MediaQuery.sizeOf(context).width > 900 ? 4 : 2,
                       crossAxisSpacing: 12.0,
@@ -431,13 +431,13 @@ class _SharePromoStatsAdminPageWidgetState
                         ),
                         _buildKpiCard(
                           context,
-                          label: 'Inscriptions validees',
+                          label: 'Inscriptions validées',
                           value: stats.acceptedReferrals,
                           accentColor: const Color(0xFF2E90FA),
                         ),
                         _buildKpiCard(
                           context,
-                          label: 'Recompenses accordees',
+                          label: 'Récompenses accordées',
                           value: stats.grantedRewards,
                           accentColor: const Color(0xFF12B76A),
                         ),
@@ -453,24 +453,24 @@ class _SharePromoStatsAdminPageWidgetState
                   const SizedBox(height: 16.0),
                   _buildSection(
                     context: context,
-                    title: 'SECTION 2 - Referrals recentes',
+                    title: 'SECTION 2 - Referrals récentes',
                     subtitle: 'inviteCode, inviterUid, status, createdAt',
                     child: _buildListSection(
                       context: context,
                       rows: stats.recentReferrals,
-                      emptyMessage: 'Aucune referral recente.',
+                      emptyMessage: 'Aucune referral récente.',
                       itemBuilder: _buildReferralCard,
                     ),
                   ),
                   const SizedBox(height: 16.0),
                   _buildSection(
                     context: context,
-                    title: 'SECTION 3 - Rewards recentes',
+                    title: 'SECTION 3 - Rewards récentes',
                     subtitle: 'userId, rewardType, value, createdAt',
                     child: _buildListSection(
                       context: context,
                       rows: stats.recentRewards,
-                      emptyMessage: 'Aucune reward recente.',
+                      emptyMessage: 'Aucune reward récente.',
                       itemBuilder: _buildRewardCard,
                     ),
                   ),
@@ -478,11 +478,11 @@ class _SharePromoStatsAdminPageWidgetState
                   _buildSection(
                     context: context,
                     title: 'SECTION 4 - Top parrains',
-                    subtitle: 'inviterUid et acceptedCount, tries par performance.',
+                    subtitle: 'inviterUid et acceptedCount, triés par performance.',
                     child: _buildListSection(
                       context: context,
                       rows: stats.topInviters,
-                      emptyMessage: 'Aucun parrain en tete pour le moment.',
+                      emptyMessage: 'Aucun parrain en tête pour le moment.',
                       itemBuilder: _buildTopInviterCard,
                     ),
                   ),

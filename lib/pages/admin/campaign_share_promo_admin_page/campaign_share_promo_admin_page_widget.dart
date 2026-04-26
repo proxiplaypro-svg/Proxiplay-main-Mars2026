@@ -142,7 +142,7 @@ class _CampaignSharePromoAdminPageWidgetState
       case 'defaultInvite':
         return 'Invitation standard';
       case 'specialCampaign':
-        return 'Campagne speciale';
+        return 'Campagne spéciale';
       case 'lowRemainingPlaysInvite':
         return 'Invitation relance joueur';
       default:
@@ -157,7 +157,7 @@ class _CampaignSharePromoAdminPageWidgetState
       case 'players':
         return 'Joueurs actifs';
       case 'high_value_players':
-        return 'Joueurs a forte valeur';
+        return 'Joueurs à forte valeur';
       default:
         return value;
     }
@@ -174,12 +174,12 @@ class _CampaignSharePromoAdminPageWidgetState
   String _rewardTypeLabel(String value) {
     switch (value) {
       case 'all_games_until_midnight':
-        return 'Jeux jusqu a minuit';
+        return 'Jeux jusqu à minuit';
       case 'play_credit':
       case 'plays':
       case 'remaining_part':
       case 'extra_play':
-        return 'Parties supplementaires';
+        return 'Parties supplémentaires';
       case 'game_bonus':
         return 'Bonus de jeu';
       default:
@@ -210,7 +210,7 @@ class _CampaignSharePromoAdminPageWidgetState
         normalized == 'Partagez Proxiplay et gagnez des bonus.' ||
         normalized == 'Offrez 1 partie à un ami et débloquez un bonus' ||
         normalized == 'Offrez 1 partie a un ami et debloquez un bonus') {
-      return 'Invite un ami et joue a tous les jeux jusqu a minuit.';
+      return 'Invite un ami et joue à tous les jeux jusqu à minuit.';
     }
     return normalized;
   }
@@ -279,7 +279,7 @@ class _CampaignSharePromoAdminPageWidgetState
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(disable ? 'Campagne desactivee' : 'Campagne enregistree')),
+        SnackBar(content: Text(disable ? 'Campagne désactivée' : 'Campagne enregistrée')),
       );
       await _loadCampaign();
     } catch (error) {
@@ -303,7 +303,7 @@ class _CampaignSharePromoAdminPageWidgetState
           ? 'Inviter un ami'
           : _titleController.text.trim(),
       subtitle: _messageController.text.trim().isEmpty
-          ? 'Invite un ami et joue a tous les jeux jusqu a minuit.'
+          ? 'Invite un ami et joue à tous les jeux jusqu à minuit.'
           : _messageController.text.trim(),
       ctaLabel: _ctaController.text.trim().isEmpty
           ? 'Inviter un ami'
@@ -369,7 +369,7 @@ class _CampaignSharePromoAdminPageWidgetState
                     ),
                     SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Exiger l inscription du filleul'),
+                      title: const Text('Exiger l’inscription du filleul'),
                       value: _requireSignup,
                       onChanged: (value) => setState(() => _requireSignup = value),
                     ),
@@ -476,7 +476,7 @@ class _CampaignSharePromoAdminPageWidgetState
                           child: TextFormField(
                             controller: _maxPerUserController,
                             decoration:
-                                _inputDecoration('Max recompenses par parrain'),
+                                _inputDecoration('Max récompenses par parrain'),
                             keyboardType: TextInputType.number,
                             validator: (value) =>
                                 (int.tryParse(value ?? '') == null) ? 'Nombre invalide' : null,
@@ -487,7 +487,7 @@ class _CampaignSharePromoAdminPageWidgetState
                           child: TextFormField(
                             controller: _maxPerInviteeController,
                             decoration:
-                                _inputDecoration('Max recompenses par filleul'),
+                                _inputDecoration('Max récompenses par filleul'),
                             keyboardType: TextInputType.number,
                             validator: (value) =>
                                 (int.tryParse(value ?? '') == null) ? 'Nombre invalide' : null,

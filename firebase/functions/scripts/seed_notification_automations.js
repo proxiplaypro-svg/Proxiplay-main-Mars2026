@@ -20,11 +20,11 @@ const kAutomationSeeds = [
       messagesByStatus: {
         a_relancer: {
           title: "Revenez jouer !",
-          body: "Continuez a jouer pour accumuler vos prochaines victoires !",
+          body: "Continuez à jouer pour accumuler vos prochaines victoires !",
         },
         dormant: {
-          title: "Ca fait longtemps !",
-          body: "Retrouvez les jeux ProxiPlay et vos lots recompenses.",
+          title: "Ça fait longtemps !",
+          body: "Retrouvez les jeux ProxiPlay et vos lots récompenses.",
         },
         mort_probable: {
           title: "Nous vous manquons ?",
@@ -32,7 +32,7 @@ const kAutomationSeeds = [
         },
         default: {
           title: "Revenez jouer !",
-          body: "Nous vous avons beaucoup manque !",
+          body: "Nous vous avons beaucoup manqué !",
         },
       },
     },
@@ -116,7 +116,7 @@ const kAutomationSeeds = [
         default: {
           title: "Plus que quelques jours ⏳",
           body:
-            "Un jeu se termine bientot, tentez votre chance avant qu’il ne soit trop tard !",
+            "Un jeu se termine bientôt, tentez votre chance avant qu’il ne soit trop tard !",
         },
       },
     },
@@ -159,13 +159,13 @@ Usage:
 
 Options:
   --project <id>     Firebase project id
-  --dry-run          Simulation sans ecriture
-  --apply            Applique les ecritures
+  --dry-run          Simulation sans écriture
+  --apply            Applique les écritures
   --confirm          Requis avec --apply
   --help             Affiche cette aide
 
 Auth:
-  - Si GOOGLE_APPLICATION_CREDENTIALS est defini, le script l'utilise via ADC.
+  - Si GOOGLE_APPLICATION_CREDENTIALS est défini, le script l'utilise via ADC.
   - Sinon, il tente d'utiliser les credentials ADC locaux
     (ex: gcloud auth application-default login).
 `);
@@ -247,7 +247,7 @@ async function main() {
 
   if (!args.dryRun && !args.confirm) {
     throw new Error(
-      "Refus d'executer en mode ecriture sans --confirm. Relancez avec --apply --confirm.",
+      "Refus d'exécuter en mode écriture sans --confirm. Relancez avec --apply --confirm.",
     );
   }
 

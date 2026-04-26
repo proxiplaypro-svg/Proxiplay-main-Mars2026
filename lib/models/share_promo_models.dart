@@ -124,7 +124,7 @@ class SharePromoCampaignModel {
         enabled: false,
         kind: 'defaultInvite',
         title: 'Inviter un ami',
-        message: 'Invite un ami et joue a tous les jeux jusqu a minuit.',
+        message: 'Invite un ami et joue à tous les jeux jusqu à minuit.',
         ctaText: 'Inviter un ami',
         startAt: null,
         endAt: null,

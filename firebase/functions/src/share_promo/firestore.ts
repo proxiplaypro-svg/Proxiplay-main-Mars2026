@@ -337,7 +337,7 @@ export async function recomputeShareState(
         ? config.kind
         : 'defaultInvite',
     currentBannerTitle: availableCount > 0
-        ? 'Recompense disponible'
+        ? 'Récompense disponible'
         : pendingCount > 0
         ? 'Invitation en attente'
         : config.title,

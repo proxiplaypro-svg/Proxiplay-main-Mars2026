@@ -181,7 +181,7 @@ async function grantReferralRewardInternal(
         queueUserPushNotification({
           docId: `share_promo_reward_${referralId}`,
           title: '🎉 Ton parrainage a fonctionne !',
-          body: 'Tu peux maintenant jouer a tous les jeux jusqu a minuit.',
+          body: 'Tu peux maintenant jouer à tous les jeux jusqu à minuit.',
           userUid: referral.inviterUid,
           createdBy: grantedBy,
         }),
@@ -217,7 +217,7 @@ export const getSharePromoState = functions
 
     if (shareState.rewardAvailable) {
       kind = 'rewardAvailable';
-      title = 'Recompense disponible';
+      title = 'Récompense disponible';
       message = 'Votre bonus de parrainage est disponible.';
       action = 'rewardAvailable';
     } else if (shareState.pendingCount > 0) {

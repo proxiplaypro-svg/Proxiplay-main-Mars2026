@@ -154,20 +154,39 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     return game.enseigneName.trim();
   }
 
+  // Display only city on home game cards.
+  String _formatCityOnly(String? value) {
+    final raw = (value ?? '').trim();
+    if (raw.isEmpty) {
+      return '';
+    }
+
+    final withoutZip = raw.replaceFirst(RegExp(r'^\d{5}\s*'), '').trim();
+    final cityOnly = withoutZip.isEmpty ? raw : withoutZip;
+
+    return cityOnly
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .map(
+          (word) => word
+              .split('-')
+              .where((part) => part.isNotEmpty)
+              .map(
+                (part) =>
+                    part[0].toUpperCase() + part.substring(1).toLowerCase(),
+              )
+              .join('-'),
+        )
+        .join(' ');
+  }
+
   String _getGameCardLocation(EnseignesRecord? enseigne) {
     final city = (enseigne?.city ?? '').trim();
-    final areaCode = (enseigne?.areaCode ?? '').trim();
     final address = (enseigne?.address ?? '').trim();
-    if (city.isNotEmpty && areaCode.isNotEmpty) {
-      return '$areaCode $city';
-    }
     if (city.isNotEmpty) {
-      return city;
+      return _formatCityOnly(city);
     }
-    if (areaCode.isNotEmpty) {
-      return areaCode;
-    }
-    return address;
+    return _formatCityOnly(address);
   }
 
   Future<Map<String, EnseignesRecord>> _getFeaturedEnseignesForGames(
@@ -368,7 +387,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       case 'rewardAvailable':
         return SharePromoData(
           kind: SharePromoKind.rewardAvailable,
-          title: state.title ?? 'Recompense disponible',
+          title: state.title ?? 'Récompense disponible',
           subtitle:
               state.message ?? 'Votre bonus de parrainage est disponible.',
           ctaLabel: state.ctaText ?? 'Mes lots',
@@ -402,7 +421,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           kind: SharePromoKind.lowRemainingPlaysInvite,
           title: state.title ?? 'Inviter un ami',
           subtitle: state.message ??
-              'Invite un ami et joue a tous les jeux jusqu a minuit.',
+              'Invite un ami et joue à tous les jeux jusqu à minuit.',
           ctaLabel: state.ctaText ?? 'Inviter un ami',
           icon: Icons.volunteer_activism_rounded,
           primaryColor: const Color(0xFF6E3B86),
@@ -414,7 +433,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           kind: SharePromoKind.defaultInvite,
           title: state.title ?? 'Inviter un ami',
           subtitle: state.message ??
-              'Invite un ami et joue a tous les jeux jusqu a minuit.',
+              'Invite un ami et joue à tous les jeux jusqu à minuit.',
           ctaLabel: state.ctaText ?? 'Inviter un ami',
           icon: Icons.share_rounded,
           primaryColor: const Color(0xFF2B2A66),
@@ -448,6 +467,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       return '$normalizedFirstName a gagné $prizeName chez $enseigneName';
     }
     return '$normalizedFirstName a gagné $prizeName';
+  }
+
+  String _formatEuroAmount(double value) {
+    final hasDecimals = value != value.truncateToDouble();
+    if (!hasDecimals) {
+      return '${value.toStringAsFixed(0)} \u20AC';
+    }
+    return '${value.toStringAsFixed(2).replaceAll('.', ',')} \u20AC';
   }
 
   Future<List<String>> _loadRecentWinnerMessages() async {
@@ -1601,7 +1628,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                                 enseigne,
                                                                             prizeText: listViewGamesRecord.prizeValue == 0
                                                                                 ? 'Gains instantanés'
-                                                                                : '${listViewGamesRecord.prizeValue} \u20AC',
+                                                                                : _formatEuroAmount(listViewGamesRecord.prizeValue),
                                                                             endDateText: listViewGamesRecord.endDate != null
                                                                                 ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
                                                                                 : "Jusqu'au : -",
@@ -1783,7 +1810,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                                 enseigne,
                                                                             prizeText: listViewGamesRecord.prizeValue == 0
                                                                                 ? 'Gains instantanés'
-                                                                                : '${listViewGamesRecord.prizeValue} \u20AC',
+                                                                                : _formatEuroAmount(listViewGamesRecord.prizeValue),
                                                                             endDateText: listViewGamesRecord.endDate != null
                                                                                 ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
                                                                                 : "Jusqu'au : -",
@@ -1959,7 +1986,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                                 enseigne,
                                                                             prizeText: listViewGamesRecord.prizeValue == 0
                                                                                 ? 'Gains instantanés'
-                                                                                : '${listViewGamesRecord.prizeValue} \u20AC',
+                                                                                : _formatEuroAmount(listViewGamesRecord.prizeValue),
                                                                             endDateText: listViewGamesRecord.endDate != null
                                                                                 ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
                                                                                 : "Jusqu'au : -",
@@ -2134,7 +2161,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                           return _buildHomeGameCard(
                                                                             game: game,
                                                                             enseigne: enseigne,
-                                                                            prizeText: game.prizeValue == 0 ? 'Gains instantanés' : '${game.prizeValue} €',
+                                                                            prizeText: game.prizeValue == 0 ? 'Gains instantanés' : _formatEuroAmount(game.prizeValue),
                                                                             endDateText: game.endDate != null ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}" : "Jusqu'au : -",
                                                                             badgeText: finishedBadgeText,
                                                                             isFinished: true,
@@ -2163,7 +2190,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                             return _buildHomeGameCard(
                                                                               game: game,
                                                                               enseigne: enseigne,
-                                                                              prizeText: game.prizeValue == 0 ? 'Gains instantanés' : '${game.prizeValue} \u20AC',
+                                                                              prizeText: game.prizeValue == 0 ? 'Gains instantanés' : _formatEuroAmount(game.prizeValue),
                                                                               endDateText: game.endDate != null ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}" : "Jusqu'au : -",
                                                                               badgeText: finishedBadgeText,
                                                                               winnerText: winnerLabel,
@@ -2347,7 +2374,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       prizeText: listViewGamesRecord.prizeValue ==
                                                                               0
                                                                           ? 'Gains instantanés'
-                                                                          : '${listViewGamesRecord.prizeValue} \u20AC',
+                                                                          : _formatEuroAmount(listViewGamesRecord.prizeValue),
                                                                       endDateText: listViewGamesRecord.endDate !=
                                                                               null
                                                                           ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
@@ -2510,7 +2537,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       prizeText: listViewGamesRecord.prizeValue ==
                                                                               0
                                                                           ? 'Gains instantanés'
-                                                                          : '${listViewGamesRecord.prizeValue} \u20AC',
+                                                                          : _formatEuroAmount(listViewGamesRecord.prizeValue),
                                                                       endDateText: listViewGamesRecord.endDate !=
                                                                               null
                                                                           ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
@@ -2670,7 +2697,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       prizeText: listViewGamesRecord.prizeValue ==
                                                                               0
                                                                           ? 'Gains instantanés'
-                                                                          : '${listViewGamesRecord.prizeValue} \u20AC',
+                                                                          : _formatEuroAmount(listViewGamesRecord.prizeValue),
                                                                       endDateText: listViewGamesRecord.endDate !=
                                                                               null
                                                                           ? "Jusqu'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}"
@@ -2841,7 +2868,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                               .prizeValue ==
                                                                           0
                                                                       ? 'Gains instantanés'
-                                                                      : '${listViewGamesRecord.prizeValue} \u20AC',
+                                                                      : _formatEuroAmount(listViewGamesRecord.prizeValue),
                                                                   endDateText: listViewGamesRecord
                                                                               .endDate !=
                                                                           null
@@ -3001,7 +3028,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                               .prizeValue ==
                                                                           0
                                                                       ? 'Gains instantanés'
-                                                                      : '${listViewGamesRecord.prizeValue} \u20AC',
+                                                                      : _formatEuroAmount(listViewGamesRecord.prizeValue),
                                                                   endDateText: listViewGamesRecord
                                                                               .endDate !=
                                                                           null
@@ -3148,7 +3175,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                               .prizeValue ==
                                                                           0
                                                                       ? 'Gains instantanés'
-                                                                      : '${listViewGamesRecord.prizeValue} \u20AC',
+                                                                      : _formatEuroAmount(listViewGamesRecord.prizeValue),
                                                                   endDateText: listViewGamesRecord
                                                                               .endDate !=
                                                                           null

@@ -40,11 +40,11 @@ class AutomaticNotificationScenario {
       );
 
   String get scheduleText =>
-      '$delayDays j - ${frequency == 'once' ? '1 fois' : 'repetee'} - ${sendHour.toString().padLeft(2, '0')}h${sendMinute.toString().padLeft(2, '0')}';
+      '$delayDays j - ${frequency == 'once' ? '1 fois' : 'répétée'} - ${sendHour.toString().padLeft(2, '0')}h${sendMinute.toString().padLeft(2, '0')}';
 
   String get summary {
     final filters = filterRemainingParts ? ' - parties restantes' : '';
-    return 'Envoi apres $scheduleText$filters';
+    return 'Envoi après $scheduleText$filters';
   }
 }
 
@@ -59,8 +59,8 @@ class AutomaticNotificationsRepository {
       id: 'birthday',
       templateKey: 'birthday',
       title: 'Anniversaire',
-      description: 'Envoyer une notification speciale le jour anniversaire.',
-      message: 'Bon anniversaire ! Venez jouer et decouvrir vos avantages du jour.',
+      description: 'Envoyer une notification spéciale le jour anniversaire.',
+      message: 'Bon anniversaire ! Venez jouer et découvrir vos avantages du jour.',
       delayDays: 0,
       frequency: 'once',
       sendHour: 9,
@@ -71,9 +71,9 @@ class AutomaticNotificationsRepository {
     AutomaticNotificationScenario(
       id: 'remainingParts',
       templateKey: 'remainingParts',
-      title: 'Parties non jouees / remaining parts',
+      title: 'Parties non jouées / remaining parts',
       description: 'Relancer les joueurs qui ont encore des parties disponibles.',
-      message: 'Il vous reste des parties a jouer. Revenez tenter votre chance.',
+      message: 'Il vous reste des parties à jouer. Revenez tenter votre chance.',
       delayDays: 3,
       frequency: 'repeated',
       sendHour: 18,
@@ -84,9 +84,9 @@ class AutomaticNotificationsRepository {
     AutomaticNotificationScenario(
       id: 'favoriteMerchant',
       templateKey: 'favoriteMerchant',
-      title: 'Commercant favori a ajoute un jeu',
+      title: 'Commerçant favori a ajouté un jeu',
       description: 'Notifier les joueurs quand un commerce suivi publie un jeu.',
-      message: 'Un commercant que vous suivez vient de publier un nouveau jeu.',
+      message: 'Un commerçant que vous suivez vient de publier un nouveau jeu.',
       delayDays: 0,
       frequency: 'once',
       sendHour: 10,
@@ -98,8 +98,8 @@ class AutomaticNotificationsRepository {
       id: 'endingSoon',
       templateKey: 'endingSoon',
       title: 'Rappel J-3 avant fin d’un jeu',
-      description: 'Rappeler qu’un jeu suivi se termine bientot.',
-      message: 'Tic tac. Un jeu que vous suivez se termine bientot.',
+      description: 'Rappeler qu’un jeu suivi se termine bientôt.',
+      message: 'Tic tac. Un jeu que vous suivez se termine bientôt.',
       delayDays: 3,
       frequency: 'once',
       sendHour: 18,
@@ -111,8 +111,8 @@ class AutomaticNotificationsRepository {
       id: 'inactivePlayer',
       templateKey: 'inactivePlayer',
       title: 'Joueur inactif depuis X jours',
-      description: 'Relancer automatiquement selon l’anciennete d’inactivite.',
-      message: 'Cela fait un moment. Revenez jouer et decouvrir les nouveaux jeux.',
+      description: 'Relancer automatiquement selon l’ancienneté d’inactivité.',
+      message: 'Cela fait un moment. Revenez jouer et découvrir les nouveaux jeux.',
       delayDays: 7,
       frequency: 'once',
       sendHour: 18,
@@ -149,7 +149,7 @@ class AutomaticNotificationsRepository {
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       templateKey: 'birthday',
       title: 'Nouvelle notification automatique',
-      description: 'Scenario personnalise.',
+      description: 'Scénario personnalisé.',
       message: 'Personnalisez le message de cette notification automatique.',
       delayDays: 3,
       frequency: 'once',
@@ -169,28 +169,28 @@ class AutomaticNotificationTemplates {
   static const Map<String, Map<String, String>> definitions = {
     'birthday': {
       'title': 'Anniversaire',
-      'description': 'Envoyer une notification speciale le jour anniversaire.',
-      'message': 'Bon anniversaire ! Venez jouer et profiter de votre jour special.',
+      'description': 'Envoyer une notification spéciale le jour anniversaire.',
+      'message': 'Bon anniversaire ! Venez jouer et profiter de votre jour spécial.',
     },
     'remainingParts': {
-      'title': 'Parties non jouees / remaining parts',
+      'title': 'Parties non jouées / remaining parts',
       'description': 'Relancer les joueurs qui ont encore des parties disponibles.',
       'message': 'Il vous reste des parties. Revenez jouer avant de les oublier.',
     },
     'favoriteMerchant': {
-      'title': 'Commercant favori a ajoute un jeu',
+      'title': 'Commerçant favori a ajouté un jeu',
       'description': 'Notifier les joueurs quand un commerce suivi publie un jeu.',
-      'message': 'Un commercant favori vient de publier un nouveau jeu.',
+      'message': 'Un commerçant favori vient de publier un nouveau jeu.',
     },
     'endingSoon': {
       'title': 'Rappel J-3 avant fin d’un jeu',
-      'description': 'Rappeler qu’un jeu suivi se termine bientot.',
-      'message': 'Tic tac. Le jeu que vous suivez se termine bientot.',
+      'description': 'Rappeler qu’un jeu suivi se termine bientôt.',
+      'message': 'Tic tac. Le jeu que vous suivez se termine bientôt.',
     },
     'inactivePlayer': {
       'title': 'Joueur inactif depuis X jours',
-      'description': 'Relancer automatiquement selon l’anciennete d’inactivite.',
-      'message': 'Cela fait un moment. Revenez decouvrir les nouveaux jeux.',
+      'description': 'Relancer automatiquement selon l’ancienneté d’inactivité.',
+      'message': 'Cela fait un moment. Revenez découvrir les nouveaux jeux.',
     },
   };
 }
