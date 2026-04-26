@@ -38,6 +38,7 @@ class _InscriptionInformationsPageWidgetState
   List<CityAutocompleteSuggestion> _citySuggestions = const [];
   bool _isCityLoading = false;
   String? _citySearchError;
+  bool _hasSeededInitialValues = false;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -71,6 +72,7 @@ class _InscriptionInformationsPageWidgetState
     _model.telephoneFocusNode ??= FocusNode();
 
     _model.telephoneMask = MaskTextInputFormatter(mask: '## ## ## ## ##');
+    unawaited(_loadInitialUserPrefill());
     animationsMap.addAll({
       'containerOnPageLoadAnimation': AnimationInfo(
         trigger: AnimationTrigger.onPageLoad,
@@ -113,6 +115,46 @@ class _InscriptionInformationsPageWidgetState
         ],
       ),
     });
+  }
+
+  Future<void> _loadInitialUserPrefill() async {
+    await refreshCurrentUserDocument();
+    if (!mounted) {
+      return;
+    }
+    safeSetState(_seedFormFromCurrentUserDocument);
+  }
+
+  void _seedFormFromCurrentUserDocument() {
+    final userDoc = currentUserDocument;
+    if (userDoc == null || _hasSeededInitialValues) {
+      return;
+    }
+
+    if ((_model.nomTextController?.text ?? '').trim().isEmpty &&
+        userDoc.lastName.trim().isNotEmpty) {
+      _model.nomTextController?.text = userDoc.lastName;
+    }
+    if ((_model.prenomTextController?.text ?? '').trim().isEmpty &&
+        userDoc.firstName.trim().isNotEmpty) {
+      _model.prenomTextController?.text = userDoc.firstName;
+    }
+    if ((_model.villeTextController?.text ?? '').trim().isEmpty &&
+        userDoc.city.trim().isNotEmpty) {
+      _model.villeTextController?.text = userDoc.city;
+      _model.selectedCityLabel = userDoc.city;
+    }
+    if ((_model.telephoneTextController?.text ?? '').trim().isEmpty &&
+        userDoc.phoneNumber.trim().isNotEmpty) {
+      _model.telephoneTextController?.text = userDoc.phoneNumber;
+    }
+    _model.cityInseeCode ??=
+        normalizeInseeCode(userDoc.cityInseeCode).isNotEmpty
+            ? normalizeInseeCode(userDoc.cityInseeCode)
+            : null;
+    _model.datePicked ??= userDoc.birthday;
+
+    _hasSeededInitialValues = true;
   }
 
   @override
@@ -203,6 +245,7 @@ class _InscriptionInformationsPageWidgetState
 
   @override
   Widget build(BuildContext context) {
+    _seedFormFromCurrentUserDocument();
     final isMerchant = currentUserDocument?.userRole == Roles.commercant;
 
     return GestureDetector(
@@ -1139,11 +1182,6 @@ class _InscriptionInformationsPageWidgetState
                                     context.goNamed(
                                         WaitingValidationPageWidget.routeName);
                                   } else {
-                                    await authManager.refreshUser();
-                                    if (!currentUserEmailVerified) {
-                                      await authManager
-                                          .sendEmailVerification();
-                                    }
                                     context.goNamed(LoginPageWidget.routeName);
                                   }
                                 },
