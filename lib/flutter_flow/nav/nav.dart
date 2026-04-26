@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 
-
 import '/backend/push_notifications/push_notifications_handler.dart'
     show PushNotificationsHandler;
 import '/auth/firebase_auth/auth_util.dart';
@@ -80,14 +79,16 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
       debugLogDiagnostics: false,
       refreshListenable: appStateNotifier,
       navigatorKey: appNavigatorKey,
-      errorBuilder: (context, state) =>
-          appStateNotifier.loggedIn ? const LoginPageWidget() : const LoginPageWidget(),
+      errorBuilder: (context, state) => appStateNotifier.loggedIn
+          ? const LoginPageWidget()
+          : const LoginPageWidget(),
       routes: [
         FFRoute(
           name: '_initialize',
           path: '/',
-          builder: (context, _) =>
-              appStateNotifier.loggedIn ? const LoginPageWidget() : const LoginPageWidget(),
+          builder: (context, _) => appStateNotifier.loggedIn
+              ? const LoginPageWidget()
+              : const LoginPageWidget(),
           routes: [
             FFRoute(
               name: HomeJoueurPageWidget.routeName,
@@ -111,7 +112,8 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               // This page writes to the current user's Firestore doc; it should
               // only be reachable when authenticated.
               requireAuth: true,
-              builder: (context, params) => const InscriptionInformationsPageWidget(),
+              builder: (context, params) =>
+                  const InscriptionInformationsPageWidget(),
             ),
             FFRoute(
               name: ResetPasswordWidget.routeName,
@@ -184,7 +186,8 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               path: AdminPushNotificationsPageWidget.routePath,
               requireAuth: true,
               requireAdmin: true,
-              builder: (context, params) => const AdminPushNotificationsPageWidget(),
+              builder: (context, params) =>
+                  const AdminPushNotificationsPageWidget(),
             ),
             FFRoute(
               name: AdminAutomaticNotificationsPageWidget.routeName,
@@ -252,7 +255,8 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: MesEnseignesCommercantPageWidget.routeName,
               path: MesEnseignesCommercantPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => const MesEnseignesCommercantPageWidget(),
+              builder: (context, params) =>
+                  const MesEnseignesCommercantPageWidget(),
             ),
             FFRoute(
               name: FavorisJoueurPageWidget.routeName,
@@ -287,7 +291,8 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: AddEnseigneCommercantPageWidget.routeName,
               path: AddEnseigneCommercantPageWidget.routePath,
               requireAuth: true,
-              builder: (context, params) => const AddEnseigneCommercantPageWidget(),
+              builder: (context, params) =>
+                  const AddEnseigneCommercantPageWidget(),
             ),
             FFRoute(
               name: AddHoraireCommercantPageWidget.routeName,
@@ -380,6 +385,10 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
                   'enseigneDoc',
                   ParamType.Document,
                 ),
+                source: params.getParam(
+                  'source',
+                  ParamType.String,
+                ),
               ),
             ),
             FFRoute(
@@ -456,6 +465,10 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
                   structBuilder:
                       ResultParticipationGameStruct.fromSerializableMap,
                 ),
+                source: params.getParam(
+                  'source',
+                  ParamType.String,
+                ),
               ),
             ),
             FFRoute(
@@ -476,6 +489,10 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
                   'enseigneDoc',
                   ParamType.Document,
                 ),
+                source: params.getParam(
+                  'source',
+                  ParamType.String,
+                ),
               ),
             ),
             FFRoute(
@@ -495,6 +512,10 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
                 enseigneDoc: params.getParam(
                   'enseigneDoc',
                   ParamType.Document,
+                ),
+                source: params.getParam(
+                  'source',
+                  ParamType.String,
                 ),
               ),
             ),
@@ -798,7 +819,8 @@ class TransitionInfo {
   final Duration duration;
   final Alignment? alignment;
 
-  static TransitionInfo appDefault() => const TransitionInfo(hasTransition: false);
+  static TransitionInfo appDefault() =>
+      const TransitionInfo(hasTransition: false);
 }
 
 class RootPageContext {

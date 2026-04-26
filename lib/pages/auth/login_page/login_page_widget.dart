@@ -33,6 +33,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
   late LoginPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  bool get _playerEmailVerificationEnabled => false;
 
   final animationsMap = <String, AnimationInfo>{};
 
@@ -184,7 +185,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
     var shouldSetState = false;
 
     if (shouldCheckEmailVerification) {
-      final requiresEmailVerification =
+      final requiresEmailVerification = _playerEmailVerificationEnabled &&
           currentUserDocument?.userRole != Roles.commercant;
 
       if (requiresEmailVerification && currentUserEmailVerified != true) {

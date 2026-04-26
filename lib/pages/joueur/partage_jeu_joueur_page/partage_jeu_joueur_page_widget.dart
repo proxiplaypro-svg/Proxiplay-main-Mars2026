@@ -13,10 +13,12 @@ class PartageJeuJoueurPageWidget extends StatefulWidget {
     super.key,
     required this.gameDoc,
     required this.enseigneDoc,
+    this.source,
   });
 
   final GamesRecord? gameDoc;
   final EnseignesRecord? enseigneDoc;
+  final String? source;
 
   static String routeName = 'PartageJeuJoueurPage';
   static String routePath = 'partageJeuJoueurPage';
@@ -56,6 +58,7 @@ class _PartageJeuJoueurPageWidgetState
         extra: <String, dynamic>{
           'gameDoc': widget.gameDoc,
           'enseigneDoc': widget.enseigneDoc,
+          'source': widget.source ?? 'partage',
         },
       );
     });

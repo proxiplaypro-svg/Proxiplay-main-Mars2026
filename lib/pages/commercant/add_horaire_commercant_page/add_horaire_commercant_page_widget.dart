@@ -225,7 +225,18 @@ class _AddHoraireCommercantPageWidgetState
     safeSetState(() => _isSaving = true);
 
     try {
+      final expectedDocIds =
+          DayOfTheWeek.values.map((day) => day.name).toSet();
+      final existingDocs = await widget.enseigneRef!
+          .collection('horaires')
+          .get();
       final batch = FirebaseFirestore.instance.batch();
+
+      for (final doc in existingDocs.docs) {
+        if (!expectedDocIds.contains(doc.id)) {
+          batch.delete(doc.reference);
+        }
+      }
 
       for (var index = 0; index < _draftSchedules.length; index++) {
         final schedule = _draftSchedules[index];

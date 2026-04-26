@@ -1,0 +1,93 @@
+[33mcommit cfe5ef6cc93714d383fc75ce3bdf3beb50707aac[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: proxiplaypro-svg <proxiplay.pro@gmail.com>
+Date:   Mon Mar 30 00:12:42 2026 +0200
+
+    MISE A JOUR - 30-03-26
+
+[1mdiff --git a/lib/services/app_update_service.dart b/lib/services/app_update_service.dart[m
+[1mindex 6f152b2..a7a38ac 100644[m
+[1m--- a/lib/services/app_update_service.dart[m
+[1m+++ b/lib/services/app_update_service.dart[m
+[36m@@ -53,15 +53,12 @@[m [mclass AppUpdateService {[m
+ [m
+   Future<AppUpdateCheckResult> checkForUpdate() async {[m
+     try {[m
+[31m-      print('APP_UPDATE_SERVICE_START');[m
+       final packageInfo = await PackageInfo.fromPlatform();[m
+       final currentVersion = _normalizeVersion(packageInfo.version);[m
+[31m-      print('APP_UPDATE_FIRESTORE_BEFORE_READ');[m
+       final snapshot = await FirebaseFirestore.instance[m
+           .collection(_collection)[m
+           .doc(_document)[m
+           .get();[m
+[31m-      print('APP_UPDATE_FIRESTORE_AFTER_READ exists=${snapshot.exists}');[m
+ [m
+       if (!snapshot.exists) {[m
+         final result = AppUpdateCheckResult([m
+[36m@@ -190,7 +187,6 @@[m [mclass AppUpdateService {[m
+       _logResult(result);[m
+       return result;[m
+     } catch (error, stackTrace) {[m
+[31m-      print('APP_UPDATE_SERVICE_CATCH');[m
+       debugPrint('[AppUpdateService] erreur_check=$error');[m
+       debugPrint('[AppUpdateService] stack=$stackTrace');[m
+       String currentVersion = '';[m
+[1mdiff --git a/lib/widgets/app_update_gate.dart b/lib/widgets/app_update_gate.dart[m
+[1mindex 6519423..86f7ca0 100644[m
+[1m--- a/lib/widgets/app_update_gate.dart[m
+[1m+++ b/lib/widgets/app_update_gate.dart[m
+[36m@@ -28,7 +28,6 @@[m [mclass _AppUpdateGateState extends State<AppUpdateGate>[m
+   @override[m
+   void initState() {[m
+     super.initState();[m
+[31m-    debugPrint('🔥 AppUpdateGate initState');[m
+     WidgetsBinding.instance.addObserver(this);[m
+     WidgetsBinding.instance.addPostFrameCallback((_) {[m
+       _runUpdateCheck(trigger: 'startup');[m
+[36m@@ -49,7 +48,6 @@[m [mclass _AppUpdateGateState extends State<AppUpdateGate>[m
+   }[m
+ [m
+   Future<void> _runUpdateCheck({required String trigger}) async {[m
+[31m-    debugPrint('🔥 _runUpdateCheck lance trigger=$trigger');[m
+     if (!mounted || _isChecking || _isDialogVisible) {[m
+       return;[m
+     }[m
+[36m@@ -68,7 +66,6 @@[m [mclass _AppUpdateGateState extends State<AppUpdateGate>[m
+         return;[m
+       }[m
+ [m
+[31m-      print('APP_UPDATE_SHOW_DIALOG');[m
+       WidgetsBinding.instance.addPostFrameCallback((_) {[m
+         if (!mounted) return;[m
+         _showUpdateDialog(result);[m
+[36m@@ -95,8 +92,6 @@[m [mclass _AppUpdateGateState extends State<AppUpdateGate>[m
+   Future<void> _showRequiredUpdateDialog(AppUpdateCheckResult result) async {[m
+     _isDialogVisible = true;[m
+     try {[m
+[31m-      debugPrint('[AppUpdateGate] popup_affichee type=required');[m
+[31m-      print('APP_UPDATE_DIALOG_OPEN required');[m
+       final navigatorContext = widget.navigatorKey.currentContext;[m
+       if (navigatorContext == null) {[m
+         return;[m
+[36m@@ -135,8 +130,6 @@[m [mclass _AppUpdateGateState extends State<AppUpdateGate>[m
+   Future<void> _showOptionalUpdateDialog(AppUpdateCheckResult result) async {[m
+     _isDialogVisible = true;[m
+     try {[m
+[31m-      debugPrint('[AppUpdateGate] popup_affichee type=optional');[m
+[31m-      print('APP_UPDATE_DIALOG_OPEN optional');[m
+       final navigatorContext = widget.navigatorKey.currentContext;[m
+       if (navigatorContext == null) {[m
+         return;[m
+[1mdiff --git a/pubspec.yaml b/pubspec.yaml[m
+[1mindex b0cdab6..de9220c 100644[m
+[1m--- a/pubspec.yaml[m
+[1m+++ b/pubspec.yaml[m
+[36m@@ -17,7 +17,7 @@[m [mpublish_to: 'none' # Remove this line if you wish to publish to pub.dev[m
+ # In iOS, build-name is used as CFBundleShortVersionString while build-number used as CFBundleVersion.[m
+ # Read more about iOS versioning at[m
+ # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html[m
+[31m-version: 1.0.7+47[m
+[32m+[m[32mversion: 1.0.8+48[m
+ [m
+ environment:[m
+   sdk: ">=3.0.0 <4.0.0"[m

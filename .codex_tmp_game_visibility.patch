@@ -1,0 +1,165 @@
+diff --git a/lib/pages/joueur/home_joueur_page/home_joueur_page_widget.dart b/lib/pages/joueur/home_joueur_page/home_joueur_page_widget.dart
+--- a/lib/pages/joueur/home_joueur_page/home_joueur_page_widget.dart
++++ b/lib/pages/joueur/home_joueur_page/home_joueur_page_widget.dart
+@@ -118,6 +118,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
+     }
+     return true;
+   }
++
++  bool _hasVisibleMainPrizeForPlayer(GamesRecord game) {
++    return game.hasMainPrize == true && game.prizeValue > 0;
++  }
+ 
+   Future<EnseignesRecord> _getCachedEnseigneFuture(
+       DocumentReference enseigneRef) {
+@@ -299,7 +303,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
+     required String prizeText,
+     required String endDateText,
+     required Future<void> Function() onTap,
+-    String? winnerText,
++    String? winnerText,
++    String? badgeText,
++    String finishedInfoText = 'Jeu terminé',
+     int winnerMaxLines = 1,
+     bool isFinished = false,
+     bool fitContent = true,
+@@ -313,7 +319,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
+         city: _getGameCardLocation(resolvedEnseigne),
+         prizeText: prizeText,
+         endDateText: endDateText,
+-        winnerText: winnerText,
++        badgeText: badgeText,
++        winnerText: winnerText,
++        finishedInfoText: finishedInfoText,
+         winnerMaxLines: winnerMaxLines,
+         isFinished: isFinished,
+         fitContent: fitContent,
+@@ -2020,12 +2028,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
+                                                                 if (end ==
+                                                                     null) {
+                                                                   return false;
+                                                                 }
+-                                                                if (!(g.hasWinner ||
++                                                                final hasVisibleMainPrize =
++                                                                    _hasVisibleMainPrizeForPlayer(
++                                                                        g);
++                                                                if (!(g.hasWinner ||
+                                                                     g.mainPrizeWinner !=
+                                                                         null ||
+-                                                                    g.hasMainPrize ==
+-                                                                        false)) {
++                                                                    !hasVisibleMainPrize)) {
+                                                                   return false;
+                                                                 }
+                                                                 final endPlus30Days =
+                                                                     end.add(const Duration(
+@@ -2094,15 +2105,22 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
+                                                                           (context,
+                                                                               enseigneSnapshot) {
+                                                                         final enseigne =
+                                                                             enseigneSnapshot.data;
++                                                                        final hasVisibleMainPrize =
++                                                                            _hasVisibleMainPrizeForPlayer(
++                                                                                game);
++                                                                        final finishedBadgeText =
++                                                                            !hasVisibleMainPrize
++                                                                                ? 'Lots attribués'
++                                                                                : null;
+                                                                         final finishedInfoText =
+-                                                                            game.hasMainPrize ==
+-                                                                                    false
++                                                                            !hasVisibleMainPrize
+                                                                                 ? 'Lots secondaires attribués'
+                                                                                 : 'Jeu terminé';
+                                                                         if (game.mainPrizeWinner ==
+                                                                             null) {
+                                                                           return _buildHomeGameCard(
+                                                                             game: game,
+                                                                             enseigne: enseigne,
+                                                                             prizeText: game.prizeValue == 0 ? 'Gains instantanés' : '${game.prizeValue} €',
+                                                                             endDateText: game.endDate != null ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}" : "Jusqu'au : -",
++                                                                            badgeText: finishedBadgeText,
+                                                                             isFinished: true,
+                                                                             fitContent: false,
+                                                                             finishedInfoText: finishedInfoText,
+@@ -2124,6 +2142,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
+                                                                               enseigne: enseigne,
+                                                                               prizeText: game.prizeValue == 0 ? 'Gains instantanés' : '${game.prizeValue} \u20AC',
+                                                                               endDateText: game.endDate != null ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}" : "Jusqu'au : -",
++                                                                              badgeText: finishedBadgeText,
+                                                                               winnerText: winnerLabel,
+                                                                               winnerMaxLines: 1,
+                                                                               isFinished: true,
+diff --git a/lib/pages/joueur/favoris_joueur_page/favoris_joueur_page_widget.dart b/lib/pages/joueur/favoris_joueur_page/favoris_joueur_page_widget.dart
+--- a/lib/pages/joueur/favoris_joueur_page/favoris_joueur_page_widget.dart
++++ b/lib/pages/joueur/favoris_joueur_page/favoris_joueur_page_widget.dart
+@@ -50,14 +50,29 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
+   bool _isGameVisibleForPlayer(GamesRecord game) {
+     final now = getCurrentTimestamp;
+     final endDate = game.endDate;
+-    if (endDate == null || !endDate.isAfter(now)) {
++    if (endDate == null) {
+       return false;
+     }
++    if (!endDate.isAfter(now)) {
++      return _shouldKeepFinishedGameVisibleForPlayer(game);
++    }
+     final startDate = game.startDate;
+     if (startDate != null && now.isBefore(startDate)) {
+       return false;
+     }
+     return true;
+   }
++
++  bool _hasVisibleMainPrizeForPlayer(GamesRecord game) {
++    return game.hasMainPrize == true && game.prizeValue > 0;
++  }
++
++  bool _shouldKeepFinishedGameVisibleForPlayer(GamesRecord game) {
++    if (!_isGameFinished(game)) {
++      return false;
++    }
++    return !_hasVisibleMainPrizeForPlayer(game);
++  }
+ 
+   Future<int> _getActiveGamesCountForMerchant(
+     DocumentReference? enseigneRef,
+@@ -801,6 +816,18 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
+ 
+                                                     Widget buildCard(
+                                                         {String? winnerText}) {
++                                                      final hasVisibleMainPrize =
++                                                          _hasVisibleMainPrizeForPlayer(
++                                                              containerGamesRecord);
++                                                      final finishedBadgeText =
++                                                          isFinished &&
++                                                                  !hasVisibleMainPrize
++                                                              ? 'Lots attribués'
++                                                              : null;
++                                                      final finishedInfoText =
++                                                          !hasVisibleMainPrize
++                                                              ? 'Lots attribués'
++                                                              : 'Jeu terminé';
+                                                       return GameCardWidget(
+                                                         title:
+                                                             containerGamesRecord
+@@ -812,9 +839,12 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
+                                                         prizeText: containerGamesRecord
+                                                                     .prizeValue ==
+                                                                 0
+                                                             ? 'Gains instantanés'
+                                                             : '${containerGamesRecord.prizeValue} €',
+                                                         endDateText: containerGamesRecord
+                                                                     .endDate !=
+                                                                 null
+                                                             ? 'Valable jusqu\'au : ${dateTimeFormat("d/M/y", containerGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}'
+                                                             : 'Valable jusqu\'au : -',
++                                                        badgeText:
++                                                            finishedBadgeText,
+                                                         winnerText: winnerText,
+                                                         winnerMaxLines: 1,
+                                                         isFinished: isFinished,
++                                                        finishedInfoText:
++                                                            finishedInfoText,
+                                                         width: double.infinity,
+                                                         onTap: () async {

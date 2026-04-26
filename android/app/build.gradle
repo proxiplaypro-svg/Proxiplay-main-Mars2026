@@ -40,6 +40,7 @@ def hasReleaseKeystoreConfig =
 android {
     namespace "com.proxiplay.proxiplay"
     compileSdkVersion 35
+    ndkVersion "28.1.13356709"
 
     compileOptions {
         coreLibraryDesugaringEnabled true

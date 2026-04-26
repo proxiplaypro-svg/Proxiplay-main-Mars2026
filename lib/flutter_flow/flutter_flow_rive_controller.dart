@@ -20,7 +20,7 @@ class FlutterFlowRiveController extends SimpleAnimation {
     }
   }
 
-  bool endOfAnimation(LinearAnimationInstance? instance) {
+  bool endOfAnimation(dynamic instance) {
     if (instance == null) {
       return false;
     }

@@ -10,7 +10,7 @@ import 'dart:convert';
 import 'dart:ui';
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/index.dart';
-import 'package:rive/rive.dart' hide LinearGradient;
+import 'package:rive/rive.dart' hide Image, LinearGradient;
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -41,10 +41,12 @@ class PlayJoueurPageWidget extends StatefulWidget {
     super.key,
     required this.game,
     required this.resultParticipation,
+    this.source,
   });
 
   final GamesRecord? game;
   final ResultParticipationGameStruct? resultParticipation;
+  final String? source;
 
   static String routeName = 'playJoueurPage';
   static String routePath = 'playJoueurPage';
@@ -62,7 +64,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
 
   static const List<String> _messagesInstant = [
     'Rien pour cette fois, retente ta chance demain !',
-    'La chance peut te sourir à chaque instant !',
+    'La chance peut te sourire à chaque instant !',
     'Une autre fois sûrement !',
   ];
 
@@ -105,13 +107,13 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
 
     final lowerBackendMessage = backendMessage.toLowerCase();
     final isAlreadyPlayedStatusMessage =
-        lowerBackendMessage.contains('déjà participé') ||
+        lowerBackendMessage.contains('dï¿½jï¿½ participï¿½') ||
             lowerBackendMessage.contains('deja participe');
     final isBackendStatusMessage = isAlreadyPlayedStatusMessage ||
         lowerBackendMessage.contains('plus de parties');
     if (isBackendStatusMessage) {
       if (isAlreadyPlayedStatusMessage) {
-        return 'Vous avez déjà participé à ce jeu.';
+        return 'Vous avez dï¿½jï¿½ participï¿½ ï¿½ ce jeu.';
       }
       return backendMessage;
     }
@@ -165,7 +167,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                     const SizedBox(width: 12.0),
                     Flexible(
                       child: Text(
-                        'Préparation du partage...',
+                        'Prï¿½paration du partage...',
                         style: FlutterFlowTheme.of(context).bodyMedium.override(
                               font: GoogleFonts.inter(
                                 fontWeight: FontWeight.w600,
@@ -304,15 +306,16 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     replacements.forEach((source, target) {
       output = output.replaceAll(source, target);
     });
-    output = output.replaceAll(RegExp(r'[^\u0009\u000A\u000D\u0020-\u007E\u00A0-\u00FF\u20AC]'), '');
+    output = output.replaceAll(
+        RegExp(r'[^\u0009\u000A\u000D\u0020-\u007E\u00A0-\u00FF\u20AC]'), '');
     output = output.replaceAll(RegExp(r'\s+'), ' ');
-    output = output.replaceFirst(RegExp(r'^[^A-Za-zÀ-ÖØ-öø-ÿ0-9]+'), '');
+    output = output.replaceFirst(RegExp(r'^[^A-Za-zï¿½-ï¿½ï¿½-ï¿½ï¿½-ï¿½0-9]+'), '');
     return output.trim();
   }
 
   String _tryDecodeMojibake(String input) {
     final hasMojibakeMarkers =
-        input.contains('Ã') || input.contains('Â') || input.contains('â');
+        input.contains('ï¿½') || input.contains('ï¿½') || input.contains('ï¿½');
     if (!hasMojibakeMarkers) {
       return input;
     }
@@ -372,7 +375,9 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
       return {'firstName': '', 'city': ''};
     }
     final firstName = _normalizeFirstName(
-      userRecord.firstName.isNotEmpty ? userRecord.firstName : userRecord.pseudo,
+      userRecord.firstName.isNotEmpty
+          ? userRecord.firstName
+          : userRecord.pseudo,
     );
     final city = userRecord.city.trim();
     return {
@@ -381,11 +386,19 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     };
   }
 
+  String capitalize(String? value) {
+    if (value == null || value.isEmpty) return '';
+    return value[0].toUpperCase() + value.substring(1).toLowerCase();
+  }
+
   @override
   void initState() {
     super.initState();
 
     _model = createModel(context, () => PlayJoueurPageModel());
+    debugPrint(
+      '[GAME_FLOW_DEBUG] play_page_open gameId=${widget.game?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'} hasResultParticipation=${widget.resultParticipation != null}',
+    );
     _resultMessage = _sanitizeRewardText(_resolveDisplayMessage());
     _resultMessageBonus =
         _sanitizeRewardText(widget.resultParticipation?.messageBonus ?? '');
@@ -411,7 +424,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     final lowerBackendMessage =
         (widget.resultParticipation?.message ?? '').trim().toLowerCase();
     final isAlreadyPlayedStatus =
-        lowerBackendMessage.contains('déjà participé') ||
+        lowerBackendMessage.contains('dï¿½jï¿½ participï¿½') ||
             lowerBackendMessage.contains('deja participe');
     final hasMainPrizeGame =
         widget.game != null ? hasMainPrize(widget.game!) : false;
@@ -423,7 +436,8 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     final isGameEnded = endDate != null && now.isAfter(endDate);
     final gameData = widget.game?.snapshotData ?? const <String, dynamic>{};
     final winnerDisplayFromGame = _extractWinnerDisplayFromGameData(gameData);
-    final winnerRef = widget.game?.mainPrizeWinner ?? _extractWinnerRef(gameData);
+    final winnerRef =
+        widget.game?.mainPrizeWinner ?? _extractWinnerRef(gameData);
     final hasWinnerSignal = (widget.game?.hasWinner ?? false) ||
         winnerRef != null ||
         (winnerDisplayFromGame['firstName']?.isNotEmpty ?? false) ||
@@ -440,7 +454,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
         child: Scaffold(
           key: scaffoldKey,
           backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-                    appBar: PreferredSize(
+          appBar: PreferredSize(
             preferredSize: const Size.fromHeight(92.0),
             child: AppBar(
               backgroundColor: Colors.transparent,
@@ -461,8 +475,8 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                       borderRadius: BorderRadius.circular(12.0),
                       child: IconButton(
                         padding: EdgeInsets.zero,
-                        constraints:
-                            const BoxConstraints.tightFor(width: 48.0, height: 48.0),
+                        constraints: const BoxConstraints.tightFor(
+                            width: 48.0, height: 48.0),
                         icon: const Icon(
                           Icons.arrow_back_ios_new_rounded,
                           size: 18.0,
@@ -495,8 +509,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                       borderRadius: BorderRadius.circular(12.0),
                       child: IconButton(
                         style: IconButton.styleFrom(
-                          backgroundColor:
-                              FlutterFlowTheme.of(context).primary,
+                          backgroundColor: FlutterFlowTheme.of(context).primary,
                           foregroundColor: Colors.white,
                           minimumSize: const Size(48.0, 48.0),
                           shape: RoundedRectangleBorder(
@@ -519,48 +532,64 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
             child: SafeArea(
               top: true,
               child: Stack(
-              children: [
-                Column(
-                  mainAxisSize: MainAxisSize.max,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          image: DecorationImage(
-                            fit: BoxFit.cover,
-                            image: Image.asset(
-                              'assets/images/Background.png',
-                            ).image,
+                children: [
+                  Column(
+                    mainAxisSize: MainAxisSize.max,
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            image: DecorationImage(
+                              fit: BoxFit.cover,
+                              image: Image.asset(
+                                'assets/images/Background.png',
+                              ).image,
+                            ),
                           ),
-                        ),
-                        child: SingleChildScrollView(
-                          padding: EdgeInsets.only(
-                            bottom: isCompactHeight ? 12.0 : 20.0,
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.max,
-                            children: [
-                              Container(
-                                width: MediaQuery.sizeOf(context).width * 0.9,
-                                decoration: BoxDecoration(
-                                  color: FlutterFlowTheme.of(context)
-                                      .secondaryBackground,
-                                  borderRadius: BorderRadius.circular(16.0),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsetsDirectional.fromSTEB(
-                                      24.0, 24.0, 24.0, 24.0),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.max,
-                                    children: [
-                                      Text(
-                                        isGameEnded
-                                            ? 'Jeu termin\u00E9'
-                                            : 'Grattez pour d\u00E9couvrir',
-                                        style: FlutterFlowTheme.of(context)
-                                            .headlineSmall
-                                            .override(
-                                              font: GoogleFonts.interTight(
+                          child: SingleChildScrollView(
+                            padding: EdgeInsets.only(
+                              bottom: isCompactHeight ? 12.0 : 20.0,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.max,
+                              children: [
+                                Container(
+                                  width: MediaQuery.sizeOf(context).width * 0.9,
+                                  decoration: BoxDecoration(
+                                    color: FlutterFlowTheme.of(context)
+                                        .secondaryBackground,
+                                    borderRadius: BorderRadius.circular(16.0),
+                                  ),
+                                  child: Padding(
+                                    padding:
+                                        const EdgeInsetsDirectional.fromSTEB(
+                                            24.0, 24.0, 24.0, 24.0),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.max,
+                                      children: [
+                                        Text(
+                                          isGameEnded
+                                              ? 'Jeu termin\u00E9'
+                                              : 'Grattez pour d\u00E9couvrir',
+                                          style: FlutterFlowTheme.of(context)
+                                              .headlineSmall
+                                              .override(
+                                                font: GoogleFonts.interTight(
+                                                  fontWeight:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .headlineSmall
+                                                          .fontWeight,
+                                                  fontStyle:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .headlineSmall
+                                                          .fontStyle,
+                                                ),
+                                                color:
+                                                    FlutterFlowTheme.of(context)
+                                                        .primaryText,
+                                                letterSpacing: 0.0,
                                                 fontWeight:
                                                     FlutterFlowTheme.of(context)
                                                         .headlineSmall
@@ -570,412 +599,437 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                         .headlineSmall
                                                         .fontStyle,
                                               ),
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .primaryText,
-                                              letterSpacing: 0.0,
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .headlineSmall
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .headlineSmall
-                                                      .fontStyle,
-                                            ),
-                                      ),
-                                      if (shouldShowWinnerBlock)
-                                        Container(
-                                          width:
-                                              MediaQuery.sizeOf(context).width *
-                                                  1.0,
-                                          decoration: BoxDecoration(
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryBackground,
-                                            borderRadius:
-                                                BorderRadius.circular(12.0),
-                                            border: Border.all(
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .primary,
-                                              width: 1.0,
-                                            ),
-                                          ),
-                                          child: Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    16.0, 20.0, 16.0, 20.0),
-                                            child: Builder(
-                                              builder: (context) {
-                                                Widget winnerAnnouncement(
-                                                  String firstName,
-                                                  String city,
-                                                ) {
-                                                  final canShowIdentity =
-                                                      firstName.isNotEmpty &&
-                                                          city.isNotEmpty;
-                                                  return Column(
-                                                    mainAxisSize:
-                                                        MainAxisSize.max,
-                                                    children: [
-                                                      Text(
-                                                        'F\u00E9licitations !',
-                                                        style:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .titleMedium
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .interTight(
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleMedium
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleMedium
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                      ),
-                                                      Text(
-                                                        canShowIdentity
-                                                            ? 'F\u00E9licitations \u00E0 $firstName de $city !'
-                                                            : 'Un gagnant a \u00E9t\u00E9 annonc\u00E9 !',
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        style:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .override(
-                                                                  font:
-                                                                      GoogleFonts
-                                                                          .inter(
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .secondaryText,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                      ),
-                                                      Text(
-                                                        'Le jeu est termin\u00E9 pour le moment. Revenez bient\u00F4t pour d\u00E9couvrir les prochains jeux !',
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        style:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodySmall
-                                                                .override(
-                                                                  font:
-                                                                      GoogleFonts
-                                                                          .inter(
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodySmall
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodySmall
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .secondaryText,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodySmall
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodySmall
-                                                                      .fontStyle,
-                                                                ),
-                                                      ),
-                                                    ].divide(
-                                                        const SizedBox(height: 12.0)),
-                                                  );
-                                                }
-
-                                                final gameFirstName =
-                                                    winnerDisplayFromGame[
-                                                            'firstName'] ??
-                                                        '';
-                                                final gameCity =
-                                                    winnerDisplayFromGame[
-                                                            'city'] ??
-                                                        '';
-                                                if (gameFirstName.isNotEmpty &&
-                                                    gameCity.isNotEmpty) {
-                                                  return winnerAnnouncement(
-                                                    gameFirstName,
-                                                    gameCity,
-                                                  );
-                                                }
-
-                                                if (winnerRef == null) {
-                                                  return winnerAnnouncement('', '');
-                                                }
-
-                                                return FutureBuilder<UsersRecord>(
-                                                  future: UsersRecord
-                                                      .getDocumentOnce(
-                                                          winnerRef),
-                                                  builder: (context, snapshot) {
-                                                    final userDisplay =
-                                                        _extractWinnerDisplayFromUser(
-                                                            snapshot.data);
-                                                    final firstName = userDisplay[
-                                                                'firstName']
-                                                            ?.isNotEmpty ==
-                                                        true
-                                                        ? userDisplay[
-                                                                'firstName']!
-                                                        : gameFirstName;
-                                                    final city = userDisplay[
-                                                                    'city']
-                                                                ?.isNotEmpty ==
-                                                            true
-                                                        ? userDisplay['city']!
-                                                        : gameCity;
-                                                    return winnerAnnouncement(
-                                                      firstName,
-                                                      city,
-                                                    );
-                                                  },
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        )
-                                      else
-                                        MouseRegion(
-                                          cursor: SystemMouseCursors.click,
-                                          child: Container(
-                                            width: MediaQuery.sizeOf(context).width * 1.0,
-                                            height: 200.0,
+                                        ),
+                                        if (shouldShowWinnerBlock)
+                                          Container(
+                                            width: MediaQuery.sizeOf(context)
+                                                    .width *
+                                                1.0,
                                             decoration: BoxDecoration(
-                                              color: const Color(0xFFF5F5F5),
-                                              borderRadius: BorderRadius.circular(12.0),
+                                              color:
+                                                  FlutterFlowTheme.of(context)
+                                                      .secondaryBackground,
+                                              borderRadius:
+                                                  BorderRadius.circular(12.0),
+                                              border: Border.all(
+                                                color:
+                                                    FlutterFlowTheme.of(context)
+                                                        .primary,
+                                                width: 1.0,
+                                              ),
                                             ),
-                                            child: SizedBox(
-                                              width: 300.0,
-                                              height: 300.0,
-                                              child: custom_widgets.ScratchCardWidget(
-                                                width: 300.0,
-                                                height: 300.0,
-                                                hiddenContent: ' ',
-                                                rewardText: rewardText,
-                                                rewardImageUrl: widget.game!.photo,
-                                                rewardTextBonus: rewardTextBonus,
-                                                onScratchStart: () {
-                                                  _startScratchSound();
-                                                  _model.isScratching = true;
-                                                  safeSetState(() {});
-                                                },
-                                                onScratchEnd: () {
-                                                  _stopScratchSound();
-                                                  _model.isScratching = false;
-                                                  safeSetState(() {});
-                                                },
-                                                setCardRevealed: () async {
-                                                  _model.cardReveal = true;
-                                                  if (widget.resultParticipation?.isWin == true) {
-                                                    _model.isWin = true;
-                                                    safeSetState(() {});
-                                                    await _stopScratchSound();
-                                                    _model.soundPlayer ??= AudioPlayer();
-                                                    if (_model.soundPlayer!.playing) {
-                                                      await _model.soundPlayer!.stop();
-                                                    }
-                                                    _model.soundPlayer!.setVolume(1.0);
-                                                    await _model.soundPlayer!.setAsset('assets/audios/171670__leszek_szary__success-2.wav').then((_) => _model.soundPlayer!.play());
-                                                  } else {
-                                                    _model.isWin = false;
-                                                    safeSetState(() {});
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsetsDirectional
+                                                      .fromSTEB(
+                                                      16.0, 20.0, 16.0, 20.0),
+                                              child: Builder(
+                                                builder: (context) {
+                                                  Widget winnerAnnouncement(
+                                                    String firstName,
+                                                    String city,
+                                                  ) {
+                                                    final firstNameFormatted =
+                                                        capitalize(firstName);
+                                                    final cityFormatted =
+                                                        capitalize(city);
+                                                    final announcementText =
+                                                        firstNameFormatted
+                                                                .isEmpty
+                                                            ? 'F\u00E9licitations au gagnant !'
+                                                            : cityFormatted
+                                                                    .isEmpty
+                                                                ? 'F\u00E9licitations \u00E0 $firstNameFormatted !'
+                                                                : 'F\u00E9licitations \u00E0 $firstNameFormatted de $cityFormatted !';
+                                                    return Column(
+                                                      mainAxisSize:
+                                                          MainAxisSize.max,
+                                                      children: [
+                                                        Text(
+                                                          'F\u00E9licitations !',
+                                                          style: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .titleMedium
+                                                              .override(
+                                                                font: GoogleFonts
+                                                                    .interTight(
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleMedium
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleMedium
+                                                                      .fontStyle,
+                                                                ),
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .titleMedium
+                                                                    .fontWeight,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .titleMedium
+                                                                    .fontStyle,
+                                                              ),
+                                                        ),
+                                                        Text(
+                                                          announcementText,
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          style: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .bodyMedium
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .fontStyle,
+                                                                ),
+                                                                color: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .secondaryText,
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontWeight,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontStyle,
+                                                              ),
+                                                        ),
+                                                        Text(
+                                                          'Le jeu est termin\u00E9 pour le moment. Revenez bient\u00F4t pour d\u00E9couvrir les prochains jeux !',
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          style: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .bodySmall
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodySmall
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodySmall
+                                                                      .fontStyle,
+                                                                ),
+                                                                color: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .secondaryText,
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodySmall
+                                                                    .fontWeight,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodySmall
+                                                                    .fontStyle,
+                                                              ),
+                                                        ),
+                                                      ].divide(const SizedBox(
+                                                          height: 12.0)),
+                                                    );
                                                   }
+
+                                                  final gameFirstName =
+                                                      winnerDisplayFromGame[
+                                                              'firstName'] ??
+                                                          '';
+                                                  final gameCity =
+                                                      winnerDisplayFromGame[
+                                                              'city'] ??
+                                                          '';
+                                                  if (gameFirstName
+                                                          .isNotEmpty &&
+                                                      gameCity.isNotEmpty) {
+                                                    return winnerAnnouncement(
+                                                      gameFirstName,
+                                                      gameCity,
+                                                    );
+                                                  }
+
+                                                  if (winnerRef == null) {
+                                                    return winnerAnnouncement(
+                                                        '', '');
+                                                  }
+
+                                                  return FutureBuilder<
+                                                      UsersRecord>(
+                                                    future: UsersRecord
+                                                        .getDocumentOnce(
+                                                            winnerRef),
+                                                    builder:
+                                                        (context, snapshot) {
+                                                      final userDisplay =
+                                                          _extractWinnerDisplayFromUser(
+                                                              snapshot.data);
+                                                      final firstName =
+                                                          userDisplay['firstName']
+                                                                      ?.isNotEmpty ==
+                                                                  true
+                                                              ? userDisplay[
+                                                                  'firstName']!
+                                                              : gameFirstName;
+                                                      final city = userDisplay[
+                                                                      'city']
+                                                                  ?.isNotEmpty ==
+                                                              true
+                                                          ? userDisplay['city']!
+                                                          : gameCity;
+                                                      return winnerAnnouncement(
+                                                        firstName,
+                                                        city,
+                                                      );
+                                                    },
+                                                  );
                                                 },
                                               ),
                                             ),
+                                          )
+                                        else
+                                          MouseRegion(
+                                            cursor: SystemMouseCursors.click,
+                                            child: Container(
+                                              width: MediaQuery.sizeOf(context)
+                                                      .width *
+                                                  1.0,
+                                              height: 200.0,
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF5F5F5),
+                                                borderRadius:
+                                                    BorderRadius.circular(12.0),
+                                              ),
+                                              child: SizedBox(
+                                                width: 300.0,
+                                                height: 300.0,
+                                                child: custom_widgets
+                                                    .ScratchCardWidget(
+                                                  width: 300.0,
+                                                  height: 300.0,
+                                                  hiddenContent: ' ',
+                                                  rewardText: rewardText,
+                                                  rewardImageUrl:
+                                                      widget.game!.photo,
+                                                  rewardTextBonus:
+                                                      rewardTextBonus,
+                                                  onScratchStart: () {
+                                                    _startScratchSound();
+                                                    _model.isScratching = true;
+                                                    safeSetState(() {});
+                                                  },
+                                                  onScratchEnd: () {
+                                                    _stopScratchSound();
+                                                    _model.isScratching = false;
+                                                    safeSetState(() {});
+                                                  },
+                                                  setCardRevealed: () async {
+                                                    _model.cardReveal = true;
+                                                    if (widget
+                                                            .resultParticipation
+                                                            ?.isWin ==
+                                                        true) {
+                                                      _model.isWin = true;
+                                                      safeSetState(() {});
+                                                      await _stopScratchSound();
+                                                      _model.soundPlayer ??=
+                                                          AudioPlayer();
+                                                      if (_model.soundPlayer!
+                                                          .playing) {
+                                                        await _model
+                                                            .soundPlayer!
+                                                            .stop();
+                                                      }
+                                                      _model.soundPlayer!
+                                                          .setVolume(1.0);
+                                                      await _model.soundPlayer!
+                                                          .setAsset(
+                                                              'assets/audios/171670__leszek_szary__success-2.wav')
+                                                          .then((_) => _model
+                                                              .soundPlayer!
+                                                              .play());
+                                                    } else {
+                                                      _model.isWin = false;
+                                                      safeSetState(() {});
+                                                    }
+                                                  },
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                    ].divide(const SizedBox(height: 16.0)),
+                                      ].divide(const SizedBox(height: 16.0)),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              if (widget.game?.enseigneId != null)
-                                FutureBuilder<EnseignesRecord>(
-                                  future: EnseignesRecord.getDocumentOnce(
-                                      widget.game!.enseigneId!),
-                                  builder: (context, snapshot) {
-                                    if (!snapshot.hasData) {
-                                      return const SizedBox(height: 0.0);
-                                    }
-                                    final enseigneRecord = snapshot.data!;
-                                    final enseigneName = (widget.game
-                                                ?.enseigneName.isNotEmpty ??
-                                            false)
-                                        ? widget.game!.enseigneName
-                                        : enseigneRecord.name;
-                                    return SizedBox(
-                                      width: MediaQuery.sizeOf(context).width *
-                                          0.9,
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Material(
-                                            color: Colors.transparent,
-                                            borderRadius:
-                                                BorderRadius.circular(16.0),
-                                            child: InkWell(
+                                if (widget.game?.enseigneId != null)
+                                  FutureBuilder<EnseignesRecord>(
+                                    future: EnseignesRecord.getDocumentOnce(
+                                        widget.game!.enseigneId!),
+                                    builder: (context, snapshot) {
+                                      if (!snapshot.hasData) {
+                                        return const SizedBox(height: 0.0);
+                                      }
+                                      final enseigneRecord = snapshot.data!;
+                                      final enseigneName = (widget.game
+                                                  ?.enseigneName.isNotEmpty ??
+                                              false)
+                                          ? widget.game!.enseigneName
+                                          : enseigneRecord.name;
+                                      return SizedBox(
+                                        width:
+                                            MediaQuery.sizeOf(context).width *
+                                                0.9,
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Material(
+                                              color: Colors.transparent,
                                               borderRadius:
                                                   BorderRadius.circular(16.0),
-                                              splashColor:
-                                                  FlutterFlowTheme.of(context)
-                                                      .primary
-                                                      .withOpacity(0.08),
-                                              highlightColor:
-                                                  FlutterFlowTheme.of(context)
-                                                      .primary
-                                                      .withOpacity(0.04),
-                                              onTap: () async {
-                                                context.pushNamed(
-                                                  EnseigneDetailJoueurPageWidget
-                                                      .routeName,
-                                                  queryParameters: {
-                                                    'enseigneDoc':
-                                                        serializeParam(
-                                                      enseigneRecord,
-                                                      ParamType.Document,
-                                                    ),
-                                                  }.withoutNulls,
-                                                  extra: <String, dynamic>{
-                                                    'enseigneDoc':
+                                              child: InkWell(
+                                                borderRadius:
+                                                    BorderRadius.circular(16.0),
+                                                splashColor:
+                                                    FlutterFlowTheme.of(context)
+                                                        .primary
+                                                        .withOpacity(0.08),
+                                                highlightColor:
+                                                    FlutterFlowTheme.of(context)
+                                                        .primary
+                                                        .withOpacity(0.04),
+                                                onTap: () async {
+                                                  context.pushNamed(
+                                                    EnseigneDetailJoueurPageWidget
+                                                        .routeName,
+                                                    queryParameters: {
+                                                      'enseigneDoc':
+                                                          serializeParam(
                                                         enseigneRecord,
-                                                  },
-                                                );
-                                              },
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  color:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .secondaryBackground,
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          16.0),
-                                                ),
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.all(
-                                                          10.0),
-                                                  child: Row(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.center,
-                                                  children: [
-                                                    SizedBox(
-                                                      width: 110.0,
-                                                      height: 110.0,
-                                                      child: FutureBuilder<
-                                                          List<ImagesRecord>>(
-                                                        future:
-                                                            queryImagesRecordOnce(
-                                                          parent: enseigneRecord
-                                                              .reference,
-                                                          singleRecord: true,
-                                                        ),
-                                                        builder: (context,
-                                                            imageSnapshot) {
-                                                          if (!imageSnapshot
-                                                              .hasData) {
-                                                            return const SizedBox
-                                                                .shrink();
-                                                          }
-                                                          final imageList =
-                                                              imageSnapshot
-                                                                  .data!;
-                                                          if (imageList
-                                                              .isEmpty) {
-                                                            return ClipRRect(
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          12.0),
-                                                              child:
-                                                                  ProxiplayNetworkImage(
-                                                                imageUrl: widget
-                                                                    .game!.photo,
-                                                                fit: BoxFit
-                                                                    .cover,
-                                                              ),
-                                                            );
-                                                          }
-
-                                                          return ClipRRect(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        12.0),
-                                                            child:
-                                                                ProxiplayNetworkImage(
-                                                              imageUrl: imageList
-                                                                  .first.url,
-                                                              fit: BoxFit.cover,
-                                                            ),
-                                                          );
-                                                        },
+                                                        ParamType.Document,
                                                       ),
-                                                    ),
-                                                    const SizedBox(width: 12.0),
-                                                    Expanded(
-                                                      child: Column(
-                                                        mainAxisSize:
-                                                            MainAxisSize.max,
-                                                        mainAxisAlignment:
-                                                            MainAxisAlignment
-                                                                .center,
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          Text(
-                                                            enseigneName,
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            style:
-                                                                FlutterFlowTheme.of(
+                                                    }.withoutNulls,
+                                                    extra: <String, dynamic>{
+                                                      'enseigneDoc':
+                                                          enseigneRecord,
+                                                    },
+                                                  );
+                                                },
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    color: FlutterFlowTheme.of(
+                                                            context)
+                                                        .secondaryBackground,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            16.0),
+                                                  ),
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            10.0),
+                                                    child: Row(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        SizedBox(
+                                                          width: 110.0,
+                                                          height: 110.0,
+                                                          child: FutureBuilder<
+                                                              List<
+                                                                  ImagesRecord>>(
+                                                            future:
+                                                                queryImagesRecordOnce(
+                                                              parent:
+                                                                  enseigneRecord
+                                                                      .reference,
+                                                              singleRecord:
+                                                                  true,
+                                                            ),
+                                                            builder: (context,
+                                                                imageSnapshot) {
+                                                              if (!imageSnapshot
+                                                                  .hasData) {
+                                                                return const SizedBox
+                                                                    .shrink();
+                                                              }
+                                                              final imageList =
+                                                                  imageSnapshot
+                                                                      .data!;
+                                                              if (imageList
+                                                                  .isEmpty) {
+                                                                return ClipRRect(
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              12.0),
+                                                                  child:
+                                                                      ProxiplayNetworkImage(
+                                                                    imageUrl: widget
+                                                                        .game!
+                                                                        .photo,
+                                                                    fit: BoxFit
+                                                                        .cover,
+                                                                  ),
+                                                                );
+                                                              }
+
+                                                              return ClipRRect(
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            12.0),
+                                                                child:
+                                                                    ProxiplayNetworkImage(
+                                                                  imageUrl:
+                                                                      imageList
+                                                                          .first
+                                                                          .url,
+                                                                  fit: BoxFit
+                                                                      .cover,
+                                                                ),
+                                                              );
+                                                            },
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 12.0),
+                                                        Expanded(
+                                                          child: Column(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .max,
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .center,
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Text(
+                                                                enseigneName,
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                                style: FlutterFlowTheme.of(
                                                                         context)
                                                                     .titleSmall
                                                                     .override(
@@ -990,175 +1044,173 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                                       letterSpacing:
                                                                           0.0,
                                                                       fontWeight:
-                                                                          FontWeight.w700,
-                                                                      fontStyle: FlutterFlowTheme.of(context)
+                                                                          FontWeight
+                                                                              .w700,
+                                                                      fontStyle: FlutterFlowTheme.of(
+                                                                              context)
                                                                           .titleSmall
                                                                           .fontStyle,
                                                                     ),
-                                                          ),
-                                                          const SizedBox(
-                                                              height: 10.0),
-                                                          Row(
-                                                            mainAxisSize:
-                                                                MainAxisSize
-                                                                    .max,
-                                                            children: [
-                                                              Container(
-                                                                width: 26.0,
-                                                                alignment:
-                                                                    const AlignmentDirectional(
-                                                                        -1.0,
-                                                                        0.0),
-                                                                child: Icon(
-                                                                  Icons
-                                                                      .location_on_sharp,
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primaryText,
-                                                                  size: 18.0,
-                                                                ),
                                                               ),
-                                                              Expanded(
-                                                                child: Text(
-                                                                  enseigneRecord
-                                                                      .city,
-                                                                  maxLines: 1,
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                  style: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodySmall,
-                                                                ),
+                                                              const SizedBox(
+                                                                  height: 10.0),
+                                                              Row(
+                                                                mainAxisSize:
+                                                                    MainAxisSize
+                                                                        .max,
+                                                                children: [
+                                                                  Container(
+                                                                    width: 26.0,
+                                                                    alignment:
+                                                                        const AlignmentDirectional(
+                                                                            -1.0,
+                                                                            0.0),
+                                                                    child: Icon(
+                                                                      Icons
+                                                                          .location_on_sharp,
+                                                                      color: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .primaryText,
+                                                                      size:
+                                                                          18.0,
+                                                                    ),
+                                                                  ),
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      enseigneRecord
+                                                                          .city,
+                                                                      maxLines:
+                                                                          1,
+                                                                      overflow:
+                                                                          TextOverflow
+                                                                              .ellipsis,
+                                                                      style: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .bodySmall,
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                              const SizedBox(
+                                                                  height: 6.0),
+                                                              Row(
+                                                                mainAxisSize:
+                                                                    MainAxisSize
+                                                                        .max,
+                                                                children: [
+                                                                  Container(
+                                                                    width: 26.0,
+                                                                    alignment:
+                                                                        const AlignmentDirectional(
+                                                                            -1.0,
+                                                                            0.0),
+                                                                    child: Icon(
+                                                                      Icons
+                                                                          .phone,
+                                                                      color: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .primaryText,
+                                                                      size:
+                                                                          18.0,
+                                                                    ),
+                                                                  ),
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      enseigneRecord
+                                                                          .phoneNumber,
+                                                                      maxLines:
+                                                                          1,
+                                                                      overflow:
+                                                                          TextOverflow
+                                                                              .ellipsis,
+                                                                      style: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .bodySmall,
+                                                                    ),
+                                                                  ),
+                                                                ],
                                                               ),
                                                             ],
                                                           ),
-                                                          const SizedBox(
-                                                              height: 6.0),
-                                                          Row(
-                                                            mainAxisSize:
-                                                                MainAxisSize
-                                                                    .max,
-                                                            children: [
-                                                              Container(
-                                                                width: 26.0,
-                                                                alignment:
-                                                                    const AlignmentDirectional(
-                                                                        -1.0,
-                                                                        0.0),
-                                                                child: Icon(
-                                                                  Icons.phone,
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primaryText,
-                                                                  size: 18.0,
-                                                                ),
-                                                              ),
-                                                              Expanded(
-                                                                child: Text(
-                                                                  enseigneRecord
-                                                                      .phoneNumber,
-                                                                  maxLines: 1,
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                  style: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodySmall,
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8.0),
-                                                    Icon(
-                                                      Icons
-                                                          .arrow_forward_ios_rounded,
-                                                      size: 16.0,
-                                                      color:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 8.0),
+                                                        Icon(
+                                                          Icons
+                                                              .arrow_forward_ios_rounded,
+                                                          size: 16.0,
+                                                          color: FlutterFlowTheme
+                                                                  .of(context)
                                                               .secondaryText,
+                                                        ),
+                                                      ],
                                                     ),
-                                                  ],
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                          ),
-                                          const SizedBox(height: 10.0),
-                                          InkWell(
-                                            splashColor:
-                                                FlutterFlowTheme.of(context)
-                                                    .primary
-                                                    .withOpacity(0.08),
-                                            focusColor: Colors.transparent,
-                                            hoverColor: Colors.transparent,
-                                            highlightColor: Colors.transparent,
-                                            onTap: () async {
-                                              await _shareGame();
-                                            },
-                                            child: AnimatedScale(
-                                              duration: const Duration(
-                                                  milliseconds: 140),
-                                              curve: Curves.easeOut,
-                                              scale:
-                                                  _isPreparingShare ? 0.97 : 1.0,
-                                              child: AnimatedOpacity(
+                                            const SizedBox(height: 10.0),
+                                            InkWell(
+                                              splashColor:
+                                                  FlutterFlowTheme.of(context)
+                                                      .primary
+                                                      .withOpacity(0.08),
+                                              focusColor: Colors.transparent,
+                                              hoverColor: Colors.transparent,
+                                              highlightColor:
+                                                  Colors.transparent,
+                                              onTap: () async {
+                                                await _shareGame();
+                                              },
+                                              child: AnimatedScale(
                                                 duration: const Duration(
                                                     milliseconds: 140),
-                                                opacity: _isPreparingShare
-                                                    ? 0.72
+                                                curve: Curves.easeOut,
+                                                scale: _isPreparingShare
+                                                    ? 0.97
                                                     : 1.0,
-                                                child: Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                    horizontal: 10.0,
-                                                    vertical: 8.0,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color:
-                                                        const Color(0xFFA0134D)
-                                                            .withOpacity(0.06),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            999.0),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Icon(
-                                                        Icons
-                                                            .card_giftcard_rounded,
-                                                        size: 16.0,
-                                                        color: const Color(
-                                                            0xFFA0134D),
-                                                      ),
-                                                      const SizedBox(width: 6.0),
-                                                      Text(
-                                                        'Tu aimes tes amis ? Partage-leur ce jeu !',
-                                                        style:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodySmall
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .inter(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodySmall
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: const Color(
-                                                                      0xFFA0134D),
-                                                                  letterSpacing:
-                                                                      0.0,
+                                                child: AnimatedOpacity(
+                                                  duration: const Duration(
+                                                      milliseconds: 140),
+                                                  opacity: _isPreparingShare
+                                                      ? 0.72
+                                                      : 1.0,
+                                                  child: Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 10.0,
+                                                      vertical: 8.0,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(
+                                                              0xFFA0134D)
+                                                          .withOpacity(0.06),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              999.0),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          Icons
+                                                              .card_giftcard_rounded,
+                                                          size: 16.0,
+                                                          color: const Color(
+                                                              0xFFA0134D),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 6.0),
+                                                        Text(
+                                                          'Tu aimes tes amis ? Partage-leur ce jeu !',
+                                                          style: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .bodySmall
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
                                                                   fontWeight:
                                                                       FontWeight
                                                                           .w600,
@@ -1167,50 +1219,125 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                                       .bodySmall
                                                                       .fontStyle,
                                                                 ),
-                                                      ),
-                                                    ],
+                                                                color: const Color(
+                                                                    0xFFA0134D),
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodySmall
+                                                                    .fontStyle,
+                                                              ),
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                              if (_model.cardReveal)
-                                Container(
-                                  width: MediaQuery.sizeOf(context).width * 0.9,
-                                  decoration: BoxDecoration(
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    borderRadius: BorderRadius.circular(16.0),
+                                          ],
+                                        ),
+                                      );
+                                    },
                                   ),
-                                  child: Padding(
-                                    padding: const EdgeInsetsDirectional.fromSTEB(
-                                        24.0, 24.0, 24.0, 24.0),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.max,
-                                      children: [
-                                        if (widget
-                                                .resultParticipation?.isWin ==
-                                            true)
+                                if (_model.cardReveal)
+                                  Container(
+                                    width:
+                                        MediaQuery.sizeOf(context).width * 0.9,
+                                    decoration: BoxDecoration(
+                                      color: FlutterFlowTheme.of(context)
+                                          .secondaryBackground,
+                                      borderRadius: BorderRadius.circular(16.0),
+                                    ),
+                                    child: Padding(
+                                      padding:
+                                          const EdgeInsetsDirectional.fromSTEB(
+                                              24.0, 24.0, 24.0, 24.0),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.max,
+                                        children: [
+                                          if (widget
+                                                  .resultParticipation?.isWin ==
+                                              true)
+                                            FFButtonWidget(
+                                              onPressed: () async {
+                                                context.pushNamed(
+                                                    LotsJoueurPageWidget
+                                                        .routeName);
+                                              },
+                                              text: 'Voir mon prix',
+                                              options: FFButtonOptions(
+                                                width: double.infinity,
+                                                height: 40.0,
+                                                padding:
+                                                    const EdgeInsetsDirectional
+                                                        .fromSTEB(
+                                                        16.0, 0.0, 16.0, 0.0),
+                                                iconPadding:
+                                                    const EdgeInsetsDirectional
+                                                        .fromSTEB(
+                                                        0.0, 0.0, 0.0, 0.0),
+                                                color:
+                                                    FlutterFlowTheme.of(context)
+                                                        .primary,
+                                                textStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .titleSmall
+                                                        .override(
+                                                          font: GoogleFonts
+                                                              .interTight(
+                                                            fontWeight:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .titleSmall
+                                                                    .fontWeight,
+                                                            fontStyle:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .titleSmall
+                                                                    .fontStyle,
+                                                          ),
+                                                          color: Colors.white,
+                                                          letterSpacing: 0.0,
+                                                          fontWeight:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .titleSmall
+                                                                  .fontWeight,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .titleSmall
+                                                                  .fontStyle,
+                                                        ),
+                                                elevation: 0.0,
+                                                borderRadius:
+                                                    BorderRadius.circular(30.0),
+                                              ),
+                                            ),
                                           FFButtonWidget(
                                             onPressed: () async {
-                                              context.pushNamed(
-                                                  LotsJoueurPageWidget
+                                              context.goNamed(
+                                                  HomeJoueurPageWidget
                                                       .routeName);
                                             },
-                                            text: 'Voir mon prix',
+                                            text: isAlreadyPlayedStatus
+                                                ? 'Retour ï¿½ l\'accueil'
+                                                : 'Revenez demain',
                                             options: FFButtonOptions(
                                               width: double.infinity,
                                               height: 40.0,
-                                              padding: const EdgeInsetsDirectional
-                                                  .fromSTEB(
+                                              padding:
+                                                  const EdgeInsetsDirectional
+                                                      .fromSTEB(
                                                       16.0, 0.0, 16.0, 0.0),
-                                              iconPadding: const EdgeInsetsDirectional
-                                                  .fromSTEB(0.0, 0.0, 0.0, 0.0),
+                                              iconPadding:
+                                                  const EdgeInsetsDirectional
+                                                      .fromSTEB(
+                                                      0.0, 0.0, 0.0, 0.0),
                                               color:
                                                   FlutterFlowTheme.of(context)
                                                       .primary,
@@ -1249,218 +1376,182 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                   BorderRadius.circular(30.0),
                                             ),
                                           ),
-                                        FFButtonWidget(
-                                          onPressed: () async {
-                                            context.goNamed(
-                                                HomeJoueurPageWidget.routeName);
-                                          },
-                                          text: isAlreadyPlayedStatus
-                                              ? 'Retour à l\'accueil'
-                                              : 'Revenez demain',
-                                          options: FFButtonOptions(
-                                            width: double.infinity,
-                                            height: 40.0,
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    16.0, 0.0, 16.0, 0.0),
-                                            iconPadding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    0.0, 0.0, 0.0, 0.0),
-                                            color: FlutterFlowTheme.of(context)
-                                                .primary,
-                                            textStyle: FlutterFlowTheme.of(
-                                                    context)
-                                                .titleSmall
-                                                .override(
-                                                  font: GoogleFonts.interTight(
+                                        ].divide(const SizedBox(height: 16.0)),
+                                      ),
+                                    ),
+                                  ),
+                                Visibility(
+                                  visible: false,
+                                  child: Padding(
+                                    padding: EdgeInsetsDirectional.fromSTEB(0.0,
+                                        0.0, 0.0, isCompactHeight ? 8.0 : 20.0),
+                                    child: Container(
+                                      width: MediaQuery.sizeOf(context).width *
+                                          0.9,
+                                      decoration: BoxDecoration(
+                                        color: FlutterFlowTheme.of(context)
+                                            .secondaryBackground,
+                                        borderRadius:
+                                            BorderRadius.circular(16.0),
+                                      ),
+                                      child: Padding(
+                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                            isCompactHeight ? 12.0 : 16.0,
+                                            isCompactHeight ? 12.0 : 16.0,
+                                            isCompactHeight ? 12.0 : 16.0,
+                                            isCompactHeight ? 12.0 : 16.0),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.max,
+                                          children: [
+                                            Text(
+                                              'Lots \u00E0 gagner',
+                                              style: FlutterFlowTheme.of(
+                                                      context)
+                                                  .headlineSmall
+                                                  .override(
+                                                    font:
+                                                        GoogleFonts.interTight(
+                                                      fontWeight:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .headlineSmall
+                                                              .fontWeight,
+                                                      fontStyle:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .headlineSmall
+                                                              .fontStyle,
+                                                    ),
+                                                    color: FlutterFlowTheme.of(
+                                                            context)
+                                                        .primaryText,
+                                                    letterSpacing: 0.0,
                                                     fontWeight:
                                                         FlutterFlowTheme.of(
                                                                 context)
-                                                            .titleSmall
+                                                            .headlineSmall
                                                             .fontWeight,
                                                     fontStyle:
                                                         FlutterFlowTheme.of(
                                                                 context)
-                                                            .titleSmall
+                                                            .headlineSmall
                                                             .fontStyle,
                                                   ),
-                                                  color: Colors.white,
-                                                  letterSpacing: 0.0,
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .titleSmall
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .titleSmall
-                                                          .fontStyle,
-                                                ),
-                                            elevation: 0.0,
-                                            borderRadius:
-                                                BorderRadius.circular(30.0),
-                                          ),
-                                        ),
-                                      ].divide(const SizedBox(height: 16.0)),
-                                    ),
-                                  ),
-                                ),
-                              Visibility(
-                                visible: false,
-                                child: Padding(
-                                padding: EdgeInsetsDirectional.fromSTEB(
-                                    0.0, 0.0, 0.0, isCompactHeight ? 8.0 : 20.0),
-                                child: Container(
-                                  width: MediaQuery.sizeOf(context).width * 0.9,
-                                  decoration: BoxDecoration(
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    borderRadius: BorderRadius.circular(16.0),
-                                  ),
-                                  child: Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        isCompactHeight ? 12.0 : 16.0,
-                                        isCompactHeight ? 12.0 : 16.0,
-                                        isCompactHeight ? 12.0 : 16.0,
-                                        isCompactHeight ? 12.0 : 16.0),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.max,
-                                      children: [
-                                        Text(
-                                          'Lots \u00E0 gagner',
-                                          style: FlutterFlowTheme.of(context)
-                                              .headlineSmall
-                                              .override(
-                                                font: GoogleFonts.interTight(
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .headlineSmall
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .headlineSmall
-                                                          .fontStyle,
-                                                ),
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primaryText,
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .headlineSmall
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .headlineSmall
-                                                        .fontStyle,
-                                              ),
-                                        ),
-                                        if (hasMainPrizeGame)
-                                          Row(
-                                            mainAxisSize: MainAxisSize.max,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Expanded(
-                                                child: Column(
-                                                  mainAxisSize: MainAxisSize.max,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      'Lot principal',
-                                                      style: FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyLarge
-                                                          .override(
-                                                            font: GoogleFonts.inter(
-                                                              fontWeight:
-                                                                  FontWeight.w600,
-                                                              fontStyle:
-                                                                  FlutterFlowTheme.of(
+                                            ),
+                                            if (hasMainPrizeGame)
+                                              Row(
+                                                mainAxisSize: MainAxisSize.max,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                children: [
+                                                  Expanded(
+                                                    child: Column(
+                                                      mainAxisSize:
+                                                          MainAxisSize.max,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          'Lot principal',
+                                                          style: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .bodyLarge
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  fontStyle: FlutterFlowTheme.of(
                                                                           context)
                                                                       .bodyLarge
                                                                       .fontStyle,
-                                                            ),
-                                                            letterSpacing: 0.0,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
+                                                                ),
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                fontStyle: FlutterFlowTheme.of(
                                                                         context)
                                                                     .bodyLarge
                                                                     .fontStyle,
-                                                          ),
-                                                    ),
-                                                    if (hasMainPrizeDescription)
-                                                      Padding(
-                                                        padding:
-                                                            const EdgeInsets.only(
-                                                                top: 4.0),
-                                                        child: Text(
-                                                          mainPrizeDescription,
-                                                          maxLines: 2,
-                                                          overflow:
-                                                              TextOverflow.ellipsis,
-                                                          style: FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .override(
-                                                                font: GoogleFonts.inter(
-                                                                  fontWeight:
-                                                                      FlutterFlowTheme.of(
+                                                              ),
+                                                        ),
+                                                        if (hasMainPrizeDescription)
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .only(
+                                                                    top: 4.0),
+                                                            child: Text(
+                                                              mainPrizeDescription,
+                                                              maxLines: 2,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              style: FlutterFlowTheme
+                                                                      .of(context)
+                                                                  .bodyMedium
+                                                                  .override(
+                                                                    font: GoogleFonts
+                                                                        .inter(
+                                                                      fontWeight: FlutterFlowTheme.of(
                                                                               context)
                                                                           .bodyMedium
                                                                           .fontWeight,
-                                                                  fontStyle:
-                                                                      FlutterFlowTheme.of(
+                                                                      fontStyle: FlutterFlowTheme.of(
                                                                               context)
                                                                           .bodyMedium
                                                                           .fontStyle,
-                                                                ),
-                                                                color: const Color(
-                                                                    0xFF374151),
-                                                                letterSpacing: 0.0,
-                                                                fontSize: 13.0,
-                                                                fontWeight:
-                                                                    FlutterFlowTheme.of(
+                                                                    ),
+                                                                    color: const Color(
+                                                                        0xFF374151),
+                                                                    letterSpacing:
+                                                                        0.0,
+                                                                    fontSize:
+                                                                        13.0,
+                                                                    fontWeight: FlutterFlowTheme.of(
                                                                             context)
                                                                         .bodyMedium
                                                                         .fontWeight,
-                                                                fontStyle:
-                                                                    FlutterFlowTheme.of(
+                                                                    fontStyle: FlutterFlowTheme.of(
                                                                             context)
                                                                         .bodyMedium
                                                                         .fontStyle,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                  ],
-                                                ),
-                                              ),
-                                              if (!isCompactHeight)
-                                                Padding(
-                                                  padding: const EdgeInsetsDirectional
-                                                      .fromSTEB(
-                                                          8.0, 8.0, 8.0, 8.0),
-                                                  child: Container(
-                                                    decoration: BoxDecoration(
-                                                      color: const Color(0xFFFFF3E0),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              20.0),
+                                                                  ),
+                                                            ),
+                                                          ),
+                                                      ],
                                                     ),
-                                                    child: Padding(
+                                                  ),
+                                                  if (!isCompactHeight)
+                                                    Padding(
                                                       padding:
-                                                          const EdgeInsets.all(8.0),
-                                                      child: Text(
-                                                        'Tirage au sort',
-                                                        style:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
+                                                          const EdgeInsetsDirectional
+                                                              .fromSTEB(8.0,
+                                                              8.0, 8.0, 8.0),
+                                                      child: Container(
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: const Color(
+                                                              0xFFFFF3E0),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      20.0),
+                                                        ),
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(8.0),
+                                                          child: Text(
+                                                            'Tirage au sort',
+                                                            style: FlutterFlowTheme
+                                                                    .of(context)
                                                                 .bodySmall
                                                                 .override(
                                                                   font:
@@ -1488,245 +1579,241 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                                       .bodySmall
                                                                       .fontStyle,
                                                                 ),
+                                                          ),
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        Row(
-                                          mainAxisSize: MainAxisSize.max,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Expanded(
-                                              child: Container(
-                                                decoration: const BoxDecoration(),
-                                                child: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.max,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      'Lots secondaires',
-                                                      style: FlutterFlowTheme
-                                                              .of(context)
-                                                          .bodyLarge
-                                                          .override(
-                                                            font: GoogleFonts
-                                                                .inter(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              fontStyle:
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyLarge
-                                                                      .fontStyle,
-                                                            ),
-                                                            letterSpacing: 0.0,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyLarge
-                                                                    .fontStyle,
-                                                          ),
-                                                    ),
-                                                    Builder(
-                                                      builder: (context) {
-                                                        final secondaryPrizes =
-                                                            widget.game!
-                                                                .secondaryPrizes;
-                                                        final visiblePrizes =
-                                                            secondaryPrizes
-                                                                .take(isCompactHeight ? 1 : 2)
-                                                                .toList();
-                                                        if (secondaryPrizes
-                                                            .isNotEmpty) {
-                                                          return Column(
-                                                            crossAxisAlignment:
-                                                                CrossAxisAlignment
-                                                                    .start,
-                                                            children: [
-                                                              ...visiblePrizes
-                                                                  .map(
-                                                              (p) {
-                                                                final name =
-                                                                    (p['name'] ??
-                                                                            '')
-                                                                        .toString();
-                                                                final presentation =
-                                                                    (p['presentation'] ??
-                                                                            '')
-                                                                        .toString();
-                                                                final count =
-                                                                    p['count'];
-                                                                final countText =
-                                                                    count !=
-                                                                            null
-                                                                        ? ' x$count'
-                                                                        : '';
-                                                                return Padding(
-                                                                  padding:
-                                                                      const EdgeInsets
-                                                                          .only(
-                                                                    bottom: 8.0,
-                                                                  ),
-                                                                  child: Column(
-                                                                    crossAxisAlignment:
-                                                                        CrossAxisAlignment
-                                                                            .start,
-                                                                    children: [
-                                                                      Text(
-                                                                        '$name$countText',
-                                                                        style: FlutterFlowTheme.of(context)
-                                                                            .bodyMedium,
-                                                                        maxLines:
-                                                                            1,
-                                                                        overflow:
-                                                                            TextOverflow.ellipsis,
-                                                                      ),
-                                                                      if (presentation
-                                                                          .isNotEmpty &&
-                                                                          !isCompactHeight)
-                                                                        Text(
-                                                                          presentation,
-                                                                          maxLines:
-                                                                              2,
-                                                                          overflow:
-                                                                              TextOverflow.ellipsis,
-                                                                          style: FlutterFlowTheme.of(context)
-                                                                              .bodySmall
-                                                                              .override(
-                                                                                font: GoogleFonts.inter(
-                                                                                  fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                  fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                ),
-                                                                                color: FlutterFlowTheme.of(context).secondaryText,
-                                                                                letterSpacing: 0.0,
-                                                                                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                              ),
-                                                                        ),
-                                                                    ],
-                                                                  ),
-                                                                );
-                                                              },
-                                                            ),
-                                                              if (secondaryPrizes
-                                                                      .length >
-                                                                  (isCompactHeight ? 1 : 2))
-                                                                Text(
-                                                                  '+${secondaryPrizes.length - (isCompactHeight ? 1 : 2)} autres lots',
-                                                                  style: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodySmall,
-                                                                ),
-                                                            ],
-                                                          );
-                                                        }
-                                                        if (widget
-                                                            .game!
-                                                            .secondaryPrizeDescription
-                                                            .isNotEmpty) {
-                                                          return AutoSizeText(
-                                                            widget.game!
-                                                                .secondaryPrizeDescription,
-                                                            maxLines: 3,
-                                                            style: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .bodyMedium
-                                                                .override(
-                                                                  font:
-                                                                      GoogleFonts
-                                                                          .inter(
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .secondaryText,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                          );
-                                                        }
-                                                        return Text(
-                                                          'Aucun gagnant',
+                                                ],
+                                              ),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.max,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                Expanded(
+                                                  child: Container(
+                                                    decoration:
+                                                        const BoxDecoration(),
+                                                    child: Column(
+                                                      mainAxisSize:
+                                                          MainAxisSize.max,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          'Lots secondaires',
                                                           style: FlutterFlowTheme
                                                                   .of(context)
-                                                              .bodySmall
+                                                              .bodyLarge
                                                               .override(
                                                                 font:
                                                                     GoogleFonts
                                                                         .inter(
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodySmall
-                                                                      .fontWeight,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
                                                                   fontStyle: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .bodySmall
+                                                                      .bodyLarge
                                                                       .fontStyle,
                                                                 ),
-                                                                color: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .secondaryText,
                                                                 letterSpacing:
                                                                     0.0,
-                                                                fontWeight: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodySmall
-                                                                    .fontWeight,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
                                                                 fontStyle: FlutterFlowTheme.of(
                                                                         context)
-                                                                    .bodySmall
+                                                                    .bodyLarge
                                                                     .fontStyle,
                                                               ),
-                                                        );
-                                                      },
+                                                        ),
+                                                        Builder(
+                                                          builder: (context) {
+                                                            final secondaryPrizes =
+                                                                widget.game!
+                                                                    .secondaryPrizes;
+                                                            final visiblePrizes =
+                                                                secondaryPrizes
+                                                                    .take(
+                                                                        isCompactHeight
+                                                                            ? 1
+                                                                            : 2)
+                                                                    .toList();
+                                                            if (secondaryPrizes
+                                                                .isNotEmpty) {
+                                                              return Column(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment
+                                                                        .start,
+                                                                children: [
+                                                                  ...visiblePrizes
+                                                                      .map(
+                                                                    (p) {
+                                                                      final name =
+                                                                          (p['name'] ?? '')
+                                                                              .toString();
+                                                                      final presentation =
+                                                                          (p['presentation'] ?? '')
+                                                                              .toString();
+                                                                      final count =
+                                                                          p['count'];
+                                                                      final countText = count !=
+                                                                              null
+                                                                          ? ' x$count'
+                                                                          : '';
+                                                                      return Padding(
+                                                                        padding:
+                                                                            const EdgeInsets.only(
+                                                                          bottom:
+                                                                              8.0,
+                                                                        ),
+                                                                        child:
+                                                                            Column(
+                                                                          crossAxisAlignment:
+                                                                              CrossAxisAlignment.start,
+                                                                          children: [
+                                                                            Text(
+                                                                              '$name$countText',
+                                                                              style: FlutterFlowTheme.of(context).bodyMedium,
+                                                                              maxLines: 1,
+                                                                              overflow: TextOverflow.ellipsis,
+                                                                            ),
+                                                                            if (presentation.isNotEmpty &&
+                                                                                !isCompactHeight)
+                                                                              Text(
+                                                                                presentation,
+                                                                                maxLines: 2,
+                                                                                overflow: TextOverflow.ellipsis,
+                                                                                style: FlutterFlowTheme.of(context).bodySmall.override(
+                                                                                      font: GoogleFonts.inter(
+                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                                                                                      ),
+                                                                                      color: FlutterFlowTheme.of(context).secondaryText,
+                                                                                      letterSpacing: 0.0,
+                                                                                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                                                                                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                                                                                    ),
+                                                                              ),
+                                                                          ],
+                                                                        ),
+                                                                      );
+                                                                    },
+                                                                  ),
+                                                                  if (secondaryPrizes
+                                                                          .length >
+                                                                      (isCompactHeight
+                                                                          ? 1
+                                                                          : 2))
+                                                                    Text(
+                                                                      '+${secondaryPrizes.length - (isCompactHeight ? 1 : 2)} autres lots',
+                                                                      style: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .bodySmall,
+                                                                    ),
+                                                                ],
+                                                              );
+                                                            }
+                                                            if (widget
+                                                                .game!
+                                                                .secondaryPrizeDescription
+                                                                .isNotEmpty) {
+                                                              return AutoSizeText(
+                                                                widget.game!
+                                                                    .secondaryPrizeDescription,
+                                                                maxLines: 3,
+                                                                style: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .override(
+                                                                      font: GoogleFonts
+                                                                          .inter(
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .bodyMedium
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .bodyMedium
+                                                                            .fontStyle,
+                                                                      ),
+                                                                      color: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .secondaryText,
+                                                                      letterSpacing:
+                                                                          0.0,
+                                                                      fontWeight: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .bodyMedium
+                                                                          .fontWeight,
+                                                                      fontStyle: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .bodyMedium
+                                                                          .fontStyle,
+                                                                    ),
+                                                              );
+                                                            }
+                                                            return Text(
+                                                              'Aucun gagnant',
+                                                              style: FlutterFlowTheme
+                                                                      .of(context)
+                                                                  .bodySmall
+                                                                  .override(
+                                                                    font: GoogleFonts
+                                                                        .inter(
+                                                                      fontWeight: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .bodySmall
+                                                                          .fontWeight,
+                                                                      fontStyle: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .bodySmall
+                                                                          .fontStyle,
+                                                                    ),
+                                                                    color: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .secondaryText,
+                                                                    letterSpacing:
+                                                                        0.0,
+                                                                    fontWeight: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodySmall
+                                                                        .fontWeight,
+                                                                    fontStyle: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodySmall
+                                                                        .fontStyle,
+                                                                  ),
+                                                            );
+                                                          },
+                                                        ),
+                                                      ],
                                                     ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            if (!isCompactHeight)
-                                              Padding(
-                                                padding: const EdgeInsetsDirectional
-                                                    .fromSTEB(
-                                                        8.0, 16.0, 8.0, 16.0),
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(0xFFE8F5E9),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            20.0),
                                                   ),
-                                                  child: Padding(
+                                                ),
+                                                if (!isCompactHeight)
+                                                  Padding(
                                                     padding:
-                                                        const EdgeInsets.all(8.0),
-                                                    child: Text(
-                                                      'Gain imm\u00E9diat',
-                                                      style:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
+                                                        const EdgeInsetsDirectional
+                                                            .fromSTEB(8.0, 16.0,
+                                                            8.0, 16.0),
+                                                    child: Container(
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(
+                                                            0xFFE8F5E9),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(20.0),
+                                                      ),
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .all(8.0),
+                                                        child: Text(
+                                                          'Gain imm\u00E9diat',
+                                                          style: FlutterFlowTheme
+                                                                  .of(context)
                                                               .bodySmall
                                                               .override(
                                                                 font:
@@ -1754,64 +1841,66 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                                     .bodySmall
                                                                     .fontStyle,
                                                               ),
+                                                        ),
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-                                              ),
-                                          ],
+                                              ],
+                                            ),
+                                          ].divide(
+                                              const SizedBox(height: 16.0)),
                                         ),
-                                      ].divide(const SizedBox(height: 16.0)),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              ),
-                            ].divide(SizedBox(height: isCompactHeight ? 12.0 : 20.0)),
+                              ].divide(SizedBox(
+                                  height: isCompactHeight ? 12.0 : 20.0)),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    wrapWithModel(
-                      model: _model.customNavBarJoueurModel,
-                      updateCallback: () => safeSetState(() {}),
-                      child: const CustomNavBarJoueurWidget(),
-                    ),
-                  ],
-                ),
-                Align(
-                  alignment: const AlignmentDirectional(0.0, 0.0),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(0.0),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(
-                        sigmaX: 2.0,
-                        sigmaY: 2.0,
+                      wrapWithModel(
+                        model: _model.customNavBarJoueurModel,
+                        updateCallback: () => safeSetState(() {}),
+                        child: const CustomNavBarJoueurWidget(),
                       ),
-                      child: Visibility(
-                        visible: _model.isWin == true,
-                        child: TapFeedback(
-                          enabled: true,
-                          onTap: () {
-                            _model.isWin = false;
-                            safeSetState(() {});
-                          },
-                          child: SizedBox(
-                            width: double.infinity,
-                            height: double.infinity,
-                            child: RiveAnimation.asset(
-                              'assets/rive_animations/win_animation.riv',
-                              artboard: 'Artboard',
-                              fit: BoxFit.fitWidth,
-                              controllers: _model.riveAnimationControllers,
+                    ],
+                  ),
+                  Align(
+                    alignment: const AlignmentDirectional(0.0, 0.0),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(0.0),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(
+                          sigmaX: 2.0,
+                          sigmaY: 2.0,
+                        ),
+                        child: Visibility(
+                          visible: _model.isWin == true,
+                          child: TapFeedback(
+                            enabled: true,
+                            onTap: () {
+                              _model.isWin = false;
+                              safeSetState(() {});
+                            },
+                            child: SizedBox(
+                              width: double.infinity,
+                              height: double.infinity,
+                              child: RiveAnimation.asset(
+                                'assets/rive_animations/win_animation.riv',
+                                artboard: 'Artboard',
+                                fit: BoxFit.fitWidth,
+                                controllers: _model.riveAnimationControllers,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1819,5 +1908,3 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     );
   }
 }
-
-

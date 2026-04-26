@@ -2,6 +2,7 @@ import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -29,6 +30,7 @@ class _CommercantAdminDetailPageWidgetState
   final _addressController = TextEditingController();
 
   bool _isEditing = false;
+  bool _isUnlocking = false;
   String? _lastSeedKey;
 
   @override
@@ -250,6 +252,84 @@ class _CommercantAdminDetailPageWidgetState
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Statut mis à jour : ${_statusLabel(status)}')),
     );
+  }
+
+  String _unlockButtonLabel(UsersRecord user) {
+    final firestoreLooksApproved =
+        user.accountStatus == AccountStatus.approved &&
+        user.userRole == Roles.commercant;
+
+    return firestoreLooksApproved
+        ? 'Forcer le déblocage'
+        : 'Valider et débloquer';
+  }
+
+  Future<void> _unlockMerchant(UsersRecord user) async {
+    if (_isUnlocking) return;
+
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Débloquer le commerçant'),
+            content: Text(
+              'Cette action va forcer la validation du compte pour '
+              '${user.email.isNotEmpty ? user.email : user.reference.id}.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Annuler'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Confirmer'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmed) return;
+
+    setState(() => _isUnlocking = true);
+
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('unlockCommercantAccount');
+
+      await callable.call({
+        'commercantUid': user.uid,
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Commerçant validé et débloqué avec succès.'),
+        ),
+      );
+
+      setState(() {});
+    } on FirebaseFunctionsException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.message?.isNotEmpty == true
+                ? error.message!
+                : 'Erreur backend pendant le déblocage du commerçant.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur inattendue : $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUnlocking = false);
+      }
+    }
   }
 
   Future<void> _saveMainInfo(
@@ -688,14 +768,14 @@ class _CommercantAdminDetailPageWidgetState
                               spacing: 10.0,
                               runSpacing: 10.0,
                               children: [
-                                ElevatedButton(
-                                  onPressed: user.accountStatus == AccountStatus.approved
-                                      ? null
-                                      : () => _updateStatus(
-                                            user,
-                                            AccountStatus.approved,
-                                          ),
-                                  child: const Text('Valider le compte'),
+                                FilledButton(
+                                  onPressed:
+                                      _isUnlocking ? null : () => _unlockMerchant(user),
+                                  child: Text(
+                                    _isUnlocking
+                                        ? 'Déblocage...'
+                                        : _unlockButtonLabel(user),
+                                  ),
                                 ),
                                 ElevatedButton(
                                   onPressed: user.accountStatus == AccountStatus.rejected

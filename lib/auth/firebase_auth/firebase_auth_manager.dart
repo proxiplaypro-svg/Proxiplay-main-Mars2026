@@ -158,11 +158,17 @@ class FirebaseAuthManager extends AuthManager
 
   @override
   Future sendEmailVerification() async {
-    if (!loggedIn) {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null && !loggedIn) {
       return;
     }
 
     await FirebaseAuth.instance.setLanguageCode('fr');
+    if (firebaseUser != null) {
+      await firebaseUser.sendEmailVerification();
+      return;
+    }
+
     await currentUser?.sendEmailVerification();
   }
 
@@ -330,9 +336,10 @@ class FirebaseAuthManager extends AuthManager
       if (userCredential?.user != null) {
         await maybeCreateUser(userCredential!.user!);
       }
-      return userCredential == null
-          ? null
-          : ProxiPlayFirebaseUser.fromUserCredential(userCredential);
+      if (userCredential == null || userCredential.user == null) {
+        return null;
+      }
+      return ProxiPlayFirebaseUser.fromUserCredential(userCredential);
     } on FirebaseAuthException catch (e) {
       final errorMsg = switch (e.code) {
         'email-already-in-use' =>
