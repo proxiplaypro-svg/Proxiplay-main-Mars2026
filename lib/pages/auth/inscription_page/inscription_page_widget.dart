@@ -163,35 +163,55 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     super.dispose();
   }
 
-  Future<void> _ensureGooglePlayerProfileBootstrap() async {
+  void _logGoogleSignup(String message) {}
+
+  Future<UsersRecord?> _ensureGooglePlayerProfileBootstrap() async {
     final userRef = currentUserReference;
     final firebaseUser = FirebaseAuth.instance.currentUser;
     if (userRef == null || firebaseUser == null) {
-      return;
+      _logGoogleSignup(
+        'profileBootstrapSkipped userRefIsNull=${userRef == null} '
+        'firebaseUserIsNull=${firebaseUser == null}',
+      );
+      return null;
     }
 
+    _logGoogleSignup('profileBootstrapStart uid=${firebaseUser.uid}');
     final userDoc = await refreshCurrentUserDocument();
 
     await userRef.set(
-      createUsersRecordData(
-        email: userDoc?.hasEmail() == true ? null : firebaseUser.email,
-        displayName:
-            userDoc?.hasDisplayName() == true ? null : firebaseUser.displayName,
-        photoUrl: userDoc?.hasPhotoUrl() == true ? null : firebaseUser.photoURL,
-        uid: userDoc?.hasUid() == true ? null : firebaseUser.uid,
-        phoneNumber:
-            userDoc?.hasPhoneNumber() == true ? null : firebaseUser.phoneNumber,
-        userRole: userDoc?.hasUserRole() == true ? null : Roles.joueur,
-        accountStatus: userDoc?.accountStatus ?? AccountStatus.pendingInfo,
-        remainingPart: userDoc?.hasRemainingPart() == true ? null : 3,
-      ),
+      <String, dynamic>{
+        ...createUsersRecordData(
+          email: userDoc?.hasEmail() == true ? null : firebaseUser.email,
+          displayName: userDoc?.hasDisplayName() == true
+              ? null
+              : firebaseUser.displayName,
+          photoUrl:
+              userDoc?.hasPhotoUrl() == true ? null : firebaseUser.photoURL,
+          uid: userDoc?.hasUid() == true ? null : firebaseUser.uid,
+          phoneNumber:
+              userDoc?.hasPhoneNumber() == true ? null : firebaseUser.phoneNumber,
+          userRole: userDoc?.hasUserRole() == true ? null : Roles.joueur,
+          accountStatus: userDoc?.accountStatus ?? AccountStatus.pendingInfo,
+          remainingPart: userDoc?.hasRemainingPart() == true ? null : 3,
+        ),
+      },
       SetOptions(merge: true),
     );
 
-    await refreshCurrentUserDocument();
+    final refreshedUserDoc = await refreshCurrentUserDocument();
+    _logGoogleSignup(
+      'profileBootstrapCompleted '
+      'uid=${firebaseUser.uid} '
+      'docExists=${refreshedUserDoc != null} '
+      'role=${refreshedUserDoc?.userRole?.serialize()} '
+      'status=${refreshedUserDoc?.accountStatus?.serialize()}',
+    );
+    return refreshedUserDoc;
   }
 
   Future<void> _handleGooglePlayerSignup() async {
+    _logGoogleSignup('startGoogleSignupFlow');
     GoRouter.of(context).prepareAuthEvent(true);
     _persistReferralCodeInput(
       _model.referralCodeJoueurTextController?.text ?? '',
@@ -199,10 +219,23 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
 
     final user = await authManager.signInWithGoogle(context);
     if (user == null || !context.mounted) {
+      _logGoogleSignup(
+        'googleSignupAborted userIsNull=${user == null} mounted=$mounted',
+      );
       return;
     }
 
-    await _ensureGooglePlayerProfileBootstrap();
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    _logGoogleSignup(
+      'firebaseUserAfterGoogleSignIn '
+      'uid=${firebaseUser?.uid} email=${firebaseUser?.email}',
+    );
+    if (firebaseUser == null) {
+      _logGoogleSignup('googleSignupStoppedBecauseFirebaseUserIsNull');
+      return;
+    }
+
+    final refreshedUserDoc = await _ensureGooglePlayerProfileBootstrap();
 
     final referralApplied = await _applyPendingReferralCodeIfNeeded();
     if (!referralApplied && (_lastReferralErrorMessage ?? '').isNotEmpty) {
@@ -215,7 +248,8 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       return;
     }
 
-    if (currentUserDocument?.accountStatus == AccountStatus.pendingInfo) {
+    if (refreshedUserDoc?.accountStatus == AccountStatus.pendingInfo) {
+      _logGoogleSignup('navigationAfterGoogleSignup destination=pendingInfo');
       context.goNamedAuth(
         InscriptionInformationsPageWidget.routeName,
         context.mounted,
@@ -224,6 +258,11 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       return;
     }
 
+    _logGoogleSignup(
+      'navigationAfterGoogleSignup '
+      'destination=homeJoueur '
+      'firebaseUserStillPresent=${FirebaseAuth.instance.currentUser != null}',
+    );
     context.goNamedAuth(
       HomeJoueurPageWidget.routeName,
       context.mounted,
@@ -950,159 +989,6 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                     width: double.infinity,
                                                     child: TextFormField(
                                                       controller: _model
-                                                          .referralCodeJoueurTextController,
-                                                      focusNode: _model
-                                                          .referralCodeJoueurFocusNode,
-                                                      autofocus: false,
-                                                      textCapitalization:
-                                                          TextCapitalization
-                                                              .characters,
-                                                      decoration:
-                                                          InputDecoration(
-                                                        labelText:
-                                                            'Code de parrainage (facultatif)',
-                                                        labelStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .labelMedium
-                                                                .override(
-                                                                  font:
-                                                                      GoogleFonts
-                                                                          .inter(
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .labelMedium
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .labelMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .fieldText,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .labelMedium
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .labelMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                        enabledBorder:
-                                                            OutlineInputBorder(
-                                                          borderSide:
-                                                              const BorderSide(
-                                                            color: Color(
-                                                                0x00000000),
-                                                            width: 2.0,
-                                                          ),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      12.0),
-                                                        ),
-                                                        focusedBorder:
-                                                            OutlineInputBorder(
-                                                          borderSide:
-                                                              BorderSide(
-                                                            color: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .primary,
-                                                            width: 2.0,
-                                                          ),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      12.0),
-                                                        ),
-                                                        errorBorder:
-                                                            OutlineInputBorder(
-                                                          borderSide:
-                                                              BorderSide(
-                                                            color: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .error,
-                                                            width: 2.0,
-                                                          ),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      12.0),
-                                                        ),
-                                                        focusedErrorBorder:
-                                                            OutlineInputBorder(
-                                                          borderSide:
-                                                              BorderSide(
-                                                            color: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .error,
-                                                            width: 2.0,
-                                                          ),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      12.0),
-                                                        ),
-                                                        filled: true,
-                                                        fillColor:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .fieldBg,
-                                                        contentPadding:
-                                                            const EdgeInsets.all(
-                                                                24.0),
-                                                      ),
-                                                      style:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .bodyMedium
-                                                              .override(
-                                                                font:
-                                                                    GoogleFonts
-                                                                        .inter(
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                                color: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .primaryText,
-                                                                letterSpacing:
-                                                                    0.0,
-                                                                fontWeight: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontWeight,
-                                                                fontStyle: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                              ),
-                                                      onChanged:
-                                                          _persistReferralCodeInput,
-                                                      validator: _model
-                                                          .referralCodeJoueurTextControllerValidator
-                                                          .asValidator(context),
-                                                    ),
-                                                  ),
-                                                ),
-                                                Padding(
-                                                  padding: const EdgeInsetsDirectional
-                                                      .fromSTEB(
-                                                          0.0, 0.0, 0.0, 16.0),
-                                                  child: SizedBox(
-                                                    width: double.infinity,
-                                                    child: TextFormField(
-                                                      controller: _model
                                                           .passwordJoueurTextController,
                                                       focusNode: _model
                                                           .passwordJoueurFocusNode,
@@ -1451,6 +1337,159 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                   padding: const EdgeInsetsDirectional
                                                       .fromSTEB(
                                                           0.0, 0.0, 0.0, 16.0),
+                                                  child: SizedBox(
+                                                    width: double.infinity,
+                                                    child: TextFormField(
+                                                      controller: _model
+                                                          .referralCodeJoueurTextController,
+                                                      focusNode: _model
+                                                          .referralCodeJoueurFocusNode,
+                                                      autofocus: false,
+                                                      textCapitalization:
+                                                          TextCapitalization
+                                                              .characters,
+                                                      decoration:
+                                                          InputDecoration(
+                                                        labelText:
+                                                            'Code de parrainage (facultatif)',
+                                                        labelStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .labelMedium
+                                                                .override(
+                                                                  font:
+                                                                      GoogleFonts
+                                                                          .inter(
+                                                                    fontWeight: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .labelMedium
+                                                                        .fontWeight,
+                                                                    fontStyle: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .labelMedium
+                                                                        .fontStyle,
+                                                                  ),
+                                                                  color: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .fieldText,
+                                                                  letterSpacing:
+                                                                      0.0,
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .labelMedium
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .labelMedium
+                                                                      .fontStyle,
+                                                                ),
+                                                        enabledBorder:
+                                                            OutlineInputBorder(
+                                                          borderSide:
+                                                              const BorderSide(
+                                                            color: Color(
+                                                                0x00000000),
+                                                            width: 2.0,
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      12.0),
+                                                        ),
+                                                        focusedBorder:
+                                                            OutlineInputBorder(
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .primary,
+                                                            width: 2.0,
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      12.0),
+                                                        ),
+                                                        errorBorder:
+                                                            OutlineInputBorder(
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .error,
+                                                            width: 2.0,
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      12.0),
+                                                        ),
+                                                        focusedErrorBorder:
+                                                            OutlineInputBorder(
+                                                          borderSide:
+                                                              BorderSide(
+                                                            color: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .error,
+                                                            width: 2.0,
+                                                          ),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      12.0),
+                                                        ),
+                                                        filled: true,
+                                                        fillColor:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .fieldBg,
+                                                        contentPadding:
+                                                            const EdgeInsets.all(
+                                                                24.0),
+                                                      ),
+                                                      style:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodyMedium
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .fontStyle,
+                                                                ),
+                                                                color: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .primaryText,
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontWeight,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontStyle,
+                                                              ),
+                                                      onChanged:
+                                                          _persistReferralCodeInput,
+                                                      validator: _model
+                                                          .referralCodeJoueurTextControllerValidator
+                                                          .asValidator(context),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Padding(
+                                                  padding: const EdgeInsetsDirectional
+                                                      .fromSTEB(
+                                                          0.0, 0.0, 0.0, 16.0),
                                                   child: Row(
                                                     mainAxisSize:
                                                         MainAxisSize.max,
@@ -1765,9 +1804,6 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                   _lastReferralErrorMessage!,
                                                                 );
                                                               }
-
-                                                              await authManager
-                                                                  .sendEmailVerification();
 
                                                               context
                                                                   .goNamedAuth(
@@ -3274,11 +3310,11 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       case 'failed-precondition':
         return 'Vous ne pouvez pas utiliser votre propre code de parrainage.';
       case 'already-exists':
-        return 'Ce parrainage a deja ete utilise pour ce compte.';
+        return 'Ce parrainage a déjà été utilisé pour ce compte.';
       case 'invalid-argument':
         return 'Veuillez saisir un code de parrainage valide.';
       default:
-        return 'Le code de parrainage n a pas pu etre applique pour le moment.';
+        return 'Le code de parrainage n’a pas pu être appliqué pour le moment.';
     }
   }
 
@@ -3296,25 +3332,14 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
   Future<bool> _applyPendingReferralCodeIfNeeded() async {
     final pendingReferralCode = FFAppState().pendingReferralCode.trim();
     if (pendingReferralCode.isEmpty) {
-      debugPrint(
-        '[ReferralDebug][Signup] noPendingReferralCodeAtSignup',
-      );
       _lastReferralErrorMessage = null;
       return true;
     }
-
-    debugPrint(
-      '[ReferralDebug][Signup] pendingReferralCodeAtSignup=$pendingReferralCode',
-    );
 
     final currentUid = currentUserUid;
     final referralGuardKey = '$currentUid::$pendingReferralCode';
     if (_isApplyingPendingReferralCode ||
         _lastAppliedReferralGuardKey == referralGuardKey) {
-      debugPrint(
-        '[ReferralDebug][Signup] skippedDuplicateReferralAcceptance '
-        'guardKey=$referralGuardKey',
-      );
       _lastReferralErrorMessage = null;
       return true;
     }
@@ -3323,23 +3348,12 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     _lastReferralErrorMessage = null;
     _lastAppliedReferralGuardKey = referralGuardKey;
     try {
-      debugPrint(
-        '[ReferralDebug][Signup] calling registerReferralAcceptance '
-        'inviteCode=$pendingReferralCode uid=$currentUid',
-      );
       await _sharePromoService.registerReferralAcceptance(
         inviteCode: pendingReferralCode,
-      );
-      debugPrint(
-        '[ReferralDebug][Signup] registerReferralAcceptance success '
-        'inviteCode=$pendingReferralCode uid=$currentUid',
       );
       FFAppState().update(() {
         FFAppState().clearPendingReferralCode();
       });
-      debugPrint(
-        '[ReferralDebug][Signup] pendingReferralCode clearedAfterSuccess',
-      );
       return true;
     } on FirebaseFunctionsException catch (error) {
       _lastReferralErrorMessage = _errorMessageForReferralFailure(error);
@@ -3349,37 +3363,14 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
         'already-exists',
         'failed-precondition',
       };
-      if (terminalErrorCodes.contains(error.code)) {
-        debugPrint(
-          '[ReferralDebug][Signup] registerReferralAcceptance terminalError '
-          'code=${error.code} message=${error.message ?? '<no-message>'}',
-        );
-        debugPrint(
-          '[ReferralDebug][Signup] pendingReferralCode preservedAfterTerminalError '
-          'value=$pendingReferralCode',
-        );
-      } else {
-        debugPrint(
-          '[ReferralDebug][Signup] registerReferralAcceptance retryableError '
-          'code=${error.code} message=${error.message ?? '<no-message>'}',
-        );
-        debugPrint(
-          '[ReferralDebug][Signup] pendingReferralCode preservedAfterError '
-          'value=$pendingReferralCode',
-        );
+      if (!terminalErrorCodes.contains(error.code)) {
+        debugPrint('Referral acceptance error: ${error.code}');
       }
       return false;
     } catch (error) {
       _lastReferralErrorMessage =
-          'Le code de parrainage n a pas pu etre applique pour le moment.';
-      debugPrint(
-        '[ReferralDebug][Signup] registerReferralAcceptance unexpectedError '
-        'error=$error',
-      );
-      debugPrint(
-        '[ReferralDebug][Signup] pendingReferralCode preservedAfterUnexpectedError '
-        'value=$pendingReferralCode',
-      );
+          'Le code de parrainage n’a pas pu être appliqué pour le moment.';
+      debugPrint('Referral acceptance unexpected error: $error');
       return false;
     } finally {
       _isApplyingPendingReferralCode = false;

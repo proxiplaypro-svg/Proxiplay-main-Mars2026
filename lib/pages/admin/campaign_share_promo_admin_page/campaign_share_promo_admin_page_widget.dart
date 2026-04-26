@@ -174,7 +174,7 @@ class _CampaignSharePromoAdminPageWidgetState
   String _rewardTypeLabel(String value) {
     switch (value) {
       case 'all_games_until_midnight':
-        return 'Jeux jusqu à minuit';
+        return 'Jeux jusqu’à minuit';
       case 'play_credit':
       case 'plays':
       case 'remaining_part':
@@ -210,7 +210,7 @@ class _CampaignSharePromoAdminPageWidgetState
         normalized == 'Partagez Proxiplay et gagnez des bonus.' ||
         normalized == 'Offrez 1 partie à un ami et débloquez un bonus' ||
         normalized == 'Offrez 1 partie a un ami et debloquez un bonus') {
-      return 'Invite un ami et joue à tous les jeux jusqu à minuit.';
+      return 'Invite un ami et joue à tous les jeux jusqu’à minuit.';
     }
     return normalized;
   }
@@ -303,7 +303,7 @@ class _CampaignSharePromoAdminPageWidgetState
           ? 'Inviter un ami'
           : _titleController.text.trim(),
       subtitle: _messageController.text.trim().isEmpty
-          ? 'Invite un ami et joue à tous les jeux jusqu à minuit.'
+          ? 'Invite un ami et joue à tous les jeux jusqu’à minuit.'
           : _messageController.text.trim(),
       ctaLabel: _ctaController.text.trim().isEmpty
           ? 'Inviter un ami'
@@ -426,7 +426,7 @@ class _CampaignSharePromoAdminPageWidgetState
                           child: DropdownButtonFormField<String>(
                             initialValue: _normalizeRewardType(_rewardTypeController.text),
                             isExpanded: true,
-                            decoration: _inputDecoration('Recompense').copyWith(
+                            decoration: _inputDecoration('Récompense').copyWith(
                               floatingLabelBehavior: FloatingLabelBehavior.always,
                               contentPadding: const EdgeInsetsDirectional.fromSTEB(
                                 16.0,

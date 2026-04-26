@@ -17,7 +17,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # In iOS, build-name is used as CFBundleShortVersionString while build-number used as CFBundleVersion.
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-version: 1.0.12+48
+version: 1.0.12+49
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -132,8 +132,7 @@ dependencies:
   pointer_interceptor_platform_interface: 0.10.0+1
   pointer_interceptor_web: 0.10.2+1
   provider: 6.1.5
-  rive: 0.12.2
-  rive_common: 0.2.8
+  rive: 0.13.20
   rxdart: 0.27.7
   scratcher: ^2.5.0
   share_plus: 10.0.2

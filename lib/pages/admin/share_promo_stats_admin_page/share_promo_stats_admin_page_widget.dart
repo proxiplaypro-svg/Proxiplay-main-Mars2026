@@ -86,7 +86,7 @@ class _SharePromoStatsAdminPageWidgetState
   String _formatRewardType(String value) {
     switch (value.trim()) {
       case 'all_games_until_midnight':
-        return 'Tous les jeux jusqu à minuit';
+        return 'Tous les jeux jusqu’à minuit';
       case 'play_credit':
       case 'plays':
       case 'remaining_part':

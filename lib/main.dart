@@ -184,40 +184,20 @@ class _MyAppState extends State<MyApp> {
       return;
     }
     if (currentUserUid.isNotEmpty && !isGuestOrAnonymous) {
-      debugPrint(
-        '[ReferralDebug][LinkCapture] source=$source '
-        'skippedBecauseUserAlreadyAuthenticated uid=$currentUserUid',
-      );
       return;
     }
 
     final location = _router.getCurrentLocation();
     final isNewLocation = _lastReferralLocation != location;
     if (isNewLocation) {
-      debugPrint(
-        '[ReferralDebug][LinkCapture] source=$source rawLocation=$location',
-      );
       _lastReferralLocation = location;
     }
     final uri = Uri.tryParse(location);
     final referralCode = extractReferralCodeFromUri(uri);
     if (referralCode == null || referralCode.isEmpty) {
-      if (isNewLocation) {
-        debugPrint(
-          '[ReferralDebug][LinkCapture] source=$source noReferralCodeFound',
-        );
-      }
       return;
     }
-    debugPrint(
-      '[ReferralDebug][LinkCapture] source=$source '
-      'extractedReferralCode=$referralCode',
-    );
     if (FFAppState().pendingReferralCode == referralCode) {
-      debugPrint(
-        '[ReferralDebug][LinkCapture] source=$source '
-        'referralCodeAlreadyStored=$referralCode',
-      );
       return;
     }
 

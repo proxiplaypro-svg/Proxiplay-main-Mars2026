@@ -421,7 +421,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           kind: SharePromoKind.lowRemainingPlaysInvite,
           title: state.title ?? 'Inviter un ami',
           subtitle: state.message ??
-              'Invite un ami et joue à tous les jeux jusqu à minuit.',
+              'Invite un ami et joue à tous les jeux jusqu’à minuit.',
           ctaLabel: state.ctaText ?? 'Inviter un ami',
           icon: Icons.volunteer_activism_rounded,
           primaryColor: const Color(0xFF6E3B86),
@@ -433,7 +433,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           kind: SharePromoKind.defaultInvite,
           title: state.title ?? 'Inviter un ami',
           subtitle: state.message ??
-              'Invite un ami et joue à tous les jeux jusqu à minuit.',
+              'Invite un ami et joue à tous les jeux jusqu’à minuit.',
           ctaLabel: state.ctaText ?? 'Inviter un ami',
           icon: Icons.share_rounded,
           primaryColor: const Color(0xFF2B2A66),
@@ -483,8 +483,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         queryBuilder: (query) => query.orderBy('win_date', descending: true),
         limit: 12,
       );
-      debugPrint('[WINNERS_BANNER] recentPrizesFetched=${prizes.length}');
-
       final recentPrizes = prizes
           .where(
             (prize) =>
@@ -494,16 +492,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           )
           .take(8)
           .toList();
-      debugPrint('[WINNERS_BANNER] recentPrizes=${recentPrizes.length}');
-      for (final prize in recentPrizes) {
-        debugPrint(
-          '[WINNERS_BANNER] prize winner_id=${prize.winnerId?.path ?? 'null'} name="${prize.name.trim()}" enseigne_name="${prize.enseigneName.trim()}"',
-        );
-      }
-
       if (recentPrizes.isEmpty) {
-        debugPrint('[WINNERS_BANNER] builtMessages=0');
-        debugPrint('[WINNERS_BANNER] messages=[]');
         return const <String>[];
       }
 
@@ -518,20 +507,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         UsersRecord? winner;
         try {
           winner = await UsersRecord.getDocumentOnce(winnerRef);
-          debugPrint(
-            '[WINNERS_BANNER] userRead path=${winnerRef.path} success=${winner != null}',
-          );
         } catch (_) {
-          debugPrint(
-            '[WINNERS_BANNER] userRead path=${winnerRef.path} success=false',
-          );
           winner = null;
         }
 
         final firstName = extractWinnerFirstName(winner);
-        debugPrint(
-          '[WINNERS_BANNER] finalFirstName path=${winnerRef.path} value="$firstName"',
-        );
         messages.add(
           winner != null && firstName.isNotEmpty
               ? _buildRecentWinnerMessage(prize, winner)
@@ -539,12 +519,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         );
       }
 
-      debugPrint('[WINNERS_BANNER] builtMessages=${messages.length}');
-      debugPrint('[WINNERS_BANNER] messages=$messages');
       return messages;
     } catch (_) {
-      debugPrint('[WINNERS_BANNER] builtMessages=0');
-      debugPrint('[WINNERS_BANNER] messages=[]');
       return const <String>[];
     }
   }
@@ -620,10 +596,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         final remainingPart =
             valueOrDefault<int>(currentUserDocument?.remainingPart, 0);
         final hasRemainingPart = remainingPart > 0;
-        debugPrint('[WINNERS_BANNER] remainingPart=$remainingPart');
-
         if (!hasRemainingPart) {
-          debugPrint('[WINNERS_BANNER] shouldRender=false');
           return const SizedBox.shrink();
         }
 
@@ -631,9 +604,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           future: _recentWinnerMessagesFuture,
           builder: (context, snapshot) {
             final messages = snapshot.data ?? const <String>[];
-            final shouldRender = messages.isNotEmpty;
-            debugPrint('[WINNERS_BANNER] widgetInputCount=${messages.length}');
-            debugPrint('[WINNERS_BANNER] shouldRender=$shouldRender');
             if (messages.isEmpty) {
               return const SizedBox.shrink();
             }
@@ -660,32 +630,32 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
             'Si le code ne se remplit pas automatiquement après installation, '
             'entre-le manuellement à l’inscription.';
     final templates = <String>[
-      '🎮 Inscris-toi avec mon lien sur ProxiPlay !\n'
+      'Inscris-toi avec mon lien sur ProxiPlay !\n'
           'Télécharge l’app ici :\n'
           '$shareLink'
           '$referralCodeText\n\n'
           'Si tu rejoins l’app, je débloque l’accès à tous les jeux jusqu’à minuit 👇',
-      '🎯 Viens tester ProxiPlay avec mon invitation !\n'
+      'Viens tester ProxiPlay avec mon invitation !\n'
           'Télécharge l’app ici :\n'
           '$shareLink'
           '$referralCodeText\n\n'
           'Si tu t’inscris, je joue à tous les jeux jusqu’à minuit 👇',
-      '🔥 Rejoins-moi sur ProxiPlay !\n\n'
+      'Rejoins-moi sur ProxiPlay !\n\n'
           'Télécharge l’app ici :\n'
           '$shareLink'
           '$referralCodeText\n\n'
           'Ton inscription avec mon code me débloque l’accès à tous les jeux jusqu’à minuit 👇',
-      '🎁 J’ai une invitation ProxiPlay pour toi !\n'
+      'J’ai une invitation ProxiPlay pour toi !\n'
           'Télécharge l’app ici :\n'
           '$shareLink'
           '$referralCodeText\n\n'
           'Si tu t’inscris avec mon lien, je débloque tous les jeux jusqu’à minuit 👇',
-      '🚀 Tu peux tester ProxiPlay avec mon lien !\n'
+      'Tu peux tester ProxiPlay avec mon lien !\n'
           'Télécharge l’app ici :\n'
           '$shareLink'
           '$referralCodeText\n\n'
           'Si tu rejoins l’app, j’obtiens l’accès à tous les jeux jusqu’à minuit 👇',
-      '🎮 Clique sur mon lien pour découvrir ProxiPlay !\n'
+      'Clique sur mon lien pour découvrir ProxiPlay !\n'
           'Télécharge l’app ici :\n'
           '$shareLink'
           '$referralCodeText\n\n'
@@ -726,11 +696,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   Future<void> _showSharePromoSheet() async {
     final payload = await _buildSharePromoPayload('native_share');
     final shareText = payload['shareText'] ?? buildAppShareText();
-    final shareLink = payload['shareLink'] ?? shareLinkBase;
 
     try {
-      debugPrint('[SHARE_DEBUG] link=$shareLink');
-      debugPrint('[SHARE_DEBUG] text=$shareText');
       final box = context.findRenderObject() as RenderBox?;
       await Share.share(
         shareText,
@@ -746,7 +713,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Partage natif indisponible. Le message a ete copie dans le presse-papiers.',
+            'Partage natif indisponible. Le message a été copié dans le presse-papiers.',
           ),
         ),
       );

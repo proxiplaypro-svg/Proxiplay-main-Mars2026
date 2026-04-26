@@ -8,7 +8,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-
 final _handledMessageIds = <String?>{};
 
 class PushNotificationsHandler extends StatefulWidget {
@@ -61,22 +60,26 @@ class _PushNotificationsHandlerState extends State<PushNotificationsHandler> {
       final parametersBuilder = parametersBuilderMap[initialPageName];
       if (parametersBuilder != null) {
         final parameterData = await parametersBuilder(initialParameterData);
+        final extraWithSource = <String, dynamic>{
+          ...parameterData.extra,
+          'source': 'push',
+        };
         if (mounted) {
           context.pushNamed(
             initialPageName,
             pathParameters: parameterData.pathParameters,
-            extra: parameterData.extra,
+            extra: extraWithSource,
           );
         } else {
           appNavigatorKey.currentContext?.pushNamed(
             initialPageName,
             pathParameters: parameterData.pathParameters,
-            extra: parameterData.extra,
+            extra: extraWithSource,
           );
         }
       }
     } catch (e) {
-      print('Error: $e');
+      debugPrint('Push notification handling error: $e');
     } finally {
       safeSetState(() => _loading = false);
     }
@@ -91,7 +94,6 @@ class _PushNotificationsHandlerState extends State<PushNotificationsHandler> {
     FirebaseMessaging.onMessage.listen((message) {
       final title = message.notification?.title ?? 'Notification';
       final body = message.notification?.body ?? '';
-      print('FCM: onMessage id=${message.messageId} title="$title"');
       if (!mounted) return;
       final content = body.isEmpty ? title : '$title: $body';
       ScaffoldMessenger.of(context).showSnackBar(

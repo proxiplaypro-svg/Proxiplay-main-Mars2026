@@ -33,9 +33,6 @@ import {
   SharePromoConfig,
 } from './types';
 
-// Temporary development bypass. Keep as a fallback only.
-const TEMP_ADMIN_UID = 'CKRlhsC8x2cUUsUPFy4rG67CyJHG2';
-
 type CallableAuth = NonNullable<functions.https.CallableContext['auth']>;
 
 function requireAuth(request: functions.https.CallableContext): CallableAuth {
@@ -53,7 +50,7 @@ async function requireAdmin(
   context: functions.https.CallableContext,
 ): Promise<string> {
   const auth = requireAuth(context);
-  if (auth.token.admin === true || auth.uid === TEMP_ADMIN_UID) {
+  if (auth.token.admin === true) {
     return auth.uid;
   }
   const userSnap = await refs.user(auth.uid).get();
@@ -180,8 +177,8 @@ async function grantReferralRewardInternal(
       followUpTasks.push(
         queueUserPushNotification({
           docId: `share_promo_reward_${referralId}`,
-          title: '🎉 Ton parrainage a fonctionne !',
-          body: 'Tu peux maintenant jouer à tous les jeux jusqu à minuit.',
+          title: '🎉 Ton parrainage a fonctionné !',
+          body: 'Tu peux maintenant jouer à tous les jeux jusqu’à minuit.',
           userUid: referral.inviterUid,
           createdBy: grantedBy,
         }),
@@ -223,7 +220,7 @@ export const getSharePromoState = functions
     } else if (shareState.pendingCount > 0) {
       kind = 'friendPending';
       title = 'Invitation en attente';
-      message = 'Un ami n a pas encore finalise son inscription.';
+      message = 'Un ami n’a pas encore finalisé son inscription.';
       action = 'friendPending';
     } else if (campaignActive && campaign.kind !== 'defaultInvite') {
       kind = 'specialCampaign';
@@ -234,8 +231,8 @@ export const getSharePromoState = functions
       kind = 'lowRemainingPlaysInvite';
       title = remainingPart <= 0
           ? 'Plus de chances disponibles'
-          : 'Plus qu une chance disponible';
-      message = 'Invitez un proche pour continuer a jouer.';
+          : 'Plus qu’une chance disponible';
+      message = 'Invitez un proche pour continuer à jouer.';
       action = 'lowRemainingPlaysInvite';
     } else if (campaignActive) {
       kind = 'defaultInvite';

@@ -168,7 +168,7 @@ async function resolveBirthdayEmail({admin, userId, userData = {}}) {
     return getTrimmedString(authUser.email);
   } catch (error) {
     console.log(
-      `[birthday_runner] user=${userId} email=lookup_failed error=${error.message || error}`,
+      `[birthday_runner] delivery=lookup_failed error=${error.message || error}`,
     );
     return "";
   }
@@ -478,7 +478,7 @@ async function runBirthdayAutomation({
         if (emailAlreadyProcessedToday) {
           summary.skippedAlreadySent += 1;
           console.log(
-            `[birthday_runner] user=${userId} email=skipped reason=already_processed rewardGranted=${rewardGranted}`,
+            `[birthday_runner] delivery=skipped reason=already_processed rewardGranted=${rewardGranted}`,
           );
         } else {
           try {
@@ -487,7 +487,7 @@ async function runBirthdayAutomation({
               emailStatus = "skipped_no_email";
               summary.skippedNoEmail += 1;
               console.log(
-                `[birthday_runner] user=${userId} email=skipped reason=no_email rewardGranted=${rewardGranted}`,
+                `[birthday_runner] delivery=skipped reason=no_email rewardGranted=${rewardGranted}`,
               );
             } else {
               await sendTextEmail({
@@ -498,14 +498,14 @@ async function runBirthdayAutomation({
               emailStatus = "sent";
               summary.sentEmails += 1;
               console.log(
-                `[birthday_runner] user=${userId} email=queued to=${email} rewardGranted=${rewardGranted}`,
+                `[birthday_runner] delivery=queued rewardGranted=${rewardGranted}`,
               );
             }
           } catch (error) {
             emailStatus = "failed";
             summary.emailFailures += 1;
             console.log(
-              `[birthday_runner] user=${userId} email=failed error=${error.message || error} rewardGranted=${rewardGranted}`,
+              `[birthday_runner] delivery=failed error=${error.message || error} rewardGranted=${rewardGranted}`,
             );
           }
         }

@@ -48,8 +48,6 @@ const SMTP_PASS = (0, params_1.defineString)('SMTP_PASS');
 const SMTP_FROM_EMAIL = (0, params_1.defineString)('SMTP_FROM_EMAIL');
 const SMTP_FROM_NAME = (0, params_1.defineString)('SMTP_FROM_NAME');
 const SMTP_REPLY_TO = (0, params_1.defineString)('SMTP_REPLY_TO', { default: '' });
-// Temporary development bypass. Keep as a fallback only.
-const TEMP_ADMIN_UID = 'CKRlhsC8x2cUUsUPFy4rG67CyJHG2';
 const dailyPlaysReminderVariants = [
     {
         title: 'Il vous reste des chances !',
@@ -122,7 +120,7 @@ function requireAuth(request) {
 }
 async function requireAdmin(context) {
     const auth = requireAuth(context);
-    if (auth.token.admin === true || auth.uid === TEMP_ADMIN_UID) {
+    if (auth.token.admin === true) {
         return auth.uid;
     }
     const userSnap = await firestore_1.refs.user(auth.uid).get();
@@ -268,7 +266,7 @@ async function notifyInviterRewardByEmail(referralId, inviterUid, subject, body)
     const recipientEmail = await resolveUserEmail(inviterUid);
     if (!recipientEmail) {
         await writeRewardEmailAttempt(referralId, inviterUid, 'missing_email');
-        console.log(`[share_promo] reward email skipped: missing_email uid=${inviterUid}`);
+        console.log('[share_promo] reward email skipped: missing_email');
         return;
     }
     let mailer;
@@ -281,20 +279,19 @@ async function notifyInviterRewardByEmail(referralId, inviterUid, subject, body)
             error: String(error),
             to: recipientEmail,
         });
-        console.log(`[share_promo] reward email skipped: smtp_unavailable uid=${inviterUid} error=${error}`);
+        console.log(`[share_promo] reward email skipped: smtp_unavailable error=${error}`);
         return;
     }
     await writeRewardEmailAttempt(referralId, inviterUid, 'sending', {
         to: recipientEmail,
         subject,
     });
-    console.log('[share_promo] reward email sending uid=' + inviterUid + ' to=' + recipientEmail + ' subject=' + subject);
     await sendEmailNotification(mailer, recipientEmail, subject, body);
     await writeRewardEmailAttempt(referralId, inviterUid, 'sent', {
         to: recipientEmail,
         subject,
     });
-    console.log('[share_promo] reward email sent uid=' + inviterUid + ' to=' + recipientEmail + ' subject=' + subject);
+    console.log('[share_promo] reward email sent');
 }
 async function grantReferralRewardInternal(referralId, grantedBy) {
     const campaign = await loadCampaign();
@@ -386,7 +383,7 @@ async function grantReferralRewardInternal(referralId, grantedBy) {
                 void writeRewardEmailAttempt(referralId, referral.inviterUid, 'failed', {
                     error: String(error),
                 });
-                console.log(`[share_promo] reward email failed referralId=${referralId} uid=${referral.inviterUid} error=${error}`);
+                console.log(`[share_promo] reward email failed referralId=${referralId} error=${error}`);
             }));
         }
         await Promise.all(followUpTasks);
