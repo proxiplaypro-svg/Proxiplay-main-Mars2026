@@ -8,6 +8,8 @@ class DefaultFirebaseOptions {
       return web;
     }
     switch (defaultTargetPlatform) {
+      case TargetPlatform.iOS:
+        return ios;
       case TargetPlatform.android:
         return android;
       default:
@@ -32,5 +34,16 @@ class DefaultFirebaseOptions {
     messagingSenderId: '337086897094',
     projectId: 'proxi-play-odzp2e',
     storageBucket: 'proxi-play-odzp2e.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyBc_j8BVZndw-EN2hG9DlXDYWocZbsClJY',
+    appId: '1:337086897094:ios:ea460d0c52ffe6782bb0c7',
+    messagingSenderId: '337086897094',
+    projectId: 'proxi-play-odzp2e',
+    storageBucket: 'proxi-play-odzp2e.firebasestorage.app',
+    iosBundleId: 'com.proxiplay.proxiplay',
+    iosClientId:
+        '337086897094-eclbdgjvlqu5bu0k5mbfa4bdljn7f0k2.apps.googleusercontent.com',
   );
 }
