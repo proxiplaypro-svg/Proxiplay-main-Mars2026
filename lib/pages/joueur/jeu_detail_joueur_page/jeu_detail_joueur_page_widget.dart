@@ -46,6 +46,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
   bool _hasTrackedView = false;
+  bool _isLaunchingGame = false;
 
   Future<void> _trackViewOnce() async {
     if (_hasTrackedView) {
@@ -73,6 +74,137 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     }
     return valueOrDefault(user?.remainingPart, 0) <= 0 &&
         !_hasUnlimitedAccess(user, now);
+  }
+
+  void _setLaunchingGame(bool value) {
+    if (!mounted || _isLaunchingGame == value) {
+      return;
+    }
+    safeSetState(() {
+      _isLaunchingGame = value;
+    });
+  }
+
+  Future<void> _launchGame({
+    required Future<ParticipateInGameTransactionCloudFunctionCallResponse>
+        Function() participate,
+  }) async {
+    if (_isLaunchingGame) {
+      return;
+    }
+
+    _setLaunchingGame(true);
+
+    try {
+      final response = await participate();
+      if (!mounted) {
+        return;
+      }
+
+      if (response.succeeded == true) {
+        await refreshCurrentUserDocument();
+        if (!mounted) {
+          return;
+        }
+        safeSetState(() {});
+        await context.pushNamed(
+          PlayJoueurPageWidget.routeName,
+          queryParameters: {
+            'game': serializeParam(
+              widget.gameDoc,
+              ParamType.Document,
+            ),
+            'resultParticipation': serializeParam(
+              ResultParticipationGameStruct.maybeFromMap(response.jsonBody),
+              ParamType.DataStruct,
+            ),
+          }.withoutNulls,
+          extra: <String, dynamic>{
+            'game': widget.gameDoc,
+          },
+        );
+      } else {
+        _setLaunchingGame(false);
+        if (!mounted) {
+          return;
+        }
+        await showDialog(
+          context: context,
+          builder: (alertDialogContext) {
+            return WebViewAware(
+              child: AlertDialog(
+                title: Text(
+                  response.data?.message.isNotEmpty == true
+                      ? response.data!.message
+                      : "Une erreur est survenue (${response.errorCode ?? 'inconnue'}).",
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(alertDialogContext),
+                    child: const Text('Ok'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      }
+    } finally {
+      _setLaunchingGame(false);
+      if (mounted) {
+        safeSetState(() {});
+      }
+    }
+  }
+
+  Widget _buildLaunchingOverlay(BuildContext context) {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.14),
+        alignment: Alignment.center,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 28.0),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20.0,
+            vertical: 18.0,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20.0),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 20.0,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 28.0,
+                height: 28.0,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.6,
+                  color: FlutterFlowTheme.of(context).primary,
+                ),
+              ),
+              const SizedBox(height: 14.0),
+              Text(
+                'Préparation du jeu…',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 15.0,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1F2937),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -382,7 +514,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             FocusScope.of(context).unfocus();
             FocusManager.instance.primaryFocus?.unfocus();
           },
-          child: Scaffold(
+          child: Stack(
+            children: [
+              Scaffold(
             key: scaffoldKey,
             backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
             appBar: AppBar(
@@ -680,12 +814,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     getCurrentTimestamp,
                                                                 child:
                                                                     FFButtonWidget(
+                                                                  showLoadingIndicator:
+                                                                      false,
                                                                   onPressed: ((widget.gameDoc!.endDate! <
                                                                               getCurrentTimestamp) ||
                                                                           hasPlayedToday ||
-                                                                          noRemainingParts)
+                                                                          noRemainingParts ||
+                                                                          _isLaunchingGame)
                                                                       ? null
                                                                       : () async {
+                                                                          if (_isLaunchingGame) {
+                                                                            return;
+                                                                          }
                                                                           if (isGuestOrAnonymous) {
                                                                             await showCreateAccountToPlayDialog(context);
                                                                             return;
@@ -693,80 +833,30 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                           debugPrint(
                                                                             '[GAME_FLOW_DEBUG] participate_start screen=JeuDetailJoueurPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
                                                                           );
-                                                                          try {
-                                                                            final result =
-                                                                                await FirebaseFunctions.instance.httpsCallable('participateInGameTransaction').call({
-                                                                              "gameRef": widget.gameDoc!.reference.id,
-                                                                            });
-                                                                            _model.cloudFunction3sn =
-                                                                                ParticipateInGameTransactionCloudFunctionCallResponse(
-                                                                              data: ResultParticipationGameStruct.fromMap(result.data),
-                                                                              succeeded: true,
-                                                                              resultAsString: result.data.toString(),
-                                                                              jsonBody: result.data,
-                                                                            );
-                                                                          } on FirebaseFunctionsException catch (error) {
-                                                                            _model.cloudFunction3sn =
-                                                                                ParticipateInGameTransactionCloudFunctionCallResponse(
-                                                                              data: createResultParticipationGameStruct(
-                                                                                message: error.message ?? "Erreur (${error.code})",
-                                                                              ),
-                                                                              errorCode: error.code,
-                                                                              succeeded: false,
-                                                                            );
-                                                                          }
-
-                                                                          if (!context
-                                                                              .mounted) {
-                                                                            return;
-                                                                          }
-                                                                          if (_model
-                                                                              .cloudFunction3sn!
-                                                                              .succeeded!) {
-                                                                            await refreshCurrentUserDocument();
-                                                                            if (!context.mounted) {
-                                                                              return;
-                                                                            }
-                                                                            safeSetState(() {});
-                                                                            context.pushNamed(
-                                                                              PlayJoueurPageWidget.routeName,
-                                                                              queryParameters: {
-                                                                                'game': serializeParam(
-                                                                                  widget.gameDoc,
-                                                                                  ParamType.Document,
-                                                                                ),
-                                                                                'resultParticipation': serializeParam(
-                                                                                  ResultParticipationGameStruct.maybeFromMap(_model.cloudFunction3sn?.jsonBody),
-                                                                                  ParamType.DataStruct,
-                                                                                ),
-                                                                              }.withoutNulls,
-                                                                              extra: <String, dynamic>{
-                                                                                'game': widget.gameDoc,
-                                                                              },
-                                                                            );
-                                                                          } else {
-                                                                            await showDialog(
-                                                                              context: context,
-                                                                              builder: (alertDialogContext) {
-                                                                                return WebViewAware(
-                                                                                  child: AlertDialog(
-                                                                                    title: Text(
-                                                                                      _model.cloudFunction3sn?.data?.message.isNotEmpty == true ? _model.cloudFunction3sn!.data!.message : "Une erreur est survenue (${_model.cloudFunction3sn?.errorCode ?? 'inconnue'}).",
-                                                                                    ),
-                                                                                    actions: [
-                                                                                      TextButton(
-                                                                                        onPressed: () => Navigator.pop(alertDialogContext),
-                                                                                        child: const Text('Ok'),
-                                                                                      ),
-                                                                                    ],
-                                                                                  ),
+                                                                          await _launchGame(
+                                                                            participate: () async {
+                                                                              try {
+                                                                                final result = await FirebaseFunctions.instance.httpsCallable('participateInGameTransaction').call({
+                                                                                  "gameRef": widget.gameDoc!.reference.id,
+                                                                                });
+                                                                                _model.cloudFunction3sn = ParticipateInGameTransactionCloudFunctionCallResponse(
+                                                                                  data: ResultParticipationGameStruct.fromMap(result.data),
+                                                                                  succeeded: true,
+                                                                                  resultAsString: result.data.toString(),
+                                                                                  jsonBody: result.data,
                                                                                 );
-                                                                              },
-                                                                            );
-                                                                          }
-
-                                                                          safeSetState(
-                                                                              () {});
+                                                                              } on FirebaseFunctionsException catch (error) {
+                                                                                _model.cloudFunction3sn = ParticipateInGameTransactionCloudFunctionCallResponse(
+                                                                                  data: createResultParticipationGameStruct(
+                                                                                    message: error.message ?? "Erreur (${error.code})",
+                                                                                  ),
+                                                                                  errorCode: error.code,
+                                                                                  succeeded: false,
+                                                                                );
+                                                                              }
+                                                                              return _model.cloudFunction3sn!;
+                                                                            },
+                                                                          );
                                                                         },
                                                                   text: () {
                                                                     final noRemainingPartsLive =
@@ -785,10 +875,27 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
                                                                     } else if (hasPlayedBefore) {
                                                                       return 'Rejouer';
+                                                                    } else if (_isLaunchingGame) {
+                                                                      return 'Chargement du jeu…';
                                                                     } else {
                                                                       return 'Jouer';
                                                                     }
                                                                   }(),
+                                                                  icon: _isLaunchingGame
+                                                                      ? SizedBox(
+                                                                          width:
+                                                                              18.0,
+                                                                          height:
+                                                                              18.0,
+                                                                          child:
+                                                                              CircularProgressIndicator(
+                                                                            strokeWidth:
+                                                                                2.2,
+                                                                            color:
+                                                                                Colors.white,
+                                                                          ),
+                                                                        )
+                                                                      : null,
                                                                   options:
                                                                       FFButtonOptions(
                                                                     width: double
@@ -828,6 +935,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                             16.0),
                                                                     elevation:
                                                                         4.0,
+                                                                    disabledColor: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .primary
+                                                                        .withValues(
+                                                                            alpha:
+                                                                                0.7),
                                                                   ),
                                                                 ),
                                                               );
@@ -876,12 +989,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 getCurrentTimestamp,
                                                               );
                                                               return FFButtonWidget(
+                                                                showLoadingIndicator:
+                                                                    false,
                                                                 onPressed: ((widget.gameDoc!.endDate! <
                                                                             getCurrentTimestamp) ||
                                                                         hasPlayedToday ||
-                                                                        noRemainingPartsLive)
+                                                                        noRemainingPartsLive ||
+                                                                        _isLaunchingGame)
                                                                     ? null
                                                                     : () async {
+                                                                        if (_isLaunchingGame) {
+                                                                          return;
+                                                                        }
                                                                         if (isGuestOrAnonymous) {
                                                                           await showCreateAccountToPlayDialog(
                                                                               context);
@@ -890,97 +1009,42 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         debugPrint(
                                                                           '[GAME_FLOW_DEBUG] participate_start screen=JeuDetailJoueurPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
                                                                         );
-                                                                        try {
-                                                                          final result = await FirebaseFunctions
-                                                                              .instance
-                                                                              .httpsCallable('participateInGameTransaction')
-                                                                              .call({
-                                                                            "gameRef":
-                                                                                widget.gameDoc!.reference.id,
-                                                                          });
-                                                                          _model.cloudFunction3sn2 =
-                                                                              ParticipateInGameTransactionCloudFunctionCallResponse(
-                                                                            data:
-                                                                                ResultParticipationGameStruct.fromMap(result.data),
-                                                                            succeeded:
-                                                                                true,
-                                                                            resultAsString:
-                                                                                result.data.toString(),
-                                                                            jsonBody:
-                                                                                result.data,
-                                                                          );
-                                                                        } on FirebaseFunctionsException catch (error) {
-                                                                          _model.cloudFunction3sn2 =
-                                                                              ParticipateInGameTransactionCloudFunctionCallResponse(
-                                                                            data:
-                                                                                createResultParticipationGameStruct(
-                                                                              message: error.message ?? "Erreur (${error.code})",
-                                                                            ),
-                                                                            errorCode:
-                                                                                error.code,
-                                                                            succeeded:
-                                                                                false,
-                                                                          );
-                                                                        }
-
-                                                                        if (!context
-                                                                            .mounted) {
-                                                                          return;
-                                                                        }
-                                                                        if (_model
-                                                                            .cloudFunction3sn2!
-                                                                            .succeeded!) {
-                                                                          await refreshCurrentUserDocument();
-                                                                          if (!context
-                                                                              .mounted) {
-                                                                            return;
-                                                                          }
-                                                                          safeSetState(
-                                                                              () {});
-                                                                          context
-                                                                              .pushNamed(
-                                                                            PlayJoueurPageWidget.routeName,
-                                                                            queryParameters:
-                                                                                {
-                                                                              'game': serializeParam(
-                                                                                widget.gameDoc,
-                                                                                ParamType.Document,
-                                                                              ),
-                                                                              'resultParticipation': serializeParam(
-                                                                                ResultParticipationGameStruct.maybeFromMap(_model.cloudFunction3sn2?.jsonBody),
-                                                                                ParamType.DataStruct,
-                                                                              ),
-                                                                            }.withoutNulls,
-                                                                            extra: <String,
-                                                                                dynamic>{
-                                                                              'game': widget.gameDoc,
-                                                                            },
-                                                                          );
-                                                                        } else {
-                                                                          await showDialog(
-                                                                            context:
-                                                                                context,
-                                                                            builder:
-                                                                                (alertDialogContext) {
-                                                                              return WebViewAware(
-                                                                                child: AlertDialog(
-                                                                                  title: Text(
-                                                                                    _model.cloudFunction3sn2?.data?.message.isNotEmpty == true ? _model.cloudFunction3sn2!.data!.message : "Une erreur est survenue (${_model.cloudFunction3sn2?.errorCode ?? 'inconnue'}).",
-                                                                                  ),
-                                                                                  actions: [
-                                                                                    TextButton(
-                                                                                      onPressed: () => Navigator.pop(alertDialogContext),
-                                                                                      child: const Text('Ok'),
-                                                                                    ),
-                                                                                  ],
-                                                                                ),
+                                                                        await _launchGame(
+                                                                          participate:
+                                                                              () async {
+                                                                            try {
+                                                                              final result = await FirebaseFunctions
+                                                                                  .instance
+                                                                                  .httpsCallable('participateInGameTransaction')
+                                                                                  .call({
+                                                                                "gameRef":
+                                                                                    widget.gameDoc!.reference.id,
+                                                                              });
+                                                                              _model.cloudFunction3sn2 = ParticipateInGameTransactionCloudFunctionCallResponse(
+                                                                                data:
+                                                                                    ResultParticipationGameStruct.fromMap(result.data),
+                                                                                succeeded:
+                                                                                    true,
+                                                                                resultAsString:
+                                                                                    result.data.toString(),
+                                                                                jsonBody:
+                                                                                    result.data,
                                                                               );
-                                                                            },
-                                                                          );
-                                                                        }
-
-                                                                        safeSetState(
-                                                                            () {});
+                                                                            } on FirebaseFunctionsException catch (error) {
+                                                                              _model.cloudFunction3sn2 = ParticipateInGameTransactionCloudFunctionCallResponse(
+                                                                                data:
+                                                                                    createResultParticipationGameStruct(
+                                                                                  message: error.message ?? "Erreur (${error.code})",
+                                                                                ),
+                                                                                errorCode:
+                                                                                    error.code,
+                                                                                succeeded:
+                                                                                    false,
+                                                                              );
+                                                                            }
+                                                                            return _model.cloudFunction3sn2!;
+                                                                          },
+                                                                        );
                                                                       },
                                                                 text: () {
                                                                   if (noRemainingPartsLive) {
@@ -994,10 +1058,27 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
                                                                   } else if (hasPlayedBefore) {
                                                                     return 'Rejouer';
+                                                                  } else if (_isLaunchingGame) {
+                                                                    return 'Chargement du jeu…';
                                                                   } else {
                                                                     return 'Jouer';
                                                                   }
                                                                 }(),
+                                                                icon: _isLaunchingGame
+                                                                    ? SizedBox(
+                                                                        width:
+                                                                            18.0,
+                                                                        height:
+                                                                            18.0,
+                                                                        child:
+                                                                            CircularProgressIndicator(
+                                                                          strokeWidth:
+                                                                              2.2,
+                                                                          color:
+                                                                              Colors.white,
+                                                                        ),
+                                                                      )
+                                                                    : null,
                                                                 options:
                                                                     FFButtonOptions(
                                                                   width: double
@@ -1037,6 +1118,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                               16.0),
                                                                   elevation:
                                                                       4.0,
+                                                                  disabledColor: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .primary
+                                                                      .withValues(
+                                                                          alpha:
+                                                                              0.7),
                                                                 ),
                                                               );
                                                             },
@@ -2436,6 +2523,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                 ),
               ),
             ),
+          ),
+              if (_isLaunchingGame) _buildLaunchingOverlay(context),
+            ],
           ),
         );
       },

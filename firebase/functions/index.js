@@ -906,12 +906,31 @@ function createSmtpMailer() {
   };
 }
 
-async function sendEmailNotification(mailer, to, subject, text) {
+function stripHtmlToText(html) {
+  return getTrimmedString(html)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function applyTemplateVariables(template, variables = {}) {
+  let output = typeof template === "string" ? template : "";
+  for (const [key, value] of Object.entries(variables)) {
+    const safeValue = value == null ? "" : String(value);
+    output = output.replace(new RegExp(`{{\\s*${key}\\s*}}`, "gi"), safeValue);
+  }
+  return output;
+}
+
+async function sendEmailNotification(mailer, to, subject, text, html = "") {
   await mailer.transporter.sendMail({
     from: mailer.from,
     to,
     subject,
     text,
+    ...(html ? { html } : {}),
     ...(mailer.replyTo ? { replyTo: mailer.replyTo } : {}),
   });
 }
@@ -955,6 +974,1129 @@ async function queuePrizePushNotification({
     created_by: createdBy,
   });
 }
+
+const kNotificationsConfigDocId = "notifications";
+const kNotificationsAutoConfigDocId = "notifications_auto";
+const kPrizeReminderRunsCollection = "prize_reminder_runs";
+const kPrizeReminderLogsSubcollection = "prize_reminder_logs";
+const kDefaultPrizeReminderDelaysDays = [7, 21, 35];
+const kTerminalPrizeStatuses = new Set([
+  "claimed",
+  "used",
+  "expired",
+  "cancelled",
+]);
+
+function getNotificationsConfigRef() {
+  return firestore.collection("app_config").doc(kNotificationsConfigDocId);
+}
+
+function getNotificationsAutoConfigRef() {
+  return firestore.collection("app_config").doc(kNotificationsAutoConfigDocId);
+}
+
+function getPrizeReminderDefaultConfig() {
+  return {
+    prizeReminderEnabled: false,
+    prizeReminderPushEnabled: true,
+    prizeReminderEmailEnabled: true,
+    prizeReminderPushTitle: "Votre lot vous attend 🎁",
+    prizeReminderPushMessage:
+      "Vous avez gagné un lot sur Proxiplay. Pensez à le retirer ou à l’utiliser avant qu’il n’expire.",
+    prizeReminderEmailSubject: "Votre lot Proxiplay vous attend 🎁",
+    prizeReminderEmailBody: [
+      "<p>Bonjour,</p>",
+      "<p>Vous avez gagné un lot sur Proxiplay.</p>",
+      "<p>Jeu : {{game_name}}<br>Code : {{claim_code}}</p>",
+      "<p>Pensez à le retirer ou à l’utiliser avant qu’il n’expire.</p>",
+      "<p>À bientôt,<br>L’équipe Proxiplay</p>",
+    ].join(""),
+    prizeReminderDelaysDays: [...kDefaultPrizeReminderDelaysDays],
+    prizeReminderLastRunAt: null,
+    prizeReminderLastRunPushSentCount: 0,
+    prizeReminderLastRunEmailSentCount: 0,
+    prizeReminderLastRunErrorCount: 0,
+    prizeReminderUpdatedAt: null,
+    prizeReminderUpdatedBy: "",
+  };
+}
+
+function normalizeReminderDelays(value) {
+  if (!Array.isArray(value)) {
+    return [...kDefaultPrizeReminderDelaysDays];
+  }
+  const normalized = Array.from(
+    new Set(
+      value
+        .map((entry) => Number(entry))
+        .filter((entry) => Number.isFinite(entry) && entry > 0)
+        .map((entry) => Math.trunc(entry)),
+    ),
+  ).sort((a, b) => a - b);
+  if (normalized.length === 0) {
+    return [...kDefaultPrizeReminderDelaysDays];
+  }
+  return normalized.slice(0, 3);
+}
+
+function normalizePrizeReminderConfig(rawConfig = {}) {
+  const defaults = getPrizeReminderDefaultConfig();
+  return {
+    ...defaults,
+    prizeReminderEnabled: toBoolean(
+      rawConfig.prizeReminderEnabled,
+      defaults.prizeReminderEnabled,
+    ),
+    prizeReminderPushEnabled: toBoolean(
+      rawConfig.prizeReminderPushEnabled,
+      defaults.prizeReminderPushEnabled,
+    ),
+    prizeReminderEmailEnabled: toBoolean(
+      rawConfig.prizeReminderEmailEnabled,
+      defaults.prizeReminderEmailEnabled,
+    ),
+    prizeReminderPushTitle:
+      getTrimmedString(rawConfig.prizeReminderPushTitle) ||
+      defaults.prizeReminderPushTitle,
+    prizeReminderPushMessage:
+      getTrimmedString(rawConfig.prizeReminderPushMessage) ||
+      defaults.prizeReminderPushMessage,
+    prizeReminderEmailSubject:
+      getTrimmedString(rawConfig.prizeReminderEmailSubject) ||
+      defaults.prizeReminderEmailSubject,
+    prizeReminderEmailBody:
+      getTrimmedString(rawConfig.prizeReminderEmailBody) ||
+      defaults.prizeReminderEmailBody,
+    prizeReminderDelaysDays: normalizeReminderDelays(
+      rawConfig.prizeReminderDelaysDays,
+    ),
+    prizeReminderLastRunAt: rawConfig.prizeReminderLastRunAt || null,
+    prizeReminderLastRunPushSentCount: Number.isFinite(
+      Number(rawConfig.prizeReminderLastRunPushSentCount),
+    )
+      ? Math.trunc(Number(rawConfig.prizeReminderLastRunPushSentCount))
+      : 0,
+    prizeReminderLastRunEmailSentCount: Number.isFinite(
+      Number(rawConfig.prizeReminderLastRunEmailSentCount),
+    )
+      ? Math.trunc(Number(rawConfig.prizeReminderLastRunEmailSentCount))
+      : 0,
+    prizeReminderLastRunErrorCount: Number.isFinite(
+      Number(rawConfig.prizeReminderLastRunErrorCount),
+    )
+      ? Math.trunc(Number(rawConfig.prizeReminderLastRunErrorCount))
+      : 0,
+    prizeReminderUpdatedAt: rawConfig.prizeReminderUpdatedAt || null,
+    prizeReminderUpdatedBy:
+      getTrimmedString(rawConfig.prizeReminderUpdatedBy) || "",
+  };
+}
+
+function getDateKeyInTimeZone(date, timeZone = kParisTimeZone) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function diffCalendarDaysInTimeZone(startMs, endMs, timeZone = kParisTimeZone) {
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    return null;
+  }
+  const startKey = getDateKeyInTimeZone(new Date(startMs), timeZone);
+  const endKey = getDateKeyInTimeZone(new Date(endMs), timeZone);
+  const startKeyMs = Date.parse(`${startKey}T00:00:00.000Z`);
+  const endKeyMs = Date.parse(`${endKey}T00:00:00.000Z`);
+  if (!Number.isFinite(startKeyMs) || !Number.isFinite(endKeyMs)) {
+    return null;
+  }
+  return Math.round((endKeyMs - startKeyMs) / (24 * 60 * 60 * 1000));
+}
+
+function getPrizeReminderLogRef(prizeRef, delayDays) {
+  return prizeRef.collection(kPrizeReminderLogsSubcollection).doc(`${delayDays}d`);
+}
+
+function getPrizeReminderRunsRef(runId) {
+  return getNotificationsConfigRef().collection(kPrizeReminderRunsCollection).doc(runId);
+}
+
+function serializeRefPath(ref) {
+  return ref && typeof ref.path === "string" ? ref.path : "";
+}
+
+function getPrizeStatus(prizeData = {}) {
+  const explicitStatus = getTrimmedString(prizeData.prize_status).toLowerCase();
+  if (explicitStatus) {
+    return explicitStatus;
+  }
+  return prizeData.claimed === true ? "claimed" : "won";
+}
+
+function getPrizeWonAtMillis(prizeData = {}) {
+  return (
+    timestampToMillis(prizeData.prize_won_at) ||
+    timestampToMillis(prizeData.win_date)
+  );
+}
+
+async function inspectPrizeReminderTarget(prizeRef, delaysDays, nowMs = Date.now()) {
+  const prizeSnap = await prizeRef.get();
+  if (!prizeSnap.exists) {
+    return {
+      ok: false,
+      reason: "prize_not_found",
+      message: "Lot introuvable.",
+    };
+  }
+
+  const prizeData = prizeSnap.data() || {};
+  const prizeStatus = getPrizeStatus(prizeData);
+  if (prizeData.claimed === true || kTerminalPrizeStatuses.has(prizeStatus)) {
+    return {
+      ok: false,
+      reason: "claimed_or_final_status",
+      message: `Lot non éligible: status=${prizeStatus || "claimed"}.`,
+      prizeSnap,
+      prizeData,
+    };
+  }
+
+  const prizeWonAtMs = getPrizeWonAtMillis(prizeData);
+  if (!Number.isFinite(prizeWonAtMs)) {
+    return {
+      ok: false,
+      reason: "missing_won_at",
+      message: "Date de gain introuvable.",
+      prizeSnap,
+      prizeData,
+    };
+  }
+
+  const ageDays = diffCalendarDaysInTimeZone(prizeWonAtMs, nowMs, kParisTimeZone);
+  const matchedDelay = delaysDays.find((delayDays) => delayDays === ageDays);
+  if (!matchedDelay) {
+    return {
+      ok: false,
+      reason: "delay_not_reached",
+      message: `Le lot n'est pas sur un palier de relance aujourd'hui (ageDays=${ageDays}).`,
+      prizeSnap,
+      prizeData,
+      ageDays,
+    };
+  }
+
+  const reminderLogRef = getPrizeReminderLogRef(prizeRef, matchedDelay);
+  const reminderLogSnap = await reminderLogRef.get();
+  if (reminderLogSnap.exists) {
+    return {
+      ok: false,
+      reason: "already_reminded",
+      message: `Le rappel ${matchedDelay}d existe déjà pour ce lot.`,
+      prizeSnap,
+      prizeData,
+      matchedDelay,
+      ageDays,
+    };
+  }
+
+  return {
+    ok: true,
+    prizeSnap,
+    prizeData,
+    prizeStatus,
+    matchedDelay,
+    ageDays,
+  };
+}
+
+async function resolveAdminAuditIdentity(uid) {
+  if (!uid) {
+    return "admin_inconnu";
+  }
+  try {
+    const authUser = await admin.auth().getUser(uid);
+    return getTrimmedString(authUser.email) || `users/${uid}`;
+  } catch (error) {
+    console.log(
+      `[prize_reminders] resolveAdminAuditIdentity uid=${uid} error=${error.message || error}`,
+    );
+    return `users/${uid}`;
+  }
+}
+
+async function loadUnifiedNotificationsConfig() {
+  const [notificationsSnap, notificationsAutoSnap] = await Promise.all([
+    getNotificationsConfigRef().get(),
+    getNotificationsAutoConfigRef().get(),
+  ]);
+
+  const notificationsData = notificationsSnap.exists
+    ? notificationsSnap.data() || {}
+    : {};
+  const notificationsAutoData = notificationsAutoSnap.exists
+    ? notificationsAutoSnap.data() || {}
+    : {};
+  const prizeReminderConfig = normalizePrizeReminderConfig(notificationsData);
+
+  return {
+    dailyRemainingChancesReminderEnabled:
+      notificationsData.dailyRemainingChancesReminderEnabled !== false,
+    ...prizeReminderConfig,
+    game_ending_enabled: notificationsAutoData.game_ending_enabled === true,
+    game_ending_days_before: Number.isFinite(
+      Number(notificationsAutoData.game_ending_days_before),
+    )
+      ? Math.trunc(Number(notificationsAutoData.game_ending_days_before))
+      : 3,
+    game_ending_target_statuses: Array.isArray(
+      notificationsAutoData.game_ending_target_statuses,
+    )
+      ? notificationsAutoData.game_ending_target_statuses
+      : ["actif", "a_relancer"],
+    game_ending_use_city_filter:
+      notificationsAutoData.game_ending_use_city_filter === true,
+    inactive_relaunch_enabled:
+      notificationsAutoData.inactive_relaunch_enabled === true,
+    inactive_relaunch_frequency_days: Number.isFinite(
+      Number(notificationsAutoData.inactive_relaunch_frequency_days),
+    )
+      ? Math.trunc(Number(notificationsAutoData.inactive_relaunch_frequency_days))
+      : 7,
+    new_game_enabled: notificationsAutoData.new_game_enabled === true,
+    new_game_target_statuses: Array.isArray(
+      notificationsAutoData.new_game_target_statuses,
+    )
+      ? notificationsAutoData.new_game_target_statuses
+      : ["actif", "a_relancer"],
+    new_game_use_city_filter:
+      notificationsAutoData.new_game_use_city_filter === true,
+  };
+}
+
+async function runPrizeReminderJob({
+  dryRun = false,
+  onlyPrizeIds = [],
+  limit = 0,
+  trigger = "scheduled",
+} = {}) {
+  const unifiedConfig = await loadUnifiedNotificationsConfig();
+  const prizeReminderConfig = normalizePrizeReminderConfig(unifiedConfig);
+  const nowMs = Date.now();
+  const delaysDays = normalizeReminderDelays(
+    prizeReminderConfig.prizeReminderDelaysDays,
+  );
+  const onlyPrizeIdsSet =
+    Array.isArray(onlyPrizeIds) && onlyPrizeIds.length > 0
+      ? new Set(
+          onlyPrizeIds
+            .map((entry) => getTrimmedString(entry))
+            .filter((entry) => entry.length > 0),
+        )
+      : null;
+  const normalizedLimit = Number.isFinite(Number(limit))
+    ? Math.max(0, Math.min(500, Math.trunc(Number(limit))))
+    : 0;
+
+  const summary = {
+    dryRun: dryRun === true,
+    trigger,
+    enabled: prizeReminderConfig.prizeReminderEnabled === true,
+    delaysDays,
+    scannedPrizes: 0,
+    eligiblePrizes: 0,
+    remindersAttempted: 0,
+    pushSentCount: 0,
+    emailSentCount: 0,
+    errorCount: 0,
+    skippedClaimedOrFinalStatus: 0,
+    skippedMissingWinner: 0,
+    skippedMissingWonAt: 0,
+    skippedDelayNotReached: 0,
+    skippedAlreadyReminded: 0,
+    skippedUserNotFound: 0,
+    skippedNoChannel: 0,
+    skippedNoPushToken: 0,
+    skippedNoEmail: 0,
+    processedPrizeIds: [],
+  };
+
+  console.log(
+    "[prize_reminders] start",
+    JSON.stringify({
+      dryRun: summary.dryRun,
+      trigger,
+      enabled: summary.enabled,
+      delaysDays,
+      onlyPrizeIds: onlyPrizeIdsSet ? Array.from(onlyPrizeIdsSet) : [],
+      limit: normalizedLimit,
+    }),
+  );
+
+  const processPrizeDoc = async (prizeDoc, mailerFactory) => {
+    const prizeData = prizeDoc.data() || {};
+    summary.scannedPrizes += 1;
+
+    const prizeStatus = getPrizeStatus(prizeData);
+    if (prizeData.claimed === true || kTerminalPrizeStatuses.has(prizeStatus)) {
+      summary.skippedClaimedOrFinalStatus += 1;
+      console.log(
+        `[prize_reminders] prize=${prizeDoc.id} skip=final_status status=${prizeStatus}`,
+      );
+      return;
+    }
+
+    const winnerRef = toDocRef(prizeData.winner_id);
+    if (!winnerRef) {
+      summary.skippedMissingWinner += 1;
+      console.log(`[prize_reminders] prize=${prizeDoc.id} skip=missing_winner`);
+      return;
+    }
+
+    const prizeWonAtMs = getPrizeWonAtMillis(prizeData);
+    if (!Number.isFinite(prizeWonAtMs)) {
+      summary.skippedMissingWonAt += 1;
+      console.log(`[prize_reminders] prize=${prizeDoc.id} skip=missing_won_at`);
+      return;
+    }
+
+    const ageDays = diffCalendarDaysInTimeZone(prizeWonAtMs, nowMs, kParisTimeZone);
+    const matchedDelay = delaysDays.find((delayDays) => delayDays === ageDays);
+    if (!matchedDelay) {
+      summary.skippedDelayNotReached += 1;
+      console.log(
+        `[prize_reminders] prize=${prizeDoc.id} skip=delay_not_reached ageDays=${ageDays}`,
+      );
+      return;
+    }
+
+    const reminderLogRef = getPrizeReminderLogRef(prizeDoc.ref, matchedDelay);
+    const reminderLogSnap = await reminderLogRef.get();
+    if (reminderLogSnap.exists) {
+      summary.skippedAlreadyReminded += 1;
+      console.log(
+        `[prize_reminders] prize=${prizeDoc.id} skip=already_reminded delayDays=${matchedDelay}`,
+      );
+      return;
+    }
+
+    const winnerSnap = await winnerRef.get();
+    if (!winnerSnap.exists) {
+      summary.skippedUserNotFound += 1;
+      console.log(
+        `[prize_reminders] prize=${prizeDoc.id} skip=user_not_found winner=${winnerRef.path}`,
+      );
+      return;
+    }
+
+    const winnerData = winnerSnap.data() || {};
+    const prizeName = getTrimmedString(prizeData.name) || "Lot ProxiPlay";
+    const gameRef = toDocRef(prizeData.game_id);
+    const claimCode = getTrimmedString(prizeData.claim_code);
+    let gameName = "Jeu ProxiPlay";
+    if (gameRef) {
+      try {
+        const gameSnap = await gameRef.get();
+        if (gameSnap.exists) {
+          const gameData = gameSnap.data() || {};
+          gameName = getTrimmedString(gameData.name) || gameName;
+        }
+      } catch (error) {
+        console.log(
+          `[prize_reminders] prize=${prizeDoc.id} game_lookup_error=${error.message || error}`,
+        );
+      }
+    }
+
+    let hasPushToken = false;
+    if (prizeReminderConfig.prizeReminderPushEnabled) {
+      const tokenSnap = await winnerRef.collection(kFcmTokensCollection).limit(1).get();
+      hasPushToken = !tokenSnap.empty;
+      if (!hasPushToken) {
+        summary.skippedNoPushToken += 1;
+      }
+    }
+
+    let winnerEmail = "";
+    if (prizeReminderConfig.prizeReminderEmailEnabled) {
+      winnerEmail = await resolveUserEmail(winnerRef, winnerData);
+      if (!winnerEmail) {
+        summary.skippedNoEmail += 1;
+      }
+    }
+
+    const canPush =
+      prizeReminderConfig.prizeReminderPushEnabled === true && hasPushToken;
+    const canEmail =
+      prizeReminderConfig.prizeReminderEmailEnabled === true && !!winnerEmail;
+    if (!canPush && !canEmail) {
+      summary.skippedNoChannel += 1;
+      console.log(
+        `[prize_reminders] prize=${prizeDoc.id} skip=no_channel pushEnabled=${prizeReminderConfig.prizeReminderPushEnabled} hasPushToken=${hasPushToken} emailEnabled=${prizeReminderConfig.prizeReminderEmailEnabled} hasEmail=${winnerEmail.length > 0}`,
+      );
+      return;
+    }
+
+    const pushResult = {
+      status: prizeReminderConfig.prizeReminderPushEnabled
+        ? hasPushToken
+          ? summary.dryRun
+            ? "dry_run"
+            : "queued"
+          : "skipped_no_token"
+        : "disabled",
+      error: "",
+    };
+    const emailResult = {
+      status: prizeReminderConfig.prizeReminderEmailEnabled
+        ? winnerEmail
+          ? summary.dryRun
+            ? "dry_run"
+            : "sent"
+          : "skipped_no_email"
+        : "disabled",
+      error: "",
+    };
+    const emailTemplateVariables = {
+      game_name: gameName,
+      claim_code: claimCode,
+      prize_name: prizeName,
+    };
+    const emailSubject = applyTemplateVariables(
+      prizeReminderConfig.prizeReminderEmailSubject,
+      emailTemplateVariables,
+    );
+    const emailHtmlBody = applyTemplateVariables(
+      prizeReminderConfig.prizeReminderEmailBody,
+      emailTemplateVariables,
+    );
+    const emailTextBody = stripHtmlToText(emailHtmlBody);
+
+    if (summary.dryRun) {
+      summary.eligiblePrizes += 1;
+      summary.remindersAttempted += 1;
+      summary.processedPrizeIds.push(prizeDoc.id);
+      if (canPush) {
+        summary.pushSentCount += 1;
+      }
+      if (canEmail) {
+        summary.emailSentCount += 1;
+      }
+      console.log(
+        `[prize_reminders] dry_run prize=${prizeDoc.id} delayDays=${matchedDelay} prizeName=${prizeName}`,
+      );
+      return;
+    }
+
+    const reservation = await firestore.runTransaction(async (transaction) => {
+      const freshPrizeSnap = await transaction.get(prizeDoc.ref);
+      if (!freshPrizeSnap.exists) {
+        return {ok: false, reason: "prize_not_found"};
+      }
+
+      const freshPrizeData = freshPrizeSnap.data() || {};
+      const freshPrizeStatus = getPrizeStatus(freshPrizeData);
+      if (
+        freshPrizeData.claimed === true ||
+        kTerminalPrizeStatuses.has(freshPrizeStatus)
+      ) {
+        return {
+          ok: false,
+          reason: "claimed_or_final_status",
+          status: freshPrizeStatus,
+        };
+      }
+
+      const freshReminderLogSnap = await transaction.get(reminderLogRef);
+      if (freshReminderLogSnap.exists) {
+        return {
+          ok: false,
+          reason: "already_reminded",
+        };
+      }
+
+      const currentReminderCount = Number.isFinite(
+        Number(freshPrizeData.prize_reminder_count),
+      )
+        ? Math.trunc(Number(freshPrizeData.prize_reminder_count))
+        : 0;
+
+      transaction.set(
+        prizeDoc.ref,
+        {
+          ...(freshPrizeData.prize_status
+            ? {}
+            : {prize_status: freshPrizeStatus || "won"}),
+          ...(freshPrizeData.prize_won_at
+            ? {}
+            : {
+                prize_won_at:
+                  freshPrizeData.win_date ||
+                  admin.firestore.FieldValue.serverTimestamp(),
+              }),
+          prize_reminder_count: currentReminderCount + 1,
+          last_prize_reminder_at: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true},
+      );
+
+      transaction.create(reminderLogRef, {
+        trigger,
+        delayDays: matchedDelay,
+        ageDays,
+        status: "reserved",
+        prizeId: prizeDoc.id,
+        prizePath: prizeDoc.ref.path,
+        gamePath: serializeRefPath(gameRef),
+        userPath: winnerRef.path,
+        prizeStatusBefore: freshPrizeStatus,
+        push: {
+          channelEnabled: prizeReminderConfig.prizeReminderPushEnabled === true,
+          planned: canPush,
+          status: "pending",
+        },
+        email: {
+          channelEnabled: prizeReminderConfig.prizeReminderEmailEnabled === true,
+          planned: canEmail,
+          status: "pending",
+        },
+        push_sent: false,
+        email_sent: false,
+        error_push: "",
+        error_email: "",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return {ok: true};
+    });
+
+    if (!reservation.ok) {
+      if (reservation.reason === "claimed_or_final_status") {
+        summary.skippedClaimedOrFinalStatus += 1;
+      } else if (reservation.reason === "already_reminded") {
+        summary.skippedAlreadyReminded += 1;
+      }
+      console.log(
+        `[prize_reminders] prize=${prizeDoc.id} reservation_skip=${reservation.reason || "unknown"}`,
+      );
+      return;
+    }
+
+    summary.eligiblePrizes += 1;
+    summary.remindersAttempted += 1;
+
+    if (!summary.dryRun && canPush) {
+      try {
+        await queuePrizePushNotification({
+          docId: `prize_reminder_${prizeDoc.id}_${matchedDelay}d`,
+          title: prizeReminderConfig.prizeReminderPushTitle,
+          body: prizeReminderConfig.prizeReminderPushMessage,
+          userRefPath: winnerRef.path,
+          createdBy: "system/prize_reminders",
+        });
+        summary.pushSentCount += 1;
+      } catch (error) {
+        pushResult.status = "failed";
+        pushResult.error = `${error.message || error}`;
+        summary.errorCount += 1;
+      }
+    }
+
+    if (!summary.dryRun && canEmail) {
+      try {
+        const mailer = mailerFactory();
+        await sendEmailNotification(
+          mailer,
+          winnerEmail,
+          emailSubject,
+          emailTextBody,
+          emailHtmlBody,
+        );
+        summary.emailSentCount += 1;
+      } catch (error) {
+        emailResult.status = "failed";
+        emailResult.error = `${error.message || error}`;
+        summary.errorCount += 1;
+      }
+    }
+
+    const reminderStatus =
+      pushResult.status === "failed" && emailResult.status === "failed"
+        ? "failed"
+        : "completed";
+
+    summary.processedPrizeIds.push(prizeDoc.id);
+
+    console.log(
+      `[prize_reminders] prize=${prizeDoc.id} processed delayDays=${matchedDelay} push=${pushResult.status} email=${emailResult.status}`,
+    );
+
+    await reminderLogRef.set(
+      {
+        status: reminderStatus,
+        push: pushResult,
+        email: emailResult,
+        push_sent: pushResult.status === "queued",
+        email_sent: emailResult.status === "sent",
+        error_push: pushResult.error,
+        error_email: emailResult.error,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      {merge: true},
+    );
+  };
+
+  const mailerFactory = (() => {
+    let mailer = null;
+    return () => {
+      if (!mailer) {
+        mailer = createSmtpMailer();
+      }
+      return mailer;
+    };
+  })();
+
+  if (summary.enabled !== true) {
+    console.log("[prize_reminders] skipped prizeReminderEnabled=false");
+  } else if (onlyPrizeIdsSet && onlyPrizeIdsSet.size > 0) {
+    let processed = 0;
+    for (const prizeId of onlyPrizeIdsSet) {
+      if (normalizedLimit > 0 && processed >= normalizedLimit) {
+        break;
+      }
+      const prizeSnap = await firestore.collection("prizes").doc(prizeId).get();
+      if (!prizeSnap.exists) {
+        continue;
+      }
+      processed += 1;
+      await processPrizeDoc(prizeSnap, mailerFactory);
+    }
+  } else if (summary.enabled === true) {
+    const batchSize =
+      normalizedLimit > 0 ? Math.min(normalizedLimit, 200) : 200;
+    let lastDoc = null;
+    let processed = 0;
+
+    while (true) {
+      let query = firestore
+        .collection("prizes")
+        .where("claimed", "==", false)
+        .orderBy(admin.firestore.FieldPath.documentId())
+        .limit(batchSize);
+
+      if (lastDoc) {
+        query = query.startAfter(lastDoc);
+      }
+
+      const snap = await query.get();
+      if (snap.empty) {
+        break;
+      }
+
+      for (const prizeDoc of snap.docs) {
+        if (normalizedLimit > 0 && processed >= normalizedLimit) {
+          break;
+        }
+        processed += 1;
+        await processPrizeDoc(prizeDoc, mailerFactory);
+      }
+
+      lastDoc = snap.docs[snap.docs.length - 1];
+      if (snap.size < batchSize || (normalizedLimit > 0 && processed >= normalizedLimit)) {
+        break;
+      }
+    }
+  }
+
+  if (!summary.dryRun) {
+    await getNotificationsConfigRef().set(
+      {
+        prizeReminderLastRunAt: admin.firestore.FieldValue.serverTimestamp(),
+        prizeReminderLastRunPushSentCount: summary.pushSentCount,
+        prizeReminderLastRunEmailSentCount: summary.emailSentCount,
+        prizeReminderLastRunErrorCount: summary.errorCount,
+      },
+      {merge: true},
+    );
+
+    const runRef = getPrizeReminderRunsRef(
+      getNotificationsConfigRef().collection(kPrizeReminderRunsCollection).doc().id,
+    );
+    await runRef.set({
+      trigger,
+      status: "completed",
+      dryRun: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      summary,
+    });
+  }
+
+  console.log(
+    "[prize_reminders] done",
+    JSON.stringify({
+      enabled: summary.enabled,
+      dryRun: summary.dryRun,
+      eligiblePrizes: summary.eligiblePrizes,
+      pushSentCount: summary.pushSentCount,
+      emailSentCount: summary.emailSentCount,
+      errorCount: summary.errorCount,
+    }),
+  );
+
+  return summary;
+}
+
+const adminGetNotificationsConfigCallable = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 60, memory: "256MB"})
+  .https.onCall(async (_data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Unauthenticated calls are not allowed.",
+      );
+    }
+    await assertIsAdmin(context.auth.uid);
+    const config = await loadUnifiedNotificationsConfig();
+    return {
+      ...config,
+      prizeReminderLastRunAt:
+        timestampToMillis(config.prizeReminderLastRunAt) || null,
+      prizeReminderUpdatedAt:
+        timestampToMillis(config.prizeReminderUpdatedAt) || null,
+    };
+  });
+
+const adminSetNotificationsConfigCallable = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 60, memory: "256MB"})
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Unauthenticated calls are not allowed.",
+      );
+    }
+    await assertIsAdmin(context.auth.uid);
+    const updatedBy = await resolveAdminAuditIdentity(context.auth.uid);
+    const currentNotificationsSnap = await getNotificationsConfigRef().get();
+    const currentNotificationsData = currentNotificationsSnap.exists
+      ? currentNotificationsSnap.data() || {}
+      : {};
+
+    const notificationsPatch = {
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy,
+    };
+    if (Object.prototype.hasOwnProperty.call(data || {}, "dailyRemainingChancesReminderEnabled")) {
+      notificationsPatch.dailyRemainingChancesReminderEnabled =
+        data.dailyRemainingChancesReminderEnabled !== false;
+    }
+    const prizeReminderKeys = [
+      "prizeReminderEnabled",
+      "prizeReminderPushEnabled",
+      "prizeReminderEmailEnabled",
+      "prizeReminderPushTitle",
+      "prizeReminderPushMessage",
+      "prizeReminderEmailSubject",
+      "prizeReminderEmailBody",
+      "prizeReminderDelaysDays",
+    ];
+    const shouldUpdatePrizeReminder = prizeReminderKeys.some((key) =>
+      Object.prototype.hasOwnProperty.call(data || {}, key),
+    );
+    if (shouldUpdatePrizeReminder) {
+      const nextReminderConfig = normalizePrizeReminderConfig({
+        ...currentNotificationsData,
+        ...(data || {}),
+      });
+      notificationsPatch.prizeReminderEnabled = nextReminderConfig.prizeReminderEnabled;
+      notificationsPatch.prizeReminderPushEnabled =
+        nextReminderConfig.prizeReminderPushEnabled;
+      notificationsPatch.prizeReminderEmailEnabled =
+        nextReminderConfig.prizeReminderEmailEnabled;
+      notificationsPatch.prizeReminderPushTitle =
+        nextReminderConfig.prizeReminderPushTitle;
+      notificationsPatch.prizeReminderPushMessage =
+        nextReminderConfig.prizeReminderPushMessage;
+      notificationsPatch.prizeReminderEmailSubject =
+        nextReminderConfig.prizeReminderEmailSubject;
+      notificationsPatch.prizeReminderEmailBody =
+        nextReminderConfig.prizeReminderEmailBody;
+      notificationsPatch.prizeReminderDelaysDays =
+        nextReminderConfig.prizeReminderDelaysDays;
+      notificationsPatch.prizeReminderUpdatedAt =
+        admin.firestore.FieldValue.serverTimestamp();
+      notificationsPatch.prizeReminderUpdatedBy = updatedBy;
+    }
+
+    const notificationsAutoPatch = {
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_by: updatedBy,
+    };
+    const autoKeys = [
+      "game_ending_enabled",
+      "game_ending_days_before",
+      "game_ending_target_statuses",
+      "game_ending_use_city_filter",
+      "inactive_relaunch_enabled",
+      "inactive_relaunch_frequency_days",
+      "new_game_enabled",
+      "new_game_target_statuses",
+      "new_game_use_city_filter",
+    ];
+    const shouldUpdateAuto = autoKeys.some((key) =>
+      Object.prototype.hasOwnProperty.call(data || {}, key),
+    );
+    if (Object.prototype.hasOwnProperty.call(data || {}, "game_ending_enabled")) {
+      notificationsAutoPatch.game_ending_enabled = data.game_ending_enabled === true;
+    }
+    if (Object.prototype.hasOwnProperty.call(data || {}, "game_ending_days_before")) {
+      const parsed = Number(data.game_ending_days_before);
+      notificationsAutoPatch.game_ending_days_before = Number.isFinite(parsed)
+        ? Math.max(1, Math.trunc(parsed))
+        : 3;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(data || {}, "game_ending_target_statuses")
+    ) {
+      notificationsAutoPatch.game_ending_target_statuses = Array.isArray(
+        data.game_ending_target_statuses,
+      )
+        ? data.game_ending_target_statuses
+        : ["actif", "a_relancer"];
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(data || {}, "game_ending_use_city_filter")
+    ) {
+      notificationsAutoPatch.game_ending_use_city_filter =
+        data.game_ending_use_city_filter === true;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(data || {}, "inactive_relaunch_enabled")
+    ) {
+      notificationsAutoPatch.inactive_relaunch_enabled =
+        data.inactive_relaunch_enabled === true;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(
+        data || {},
+        "inactive_relaunch_frequency_days",
+      )
+    ) {
+      const parsed = Number(data.inactive_relaunch_frequency_days);
+      notificationsAutoPatch.inactive_relaunch_frequency_days = Number.isFinite(parsed)
+        ? Math.max(1, Math.trunc(parsed))
+        : 7;
+    }
+    if (Object.prototype.hasOwnProperty.call(data || {}, "new_game_enabled")) {
+      notificationsAutoPatch.new_game_enabled = data.new_game_enabled === true;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(data || {}, "new_game_target_statuses")
+    ) {
+      notificationsAutoPatch.new_game_target_statuses = Array.isArray(
+        data.new_game_target_statuses,
+      )
+        ? data.new_game_target_statuses
+        : ["actif", "a_relancer"];
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(data || {}, "new_game_use_city_filter")
+    ) {
+      notificationsAutoPatch.new_game_use_city_filter =
+        data.new_game_use_city_filter === true;
+    }
+
+    await getNotificationsConfigRef().set(notificationsPatch, {merge: true});
+    if (shouldUpdateAuto) {
+      await getNotificationsAutoConfigRef().set(notificationsAutoPatch, {merge: true});
+    }
+
+    return {
+      ok: true,
+      updatedBy,
+    };
+  });
+
+const adminSendPrizeReminderPushTestCallable = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 60, memory: "256MB"})
+  .https.onCall(async (_data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Unauthenticated calls are not allowed.",
+      );
+    }
+    await assertIsAdmin(context.auth.uid);
+    const config = normalizePrizeReminderConfig(
+      await loadUnifiedNotificationsConfig(),
+    );
+    const winnerRefPath = `users/${context.auth.uid}`;
+    const tokensSnap = await firestore
+      .collection("users")
+      .doc(context.auth.uid)
+      .collection(kFcmTokensCollection)
+      .limit(1)
+      .get();
+    if (tokensSnap.empty) {
+      return {
+        ok: false,
+        message: "Aucun token FCM valide trouvé pour cet admin.",
+      };
+    }
+    await queuePrizePushNotification({
+      docId: `prize_reminder_test_push_${context.auth.uid}_${Date.now()}`,
+      title: config.prizeReminderPushTitle,
+      body: config.prizeReminderPushMessage,
+      userRefPath: winnerRefPath,
+      createdBy: `users/${context.auth.uid}`,
+    });
+    return {ok: true};
+  });
+
+const adminSendPrizeReminderEmailTestCallable = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 60, memory: "256MB"})
+  .https.onCall(async (_data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Unauthenticated calls are not allowed.",
+      );
+    }
+    await assertIsAdmin(context.auth.uid);
+    const config = normalizePrizeReminderConfig(
+      await loadUnifiedNotificationsConfig(),
+    );
+    const userRef = firestore.collection("users").doc(context.auth.uid);
+    const userSnap = await userRef.get();
+    const userData = userSnap.exists ? userSnap.data() || {} : {};
+    const email = await resolveUserEmail(userRef, userData);
+    if (!email) {
+      return {
+        ok: false,
+        message: "Aucune adresse email valide trouvée pour cet admin.",
+      };
+    }
+    const mailer = createSmtpMailer();
+    await sendEmailNotification(
+      mailer,
+      email,
+      config.prizeReminderEmailSubject,
+      config.prizeReminderEmailBody,
+    );
+    return {ok: true};
+  });
+
+const adminRunPrizeReminderDryRunCallable = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 540, memory: "512MB"})
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Unauthenticated calls are not allowed.",
+      );
+    }
+    await assertIsAdmin(context.auth.uid);
+    const onlyPrizeIds = Array.isArray(data && data.onlyPrizeIds)
+      ? data.onlyPrizeIds
+      : [];
+    const limit = data && data.limit;
+    return runPrizeReminderJob({
+      dryRun: true,
+      onlyPrizeIds,
+      limit,
+      trigger: "admin_dry_run",
+    });
+  });
+
+const adminRunPrizeReminderForPrizeTestCallable = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 540, memory: "512MB"})
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Unauthenticated calls are not allowed.",
+      );
+    }
+    await assertIsAdmin(context.auth.uid);
+
+    const prizeId = getTrimmedString(data && data.prizeId);
+    if (!prizeId) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "prizeId is required.",
+      );
+    }
+    if (!data || data.dryRun !== false) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "This callable requires dryRun: false.",
+      );
+    }
+
+    const unifiedConfig = await loadUnifiedNotificationsConfig();
+    const prizeReminderConfig = normalizePrizeReminderConfig(unifiedConfig);
+    if (prizeReminderConfig.prizeReminderEnabled !== true) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "Prize reminder system is disabled in configuration.",
+      );
+    }
+
+    const prizeRef = firestore.collection("prizes").doc(prizeId);
+    const inspected = await inspectPrizeReminderTarget(
+      prizeRef,
+      normalizeReminderDelays(prizeReminderConfig.prizeReminderDelaysDays),
+      Date.now(),
+    );
+
+    console.log(
+      "[prize_reminders] admin_single_prize_test",
+      JSON.stringify({
+        prizeId,
+        ok: inspected.ok === true,
+        reason: inspected.reason || "",
+        matchedDelay: inspected.matchedDelay || null,
+        claimed: inspected.prizeData ? inspected.prizeData.claimed === true : null,
+      }),
+    );
+
+    if (!inspected.ok) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        inspected.message || "Prize is not eligible for reminder test.",
+      );
+    }
+
+    return runPrizeReminderJob({
+      dryRun: false,
+      onlyPrizeIds: [prizeId],
+      limit: 1,
+      trigger: "admin_single_prize_test",
+    });
+  });
+
+const runPrizeRemindersDailyScheduled = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 540, memory: "512MB"})
+  .pubsub.schedule("0 10 * * *")
+  .timeZone(kParisTimeZone)
+  .onRun(async () => {
+    console.log("runPrizeRemindersDaily started at 10:00 Europe/Paris");
+    await runPrizeReminderJob({
+      dryRun: false,
+      trigger: "scheduled_daily",
+    });
+    return null;
+  });
 
 exports.addFcmToken = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
@@ -2989,6 +4131,15 @@ try {
 } catch (error) {
   console.log("share_promo TypeScript bundle not loaded yet:", error.message);
 }
+
+exports.adminGetNotificationsConfig = adminGetNotificationsConfigCallable;
+exports.adminSetNotificationsConfig = adminSetNotificationsConfigCallable;
+exports.adminSendPrizeReminderPushTest = adminSendPrizeReminderPushTestCallable;
+exports.adminSendPrizeReminderEmailTest = adminSendPrizeReminderEmailTestCallable;
+exports.adminRunPrizeReminderDryRun = adminRunPrizeReminderDryRunCallable;
+exports.adminRunPrizeReminderForPrizeTest =
+  adminRunPrizeReminderForPrizeTestCallable;
+exports.runPrizeRemindersDaily = runPrizeRemindersDailyScheduled;
 
 try {
   const {

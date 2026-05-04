@@ -57,6 +57,7 @@ class _AdminPushNotificationsPageWidgetState
     _model = createModel(context, () => AdminPushNotificationsPageModel());
     _pagingController.addPageRequestListener(_fetchUsersPage);
     _loadGameEndingConfig();
+    _loadPrizeReminderConfig();
   }
 
   @override
@@ -96,6 +97,56 @@ class _AdminPushNotificationsPageWidgetState
     } finally {
       if (mounted) {
         setState(() => _model.gameEndingConfigLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadPrizeReminderConfig() async {
+    if (!mounted) return;
+    setState(() => _model.prizeReminderConfigLoading = true);
+    try {
+      final result = await makeCloudCall('adminGetNotificationsConfig', {});
+      if (!mounted) return;
+      setState(() {
+        _model.prizeReminderEnabled = result['prizeReminderEnabled'] == true;
+        _model.prizeReminderPushEnabled =
+            result['prizeReminderPushEnabled'] != false;
+        _model.prizeReminderEmailEnabled =
+            result['prizeReminderEmailEnabled'] != false;
+        _model.prizeReminderPushTitleController.text =
+            (result['prizeReminderPushTitle'] ?? 'Votre lot vous attend 🎁')
+                .toString();
+        _model.prizeReminderPushMessageController.text = (result[
+                    'prizeReminderPushMessage'] ??
+                'Vous avez gagné un lot sur Proxiplay. Pensez à le retirer ou à l’utiliser avant qu’il n’expire.')
+            .toString();
+        _model.prizeReminderEmailSubjectController.text =
+            (result['prizeReminderEmailSubject'] ??
+                    'Votre lot Proxiplay vous attend 🎁')
+                .toString();
+        _model.prizeReminderEmailBodyController.text =
+            (result['prizeReminderEmailBody'] ??
+                    '<p>Bonjour,</p><p>Vous avez gagné un lot sur Proxiplay.</p><p>Jeu : {{game_name}}<br>Code : {{claim_code}}</p><p>Pensez à le retirer ou à l’utiliser avant qu’il n’expire.</p><p>À bientôt,<br>L’équipe Proxiplay</p>')
+                .toString();
+        final lastRunRaw = result['prizeReminderLastRunAt'];
+        _model.prizeReminderLastRunAt = lastRunRaw is int
+            ? DateTime.fromMillisecondsSinceEpoch(lastRunRaw)
+            : null;
+        _model.prizeReminderLastRunPushSentCount =
+            (result['prizeReminderLastRunPushSentCount'] as num?)?.toInt() ?? 0;
+        _model.prizeReminderLastRunEmailSentCount =
+            (result['prizeReminderLastRunEmailSentCount'] as num?)?.toInt() ?? 0;
+        _model.prizeReminderLastRunErrorCount =
+            (result['prizeReminderLastRunErrorCount'] as num?)?.toInt() ?? 0;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur chargement relance gagnants: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _model.prizeReminderConfigLoading = false);
       }
     }
   }
@@ -142,6 +193,108 @@ class _AdminPushNotificationsPageWidgetState
     } finally {
       if (mounted) {
         setState(() => _model.gameEndingConfigSaving = false);
+      }
+    }
+  }
+
+  Future<void> _savePrizeReminderConfig() async {
+    if (!mounted) return;
+    setState(() => _model.prizeReminderConfigSaving = true);
+    try {
+      final result = await makeCloudCall('adminSetNotificationsConfig', {
+        'prizeReminderEnabled': _model.prizeReminderEnabled,
+        'prizeReminderPushEnabled': _model.prizeReminderPushEnabled,
+        'prizeReminderEmailEnabled': _model.prizeReminderEmailEnabled,
+        'prizeReminderPushTitle':
+            _model.prizeReminderPushTitleController.text.trim(),
+        'prizeReminderPushMessage':
+            _model.prizeReminderPushMessageController.text.trim(),
+        'prizeReminderEmailSubject':
+            _model.prizeReminderEmailSubjectController.text.trim(),
+        'prizeReminderEmailBody':
+            _model.prizeReminderEmailBodyController.text.trim(),
+      });
+
+      if (!mounted) return;
+      final ok = result['ok'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? 'Configuration relance gagnants enregistrée.'
+                : 'Erreur lors de la sauvegarde.',
+          ),
+        ),
+      );
+      if (ok) {
+        await _loadPrizeReminderConfig();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _model.prizeReminderConfigSaving = false);
+      }
+    }
+  }
+
+  Future<void> _sendPrizeReminderPushTest() async {
+    if (!mounted) return;
+    setState(() => _model.prizeReminderPushTestLoading = true);
+    try {
+      final result = await makeCloudCall('adminSendPrizeReminderPushTest', {});
+      if (!mounted) return;
+      final ok = result['ok'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? 'Push de test mis en file.'
+                : (result['message'] ?? 'Envoi du push de test impossible.')
+                    .toString(),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _model.prizeReminderPushTestLoading = false);
+      }
+    }
+  }
+
+  Future<void> _sendPrizeReminderEmailTest() async {
+    if (!mounted) return;
+    setState(() => _model.prizeReminderEmailTestLoading = true);
+    try {
+      final result = await makeCloudCall('adminSendPrizeReminderEmailTest', {});
+      if (!mounted) return;
+      final ok = result['ok'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? 'Email de test envoyé.'
+                : (result['message'] ?? 'Envoi de l’email de test impossible.')
+                    .toString(),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _model.prizeReminderEmailTestLoading = false);
       }
     }
   }
@@ -1583,6 +1736,242 @@ class _AdminPushNotificationsPageWidgetState
     );
   }
 
+  Widget _buildPrizeReminderPanel() {
+    final lastRunAt = _model.prizeReminderLastRunAt;
+    final lastRunLabel = lastRunAt == null
+        ? 'Jamais'
+        : dateTimeFormat('d/M/y HH:mm', lastRunAt);
+
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(
+            title: 'Relance des gagnants',
+            subtitle:
+                'Relance automatiquement les gagnants qui n’ont pas encore retiré ou utilisé leur lot.',
+            icon: Icons.card_giftcard_outlined,
+          ),
+          const SizedBox(height: 18),
+          if (_model.prizeReminderConfigLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else ...[
+            Row(
+              children: [
+                _summaryStat(
+                  label: 'Statut',
+                  value: _model.prizeReminderEnabled ? 'Actif' : 'Inactif',
+                  icon: Icons.power_settings_new_outlined,
+                  accent: _model.prizeReminderEnabled
+                      ? const Color(0xFF12B76A)
+                      : const Color(0xFFF79009),
+                ),
+                const SizedBox(width: 12),
+                _summaryStat(
+                  label: 'Dernière exécution',
+                  value: lastRunLabel,
+                  icon: Icons.schedule_outlined,
+                  accent: const Color(0xFF2E90FA),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _summaryStat(
+                  label: 'Push envoyés',
+                  value: _model.prizeReminderLastRunPushSentCount.toString(),
+                  icon: Icons.notifications_active_outlined,
+                  accent: const Color(0xFF7F56D9),
+                ),
+                const SizedBox(width: 12),
+                _summaryStat(
+                  label: 'Emails envoyés',
+                  value: _model.prizeReminderLastRunEmailSentCount.toString(),
+                  icon: Icons.mail_outline_rounded,
+                  accent: const Color(0xFF12B76A),
+                ),
+                const SizedBox(width: 12),
+                _summaryStat(
+                  label: 'Erreurs',
+                  value: _model.prizeReminderLastRunErrorCount.toString(),
+                  icon: Icons.error_outline_rounded,
+                  accent: const Color(0xFFF04438),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            SwitchListTile.adaptive(
+              value: _model.prizeReminderEnabled,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Activer les relances gagnants'),
+              subtitle: const Text(
+                'Envoi serveur quotidien selon les délais définis.',
+              ),
+              onChanged: (value) =>
+                  setState(() => _model.prizeReminderEnabled = value),
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile.adaptive(
+              value: _model.prizeReminderPushEnabled,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Activer les notifications push'),
+              onChanged: (value) =>
+                  setState(() => _model.prizeReminderPushEnabled = value),
+            ),
+            SwitchListTile.adaptive(
+              value: _model.prizeReminderEmailEnabled,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Activer les emails automatiques'),
+              onChanged: (value) =>
+                  setState(() => _model.prizeReminderEmailEnabled = value),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _model.prizeReminderPushTitleController,
+              decoration: InputDecoration(
+                labelText: 'Titre push',
+                filled: true,
+                fillColor: FlutterFlowTheme.of(context).primaryBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _model.prizeReminderPushMessageController,
+              minLines: 2,
+              maxLines: 4,
+              decoration: InputDecoration(
+                labelText: 'Message push',
+                alignLabelWithHint: true,
+                filled: true,
+                fillColor: FlutterFlowTheme.of(context).primaryBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _model.prizeReminderEmailSubjectController,
+              decoration: InputDecoration(
+                labelText: 'Objet email',
+                filled: true,
+                fillColor: FlutterFlowTheme.of(context).primaryBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _model.prizeReminderEmailBodyController,
+              minLines: 6,
+              maxLines: 10,
+              decoration: InputDecoration(
+                labelText: 'Corps email',
+                alignLabelWithHint: true,
+                filled: true,
+                fillColor: FlutterFlowTheme.of(context).primaryBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Délais automatiques',
+              style: FlutterFlowTheme.of(context).titleSmall,
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: const [
+                Chip(label: Text('1 semaine')),
+                Chip(label: Text('3 semaines')),
+                Chip(label: Text('5 semaines')),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: FFButtonWidget(
+                    onPressed: _model.prizeReminderPushTestLoading
+                        ? null
+                        : _sendPrizeReminderPushTest,
+                    text: _model.prizeReminderPushTestLoading
+                        ? 'Envoi...'
+                        : 'Envoyer un push test',
+                    options: FFButtonOptions(
+                      height: 50,
+                      color: const Color(0xFF344054),
+                      textStyle: FlutterFlowTheme.of(context)
+                          .labelLarge
+                          .override(color: Colors.white),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FFButtonWidget(
+                    onPressed: _model.prizeReminderEmailTestLoading
+                        ? null
+                        : _sendPrizeReminderEmailTest,
+                    text: _model.prizeReminderEmailTestLoading
+                        ? 'Envoi...'
+                        : 'Envoyer un email test',
+                    options: FFButtonOptions(
+                      height: 50,
+                      color: const Color(0xFF475467),
+                      textStyle: FlutterFlowTheme.of(context)
+                          .labelLarge
+                          .override(color: Colors.white),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FFButtonWidget(
+                onPressed: _model.prizeReminderConfigSaving
+                    ? null
+                    : _savePrizeReminderConfig,
+                text: _model.prizeReminderConfigSaving
+                    ? 'Enregistrement...'
+                    : 'Enregistrer',
+                options: FFButtonOptions(
+                  height: 52,
+                  color: FlutterFlowTheme.of(context).primary,
+                  textStyle: FlutterFlowTheme.of(context)
+                      .labelLarge
+                      .override(color: Colors.white),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildRecentHistoryPanel() {
     final createdBy = currentUserReference?.path ?? '';
     final query = FirebaseFirestore.instance
@@ -1766,6 +2155,12 @@ class _AdminPushNotificationsPageWidgetState
                           _buildRecipientsPanel(),
                           const SizedBox(height: 16),
                           _buildComposePanel(),
+                          const SizedBox(height: 16),
+                          _buildPrizeReminderPanel(),
+                          const SizedBox(height: 16),
+                          _buildAutomationPanel(),
+                          const SizedBox(height: 16),
+                          _buildRecentHistoryPanel(),
                         ],
                       )
                     : Row(
@@ -1773,7 +2168,20 @@ class _AdminPushNotificationsPageWidgetState
                         children: [
                           Expanded(flex: 5, child: _buildRecipientsPanel()),
                           const SizedBox(width: 16),
-                          Expanded(flex: 6, child: _buildComposePanel()),
+                          Expanded(
+                            flex: 6,
+                            child: Column(
+                              children: [
+                                _buildComposePanel(),
+                                const SizedBox(height: 16),
+                                _buildPrizeReminderPanel(),
+                                const SizedBox(height: 16),
+                                _buildAutomationPanel(),
+                                const SizedBox(height: 16),
+                                _buildRecentHistoryPanel(),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
               );
