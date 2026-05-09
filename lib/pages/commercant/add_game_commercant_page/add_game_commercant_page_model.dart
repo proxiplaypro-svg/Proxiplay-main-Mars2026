@@ -10,6 +10,7 @@ class AddGameCommercantPageModel
 
   final formKey = GlobalKey<FormState>();
   bool mainPrizeEnabled = true;
+  bool secondaryPrizesEnabled = false;
   // State field(s) for TextField widget.
   FocusNode? textFieldFocusNode1;
   TextEditingController? textController1;

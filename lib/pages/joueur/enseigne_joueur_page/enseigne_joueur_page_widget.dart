@@ -315,7 +315,7 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                           _model.simpleSearchResults.toList();
                                       if (search.isEmpty) {
                                         return const ListEmptyComponentWidget(
-                                          title: 'Aucun rÃ©sultat',
+                                          title: 'Aucun résultat',
                                           description: ' ',
                                         );
                                       }

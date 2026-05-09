@@ -8,6 +8,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'profil_commercant_page_model.dart';
 export 'profil_commercant_page_model.dart';
@@ -715,7 +716,12 @@ class _ProfilCommercantPageWidgetState
                                 hoverColor: Colors.transparent,
                                 highlightColor: Colors.transparent,
                                 onTap: () async {
-                                  context.pushNamed(LegalPageWidget.routeName);
+                                  await launchUrl(
+                                    Uri.parse(
+                                      'https://www.proxiplay.fr/legal.html',
+                                    ),
+                                    mode: LaunchMode.inAppBrowserView,
+                                  );
                                 },
                                 child: Container(
                                   width: double.infinity,

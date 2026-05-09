@@ -130,9 +130,10 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
   }
 
   List<GamesRecord> _finishedGames(List<GamesRecord> games) {
-    final now = getCurrentTimestamp;
     return games
-      .where((g) => g.endDate != null && !g.endDate!.isAfter(now))
+      .where((g) =>
+          g.snapshotData['hidden_from_merchant_stats'] != true &&
+          !_isGameActive(g))
       .toList()
       ..sort((a, b) {
         final aDate = a.endDate ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -163,26 +164,6 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
               fontWeight: FontWeight.w700,
             ),
       ),
-    );
-  }
-
-  Widget _chip(IconData icon, String text) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16.0, color: FlutterFlowTheme.of(context).primary),
-        const SizedBox(width: 4.0),
-        Text(
-          text,
-          style: FlutterFlowTheme.of(context).bodySmall.override(
-                font: GoogleFonts.inter(
-                  fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                  fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                ),
-                letterSpacing: 0.0,
-              ),
-        ),
-      ],
     );
   }
 
@@ -251,6 +232,8 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                     const SizedBox(height: 6.0),
                     Text(
                       'Du $startText au $endText',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: FlutterFlowTheme.of(context).bodySmall.override(
                             font: GoogleFonts.inter(
                               fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
@@ -260,24 +243,12 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                             letterSpacing: 0.0,
                           ),
                     ),
-                    const SizedBox(height: 8.0),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _chip(Icons.remove_red_eye,
-                              'Ouvertures fiche ${gameViewsDisplayValue(game)}'),
-                          const SizedBox(width: 12.0),
-                          _chip(Icons.sports_esports_rounded, 'Participations ${game.participations}'),
-                          const SizedBox(width: 12.0),
-                          _chip(Icons.star_rounded, 'Favoris ${game.favorites}'),
-                        ],
-                      ),
-                    ),
                     if (showActions) ...[
                       const SizedBox(height: 8.0),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 8.0,
+                        runSpacing: 8.0,
                         children: [
                           FFButtonWidget(
                             onPressed: () async => _restartGame(game),
@@ -294,7 +265,6 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                               borderRadius: BorderRadius.circular(16.0),
                             ),
                           ),
-                          const SizedBox(width: 8.0),
                           FFButtonWidget(
                             onPressed: () async => _deleteGame(game),
                             text: 'Supprimer',
@@ -619,17 +589,90 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                   final finishedGames = _finishedGames(
                                       listViewGamesRecordList);
 
-                                  final useStatLikeLayout =
-                                      _model.hashCode != -1;
+                                  return ListView(
+                                    padding: EdgeInsets.zero,
+                                    children: [
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          'Jeu en cours',
+                                          style: FlutterFlowTheme.of(context)
+                                              .titleMedium
+                                              .override(
+                                                font: GoogleFonts.interTight(
+                                                  fontWeight: FontWeight.w700,
+                                                  fontStyle:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .titleMedium
+                                                          .fontStyle,
+                                                ),
+                                                letterSpacing: 0.0,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10.0),
+                                      if (activeGames.isNotEmpty)
+                                        ...activeGames.map(
+                                          (game) => Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 10.0,
+                                            ),
+                                            child: _statStyleCard(
+                                              game,
+                                              isActive: true,
+                                              showActions: false,
+                                            ),
+                                          ),
+                                        ),
+                                      const SizedBox(height: 18.0),
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          'Jeux terminés',
+                                          style: FlutterFlowTheme.of(context)
+                                              .titleMedium
+                                              .override(
+                                                font: GoogleFonts.interTight(
+                                                  fontWeight: FontWeight.w700,
+                                                  fontStyle:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .titleMedium
+                                                          .fontStyle,
+                                                ),
+                                                letterSpacing: 0.0,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10.0),
+                                      if (finishedGames.isNotEmpty)
+                                        ...finishedGames.map(
+                                          (game) => Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 10.0,
+                                            ),
+                                            child: _statStyleCard(
+                                              game,
+                                              isActive: false,
+                                              showActions: true,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  );
+
+                                  final useStatLikeLayout = true;
                                   if (useStatLikeLayout) {
                                     return ListView(
                                       padding: EdgeInsets.zero,
                                       children: [
-                                      if (activeGames.isNotEmpty) ...[
                                         Align(
                                           alignment: Alignment.centerLeft,
                                           child: Text(
-                                            'Jeu en cours',
+                                            'Jeux en cours',
                                             style: FlutterFlowTheme.of(context)
                                                 .titleMedium
                                                 .override(
@@ -647,20 +690,26 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                           ),
                                         ),
                                         const SizedBox(height: 10.0),
-                                        ...activeGames.map(
-                                          (game) => Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: 10.0,
-                                            ),
-                                            child: _statStyleCard(
-                                              game,
-                                              isActive: true,
-                                              showActions: false,
+                                        if (activeGames.isEmpty)
+                                          const ListEmptyComponentWidget(
+                                            title: 'Aucun jeu en cours.',
+                                            description:
+                                                'Vos jeux actifs apparaîtront ici',
+                                          )
+                                        else
+                                          ...activeGames.map(
+                                            (game) => Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: 10.0,
+                                              ),
+                                              child: _statStyleCard(
+                                                game,
+                                                isActive: true,
+                                                showActions: false,
+                                              ),
                                             ),
                                           ),
-                                        ),
                                         const SizedBox(height: 14.0),
-                                      ],
                                       Align(
                                         alignment: Alignment.centerLeft,
                                         child: Text(
@@ -684,9 +733,9 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                       const SizedBox(height: 10.0),
                                       if (finishedGames.isEmpty)
                                         const ListEmptyComponentWidget(
-                                          title: 'Aucun jeu termin\u00E9',
+                                          title: 'Aucun jeu terminé.',
                                           description:
-                                              'Vos jeux termin\u00E9s appara\u00EEtront ici',
+                                              'Vos jeux terminés apparaîtront ici',
                                         )
                                       else
                                         ...finishedGames.map(

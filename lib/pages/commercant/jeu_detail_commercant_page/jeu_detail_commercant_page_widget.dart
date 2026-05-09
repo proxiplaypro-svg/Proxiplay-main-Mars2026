@@ -1,9 +1,12 @@
 ﻿import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
+import '/components/game_qr_code_card_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/flutter_flow/flutter_flow_widgets.dart';
+import '/index.dart';
 import '/utils/game_metrics.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -73,6 +76,94 @@ class _JeuDetailCommercantPageWidgetState
         data['uniquePlayersCount'] != null ||
         data['statsUniquePlayers'] != null ||
         data['unique_players'] != null;
+  }
+
+  Future<void> _restartGame(GamesRecord game) async {
+    if (game.enseigneId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enseigne introuvable pour ce jeu.')),
+      );
+      return;
+    }
+
+    context.pushNamed(
+      AddGameCommercantPageWidget.routeName,
+      queryParameters: {
+        'enseigneRef': serializeParam(
+          game.enseigneId,
+          ParamType.DocumentReference,
+        ),
+        'enseigne': serializeParam(
+          game.enseigneName,
+          ParamType.String,
+        ),
+      }.withoutNulls,
+      extra: <String, dynamic>{
+        'templateGame': game,
+      },
+    );
+  }
+
+  Future<void> _deleteGame(GamesRecord game) async {
+    final shouldDelete = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: const Text('Supprimer le jeu'),
+              content: const Text(
+                'Retirer ce jeu de la liste uniquement ? Les statistiques sont conservées.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Annuler'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Supprimer'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    try {
+      await game.reference.update({
+        'hidden_from_merchant_stats': true,
+        'updated_time': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Jeu retiré de la liste.')),
+      );
+      context.safePop();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Suppression impossible.')),
+      );
+    }
+  }
+
+  Future<void> _openSharePage(GamesRecord game) async {
+    context.pushNamed(
+      JeuShareCommercantPageWidget.routeName,
+      pathParameters: {
+        'gameId': game.reference.id,
+      },
+      extra: <String, dynamic>{
+        'initialGame': game,
+      },
+    );
   }
 
   Widget _buildStatCard({
@@ -220,7 +311,7 @@ class _JeuDetailCommercantPageWidgetState
                   borderRadius: BorderRadius.circular(12.0),
                 ),
                 child: Text(
-                  isClaimed ? 'Retire' : 'Non retire',
+                  isClaimed ? 'Retiré' : 'Non retiré',
                   style: FlutterFlowTheme.of(context).bodySmall.override(
                         font: GoogleFonts.inter(
                           fontWeight: FontWeight.w700,
@@ -324,6 +415,239 @@ class _JeuDetailCommercantPageWidgetState
           ),
         ),
       ],
+    );
+  }
+
+  String _formatDate(DateTime? value) {
+    if (value == null) {
+      return '—';
+    }
+    return dateTimeFormat(
+      'd/M/y',
+      value,
+      locale: FFLocalizations.of(context).languageCode,
+    );
+  }
+
+  String _formatPrice(double value) {
+    final hasDecimals = value != value.roundToDouble();
+    return hasDecimals
+        ? '${value.toStringAsFixed(2).replaceAll('.', ',')} €'
+        : '${value.toStringAsFixed(0)} €';
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 138.0,
+          child: Text(
+            label,
+            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                  font: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                  ),
+                  color: FlutterFlowTheme.of(context).primaryText,
+                  letterSpacing: 0.0,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                  font: GoogleFonts.inter(
+                    fontWeight:
+                        FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                  ),
+                  letterSpacing: 0.0,
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSecondaryPrizeDetails(List<Map<String, dynamic>> secondaryPrizes) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: secondaryPrizes.map((prize) {
+        final name = (prize['name'] ?? '').toString().trim();
+        final presentation = (prize['presentation'] ?? '').toString().trim();
+        final count = (prize['count'] ?? '').toString().trim();
+        final parts = <String>[
+          if (count.isNotEmpty) '$count lot${count == '1' ? '' : 's'}',
+          if (presentation.isNotEmpty) presentation,
+        ];
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12.0),
+          decoration: BoxDecoration(
+            color: FlutterFlowTheme.of(context).secondaryBackground,
+            borderRadius: BorderRadius.circular(14.0),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name.isNotEmpty ? name : 'Lot secondaire',
+                style: FlutterFlowTheme.of(context).titleSmall.override(
+                      font: GoogleFonts.interTight(
+                        fontWeight: FontWeight.w700,
+                        fontStyle:
+                            FlutterFlowTheme.of(context).titleSmall.fontStyle,
+                      ),
+                      letterSpacing: 0.0,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              if (parts.isNotEmpty) ...[
+                const SizedBox(height: 4.0),
+                Text(
+                  parts.join(' • '),
+                  style: FlutterFlowTheme.of(context).bodySmall.override(
+                        font: GoogleFonts.inter(
+                          fontWeight:
+                              FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                          fontStyle:
+                              FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                        ),
+                        color: FlutterFlowTheme.of(context).secondaryText,
+                        letterSpacing: 0.0,
+                      ),
+                ),
+              ],
+            ],
+          ),
+        );
+      }).toList().divide(const SizedBox(height: 10.0)),
+    );
+  }
+
+  Widget _buildGameInformationCard(GamesRecord game) {
+    final infoRows = <Widget>[
+      _buildInfoRow(
+        'Période du jeu',
+        'Du ${_formatDate(game.startDate)} au ${_formatDate(game.endDate)}',
+      ),
+    ];
+
+    if (game.hasHasMainPrize() && game.hasMainPrize && game.hasPrizeValue()) {
+      infoRows.add(_buildInfoRow(
+        'Valeur lot principal',
+        _formatPrice(game.prizeValue),
+      ));
+    }
+
+    if (game.hasProhibitedForMinors()) {
+      infoRows.add(_buildInfoRow(
+        'Interdit aux mineurs',
+        game.prohibitedForMinors ? 'Oui' : 'Non',
+      ));
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: FlutterFlowTheme.of(context).secondaryBackground,
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Informations du jeu',
+            style: FlutterFlowTheme.of(context).titleLarge.override(
+                  font: GoogleFonts.interTight(
+                    fontWeight: FontWeight.w700,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).titleLarge.fontStyle,
+                  ),
+                  letterSpacing: 0.0,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 12.0),
+          ...infoRows.divide(const SizedBox(height: 10.0)),
+          if (game.secondaryPrizes.isNotEmpty) ...[
+            const SizedBox(height: 16.0),
+            Text(
+              'Lots secondaires',
+              style: FlutterFlowTheme.of(context).titleMedium.override(
+                    font: GoogleFonts.interTight(
+                      fontWeight: FontWeight.w700,
+                      fontStyle:
+                          FlutterFlowTheme.of(context).titleMedium.fontStyle,
+                    ),
+                    letterSpacing: 0.0,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 10.0),
+            _buildSecondaryPrizeDetails(game.secondaryPrizes),
+          ],
+          const SizedBox(height: 16.0),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8.0,
+            runSpacing: 8.0,
+            children: [
+              FFButtonWidget(
+                onPressed: () async => _restartGame(game),
+                text: 'Relancer',
+                options: FFButtonOptions(
+                  height: 36.0,
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  color: FlutterFlowTheme.of(context).primary,
+                  textStyle: FlutterFlowTheme.of(context).bodySmall.override(
+                        font: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          fontStyle:
+                              FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                        ),
+                        color: FlutterFlowTheme.of(context).info,
+                        letterSpacing: 0.0,
+                        fontWeight: FontWeight.w700,
+                      ),
+                  borderRadius: BorderRadius.circular(18.0),
+                ),
+              ),
+              FFButtonWidget(
+                onPressed: () async => _deleteGame(game),
+                text: 'Supprimer',
+                options: FFButtonOptions(
+                  height: 36.0,
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  color: const Color(0xFFFFF3E0),
+                  textStyle: FlutterFlowTheme.of(context).bodySmall.override(
+                        font: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          fontStyle:
+                              FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                        ),
+                        color: const Color(0xFFE65100),
+                        letterSpacing: 0.0,
+                        fontWeight: FontWeight.w700,
+                      ),
+                  borderRadius: BorderRadius.circular(18.0),
+                  borderSide: const BorderSide(
+                    color: Color(0xFFE65100),
+                    width: 1.0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -514,6 +838,33 @@ class _JeuDetailCommercantPageWidgetState
                               child: Text(
                                 game.description,
                                 style: FlutterFlowTheme.of(context).bodyMedium,
+                              ),
+                            ),
+                            const SizedBox(height: 16.0),
+                            _buildGameInformationCard(game),
+                            const SizedBox(height: 16.0),
+                            GameQrCodeCard(game: game),
+                            const SizedBox(height: 12.0),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () async {
+                                  await _openSharePage(game);
+                                },
+                                icon: const Icon(Icons.auto_awesome_rounded),
+                                label: const Text('Générer une affiche'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      FlutterFlowTheme.of(context).primary,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0.0,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16.0,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16.0),
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(height: 16.0),

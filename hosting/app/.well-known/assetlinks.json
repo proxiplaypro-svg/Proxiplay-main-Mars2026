@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.proxiplay.proxiplay",
+      "sha256_cert_fingerprints": [
+        "AD:65:06:AB:60:A0:18:AB:D9:14:C9:54:6A:4A:DD:DD:F5:4B:51:64:A6:44:E7:42:45:04:CF:4A:6B:69:E7:EF"
+      ]
+    }
+  }
+]

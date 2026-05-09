@@ -980,6 +980,13 @@ const kNotificationsAutoConfigDocId = "notifications_auto";
 const kPrizeReminderRunsCollection = "prize_reminder_runs";
 const kPrizeReminderLogsSubcollection = "prize_reminder_logs";
 const kDefaultPrizeReminderDelaysDays = [7, 21, 35];
+const PRIZE_EMAILS_DISABLED = true;
+const kPrizeEmailEmergencyDisabled = PRIZE_EMAILS_DISABLED;
+const kPrizeEmailEmergencyDisabledReason =
+  "Emergency stop: prize-related emails temporarily disabled while investigating incorrect recipient attribution.";
+const kPrizeReminderEmergencyDisabled = true;
+const kPrizeReminderEmergencyDisabledReason =
+  "Emergency stop: prize reminders temporarily disabled while investigating incorrect recipient attribution.";
 const kTerminalPrizeStatuses = new Set([
   "claimed",
   "used",
@@ -1123,8 +1130,136 @@ function getPrizeReminderRunsRef(runId) {
   return getNotificationsConfigRef().collection(kPrizeReminderRunsCollection).doc(runId);
 }
 
+async function inspectPrizeAssignmentConsistency(prizeRef, winnerRef) {
+  if (!prizeRef || !winnerRef) {
+    return {
+      ok: false,
+      reason: "missing_prize_or_winner_ref",
+      winnerLotPath: "",
+      winnerLotPrizePath: "",
+    };
+  }
+
+  const winnerLotRef = winnerRef.collection("my_lots").doc(prizeRef.id);
+  const winnerLotSnap = await winnerLotRef.get();
+  if (!winnerLotSnap.exists) {
+    return {
+      ok: false,
+      reason: "winner_my_lot_missing",
+      winnerLotPath: winnerLotRef.path,
+      winnerLotPrizePath: "",
+    };
+  }
+
+  const winnerLotData = winnerLotSnap.data() || {};
+  const winnerLotPrizeRef = toDocRef(winnerLotData.prize_id);
+  if (!winnerLotPrizeRef || winnerLotPrizeRef.path !== prizeRef.path) {
+    return {
+      ok: false,
+      reason: "winner_my_lot_prize_mismatch",
+      winnerLotPath: winnerLotRef.path,
+      winnerLotPrizePath: serializeRefPath(winnerLotPrizeRef),
+    };
+  }
+
+  return {
+    ok: true,
+    winnerLotPath: winnerLotRef.path,
+    winnerLotPrizePath: winnerLotPrizeRef.path,
+  };
+}
+
+async function validatePrizeEmailRecipient({
+  prizeRef,
+  prizeId = "",
+  winnerRef,
+  resolvedEmail = "",
+  resolvedUserId = "",
+  sourceFunction = "",
+}) {
+  const expectedWinnerId = getUserUidFromRef(winnerRef);
+  if (!expectedWinnerId) {
+    console.error("[PRIZE_EMAIL_BLOCKED_MISMATCH]", {
+      prizeId,
+      expectedWinnerId: null,
+      resolvedUserId: resolvedUserId || null,
+      email: resolvedEmail || "",
+      sourceFunction,
+    });
+    return {
+      ok: false,
+      reason: "missing_expected_winner_id",
+      expectedWinnerId: "",
+    };
+  }
+
+  if (resolvedUserId !== expectedWinnerId) {
+    console.error("[PRIZE_EMAIL_BLOCKED_MISMATCH]", {
+      prizeId,
+      expectedWinnerId,
+      resolvedUserId: resolvedUserId || null,
+      email: resolvedEmail || "",
+      sourceFunction,
+    });
+    return {
+      ok: false,
+      reason: "resolved_user_mismatch",
+      expectedWinnerId,
+    };
+  }
+
+  const assignmentCheck = await inspectPrizeAssignmentConsistency(prizeRef, winnerRef);
+  if (!assignmentCheck.ok) {
+    console.error("[PRIZE_EMAIL_BLOCKED_NO_USER_LOT]", {
+      prizeId,
+      winnerId: expectedWinnerId,
+      sourceFunction,
+      reason: assignmentCheck.reason,
+    });
+    return {
+      ok: false,
+      reason: assignmentCheck.reason || "winner_my_lot_missing",
+      expectedWinnerId,
+    };
+  }
+
+  console.log("[PRIZE_EMAIL_READY_TO_SEND]", {
+    prizeId,
+    winnerId: expectedWinnerId,
+    email: resolvedEmail || "",
+    sourceFunction,
+  });
+  return {
+    ok: true,
+    expectedWinnerId,
+  };
+}
+
 function serializeRefPath(ref) {
   return ref && typeof ref.path === "string" ? ref.path : "";
+}
+
+function logPrizeEmailAudit({
+  prizeId = "",
+  gameId = "",
+  winnerRef = null,
+  winnerUserId = "",
+  resolvedEmail = "",
+  resolvedUserId = "",
+  sourceFunction = "",
+}) {
+  console.log(
+    "[prize_email_audit]",
+    JSON.stringify({
+      prizeId,
+      gameId,
+      winnerRef: serializeRefPath(winnerRef),
+      winnerUserId,
+      resolvedEmail,
+      resolvedUserId,
+      sourceFunction,
+    }),
+  );
 }
 
 function getPrizeStatus(prizeData = {}) {
@@ -1304,6 +1439,7 @@ async function runPrizeReminderJob({
     dryRun: dryRun === true,
     trigger,
     enabled: prizeReminderConfig.prizeReminderEnabled === true,
+    emergencyDisabled: kPrizeReminderEmergencyDisabled === true,
     delaysDays,
     scannedPrizes: 0,
     eligiblePrizes: 0,
@@ -1320,6 +1456,7 @@ async function runPrizeReminderJob({
     skippedNoChannel: 0,
     skippedNoPushToken: 0,
     skippedNoEmail: 0,
+    skippedAssignmentMismatch: 0,
     processedPrizeIds: [],
   };
 
@@ -1332,8 +1469,16 @@ async function runPrizeReminderJob({
       delaysDays,
       onlyPrizeIds: onlyPrizeIdsSet ? Array.from(onlyPrizeIdsSet) : [],
       limit: normalizedLimit,
+      emergencyDisabled: kPrizeReminderEmergencyDisabled === true,
     }),
   );
+
+  if (kPrizeReminderEmergencyDisabled === true) {
+    summary.enabled = false;
+    console.log(
+      `[prize_reminders] emergency_disabled reason=${kPrizeReminderEmergencyDisabledReason}`,
+    );
+  }
 
   const processPrizeDoc = async (prizeDoc, mailerFactory) => {
     const prizeData = prizeDoc.data() || {};
@@ -1392,8 +1537,43 @@ async function runPrizeReminderJob({
     }
 
     const winnerData = winnerSnap.data() || {};
+    const assignmentCheck = await inspectPrizeAssignmentConsistency(
+      prizeDoc.ref,
+      winnerRef,
+    );
+    if (!assignmentCheck.ok) {
+      summary.skippedAssignmentMismatch += 1;
+      console.log(
+        `[prize_reminders] prize=${prizeDoc.id} skip=assignment_mismatch reason=${assignmentCheck.reason} winner=${winnerRef.path} owner=${serializeRefPath(toDocRef(prizeData.owner_id))} winnerLotPath=${assignmentCheck.winnerLotPath || ""} winnerLotPrizePath=${assignmentCheck.winnerLotPrizePath || ""}`,
+      );
+      await reminderLogRef.set(
+        {
+          trigger,
+          delayDays: matchedDelay,
+          ageDays,
+          status: "skipped_assignment_mismatch",
+          prizeId: prizeDoc.id,
+          prizePath: prizeDoc.ref.path,
+          gamePath: serializeRefPath(toDocRef(prizeData.game_id)),
+          userPath: winnerRef.path,
+          ownerPath: serializeRefPath(toDocRef(prizeData.owner_id)),
+          winnerLotPath: assignmentCheck.winnerLotPath || "",
+          winnerLotPrizePath: assignmentCheck.winnerLotPrizePath || "",
+          reason: assignmentCheck.reason,
+          push_sent: false,
+          email_sent: false,
+          error_push: "",
+          error_email: "",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true},
+      );
+      return;
+    }
     const prizeName = getTrimmedString(prizeData.name) || "Lot ProxiPlay";
     const gameRef = toDocRef(prizeData.game_id);
+    const enseigneRef = toDocRef(prizeData.enseigne_id);
     const claimCode = getTrimmedString(prizeData.claim_code);
     let gameName = "Jeu ProxiPlay";
     if (gameRef) {
@@ -1409,6 +1589,49 @@ async function runPrizeReminderJob({
         );
       }
     }
+    let enseigneData = {};
+    if (enseigneRef) {
+      try {
+        const enseigneSnap = await enseigneRef.get();
+        if (enseigneSnap.exists) {
+          enseigneData = enseigneSnap.data() || {};
+        }
+      } catch (error) {
+        console.log(
+          `[prize_reminders] prize=${prizeDoc.id} enseigne_lookup_error=${error.message || error}`,
+        );
+      }
+    }
+    const shopName =
+      getTrimmedString(prizeData.enseigne_name) ||
+      getTrimmedString(enseigneData.name) ||
+      "Boutique ProxiPlay";
+    const shopStreet =
+      getTrimmedString(enseigneData.address) ||
+      getTrimmedString(enseigneData.adresse) ||
+      getTrimmedString(enseigneData.street) ||
+      getTrimmedString(enseigneData.rue);
+    const shopPostalCode =
+      getTrimmedString(enseigneData.area_code) ||
+      getTrimmedString(enseigneData.postal_code) ||
+      getTrimmedString(enseigneData.code_postal);
+    const shopCity =
+      getTrimmedString(enseigneData.city) ||
+      getTrimmedString(enseigneData.ville);
+    const shopAddressFromParts = [shopStreet, [shopPostalCode, shopCity].filter((v) => v).join(" ")]
+      .filter((v) => v)
+      .join(", ");
+    const shopAddress =
+      getTrimmedString(enseigneData.full_address) ||
+      shopAddressFromParts ||
+      getTrimmedString(enseigneData.address) ||
+      getTrimmedString(enseigneData.adresse) ||
+      "Adresse non disponible";
+    console.log("[PRIZE_EMAIL_SHOP_INFO]", {
+      prizeId: prizeDoc.id,
+      shopName,
+      shopAddress,
+    });
 
     let hasPushToken = false;
     if (prizeReminderConfig.prizeReminderPushEnabled) {
@@ -1422,6 +1645,15 @@ async function runPrizeReminderJob({
     let winnerEmail = "";
     if (prizeReminderConfig.prizeReminderEmailEnabled) {
       winnerEmail = await resolveUserEmail(winnerRef, winnerData);
+      logPrizeEmailAudit({
+        prizeId: prizeDoc.id,
+        gameId: gameRef ? gameRef.id : "",
+        winnerRef,
+        winnerUserId: getUserUidFromRef(winnerRef),
+        resolvedEmail: winnerEmail,
+        resolvedUserId: getUserUidFromRef(winnerRef),
+        sourceFunction: "runPrizeReminderJob:resolveWinnerEmail",
+      });
       if (!winnerEmail) {
         summary.skippedNoEmail += 1;
       }
@@ -1463,13 +1695,20 @@ async function runPrizeReminderJob({
       game_name: gameName,
       claim_code: claimCode,
       prize_name: prizeName,
+      shop_name: shopName,
+      shop_address: shopAddress,
     };
+    const localizedPrizeReminderEmailBody = prizeReminderConfig.prizeReminderEmailBody
+      .replace(
+        /Jeu\s*:\s*{{\s*game_name\s*}}/gi,
+        "Lot : {{prize_name}}<br>Boutique : {{shop_name}}<br>Adresse : {{shop_address}}",
+      );
     const emailSubject = applyTemplateVariables(
       prizeReminderConfig.prizeReminderEmailSubject,
       emailTemplateVariables,
     );
     const emailHtmlBody = applyTemplateVariables(
-      prizeReminderConfig.prizeReminderEmailBody,
+      localizedPrizeReminderEmailBody,
       emailTemplateVariables,
     );
     const emailTextBody = stripHtmlToText(emailHtmlBody);
@@ -1484,6 +1723,15 @@ async function runPrizeReminderJob({
       if (canEmail) {
         summary.emailSentCount += 1;
       }
+      console.log("[PRIZE_EMAIL_CONTENT_CHECK]", {
+        prizeId: prizeDoc.id,
+        winnerId: winnerRef && winnerRef.id ? winnerRef.id : null,
+        claimCode: prizeData.claim_code,
+        prizeNameFromDB: prizeData.name,
+        emailPrizeNameUsed: prizeName,
+        emailGameNameUsed: gameName,
+        sourceFunction: "runPrizeReminderJob",
+      });
       console.log(
         `[prize_reminders] dry_run prize=${prizeDoc.id} delayDays=${matchedDelay} prizeName=${prizeName}`,
       );
@@ -1606,20 +1854,59 @@ async function runPrizeReminderJob({
     }
 
     if (!summary.dryRun && canEmail) {
-      try {
-        const mailer = mailerFactory();
-        await sendEmailNotification(
-          mailer,
-          winnerEmail,
-          emailSubject,
-          emailTextBody,
-          emailHtmlBody,
+      const emailRecipientCheck = await validatePrizeEmailRecipient({
+        prizeRef: prizeDoc.ref,
+        prizeId: prizeDoc.id,
+        winnerRef,
+        resolvedEmail: winnerEmail,
+        resolvedUserId: getUserUidFromRef(winnerRef),
+        sourceFunction: "runPrizeReminderJob",
+      });
+      if (!emailRecipientCheck.ok) {
+        emailResult.status = "blocked_recipient_guard";
+        emailResult.error = emailRecipientCheck.reason || "recipient_guard_blocked";
+      } else {
+      console.log("[PRIZE_EMAIL_CONTENT_CHECK]", {
+        prizeId: prizeDoc.id,
+        winnerId: winnerRef && winnerRef.id ? winnerRef.id : null,
+        claimCode: prizeData.claim_code,
+        prizeNameFromDB: prizeData.name,
+        emailPrizeNameUsed: prizeName,
+        emailGameNameUsed: gameName,
+        sourceFunction: "runPrizeReminderJob",
+      });
+      if (kPrizeEmailEmergencyDisabled === true) {
+        emailResult.status = "disabled_emergency_stop";
+        emailResult.error = kPrizeEmailEmergencyDisabledReason;
+        console.log(
+          `[prize_reminders] prize=${prizeDoc.id} email_disabled reason=${kPrizeEmailEmergencyDisabledReason}`,
         );
-        summary.emailSentCount += 1;
-      } catch (error) {
-        emailResult.status = "failed";
-        emailResult.error = `${error.message || error}`;
-        summary.errorCount += 1;
+      } else {
+        try {
+          const mailer = mailerFactory();
+          await sendEmailNotification(
+            mailer,
+            winnerEmail,
+            emailSubject,
+            emailTextBody,
+            emailHtmlBody,
+          );
+          summary.emailSentCount += 1;
+          logPrizeEmailAudit({
+            prizeId: prizeDoc.id,
+            gameId: gameRef ? gameRef.id : "",
+            winnerRef,
+            winnerUserId: getUserUidFromRef(winnerRef),
+            resolvedEmail: winnerEmail,
+            resolvedUserId: getUserUidFromRef(winnerRef),
+            sourceFunction: "runPrizeReminderJob:sendWinnerEmail",
+          });
+        } catch (error) {
+          emailResult.status = "failed";
+          emailResult.error = `${error.message || error}`;
+          summary.errorCount += 1;
+        }
+      }
       }
     }
 
@@ -1933,6 +2220,12 @@ const adminSendPrizeReminderPushTestCallable = functions
       );
     }
     await assertIsAdmin(context.auth.uid);
+    if (kPrizeReminderEmergencyDisabled === true) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        kPrizeReminderEmergencyDisabledReason,
+      );
+    }
     const config = normalizePrizeReminderConfig(
       await loadUnifiedNotificationsConfig(),
     );
@@ -1970,6 +2263,12 @@ const adminSendPrizeReminderEmailTestCallable = functions
       );
     }
     await assertIsAdmin(context.auth.uid);
+    if (kPrizeReminderEmergencyDisabled === true) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        kPrizeReminderEmergencyDisabledReason,
+      );
+    }
     const config = normalizePrizeReminderConfig(
       await loadUnifiedNotificationsConfig(),
     );
@@ -2027,6 +2326,12 @@ const adminRunPrizeReminderForPrizeTestCallable = functions
       );
     }
     await assertIsAdmin(context.auth.uid);
+    if (kPrizeReminderEmergencyDisabled === true) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        kPrizeReminderEmergencyDisabledReason,
+      );
+    }
 
     const prizeId = getTrimmedString(data && data.prizeId);
     if (!prizeId) {
@@ -3405,17 +3710,71 @@ exports.notifyPrizeWon = functions
 
     if (!playerEmailDone) {
       const playerEmail = await resolveUserEmail(winnerRef, winnerData);
+      logPrizeEmailAudit({
+        prizeId,
+        gameId: gameRef ? gameRef.id : "",
+        winnerRef,
+        winnerUserId: getUserUidFromRef(winnerRef),
+        resolvedEmail: playerEmail,
+        resolvedUserId: getUserUidFromRef(winnerRef),
+        sourceFunction: "notifyPrizeWon:resolvePlayerEmail",
+      });
+      const playerEmailRecipientCheck = await validatePrizeEmailRecipient({
+        prizeRef: snapshot.ref,
+        prizeId,
+        winnerRef,
+        resolvedEmail: playerEmail,
+        resolvedUserId: getUserUidFromRef(winnerRef),
+        sourceFunction: "notifyPrizeWon:playerEmail",
+      });
       if (!playerEmail) {
         updates.player_email_skipped = true;
         updates.player_email_skip_reason = "missing_player_email";
+      } else if (!playerEmailRecipientCheck.ok) {
+        updates.player_email_skipped = true;
+        updates.player_email_skip_reason =
+          playerEmailRecipientCheck.reason || "recipient_guard_blocked";
+      } else if (kPrizeEmailEmergencyDisabled === true) {
+        console.log("[PRIZE_EMAIL_CONTENT_CHECK]", {
+          prizeId,
+          winnerId: winnerRef && winnerRef.id ? winnerRef.id : null,
+          claimCode: prizeData.claim_code,
+          prizeNameFromDB: prizeData.name,
+          emailPrizeNameUsed: prizeName,
+          emailGameNameUsed: gameName,
+          sourceFunction: "notifyPrizeWon:playerEmail",
+        });
+        updates.player_email_skipped = true;
+        updates.player_email_skip_reason = "emergency_disabled";
+        console.log(
+          `[notifyPrizeWon] prize=${prizeId} player_email_disabled reason=${kPrizeEmailEmergencyDisabledReason}`,
+        );
       } else {
         try {
+          console.log("[PRIZE_EMAIL_CONTENT_CHECK]", {
+            prizeId,
+            winnerId: winnerRef && winnerRef.id ? winnerRef.id : null,
+            claimCode: prizeData.claim_code,
+            prizeNameFromDB: prizeData.name,
+            emailPrizeNameUsed: prizeName,
+            emailGameNameUsed: gameName,
+            sourceFunction: "notifyPrizeWon:playerEmail",
+          });
           await sendEmailNotification(
             getMailer(),
             playerEmail,
             playerEmailSubject,
             playerEmailBody,
           );
+          logPrizeEmailAudit({
+            prizeId,
+            gameId: gameRef ? gameRef.id : "",
+            winnerRef,
+            winnerUserId: getUserUidFromRef(winnerRef),
+            resolvedEmail: playerEmail,
+            resolvedUserId: getUserUidFromRef(winnerRef),
+            sourceFunction: "notifyPrizeWon:sendPlayerEmail",
+          });
           updates.player_email_sent = true;
           updates.player_email_skipped = admin.firestore.FieldValue.delete();
           updates.player_email_skip_reason = admin.firestore.FieldValue.delete();
@@ -3428,17 +3787,59 @@ exports.notifyPrizeWon = functions
 
     if (!merchantEmailDone) {
       const merchantEmail = await resolveUserEmail(ownerRef, ownerData);
+      logPrizeEmailAudit({
+        prizeId,
+        gameId: gameRef ? gameRef.id : "",
+        winnerRef,
+        winnerUserId: getUserUidFromRef(winnerRef),
+        resolvedEmail: merchantEmail,
+        resolvedUserId: getUserUidFromRef(ownerRef),
+        sourceFunction: "notifyPrizeWon:resolveMerchantEmail",
+      });
       if (!merchantEmail) {
         updates.merchant_email_skipped = true;
         updates.merchant_email_skip_reason = "missing_merchant_email";
+      } else if (kPrizeEmailEmergencyDisabled === true) {
+        console.log("[PRIZE_EMAIL_CONTENT_CHECK]", {
+          prizeId,
+          winnerId: winnerRef && winnerRef.id ? winnerRef.id : null,
+          claimCode: prizeData.claim_code,
+          prizeNameFromDB: prizeData.name,
+          emailPrizeNameUsed: prizeName,
+          emailGameNameUsed: gameName,
+          sourceFunction: "notifyPrizeWon:merchantEmail",
+        });
+        updates.merchant_email_skipped = true;
+        updates.merchant_email_skip_reason = "emergency_disabled";
+        console.log(
+          `[notifyPrizeWon] prize=${prizeId} merchant_email_disabled reason=${kPrizeEmailEmergencyDisabledReason}`,
+        );
       } else {
         try {
+          console.log("[PRIZE_EMAIL_CONTENT_CHECK]", {
+            prizeId,
+            winnerId: winnerRef && winnerRef.id ? winnerRef.id : null,
+            claimCode: prizeData.claim_code,
+            prizeNameFromDB: prizeData.name,
+            emailPrizeNameUsed: prizeName,
+            emailGameNameUsed: gameName,
+            sourceFunction: "notifyPrizeWon:merchantEmail",
+          });
           await sendEmailNotification(
             getMailer(),
             merchantEmail,
             merchantEmailSubject,
             merchantEmailBody,
           );
+          logPrizeEmailAudit({
+            prizeId,
+            gameId: gameRef ? gameRef.id : "",
+            winnerRef,
+            winnerUserId: getUserUidFromRef(winnerRef),
+            resolvedEmail: merchantEmail,
+            resolvedUserId: getUserUidFromRef(ownerRef),
+            sourceFunction: "notifyPrizeWon:sendMerchantEmail",
+          });
           updates.merchant_email_sent = true;
           updates.merchant_email_skipped = admin.firestore.FieldValue.delete();
           updates.merchant_email_skip_reason = admin.firestore.FieldValue.delete();

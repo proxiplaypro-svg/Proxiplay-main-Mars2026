@@ -59,7 +59,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
           backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
           automaticallyImplyLeading: false,
           title: Text(
-            'Gestion des Profils CommerÃ§ants',
+            'Gestion des profils commerçants',
             style: FlutterFlowTheme.of(context).headlineMedium.override(
                   font: GoogleFonts.interTight(
                     fontWeight: FontWeight.w600,
@@ -649,4 +649,3 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
     );
   }
 }
-

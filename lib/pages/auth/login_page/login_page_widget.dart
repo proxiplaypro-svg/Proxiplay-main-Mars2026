@@ -1,4 +1,5 @@
 import '/auth/firebase_auth/auth_util.dart';
+import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/resend_email_verification_widget.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
@@ -37,6 +38,77 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
 
   final animationsMap = <String, AnimationInfo>{};
 
+  bool _tryConsumePendingRedirect() {
+    if (FFAppState().hasPendingDeepLinkGameId) {
+      return false;
+    }
+    final router = GoRouter.of(context);
+    if (!router.appState.hasRedirect()) {
+      return false;
+    }
+    final redirectLocation = router.appState.getRedirectLocation();
+    router.appState.clearRedirectLocation();
+    router.go(redirectLocation);
+    return true;
+  }
+
+  Future<bool> _resumePendingDeepLinkIfAny() async {
+    final pendingGameId = FFAppState().pendingDeepLinkGameId.trim();
+    if (pendingGameId.isEmpty) {
+      return false;
+    }
+
+    debugPrint('[LOGIN_PENDING_DEEPLINK_FOUND] gameId=$pendingGameId');
+    debugPrint('[DEEPLINK_POST_LOGIN_RESUME] gameId=$pendingGameId');
+    FFAppState().clearPendingDeepLinkGameId();
+    GoRouter.of(context).clearRedirectLocation();
+
+    final gameRef = GamesRecord.collection.doc(pendingGameId);
+    final gameSnap = await gameRef.get();
+    if (!gameSnap.exists) {
+      debugPrint('[DEEPLINK_GAME_NOT_FOUND] gameId=$pendingGameId');
+      if (!mounted) {
+        return true;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ce jeu est indisponible pour le moment.'),
+        ),
+      );
+      return true;
+    }
+
+    final gameDoc = GamesRecord.fromSnapshot(gameSnap);
+    EnseignesRecord? enseigneDoc;
+    final enseigneRef = gameDoc.enseigneId;
+    if (enseigneRef != null) {
+      try {
+        enseigneDoc = await EnseignesRecord.getDocumentOnce(enseigneRef);
+      } catch (_) {
+        enseigneDoc = null;
+      }
+    }
+
+    if (!mounted) {
+      return true;
+    }
+
+    debugPrint('[LOGIN_PENDING_DEEPLINK_NAVIGATING] gameId=${gameDoc.reference.id}');
+    debugPrint('[QR_OPEN_GAME_AUTHENTICATED] gameId=${gameDoc.reference.id}');
+    context.goNamedAuth(
+      JeuDetailJoueurPageWidget.routeName,
+      mounted,
+      extra: <String, dynamic>{
+        'gameDoc': gameDoc,
+        'enseigneDoc': enseigneDoc,
+        'source': 'qr_link',
+      },
+      ignoreRedirect: true,
+    );
+    debugPrint('[LOGIN_PENDING_DEEPLINK_RETURN] gameId=${gameDoc.reference.id}');
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +128,11 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
       // Only auto-redirect when Firebase still has a signed-in user.
       if (FirebaseAuth.instance.currentUser == null) {
         return;
+      }
+      if (FFAppState().hasPendingDeepLinkGameId) {
+        debugPrint(
+          '[QR_UNEXPECTED_LOGIN_WHILE_AUTHENTICATED] pendingGameId=${FFAppState().pendingDeepLinkGameId}',
+        );
       }
       // Only auto-redirect if we are on the initial route or login page.
       final currentRoute = GoRouter.of(context)
@@ -81,6 +158,15 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
           // If the document never loaded (e.g. anonymous user with no
           // Firestore doc), fall through to the joueur home as a default.
           if (currentUserDocument == null) {
+            if (await _resumePendingDeepLinkIfAny()) {
+              return;
+            }
+            if (!mounted) {
+              return;
+            }
+            if (_tryConsumePendingRedirect()) {
+              return;
+            }
             context.goNamed(HomeJoueurPageWidget.routeName);
             return;
           }
@@ -104,6 +190,15 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
               return;
             }
 
+            if (await _resumePendingDeepLinkIfAny()) {
+              return;
+            }
+            if (!mounted) {
+              return;
+            }
+            if (_tryConsumePendingRedirect()) {
+              return;
+            }
             context.goNamed(HomeJoueurPageWidget.routeName);
           }
         } else if (currentUserDocument?.userRole == Roles.admin) {
@@ -183,6 +278,15 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
     required bool shouldCheckEmailVerification,
   }) async {
     var shouldSetState = false;
+
+    debugPrint('[LOGIN_SUCCESS] userId=$currentUserUid');
+    debugPrint(
+      '[LOGIN_PENDING_DEEPLINK_STATE] pendingGameId=${FFAppState().pendingDeepLinkGameId}',
+    );
+
+    if (await _resumePendingDeepLinkIfAny()) {
+      return;
+    }
 
     if (shouldCheckEmailVerification) {
       final requiresEmailVerification = _playerEmailVerificationEnabled &&
@@ -268,6 +372,16 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
           return;
         }
 
+        if (!mounted) {
+          return;
+        }
+        if (_tryConsumePendingRedirect()) {
+          if (shouldSetState) {
+            safeSetState(() {});
+          }
+          return;
+        }
+        debugPrint('[LOGIN_DEFAULT_NAVIGATION] target=${HomeJoueurPageWidget.routeName}');
         context.goNamedAuth(
           HomeJoueurPageWidget.routeName,
           mounted,
@@ -277,6 +391,7 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
         if (!context.mounted) {
           return;
         }
+        debugPrint('[LOGIN_DEFAULT_NAVIGATION] target=${HomeAdminPageWidget.routeName}');
         context.goNamedAuth(
           HomeAdminPageWidget.routeName,
           context.mounted,
@@ -286,6 +401,8 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
         if (!context.mounted) {
           return;
         }
+        debugPrint(
+            '[LOGIN_DEFAULT_NAVIGATION] target=${HomeCommercantPageWidget.routeName}');
         context.goNamedAuth(
           HomeCommercantPageWidget.routeName,
           context.mounted,

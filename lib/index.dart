@@ -2,6 +2,8 @@
 export '/pages/joueur/home_joueur_page/home_joueur_page_widget.dart'
     show HomeJoueurPageWidget;
 export '/pages/auth/login_page/login_page_widget.dart' show LoginPageWidget;
+export '/pages/public/game_launch_page/game_launch_page_widget.dart'
+    show GameLaunchPageWidget, GameLaunchSchemePageWidget;
 export '/pages/auth/inscription_page/inscription_page_widget.dart'
     show InscriptionPageWidget;
 export '/pages/auth/inscription_informations_page/inscription_informations_page_widget.dart'
@@ -64,6 +66,8 @@ export '/pages/commercant/photo_enseigne_commercant_page/photo_enseigne_commerca
     show PhotoEnseigneCommercantPageWidget;
 export '/pages/commercant/add_game_commercant_page/add_game_commercant_page_widget.dart'
     show AddGameCommercantPageWidget;
+export '/pages/commercant/jeu_share_commercant_page/jeu_share_commercant_page_widget.dart'
+    show JeuShareCommercantPageWidget;
 export '/pages/commercant/selected_enseignes_for_add_game_commercant_page/selected_enseignes_for_add_game_commercant_page_widget.dart'
     show SelectedEnseignesForAddGameCommercantPageWidget;
 export '/pages/joueur/jeu_detail_joueur_page/jeu_detail_joueur_page_widget.dart'

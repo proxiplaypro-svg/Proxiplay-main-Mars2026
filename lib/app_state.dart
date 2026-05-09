@@ -23,6 +23,8 @@ class FFAppState extends ChangeNotifier {
     _safeInit(() {
       _isMineur = prefs.getBool('ff_isMineur') ?? _isMineur;
       _isGuest = prefs.getBool('ff_isGuest') ?? _isGuest;
+      _pendingDeepLinkGameId =
+          prefs.getString('ff_pendingDeepLinkGameId') ?? _pendingDeepLinkGameId;
       _pendingReferralCode =
           prefs.getString('ff_pendingReferralCode') ?? _pendingReferralCode;
       debugPrint(
@@ -97,6 +99,28 @@ class FFAppState extends ChangeNotifier {
     _isGuest = value;
     if (_prefsReady) {
       prefs.setBool('ff_isGuest', value);
+    }
+  }
+
+  String _pendingDeepLinkGameId = '';
+  String get pendingDeepLinkGameId => _pendingDeepLinkGameId;
+  set pendingDeepLinkGameId(String value) {
+    _pendingDeepLinkGameId = value.trim();
+    if (_prefsReady) {
+      if (_pendingDeepLinkGameId.isEmpty) {
+        prefs.remove('ff_pendingDeepLinkGameId');
+      } else {
+        prefs.setString('ff_pendingDeepLinkGameId', _pendingDeepLinkGameId);
+      }
+    }
+  }
+
+  bool get hasPendingDeepLinkGameId => _pendingDeepLinkGameId.isNotEmpty;
+
+  void clearPendingDeepLinkGameId() {
+    _pendingDeepLinkGameId = '';
+    if (_prefsReady) {
+      prefs.remove('ff_pendingDeepLinkGameId');
     }
   }
 

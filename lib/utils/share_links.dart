@@ -1,4 +1,11 @@
 const String shareLinkBase = 'https://onelink.to/jx4ee7';
+const String gameQrLinkBase = 'https://play.proxiplay.fr/j';
+const String proxiplayCustomScheme = 'proxiplay';
+const String proxiplayAndroidPackageName = 'com.proxiplay.proxiplay';
+const String proxiplayAndroidStoreUrl =
+    'https://play.google.com/store/apps/details?id=$proxiplayAndroidPackageName';
+const String proxiplayIosStoreUrl =
+    'https://apps.apple.com/app/id6753818573';
 
 const List<String> _referralParamCandidates = <String>[
   'ref',
@@ -26,6 +33,16 @@ String buildReferralShareLink([String? referralCode]) {
   final queryParameters = Map<String, String>.from(baseUri.queryParameters)
     ..['ref'] = normalizedCode;
   return baseUri.replace(queryParameters: queryParameters).toString();
+}
+
+String buildGameQrLink(String gameId) {
+  final normalizedGameId = gameId.trim();
+  return '$gameQrLinkBase/$normalizedGameId';
+}
+
+String buildGameDeepLink(String gameId) {
+  final normalizedGameId = gameId.trim();
+  return '$proxiplayCustomScheme://game/$normalizedGameId';
 }
 
 String buildAppShareText({

@@ -10,6 +10,7 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/upload_data.dart';
 import '/custom_code/actions/index.dart' as actions;
 import '/index.dart';
+import '/utils/share_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -75,6 +76,9 @@ class _AddGameCommercantPageWidgetState
   }
 
   List<Map<String, dynamic>>? _collectSecondaryPrizes() {
+    if (!_model.secondaryPrizesEnabled) {
+      return <Map<String, dynamic>>[];
+    }
     final prizes = <Map<String, dynamic>>[];
     for (var index = 0; index < _model.secondaryPrizes.length; index++) {
       final entry = _model.secondaryPrizes[index];
@@ -152,6 +156,7 @@ class _AddGameCommercantPageWidgetState
       entry.dispose();
     }
     _model.secondaryPrizes.clear();
+    _model.secondaryPrizesEnabled = template.secondaryPrizes.isNotEmpty;
     for (final prize in template.secondaryPrizes) {
       final entry = SecondaryPrizeEntry();
       entry.nameController.text = (prize['name'] ?? '').toString();
@@ -780,6 +785,7 @@ class _AddGameCommercantPageWidgetState
     );
 
     var gamesRecordReference = GamesRecord.collection.doc();
+    final qrLink = buildGameQrLink(gamesRecordReference.id);
     await gamesRecordReference.set({
       ...createGamesRecordData(
         name: gameName,
@@ -803,12 +809,16 @@ class _AddGameCommercantPageWidgetState
         hasMainPrize: shouldPersistMainPrize,
         startDate: startDate,
         enseigneName: widget.enseigne,
+        qrLink: qrLink,
+        qrTarget: 'game_detail',
+        qrVersion: 2,
       ),
       ...mapToFirestore(
         {
           'created_time': FieldValue.serverTimestamp(),
           'uniquePlayersEnabled': true,
           'unique_players_count': 0,
+          'qr_created_at': FieldValue.serverTimestamp(),
         },
       ),
     });
@@ -835,12 +845,16 @@ class _AddGameCommercantPageWidgetState
         hasMainPrize: shouldPersistMainPrize,
         startDate: startDate,
         enseigneName: widget.enseigne,
+        qrLink: qrLink,
+        qrTarget: 'game_detail',
+        qrVersion: 2,
       ),
       ...mapToFirestore(
         {
           'created_time': DateTime.now(),
           'uniquePlayersEnabled': true,
           'unique_players_count': 0,
+          'qr_created_at': DateTime.now(),
         },
       ),
     }, gamesRecordReference);
@@ -911,6 +925,30 @@ class _AddGameCommercantPageWidgetState
       if (didCreateGame == true && context.mounted) {
         FocusScope.of(context).unfocus();
         FocusManager.instance.primaryFocus?.unfocus();
+        final createdGame = _model.gameResult;
+        final createdGameId = createdGame?.reference.id ?? '';
+        try {
+          if (createdGame != null && createdGameId.isNotEmpty) {
+            context.goNamed(
+              JeuShareCommercantPageWidget.routeName,
+              pathParameters: {
+                'gameId': createdGameId,
+              },
+              extra: <String, dynamic>{
+                'initialGame': createdGame,
+                kTransitionInfoKey: const TransitionInfo(
+                  hasTransition: true,
+                  transitionType: PageTransitionType.fade,
+                  duration: Duration(milliseconds: 0),
+                ),
+              },
+            );
+            return;
+          }
+        } catch (_) {}
+        if (!context.mounted) {
+          return;
+        }
         context.goNamed(
           JeuxCommercantPageWidget.routeName,
           extra: <String, dynamic>{
@@ -1216,124 +1254,167 @@ class _AddGameCommercantPageWidgetState
                             title: 'Lots à gains immédiats lors du grattage',
                             description:
                                 'Ces lots sont remportés immédiatement pendant le jeu.',
-                            trailing: Container(
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFCECF4),
-                                borderRadius: BorderRadius.circular(999.0),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14.0,
-                                vertical: 8.0,
-                              ),
-                              child: Text(
-                                '${_model.secondaryPrizes.length} ${_model.secondaryPrizes.length > 1 ? 'lots' : 'lot'}',
-                                style: FlutterFlowTheme.of(context)
-                                    .titleSmall
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w600,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .titleSmall
-                                            .fontStyle,
-                                      ),
-                                      color:
-                                          FlutterFlowTheme.of(context).primary,
-                                      letterSpacing: 0.0,
-                                      fontSize: 14.0,
-                                      fontWeight: FontWeight.w600,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .fontStyle,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(2.0),
+                                  decoration: BoxDecoration(
+                                    color: _model.secondaryPrizesEnabled
+                                        ? const Color(0xFFFBE8F1)
+                                        : const Color(0xFFF2EEF3),
+                                    borderRadius: BorderRadius.circular(999.0),
+                                  ),
+                                  child: Switch(
+                                    value: _model.secondaryPrizesEnabled,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        _model.secondaryPrizesEnabled = val;
+                                      });
+                                    },
+                                    activeTrackColor: const Color(0xFFB61B5A),
+                                    inactiveTrackColor:
+                                        const Color(0xFFDCD6DB),
+                                    activeThumbColor: Colors.white,
+                                    inactiveThumbColor: Colors.white,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    trackOutlineColor:
+                                        WidgetStateProperty.all(
+                                      Colors.transparent,
                                     ),
-                              ),
+                                  ),
+                                ),
+                                if (_model.secondaryPrizesEnabled) ...[
+                                  const SizedBox(width: 8.0),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFCECF4),
+                                      borderRadius: BorderRadius.circular(999.0),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14.0,
+                                      vertical: 8.0,
+                                    ),
+                                    child: Text(
+                                      '${_model.secondaryPrizes.length} ${_model.secondaryPrizes.length > 1 ? 'lots' : 'lot'}',
+                                      style: FlutterFlowTheme.of(context)
+                                          .titleSmall
+                                          .override(
+                                            font: GoogleFonts.inter(
+                                              fontWeight: FontWeight.w600,
+                                              fontStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .titleSmall
+                                                      .fontStyle,
+                                            ),
+                                            color: FlutterFlowTheme.of(context)
+                                                .primary,
+                                            letterSpacing: 0.0,
+                                            fontSize: 14.0,
+                                            fontWeight: FontWeight.w600,
+                                            fontStyle:
+                                                FlutterFlowTheme.of(context)
+                                                    .titleSmall
+                                                    .fontStyle,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 12.0),
-                          Divider(
-                            thickness: 1.0,
-                            color: FlutterFlowTheme.of(context).alternate,
-                          ),
-                          if (!_model.mainPrizeEnabled) ...[
                             const SizedBox(height: 12.0),
-                            TextFormField(
-                              controller: _model.textController4,
-                              focusNode: _model.textFieldFocusNode4,
-                              autofocus: false,
-                              obscureText: false,
-                              decoration: _fieldDecoration(
-                                context,
-                                label: 'Titre du jeu',
+                          if (_model.secondaryPrizesEnabled) ...[
+                            Divider(
+                              thickness: 1.0,
+                              color: FlutterFlowTheme.of(context).alternate,
+                            ),
+                            if (!_model.mainPrizeEnabled) ...[
+                              const SizedBox(height: 12.0),
+                              TextFormField(
+                                controller: _model.textController4,
+                                focusNode: _model.textFieldFocusNode4,
+                                autofocus: false,
+                                obscureText: false,
+                                decoration: _fieldDecoration(
+                                  context,
+                                  label: 'Titre du jeu',
+                                ),
+                                style: _fieldTextStyle(context),
+                                validator: _model.textController4Validator
+                                    .asValidator(context),
                               ),
-                              style: _fieldTextStyle(context),
-                              validator: _model.textController4Validator
-                                  .asValidator(context),
+                            ],
+                            const SizedBox(height: 12.0),
+                            ...List.generate(
+                              _model.secondaryPrizes.length,
+                              (index) => Padding(
+                                padding: EdgeInsets.only(
+                                  bottom:
+                                      index == _model.secondaryPrizes.length - 1
+                                          ? 0.0
+                                          : 12.0,
+                                ),
+                                child: _buildSecondaryPrizeCard(
+                                  context,
+                                  index,
+                                  _model.secondaryPrizes[index],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8.0),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _model.secondaryPrizes
+                                        .add(SecondaryPrizeEntry());
+                                  });
+                                },
+                                icon: Icon(
+                                  Icons.add_circle_outline_rounded,
+                                  color: FlutterFlowTheme.of(context).primary,
+                                ),
+                                label: Text(
+                                  'Ajouter un lot',
+                                  style: FlutterFlowTheme.of(context)
+                                      .titleMedium
+                                      .override(
+                                        font: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w600,
+                                          fontStyle:
+                                              FlutterFlowTheme.of(context)
+                                                  .titleMedium
+                                                  .fontStyle,
+                                        ),
+                                        color: FlutterFlowTheme.of(context)
+                                            .primary,
+                                        letterSpacing: 0.0,
+                                        fontWeight: FontWeight.w600,
+                                        fontStyle:
+                                            FlutterFlowTheme.of(context)
+                                                .titleMedium
+                                                .fontStyle,
+                                      ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(
+                                    color: Color(0xFFF0DDE8),
+                                  ),
+                                  backgroundColor: const Color(0xFFFFFAFD),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 18.0,
+                                    vertical: 14.0,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(18.0),
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
-                          const SizedBox(height: 12.0),
-                          ...List.generate(
-                            _model.secondaryPrizes.length,
-                            (index) => Padding(
-                              padding: EdgeInsets.only(
-                                bottom: index == _model.secondaryPrizes.length - 1
-                                    ? 0.0
-                                    : 12.0,
-                              ),
-                              child: _buildSecondaryPrizeCard(
-                                context,
-                                index,
-                                _model.secondaryPrizes[index],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8.0),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  _model.secondaryPrizes
-                                      .add(SecondaryPrizeEntry());
-                                });
-                              },
-                              icon: Icon(
-                                Icons.add_circle_outline_rounded,
-                                color: FlutterFlowTheme.of(context).primary,
-                              ),
-                              label: Text(
-                                'Ajouter un lot',
-                                style: FlutterFlowTheme.of(context)
-                                    .titleMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w600,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .titleMedium
-                                            .fontStyle,
-                                      ),
-                                      color:
-                                          FlutterFlowTheme.of(context).primary,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FontWeight.w600,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleMedium
-                                          .fontStyle,
-                                    ),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                  color: Color(0xFFF0DDE8),
-                                ),
-                                backgroundColor: const Color(0xFFFFFAFD),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 18.0,
-                                  vertical: 14.0,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18.0),
-                                ),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),

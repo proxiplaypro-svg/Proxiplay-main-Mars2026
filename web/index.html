@@ -24,39 +24,216 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Proxiplay">
 
-  
-
-  <meta name="robots" content="noindex" />
+  <meta name="robots" content="noindex">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="icon" type="image/png" href="favicon.png">
 
   <!-- Open Graph & SEO tags -->
-  <meta property="og:title" content="Proxiplay" />
-  <meta property="og:description" content="Built with FlutterFlow." />
-  <meta property="og:image" content="https://storage.googleapis.com/flutterflow-prod-hosting/og_splash_gradient.png" /> 
-  <meta name="twitter:title" content="Proxiplay" />
-  <meta name="twitter:description" content="Built with FlutterFlow." />
-  <meta name="twitter:image" content="https://storage.googleapis.com/flutterflow-prod-hosting/og_splash_gradient.png" />
-  <meta name="twitter:card" content="summary_large_image" />
+  <meta property="og:title" content="Proxiplay">
+  <meta property="og:description" content="Built with FlutterFlow.">
+  <meta property="og:image" content="https://storage.googleapis.com/flutterflow-prod-hosting/og_splash_gradient.png">
+  <meta name="twitter:title" content="Proxiplay">
+  <meta name="twitter:description" content="Built with FlutterFlow.">
+  <meta name="twitter:image" content="https://storage.googleapis.com/flutterflow-prod-hosting/og_splash_gradient.png">
+  <meta name="twitter:card" content="summary_large_image">
 
-  <title> Proxiplay </title>
-  <meta name="description" content="Built with FlutterFlow." />
-    
+  <title>Proxiplay</title>
+  <meta name="description" content="Built with FlutterFlow.">
 
   <!-- Status Bar color in Safari browser (iOS) and PWA -->
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1f4f8">
-  <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#f1f4f8">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#f1f4f8">
 
   <link rel="manifest" href="manifest.json">
-  
+  <style>
+    #qr-launch-fallback {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: linear-gradient(180deg, #fffdf6 0%, #f4efe4 100%);
+      color: #1f2a37;
+      font-family: Arial, sans-serif;
+    }
+
+    #qr-launch-fallback.is-visible {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .qr-launch-card {
+      width: 100%;
+      max-width: 460px;
+      padding: 28px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 20px 40px rgba(31, 42, 55, 0.12);
+    }
+
+    .qr-launch-spinner {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 3px solid rgba(12, 94, 82, 0.18);
+      border-top-color: #0c5e52;
+      animation: qr-spin 1s linear infinite;
+      margin-bottom: 18px;
+    }
+
+    .qr-launch-title {
+      margin: 0 0 10px;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .qr-launch-copy {
+      margin: 0 0 20px;
+      color: #4f5b67;
+      line-height: 1.5;
+    }
+
+    .qr-launch-actions {
+      display: grid;
+      gap: 12px;
+    }
+
+    .qr-launch-button {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 52px;
+      padding: 0 18px;
+      border-radius: 16px;
+      border: 1px solid #d7dde5;
+      text-decoration: none;
+      color: #1f2a37;
+      font-weight: 600;
+      background: #ffffff;
+    }
+
+    .qr-launch-button--primary {
+      background: #0c5e52;
+      color: #ffffff;
+      border-color: #0c5e52;
+    }
+
+    .qr-launch-note {
+      margin-top: 14px;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .qr-launch-help {
+      display: none;
+    }
+
+    .qr-launch-help.is-visible {
+      display: block;
+    }
+
+    @keyframes qr-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
 </head>
 <body>
-  
-  
-  
-  
-  
+  <div id="qr-launch-fallback" aria-live="polite">
+    <div class="qr-launch-card">
+      <div class="qr-launch-spinner"></div>
+      <h1 class="qr-launch-title">Ouvrir ce jeu dans Proxiplay</h1>
+      <div id="qr-launch-help" class="qr-launch-help">
+        <p class="qr-launch-copy">
+          Ce lien ouvre un jeu Proxiplay. Si l application ne s ouvre pas automatiquement, utilisez les boutons ci-dessous.
+        </p>
+        <div class="qr-launch-actions">
+          <a id="qr-open-app" class="qr-launch-button qr-launch-button--primary" href="#">
+            Ouvrir dans Proxiplay
+          </a>
+          <a
+            id="qr-open-ios"
+            class="qr-launch-button"
+            href="https://apps.apple.com/app/id6753818573">
+            App Store
+          </a>
+          <a
+            id="qr-open-android"
+            class="qr-launch-button"
+            href="https://play.google.com/store/apps/details?id=com.proxiplay.proxiplay">
+            Google Play
+          </a>
+        </div>
+        <p id="qr-launch-link" class="qr-launch-note"></p>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var path = window.location.pathname || "";
+      if (!path.startsWith("/j/")) {
+        return;
+      }
+
+      var gameId = path.substring(3).split("/")[0];
+      if (!gameId) {
+        return;
+      }
+
+      var fallback = document.getElementById("qr-launch-fallback");
+      var fallbackHelp = document.getElementById("qr-launch-help");
+      var appButton = document.getElementById("qr-open-app");
+      var iosButton = document.getElementById("qr-open-ios");
+      var androidButton = document.getElementById("qr-open-android");
+      var linkLabel = document.getElementById("qr-launch-link");
+      var deepLink = "proxiplay://game/" + encodeURIComponent(gameId);
+      var canonicalUrl = "https://play.proxiplay.fr/j/" + gameId;
+
+      fallback.classList.add("is-visible");
+      var attemptOpenNative = function (reason) {
+        console.log("[QR_LINK_NATIVE_ATTEMPT] url=" + deepLink + " reason=" + reason);
+        window.location.href = deepLink;
+      };
+
+      appButton.href = deepLink;
+      iosButton.href = "https://apps.apple.com/app/id6753818573";
+      androidButton.href = "https://play.google.com/store/apps/details?id=com.proxiplay.proxiplay";
+      linkLabel.textContent = "Lien jeu : " + canonicalUrl;
+
+      appButton.addEventListener("click", function (event) {
+        event.preventDefault();
+        console.log("[QR_LINK_WEB_OPEN_CLICKED] gameId=" + gameId);
+        attemptOpenNative("button_click");
+      });
+
+      var opened = false;
+      var markOpened = function () {
+        opened = true;
+      };
+
+      window.addEventListener("pagehide", markOpened, { once: true });
+      document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "hidden") {
+          opened = true;
+        }
+      });
+
+      setTimeout(function () {
+        attemptOpenNative("auto_open");
+      }, 120);
+
+      setTimeout(function () {
+        if (opened) {
+          return;
+        }
+        fallbackHelp.classList.add("is-visible");
+        appButton.focus();
+      }, 1800);
+    })();
+  </script>
   <script>
     {{flutter_bootstrap_js}}
   </script>

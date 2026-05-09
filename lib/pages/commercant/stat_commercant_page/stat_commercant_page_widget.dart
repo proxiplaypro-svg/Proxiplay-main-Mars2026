@@ -252,19 +252,25 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
 
   Widget _statChip(IconData icon, String value) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.max,
       children: [
         Icon(icon, size: 16.0, color: FlutterFlowTheme.of(context).primary),
         const SizedBox(width: 4.0),
-        Text(
-          value,
-          style: FlutterFlowTheme.of(context).bodySmall.override(
-                font: GoogleFonts.inter(
-                  fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                  fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: FlutterFlowTheme.of(context).bodySmall.override(
+                  font: GoogleFonts.inter(
+                    fontWeight:
+                        FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                  ),
+                  letterSpacing: 0.0,
                 ),
-                letterSpacing: 0.0,
-              ),
+          ),
         ),
       ],
     );
@@ -375,26 +381,24 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                           ),
                     ),
                     const SizedBox(height: 8.0),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _statChip(Icons.remove_red_eye,
-                              'Ouvertures fiche ${gameViewsDisplayValue(game)}'),
-                          const SizedBox(width: 12.0),
-                          _statChip(Icons.sports_esports_rounded,
-                              'Participations ${game.participations}'),
-                          const SizedBox(width: 12.0),
-                          _statChip(Icons.star_rounded, 'Favoris ${game.favorites}'),
-                          if (kShowUniquePlayersStat &&
-                              _shouldShowUniquePlayers(game))
-                            ...[
-                              const SizedBox(width: 12.0),
-                              _statChip(Icons.person_rounded,
-                                  'Joueurs ${_readUniquePlayers(game)}'),
-                            ],
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _statChip(Icons.remove_red_eye,
+                            'Ouvertures fiche ${gameViewsDisplayValue(game)}'),
+                        const SizedBox(height: 6.0),
+                        _statChip(Icons.sports_esports_rounded,
+                            'Participations ${game.participations}'),
+                        const SizedBox(height: 6.0),
+                        _statChip(Icons.star_rounded,
+                            'Favoris ${game.favorites}'),
+                        if (kShowUniquePlayersStat &&
+                            _shouldShowUniquePlayers(game)) ...[
+                          const SizedBox(height: 6.0),
+                          _statChip(Icons.person_rounded,
+                              'Joueurs ${_readUniquePlayers(game)}'),
                         ],
-                      ),
+                      ],
                     ),
                     const SizedBox(height: 8.0),
                     if (showActions)

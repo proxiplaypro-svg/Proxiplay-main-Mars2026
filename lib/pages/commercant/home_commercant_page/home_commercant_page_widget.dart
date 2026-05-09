@@ -61,27 +61,36 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
     required IconData icon,
     required String text,
   }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 18.0,
-          color: FlutterFlowTheme.of(context).primary,
-        ),
-        const SizedBox(width: 6.0),
-        Text(
-          text,
-          style: FlutterFlowTheme.of(context).bodySmall.override(
-                font: GoogleFonts.inter(
-                  fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                  fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FC),
+        borderRadius: BorderRadius.circular(14.0),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16.0,
+            color: FlutterFlowTheme.of(context).primary,
+          ),
+          const SizedBox(width: 5.0),
+          Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: FlutterFlowTheme.of(context).bodySmall.override(
+                  font: GoogleFonts.inter(
+                    fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                    fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                  ),
+                  color: FlutterFlowTheme.of(context).primaryText,
+                  letterSpacing: 0.0,
                 ),
-                color: FlutterFlowTheme.of(context).primaryText,
-                letterSpacing: 0.0,
-              ),
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -122,85 +131,77 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
             ),
             const SizedBox(width: 16.0),
             Expanded(
-              child: SizedBox(
-                height: 104.0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            game.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: FlutterFlowTheme.of(context)
-                                .titleLarge
-                                .override(
-                                  font: GoogleFonts.interTight(
-                                    fontWeight: FontWeight.w700,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleLarge
-                                        .fontStyle,
-                                  ),
-                                  letterSpacing: 0.0,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          game.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: FlutterFlowTheme.of(context).titleLarge.override(
+                                font: GoogleFonts.interTight(
                                   fontWeight: FontWeight.w700,
+                                  fontStyle: FlutterFlowTheme.of(context)
+                                      .titleLarge
+                                      .fontStyle,
                                 ),
+                                letterSpacing: 0.0,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(width: 10.0),
+                      _buildStatusBadge(),
+                    ],
+                  ),
+                  const SizedBox(height: 10.0),
+                  Text(
+                    'Du ${dateTimeFormat(
+                      "d/M/y",
+                      game.startDate,
+                      locale: FFLocalizations.of(context).languageCode,
+                    )} au ${dateTimeFormat(
+                      "d/M/y",
+                      game.endDate,
+                      locale: FFLocalizations.of(context).languageCode,
+                    )}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: FlutterFlowTheme.of(context).bodyMedium.override(
+                          font: GoogleFonts.inter(
+                            fontWeight:
+                                FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                            fontStyle:
+                                FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                           ),
+                          color: FlutterFlowTheme.of(context).secondaryText,
+                          letterSpacing: 0.0,
                         ),
-                        const SizedBox(width: 10.0),
-                        _buildStatusBadge(),
-                      ],
-                    ),
-                    const SizedBox(height: 10.0),
-                    Text(
-                      'Du ${dateTimeFormat(
-                        "d/M/y",
-                        game.startDate,
-                        locale: FFLocalizations.of(context).languageCode,
-                      )} au ${dateTimeFormat(
-                        "d/M/y",
-                        game.endDate,
-                        locale: FFLocalizations.of(context).languageCode,
-                      )}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: FlutterFlowTheme.of(context).bodyMedium.override(
-                            font: GoogleFonts.inter(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontStyle,
-                            ),
-                            color: FlutterFlowTheme.of(context).secondaryText,
-                            letterSpacing: 0.0,
-                          ),
-                    ),
-                    const Spacer(),
-                    Wrap(
-                      spacing: 16.0,
-                      runSpacing: 8.0,
-                      children: [
-                        _buildMetricChip(
-                          icon: Icons.remove_red_eye,
-                          text:
-                              'Ouvertures fiche ${gameViewsDisplayValue(game)}',
-                        ),
-                        _buildMetricChip(
-                          icon: Icons.sports_esports_rounded,
-                          text: 'Joueurs ${game.participations}',
-                        ),
-                        _buildMetricChip(
-                          icon: Icons.star_rounded,
-                          text: 'Favoris ${game.favorites}',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 10.0),
+                  Wrap(
+                    spacing: 8.0,
+                    runSpacing: 8.0,
+                    children: [
+                      _buildMetricChip(
+                        icon: Icons.remove_red_eye,
+                        text: 'Ouvertures ${gameViewsDisplayValue(game)}',
+                      ),
+                      _buildMetricChip(
+                        icon: Icons.sports_esports_rounded,
+                        text: 'Joueurs ${game.participations}',
+                      ),
+                      _buildMetricChip(
+                        icon: Icons.star_rounded,
+                        text: 'Favoris ${game.favorites}',
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],

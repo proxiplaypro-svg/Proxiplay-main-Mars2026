@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/backend/backend.dart';
@@ -20,7 +21,19 @@ const kTransitionInfoKey = '__transition_info__';
 
 GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
+String? _extractDeepLinkGameId(Uri uri) {
+  final segments = uri.pathSegments;
+  if (segments.length >= 2 &&
+      (segments.first == 'j' || segments.first == 'game')) {
+    final gameId = segments[1].trim();
+    return gameId.isEmpty ? null : gameId;
+  }
+  return null;
+}
+
 class AppStateNotifier extends ChangeNotifier {
+  static const Duration _authResolutionTimeout = Duration(seconds: 3);
+
   AppStateNotifier._();
 
   static AppStateNotifier? _instance;
@@ -30,6 +43,9 @@ class AppStateNotifier extends ChangeNotifier {
   BaseAuthUser? user;
   bool showSplashImage = true;
   String? _redirectLocation;
+  bool _hasResolvedAuthState = false;
+  Timer? _authResolutionTimer;
+  StreamSubscription<User?>? _authResolutionSub;
 
   /// Determines whether the app will refresh and build again when a sign
   /// in or sign out happens. This is useful when the app is launched or
@@ -38,7 +54,8 @@ class AppStateNotifier extends ChangeNotifier {
   /// Otherwise, this will trigger a refresh and interrupt the action(s).
   bool notifyOnAuthChange = true;
 
-  bool get loading => user == null || showSplashImage;
+  bool get loading => !_hasResolvedAuthState || showSplashImage;
+  bool get hasResolvedAuthState => _hasResolvedAuthState;
   bool get loggedIn => (user?.loggedIn ?? false) || FFAppState().isGuest;
   bool get initiallyLoggedIn =>
       (initialUser?.loggedIn ?? false) || FFAppState().isGuest;
@@ -53,14 +70,64 @@ class AppStateNotifier extends ChangeNotifier {
   /// to perform subsequent actions (such as navigation) afterwards.
   void updateNotifyOnAuthChange(bool notify) => notifyOnAuthChange = notify;
 
+  void _cancelAuthResolutionWatch() {
+    _authResolutionTimer?.cancel();
+    _authResolutionTimer = null;
+    _authResolutionSub?.cancel();
+    _authResolutionSub = null;
+  }
+
+  void _resolveAuthState() {
+    _cancelAuthResolutionWatch();
+    _hasResolvedAuthState = true;
+  }
+
+  void _startAuthResolutionWatch() {
+    if (_hasResolvedAuthState ||
+        _authResolutionTimer != null ||
+        _authResolutionSub != null) {
+      return;
+    }
+
+    _authResolutionSub = FirebaseAuth.instance.idTokenChanges().listen((user) {
+      if (user == null || _hasResolvedAuthState) {
+        return;
+      }
+      _resolveAuthState();
+      if (notifyOnAuthChange) {
+        notifyListeners();
+      }
+    });
+
+    _authResolutionTimer = Timer(_authResolutionTimeout, () {
+      _authResolutionTimer = null;
+      if (_hasResolvedAuthState) {
+        return;
+      }
+      _resolveAuthState();
+      if (notifyOnAuthChange) {
+        notifyListeners();
+      }
+    });
+  }
+
   void update(BaseAuthUser newUser) {
     final shouldUpdate =
         user?.uid == null || newUser.uid == null || user?.uid != newUser.uid;
+    final previousResolvedState = _hasResolvedAuthState;
     initialUser ??= newUser;
     user = newUser;
+
+    if (newUser.loggedIn || FirebaseAuth.instance.currentUser != null) {
+      _resolveAuthState();
+    } else if (!_hasResolvedAuthState) {
+      _startAuthResolutionWatch();
+    }
+
     // Refresh the app on auth change unless explicitly marked otherwise.
     // No need to update unless the user has changed.
-    if (notifyOnAuthChange && shouldUpdate) {
+    if (notifyOnAuthChange &&
+        (shouldUpdate || previousResolvedState != _hasResolvedAuthState)) {
       notifyListeners();
     }
     // Once again mark the notifier as needing to update on auth change
@@ -90,6 +157,26 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               ? const LoginPageWidget()
               : const LoginPageWidget(),
           routes: [
+            FFRoute(
+              name: GameLaunchPageWidget.routeName,
+              path: GameLaunchPageWidget.routePath,
+              builder: (context, params) => GameLaunchPageWidget(
+                gameId: params.getParam(
+                  'gameId',
+                  ParamType.String,
+                ),
+              ),
+            ),
+            FFRoute(
+              name: GameLaunchSchemePageWidget.routeName,
+              path: GameLaunchSchemePageWidget.routePath,
+              builder: (context, params) => GameLaunchSchemePageWidget(
+                gameId: params.getParam(
+                  'gameId',
+                  ParamType.String,
+                ),
+              ),
+            ),
             FFRoute(
               name: HomeJoueurPageWidget.routeName,
               path: HomeJoueurPageWidget.routePath,
@@ -356,6 +443,21 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
                 ),
                 templateGame: params.getParam(
                   'templateGame',
+                  ParamType.Document,
+                ),
+              ),
+            ),
+            FFRoute(
+              name: JeuShareCommercantPageWidget.routeName,
+              path: JeuShareCommercantPageWidget.routePath,
+              requireAuth: true,
+              builder: (context, params) => JeuShareCommercantPageWidget(
+                gameId: params.getParam(
+                  'gameId',
+                  ParamType.String,
+                ),
+                initialGame: params.getParam(
+                  'initialGame',
                   ParamType.Document,
                 ),
               ),
@@ -718,6 +820,31 @@ class FFRoute {
         name: name,
         path: path,
         redirect: (context, state) {
+          debugPrint('[ROUTER_RAW_REDIRECT] uri=${state.uri.toString()}');
+          final deepLinkGameId = _extractDeepLinkGameId(state.uri);
+          final isDeepLinkRoute = deepLinkGameId != null;
+          if (isDeepLinkRoute) {
+            debugPrint('[DEEPLINK_RECEIVED] gameId=$deepLinkGameId uri=${state.uri.toString()}');
+            debugPrint(
+              '[QR_DEEPLINK_RECEIVED] gameId=$deepLinkGameId uri=${state.uri.toString()}',
+            );
+            debugPrint(
+              '[QR_AUTH_STATE_ON_DEEPLINK] isLoggedIn=${appStateNotifier.loggedIn} authResolved=${appStateNotifier.hasResolvedAuthState}',
+            );
+            final shouldStorePendingDeepLink = !appStateNotifier.loggedIn ||
+                currentUserUid.isEmpty ||
+                isGuestOrAnonymous;
+            if (shouldStorePendingDeepLink &&
+                FFAppState().pendingDeepLinkGameId != deepLinkGameId) {
+              FFAppState().pendingDeepLinkGameId = deepLinkGameId;
+              debugPrint('[DEEPLINK_PENDING_STORED] gameId=$deepLinkGameId');
+            }
+          }
+
+          if (!appStateNotifier.hasResolvedAuthState) {
+            return null;
+          }
+
           // Global auth guard: after logout, always send the user to login
           // (except for the public auth/legal pages).
           if (!appStateNotifier.loggedIn) {
@@ -729,7 +856,7 @@ class FFRoute {
               '/resetPassword',
               '/legalPage',
             };
-            if (!publicPaths.contains(p)) {
+            if (!publicPaths.contains(p) && !isDeepLinkRoute) {
               return '/loginPage';
             }
           }

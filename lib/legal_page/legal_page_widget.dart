@@ -1,9 +1,9 @@
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_web_view.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'legal_page_model.dart';
 export 'legal_page_model.dart';
 
@@ -20,9 +20,12 @@ class LegalPageWidget extends StatefulWidget {
 }
 
 class _LegalPageWidgetState extends State<LegalPageWidget> {
+  static final Uri _legalUri = Uri.parse('https://www.proxiplay.fr/legal.html');
+
   late LegalPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _openFailed = false;
 
   @override
   void initState() {
@@ -30,6 +33,9 @@ class _LegalPageWidgetState extends State<LegalPageWidget> {
     _model = createModel(context, () => LegalPageModel());
 
     logFirebaseEvent('screen_view', parameters: {'screen_name': 'legalPage'});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openLegalDocuments();
+    });
   }
 
   @override
@@ -37,6 +43,29 @@ class _LegalPageWidgetState extends State<LegalPageWidget> {
     _model.dispose();
 
     super.dispose();
+  }
+
+  Future<void> _openLegalDocuments() async {
+    bool opened = false;
+    try {
+      opened = await launchUrl(
+        _legalUri,
+        mode: LaunchMode.inAppBrowserView,
+      );
+    } catch (_) {
+      opened = false;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    if (opened) {
+      context.pop();
+      return;
+    }
+
+    setState(() => _openFailed = true);
   }
 
   @override
@@ -87,13 +116,55 @@ class _LegalPageWidgetState extends State<LegalPageWidget> {
         ),
         body: SafeArea(
           top: true,
-          child: FlutterFlowWebView(
-            content: 'https://proxiplay.fr/legal.html',
-            bypass: false,
-            width: MediaQuery.sizeOf(context).width * 1.0,
-            height: MediaQuery.sizeOf(context).height * 1.0,
-            verticalScroll: false,
-            horizontalScroll: false,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!_openFailed) ...[
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16.0),
+                    Text(
+                      'Ouverture des documents légaux…',
+                      textAlign: TextAlign.center,
+                      style: FlutterFlowTheme.of(context).bodyLarge.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FlutterFlowTheme.of(context)
+                                  .bodyLarge
+                                  .fontWeight,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodyLarge
+                                  .fontStyle,
+                            ),
+                            letterSpacing: 0.0,
+                          ),
+                    ),
+                  ] else ...[
+                    Text(
+                      'Impossible d’ouvrir les documents pour le moment.',
+                      textAlign: TextAlign.center,
+                      style: FlutterFlowTheme.of(context).bodyLarge.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FlutterFlowTheme.of(context)
+                                  .bodyLarge
+                                  .fontWeight,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodyLarge
+                                  .fontStyle,
+                            ),
+                            letterSpacing: 0.0,
+                          ),
+                    ),
+                    const SizedBox(height: 16.0),
+                    ElevatedButton(
+                      onPressed: _openLegalDocuments,
+                      child: const Text('Réessayer'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),

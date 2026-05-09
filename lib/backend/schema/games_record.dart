@@ -122,6 +122,26 @@ class GamesRecord extends FirestoreRecord {
   bool get hasMainPrize => _hasMainPrize ?? false;
   bool hasHasMainPrize() => _hasMainPrize != null;
 
+  // "qr_link" field.
+  String? _qrLink;
+  String get qrLink => _qrLink ?? '';
+  bool hasQrLink() => _qrLink != null;
+
+  // "qr_target" field.
+  String? _qrTarget;
+  String get qrTarget => _qrTarget ?? '';
+  bool hasQrTarget() => _qrTarget != null;
+
+  // "qr_created_at" field.
+  DateTime? _qrCreatedAt;
+  DateTime? get qrCreatedAt => _qrCreatedAt;
+  bool hasQrCreatedAt() => _qrCreatedAt != null;
+
+  // "qr_version" field.
+  int? _qrVersion;
+  int get qrVersion => _qrVersion ?? 0;
+  bool hasQrVersion() => _qrVersion != null;
+
   void _initializeFields() {
     _name = snapshotData['name'] as String?;
     _description = snapshotData['description'] as String?;
@@ -148,6 +168,10 @@ class GamesRecord extends FirestoreRecord {
     _enseigneName = snapshotData['enseigne_name'] as String?;
     _mainPrizeWinner = snapshotData['main_prize_winner'] as DocumentReference?;
     _hasMainPrize = snapshotData['hasMainPrize'] as bool?;
+    _qrLink = snapshotData['qr_link'] as String?;
+    _qrTarget = snapshotData['qr_target'] as String?;
+    _qrCreatedAt = snapshotData['qr_created_at'] as DateTime?;
+    _qrVersion = castToType<int>(snapshotData['qr_version']);
   }
 
   static CollectionReference get collection =>
@@ -205,6 +229,10 @@ Map<String, dynamic> createGamesRecordData({
   String? enseigneName,
   DocumentReference? mainPrizeWinner,
   bool? hasMainPrize,
+  String? qrLink,
+  String? qrTarget,
+  DateTime? qrCreatedAt,
+  int? qrVersion,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -229,6 +257,10 @@ Map<String, dynamic> createGamesRecordData({
       'enseigne_name': enseigneName,
       'main_prize_winner': mainPrizeWinner,
       'hasMainPrize': hasMainPrize,
+      'qr_link': qrLink,
+      'qr_target': qrTarget,
+      'qr_created_at': qrCreatedAt,
+      'qr_version': qrVersion,
     }.withoutNulls,
   );
 
@@ -260,7 +292,11 @@ class GamesRecordDocumentEquality implements Equality<GamesRecord> {
         e1?.hasWinner == e2?.hasWinner &&
         e1?.enseigneName == e2?.enseigneName &&
         e1?.mainPrizeWinner == e2?.mainPrizeWinner &&
-        e1?.hasMainPrize == e2?.hasMainPrize;
+        e1?.hasMainPrize == e2?.hasMainPrize &&
+        e1?.qrLink == e2?.qrLink &&
+        e1?.qrTarget == e2?.qrTarget &&
+        e1?.qrCreatedAt == e2?.qrCreatedAt &&
+        e1?.qrVersion == e2?.qrVersion;
   }
 
   @override
@@ -285,7 +321,11 @@ class GamesRecordDocumentEquality implements Equality<GamesRecord> {
         e?.hasWinner,
         e?.enseigneName,
         e?.mainPrizeWinner,
-        e?.hasMainPrize
+        e?.hasMainPrize,
+        e?.qrLink,
+        e?.qrTarget,
+        e?.qrCreatedAt,
+        e?.qrVersion
       ]);
 
   @override
