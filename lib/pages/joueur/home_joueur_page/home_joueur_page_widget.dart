@@ -607,10 +607,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
             if (messages.isEmpty) {
               return const SizedBox.shrink();
             }
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: RecentWinnersTicker(messages: messages),
-            );
+            return RecentWinnersTicker(messages: messages);
           },
         );
       },
@@ -696,6 +693,17 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   Future<void> _showSharePromoSheet() async {
     final payload = await _buildSharePromoPayload('native_share');
     final shareText = payload['shareText'] ?? buildAppShareText();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            duration: Duration(milliseconds: 1200),
+            content: Text('Ouverture du partage...'),
+          ),
+        );
+    }
 
     try {
       final box = context.findRenderObject() as RenderBox?;
@@ -1017,7 +1025,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
             ),
           ),
           body: SafeArea(
-            top: true,
+            top: false,
             child: Container(
               height: double.infinity,
               decoration: BoxDecoration(
@@ -1035,7 +1043,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                     decoration: const BoxDecoration(),
                     child: Padding(
                       padding: const EdgeInsetsDirectional.fromSTEB(
-                          20.0, 30.0, 20.0, 100.0),
+                          20.0, 0.0, 20.0, 100.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
                         mainAxisAlignment: MainAxisAlignment.start,
@@ -2012,6 +2020,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                   GamesRecord>>(
                                                             stream:
                                                                 queryGamesRecord(
+                                                              queryBuilder:
+                                                                  (query) =>
+                                                                      query
+                                                                          .orderBy(
+                                                                            'end_date',
+                                                                            descending:
+                                                                                true,
+                                                                          ),
+                                                              limit: 80,
                                                             ),
                                                             builder: (context,
                                                                 snapshot) {

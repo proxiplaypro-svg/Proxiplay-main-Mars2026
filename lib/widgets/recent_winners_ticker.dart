@@ -16,84 +16,57 @@ class RecentWinnersTicker extends StatefulWidget {
   State<RecentWinnersTicker> createState() => _RecentWinnersTickerState();
 }
 
-class _RecentWinnersTickerState extends State<RecentWinnersTicker> {
-  final ScrollController _scrollController = ScrollController();
+class _RecentWinnersTickerState extends State<RecentWinnersTicker>
+    with SingleTickerProviderStateMixin {
   final GlobalKey _sequenceKey = GlobalKey();
   Timer? _retryTimer;
-  bool _isAutoScrolling = false;
+  late final AnimationController _controller;
+  double _loopWidth = 0.0;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _restartAutoScroll());
+    _controller = AnimationController(vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _restartTicker());
   }
 
   @override
   void didUpdateWidget(covariant RecentWinnersTicker oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.messages.join('|') != widget.messages.join('|')) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _restartAutoScroll());
+      WidgetsBinding.instance.addPostFrameCallback((_) => _restartTicker());
     }
   }
 
   @override
   void dispose() {
     _retryTimer?.cancel();
-    _scrollController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
-  void _restartAutoScroll() {
+  void _restartTicker() {
     _retryTimer?.cancel();
-    if (!_scrollController.hasClients) {
+    final nextWidth = _singleSequenceWidth;
+    if (!mounted || nextWidth <= 0.0) {
       _retryTimer = Timer(
         const Duration(milliseconds: 400),
-        _restartAutoScroll,
-      );
-      return;
-    }
-    if (_scrollController.offset != 0.0) {
-      _scrollController.jumpTo(0.0);
-    }
-    _ensureAutoScroll();
-  }
-
-  Future<void> _ensureAutoScroll() async {
-    if (!mounted || _isAutoScrolling || !_scrollController.hasClients) {
-      return;
-    }
-    final loopExtent = _singleSequenceWidth;
-    if (loopExtent <= 0 || _scrollController.position.maxScrollExtent <= 0) {
-      _retryTimer?.cancel();
-      _retryTimer = Timer(
-        const Duration(milliseconds: 600),
-        _restartAutoScroll,
+        _restartTicker,
       );
       return;
     }
 
-    _isAutoScrolling = true;
-    try {
-      while (mounted && _scrollController.hasClients) {
-        final extent = _singleSequenceWidth;
-        if (extent <= 0 || _scrollController.position.maxScrollExtent <= 0) {
-          break;
-        }
-        final durationSeconds = (extent / 12.0).clamp(24.0, 54.0).round();
-        await _scrollController.animateTo(
-          extent,
-          duration: Duration(seconds: durationSeconds),
-          curve: Curves.linear,
-        );
-        if (!mounted || !_scrollController.hasClients) {
-          break;
-        }
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-        _scrollController.jumpTo(0.0);
-      }
-    } finally {
-      _isAutoScrolling = false;
+    if (_loopWidth == nextWidth && _controller.isAnimating) {
+      return;
     }
+
+    _loopWidth = nextWidth;
+    final durationSeconds = (_loopWidth / 12.0).clamp(24.0, 54.0).round();
+    _controller
+      ..stop()
+      ..duration = Duration(seconds: durationSeconds)
+      ..reset()
+      ..repeat();
   }
 
   double get _singleSequenceWidth {
@@ -149,8 +122,8 @@ class _RecentWinnersTickerState extends State<RecentWinnersTicker> {
 
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 60.0),
-      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+      constraints: const BoxConstraints(minHeight: 46.0),
+      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
       decoration: BoxDecoration(
         color: const Color(0xFFF5F6FB),
         borderRadius: BorderRadius.circular(16.0),
@@ -182,7 +155,7 @@ class _RecentWinnersTickerState extends State<RecentWinnersTicker> {
               size: 18.0,
             ),
           ),
-          const SizedBox(width: 12.0),
+          const SizedBox(width: 10.0),
           Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -203,19 +176,30 @@ class _RecentWinnersTickerState extends State<RecentWinnersTicker> {
                     fontStyle: theme.titleMedium.fontStyle,
                   ),
                 ),
-                const SizedBox(height: 4.0),
+                const SizedBox(height: 2.0),
                 SizedBox(
-                  height: 18.0,
+                  height: 24.0,
                   child: ClipRect(
                     child: SingleChildScrollView(
-                      controller: _scrollController,
                       scrollDirection: Axis.horizontal,
                       physics: const NeverScrollableScrollPhysics(),
-                      child: Row(
-                        children: [
-                          _buildMessageSequence(theme, key: _sequenceKey),
-                          _buildMessageSequence(theme),
-                        ],
+                      child: AnimatedBuilder(
+                        animation: _controller,
+                        builder: (context, child) {
+                          final dx = _loopWidth > 0.0
+                              ? -(_controller.value * _loopWidth)
+                              : 0.0;
+                          return Transform.translate(
+                            offset: Offset(dx, 0.0),
+                            child: child,
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            _buildMessageSequence(theme, key: _sequenceKey),
+                            _buildMessageSequence(theme),
+                          ],
+                        ),
                       ),
                     ),
                   ),
