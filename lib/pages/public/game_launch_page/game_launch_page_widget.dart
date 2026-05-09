@@ -174,10 +174,12 @@ class _GameLaunchScreenState extends State<_GameLaunchScreen> {
     debugPrint('[QR_OPEN_GAME_AUTHENTICATED] gameId=${game.reference.id}');
     context.goNamed(
       JeuDetailJoueurPageWidget.routeName,
+      queryParameters: {
+        'source': 'qr_link',
+      },
       extra: <String, dynamic>{
         'gameDoc': game,
         'enseigneDoc': enseigneDoc,
-        'source': 'qr_link',
       },
     );
   }

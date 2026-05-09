@@ -98,10 +98,12 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
     context.goNamedAuth(
       JeuDetailJoueurPageWidget.routeName,
       mounted,
+      queryParameters: {
+        'source': 'qr_link',
+      },
       extra: <String, dynamic>{
         'gameDoc': gameDoc,
         'enseigneDoc': enseigneDoc,
-        'source': 'qr_link',
       },
       ignoreRedirect: true,
     );
