@@ -5,118 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ouvrir ce jeu dans Proxiplay</title>
   <meta name="robots" content="noindex">
-  <style>
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      font-family: Arial, sans-serif;
-      background: linear-gradient(180deg, #fffdf6 0%, #f4efe4 100%);
-      color: #1f2a37;
-    }
-
-    .card {
-      width: 100%;
-      max-width: 460px;
-      padding: 28px;
-      border-radius: 24px;
-      background: rgba(255, 255, 255, 0.95);
-      box-shadow: 0 20px 40px rgba(31, 42, 55, 0.12);
-    }
-
-    .spinner {
-      width: 28px;
-      height: 28px;
-      border-radius: 999px;
-      border: 3px solid rgba(12, 94, 82, 0.18);
-      border-top-color: #0c5e52;
-      animation: spin 1s linear infinite;
-      margin-bottom: 18px;
-    }
-
-    h1 {
-      margin: 0 0 10px;
-      font-size: 28px;
-    }
-
-    p {
-      color: #4f5b67;
-      line-height: 1.5;
-    }
-
-    .actions {
-      display: grid;
-      gap: 12px;
-      margin-top: 20px;
-    }
-
-    .button {
-      display: inline-flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 52px;
-      padding: 0 18px;
-      border-radius: 16px;
-      border: 1px solid #d7dde5;
-      text-decoration: none;
-      color: #1f2a37;
-      font-weight: 600;
-      background: #fff;
-    }
-
-    .button-primary {
-      background: #0c5e52;
-      color: #fff;
-      border-color: #0c5e52;
-    }
-
-    .note {
-      margin-top: 14px;
-      font-size: 13px;
-      color: #6b7280;
-    }
-
-    .fallback-help {
-      display: none;
-    }
-
-    .fallback-help.is-visible {
-      display: block;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-  </style>
 </head>
 <body>
-  <div class="card">
-    <div class="spinner" aria-hidden="true"></div>
-    <h1>Ouvrir ce jeu dans Proxiplay</h1>
-    <div id="fallback-help" class="fallback-help">
-      <p>
-        Ce lien ouvre un jeu Proxiplay. Si l'application ne s'ouvre pas
-        automatiquement, utilisez les boutons ci-dessous.
-      </p>
-      <div class="actions">
-        <a id="open-app" class="button button-primary" href="#">Ouvrir dans Proxiplay</a>
-        <a
-          id="open-ios"
-          class="button"
-          href="https://apps.apple.com/app/id6753818573">App Store</a>
-        <a
-          id="open-android"
-          class="button"
-          href="https://play.google.com/store/apps/details?id=com.proxiplay.proxiplay">Google Play</a>
-      </div>
-      <p id="launch-link" class="note"></p>
-    </div>
-  </div>
+  <noscript>
+    <meta http-equiv="refresh" content="0; url=https://play.google.com/store/apps/details?id=com.proxiplay.proxiplay">
+  </noscript>
   <script>
     (function () {
       var path = window.location.pathname || "";
@@ -130,51 +23,13 @@
         return;
       }
 
-      var fallbackHelp = document.getElementById("fallback-help");
-      var appButton = document.getElementById("open-app");
-      var iosButton = document.getElementById("open-ios");
-      var androidButton = document.getElementById("open-android");
-      var linkLabel = document.getElementById("launch-link");
-      var deepLink = "proxiplay://game/" + encodeURIComponent(gameId);
-      var canonicalUrl = "https://play.proxiplay.fr/j/" + gameId;
-      var opened = false;
-
-      var attemptOpenNative = function (reason) {
-        console.log("[QR_LINK_NATIVE_ATTEMPT] url=" + deepLink + " reason=" + reason);
-        window.location.href = deepLink;
-      };
-
-      appButton.href = deepLink;
-      iosButton.href = "https://apps.apple.com/app/id6753818573";
-      androidButton.href = "https://play.google.com/store/apps/details?id=com.proxiplay.proxiplay";
-      linkLabel.textContent = "Lien jeu : " + canonicalUrl;
-
-      appButton.addEventListener("click", function (event) {
-        event.preventDefault();
-        console.log("[QR_LINK_WEB_OPEN_CLICKED] gameId=" + gameId);
-        attemptOpenNative("button_click");
-      });
-
-      window.addEventListener("pagehide", function () {
-        opened = true;
-      }, { once: true });
-
-      document.addEventListener("visibilitychange", function () {
-        if (document.visibilityState === "hidden") {
-          opened = true;
-        }
-      });
-
-      setTimeout(function () {
-        attemptOpenNative("auto_open");
-      }, 120);
-
-      setTimeout(function () {
-        if (!opened) {
-          fallbackHelp.classList.add("is-visible");
-          appButton.focus();
-        }
-      }, 1800);
+      var userAgent = navigator.userAgent || "";
+      var isiOS = /iPhone|iPad|iPod/i.test(userAgent);
+      var storeUrl = isiOS
+        ? "https://apps.apple.com/app/id6753818573"
+        : "https://play.google.com/store/apps/details?id=com.proxiplay.proxiplay";
+      console.log("[QR_LINK_STORE_FALLBACK] gameId=" + gameId + " storeUrl=" + storeUrl);
+      window.location.replace(storeUrl);
     })();
   </script>
 </body>

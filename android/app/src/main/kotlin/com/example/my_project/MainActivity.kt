@@ -18,6 +18,10 @@ class MainActivity: FlutterActivity() {
 		private const val MEDIA_CHANNEL = "proxiplay/media"
 	}
 
+	override fun getInitialRoute(): String? {
+		return routeFromIntent(intent)
+	}
+
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 		Log.d("PROXIPLAY_DEEPLINK", "onCreate data=" + intent?.dataString)
@@ -65,8 +69,18 @@ class MainActivity: FlutterActivity() {
 	}
 
 	private fun forwardDeepLinkToFlutter(intent: Intent?) {
-		val data = intent?.data ?: return
-		val route = when {
+		val route = routeFromIntent(intent)
+		if (route.isNullOrEmpty()) {
+			return
+		}
+
+		Log.d("PROXIPLAY_DEEPLINK", "forwardRoute=" + route)
+		flutterEngine?.navigationChannel?.pushRouteInformation(route)
+	}
+
+	private fun routeFromIntent(intent: Intent?): String? {
+		val data = intent?.data ?: return null
+		return when {
 			data.scheme == "proxiplay" && data.host == "game" -> {
 				val gameId = data.pathSegments.firstOrNull().orEmpty()
 				if (gameId.isEmpty()) {
@@ -76,7 +90,7 @@ class MainActivity: FlutterActivity() {
 				}
 			}
 			else -> {
-				val path = data.encodedPath ?: return
+				val path = data.encodedPath ?: return null
 				buildString {
 					append(path)
 					data.encodedQuery?.takeIf { it.isNotEmpty() }?.let {
@@ -90,13 +104,6 @@ class MainActivity: FlutterActivity() {
 				}
 			}
 		}
-
-		if (route.isNullOrEmpty()) {
-			return
-		}
-
-		Log.d("PROXIPLAY_DEEPLINK", "forwardRoute=" + route)
-		flutterEngine?.navigationChannel?.pushRouteInformation(route)
 	}
 
 	private fun createDefaultNotificationChannel() {

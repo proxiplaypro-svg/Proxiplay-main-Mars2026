@@ -613,7 +613,40 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                         ),
                                       ),
                                       const SizedBox(height: 10.0),
-                                      if (activeGames.isNotEmpty)
+                                      if (activeGames.isEmpty)
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 18.0,
+                                            vertical: 16.0,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: FlutterFlowTheme.of(context)
+                                                .secondaryBackground,
+                                            borderRadius:
+                                                BorderRadius.circular(20.0),
+                                          ),
+                                          child: Text(
+                                            'Aucun jeu en cours',
+                                            style: FlutterFlowTheme.of(context)
+                                                .bodyMedium
+                                                .override(
+                                                  font: GoogleFonts.inter(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .bodyMedium
+                                                            .fontStyle,
+                                                  ),
+                                                  color:
+                                                      const Color(0xFF2C2F5B),
+                                                  letterSpacing: 0.0,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                        )
+                                      else
                                         ...activeGames.map(
                                           (game) => Padding(
                                             padding: const EdgeInsets.only(

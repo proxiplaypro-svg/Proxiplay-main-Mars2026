@@ -623,7 +623,7 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20.0, 6.0, 20.0, 12.0),
+                    padding: const EdgeInsets.fromLTRB(16.0, 2.0, 16.0, 8.0),
                     child: Column(
                       children: [
                         Text(
@@ -640,7 +640,7 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                                     fontWeight: FontWeight.w700,
                                   ),
                         ),
-                        const SizedBox(height: 4.0),
+                        const SizedBox(height: 2.0),
                         Text(
                           'Suivi de performance de vos jeux',
                           textAlign: TextAlign.center,
@@ -658,7 +658,7 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                       ],
                     ),
                   ),
-                  const SizedBox(height: 6.0),
+                  const SizedBox(height: 2.0),
                   Expanded(
                     child: StreamBuilder<List<GamesRecord>>(
                       stream: _merchantGamesStream(),
@@ -691,13 +691,13 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                                     label: 'Clics sur vos jeux',
                                     value: totalViews,
                                   ),
-                                  const SizedBox(height: 8.0),
+                                  const SizedBox(height: 6.0),
                                   _buildGlobalLine(
                                     icon: Icons.sports_esports_rounded,
                                     label: 'Participations',
                                     value: totalParticipations.toString(),
                                   ),
-                                  const SizedBox(height: 8.0),
+                                  const SizedBox(height: 6.0),
                                   _buildGlobalLine(
                                     icon: Icons.storefront_rounded,
                                     label: 'Followers',
@@ -707,7 +707,7 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                               );
                             },
                           ),
-                          const SizedBox(height: 8.0),
+                          const SizedBox(height: 6.0),
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
@@ -726,7 +726,7 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                                   ),
                             ),
                           ),
-                          const SizedBox(height: 8.0),
+                          const SizedBox(height: 6.0),
                           if (activeGames.isNotEmpty)
                             ...activeGames.map(
                               (game) => _buildGameCard(
@@ -737,7 +737,7 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                             )
                           else
                             _buildCurrentGameEmptyState(),
-                          const SizedBox(height: 8.0),
+                          const SizedBox(height: 6.0),
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
@@ -754,7 +754,7 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                                   ),
                             ),
                           ),
-                          const SizedBox(height: 8.0),
+                          const SizedBox(height: 6.0),
                           if (finishedGames.isEmpty)
                             SizedBox(
                               height: 240.0,
@@ -766,10 +766,10 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
 
                         return ListView(
                           padding:
-                              const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 16.0),
+                              const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 12.0),
                           children: widgets.expand((w) sync* {
                             yield w;
-                            yield const SizedBox(height: 10.0);
+                            yield const SizedBox(height: 8.0);
                           }).toList()
                             ..removeLast(),
                         );
