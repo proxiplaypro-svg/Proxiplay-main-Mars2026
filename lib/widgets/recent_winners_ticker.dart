@@ -61,7 +61,7 @@ class _RecentWinnersTickerState extends State<RecentWinnersTicker>
     }
 
     _loopWidth = nextWidth;
-    final durationSeconds = (_loopWidth / 12.0).clamp(24.0, 54.0).round();
+    final durationSeconds = (_loopWidth / 24.0).clamp(12.0, 24.0).round();
     _controller
       ..stop()
       ..duration = Duration(seconds: durationSeconds)
@@ -180,21 +180,23 @@ class _RecentWinnersTickerState extends State<RecentWinnersTicker>
                 SizedBox(
                   height: 24.0,
                   child: ClipRect(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const NeverScrollableScrollPhysics(),
-                      child: AnimatedBuilder(
-                        animation: _controller,
-                        builder: (context, child) {
-                          final dx = _loopWidth > 0.0
-                              ? -(_controller.value * _loopWidth)
-                              : 0.0;
-                          return Transform.translate(
-                            offset: Offset(dx, 0.0),
-                            child: child,
-                          );
-                        },
+                    child: AnimatedBuilder(
+                      animation: _controller,
+                      builder: (context, child) {
+                        final dx = _loopWidth > 0.0
+                            ? -(_controller.value * _loopWidth)
+                            : 0.0;
+                        return Transform.translate(
+                          offset: Offset(dx, 0.0),
+                          child: child,
+                        );
+                      },
+                      child: OverflowBox(
+                        alignment: Alignment.centerLeft,
+                        minWidth: 0.0,
+                        maxWidth: 100000.0,
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             _buildMessageSequence(theme, key: _sequenceKey),
                             _buildMessageSequence(theme),

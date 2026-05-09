@@ -1048,15 +1048,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                         mainAxisSize: MainAxisSize.max,
                         mainAxisAlignment: MainAxisAlignment.start,
                         children: [
-                          if (!_model.searchActive)
-                            _buildTopDynamicZone(context),
-                          if (!_model.searchActive &&
-                              valueOrDefault<int>(
-                                    currentUserDocument?.remainingPart,
-                                    0,
-                                  ) >
-                                  0)
-                            _buildRecentWinnersZone(),
                           if (_model.searchActive)
                             Expanded(
                               child: Container(
@@ -1454,6 +1445,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                   mainAxisSize:
                                                       MainAxisSize.max,
                                                   children: [
+                                                    _buildTopDynamicZone(
+                                                        context),
+                                                    if (valueOrDefault<int>(
+                                                          currentUserDocument
+                                                              ?.remainingPart,
+                                                          0,
+                                                        ) >
+                                                        0)
+                                                      _buildRecentWinnersZone(),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
