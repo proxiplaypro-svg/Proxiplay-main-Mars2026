@@ -12,6 +12,7 @@ import '/utils/winner_identity.dart';
 import '/widgets/proxiplay_network_image.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -547,7 +548,20 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                       size: 18.0,
                     ),
                     onPressed: () async {
-                      context.pop();
+                      if (widget.source == 'qr_link') {
+                        final isLoggedIn =
+                            AppStateNotifier.instance.loggedIn ||
+                                FirebaseAuth.instance.currentUser != null;
+                        if (isLoggedIn) {
+                          context.goNamed(HomeJoueurPageWidget.routeName);
+                        } else {
+                          context.goNamed(LoginPageWidget.routeName);
+                        }
+                      } else if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.goNamed(HomeJoueurPageWidget.routeName);
+                      }
                     },
                   ),
                 ),

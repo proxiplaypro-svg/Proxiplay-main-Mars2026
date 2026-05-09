@@ -707,7 +707,11 @@ extension NavigationExtensions on BuildContext {
     if (canPop()) {
       pop();
     } else {
-      go('/');
+      final isLoggedIn =
+          AppStateNotifier.instance.loggedIn && currentUserUid.isNotEmpty;
+      go(isLoggedIn
+          ? HomeJoueurPageWidget.routePath
+          : LoginPageWidget.routePath);
     }
   }
 }
