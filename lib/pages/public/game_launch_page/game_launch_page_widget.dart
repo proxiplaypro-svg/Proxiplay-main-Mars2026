@@ -272,7 +272,7 @@ class _GameLaunchScreenState extends State<_GameLaunchScreen> {
                   borderRadius: BorderRadius.circular(24.0),
                 ),
                 child: StreamBuilder<DocumentSnapshot>(
-                  stream: gameRef != null ? gameRef.snapshots() : null,
+                  stream: gameRef?.snapshots(),
                   builder: (context, snapshot) {
                     final gameDoc = snapshot.data;
                     final game = gameDoc != null && gameDoc.exists

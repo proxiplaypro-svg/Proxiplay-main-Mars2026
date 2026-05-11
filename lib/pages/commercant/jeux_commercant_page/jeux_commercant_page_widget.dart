@@ -697,7 +697,7 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                     ],
                                   );
 
-                                  final useStatLikeLayout = true;
+                                  const useStatLikeLayout = true;
                                   if (useStatLikeLayout) {
                                     return ListView(
                                       padding: EdgeInsets.zero,

@@ -2,7 +2,6 @@ import '/backend/schema/games_record.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/utils/share_links.dart';
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
