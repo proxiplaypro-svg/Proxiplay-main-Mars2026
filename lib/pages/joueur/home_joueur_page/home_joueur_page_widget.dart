@@ -338,6 +338,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         endDateText: endDateText,
         badgeText: badgeText,
         winnerText: winnerText,
+        gameAccessType: game.type,
+        accessMode: game.accessMode,
         finishedInfoText: finishedInfoText,
         winnerMaxLines: winnerMaxLines,
         isFinished: isFinished,
@@ -475,6 +477,229 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       return '${value.toStringAsFixed(0)} \u20AC';
     }
     return '${value.toStringAsFixed(2).replaceAll('.', ',')} \u20AC';
+  }
+
+  String _readAnimationText(Map<String, dynamic> data, String key) {
+    final value = data[key];
+    return value is String ? value.trim() : '';
+  }
+
+  DateTime? _readAnimationDate(Map<String, dynamic> data, String key) {
+    final value = data[key];
+    if (value is DateTime) {
+      return value;
+    }
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    return null;
+  }
+
+  Future<void> _openAnimationDetails(String animationId) async {
+    await context.pushNamed(
+      'AnimationDetailPage',
+      queryParameters: {
+        'animationId': serializeParam(
+          animationId,
+          ParamType.String,
+        ),
+      }.withoutNulls,
+      extra: <String, dynamic>{
+        'animationId': animationId,
+        kTransitionInfoKey: const TransitionInfo(
+          hasTransition: true,
+          transitionType: PageTransitionType.rightToLeft,
+        ),
+      },
+    );
+  }
+
+  Widget _buildAnimationCard(
+    BuildContext context, {
+    required String animationId,
+    required String name,
+    required String coverImage,
+    required DateTime? endDate,
+  }) {
+    return InkWell(
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      onTap: () async {
+        await _openAnimationDetails(animationId);
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18.0),
+        child: SizedBox(
+          width: 248.0,
+          height: 160.0,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              coverImage.isNotEmpty
+                  ? ProxiplayNetworkImage(
+                      imageUrl: coverImage,
+                      fit: BoxFit.cover,
+                    )
+                  : Container(
+                      color: FlutterFlowTheme.of(context).fieldBg,
+                    ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.04),
+                      Colors.black.withValues(alpha: 0.72),
+                    ],
+                    stops: const [0.45, 1.0],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 14.0,
+                right: 14.0,
+                bottom: 12.0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: FlutterFlowTheme.of(context).titleMedium.override(
+                            font: GoogleFonts.interTight(
+                              fontWeight: FontWeight.w700,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .titleMedium
+                                  .fontStyle,
+                            ),
+                            color: Colors.white,
+                            letterSpacing: 0.0,
+                          ),
+                    ),
+                    const SizedBox(height: 4.0),
+                    Text(
+                      endDate != null
+                          ? "Jusqu'au ${dateTimeFormat('dd/MM', endDate, locale: FFLocalizations.of(context).languageCode)}"
+                          : "Jusqu'au -",
+                      style: FlutterFlowTheme.of(context).bodySmall.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FontWeight.w500,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodySmall
+                                  .fontStyle,
+                            ),
+                            color: Colors.white.withValues(alpha: 0.92),
+                            letterSpacing: 0.0,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveAnimationsSection(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('animations')
+          .where('status', isEqualTo: 'active')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final now = getCurrentTimestamp;
+        final animations = snapshot.data!.docs.where((doc) {
+          final data = doc.data();
+          final endDate = _readAnimationDate(data, 'end_date');
+          if (endDate != null && !endDate.isAfter(now)) {
+            return false;
+          }
+          final startDate = _readAnimationDate(data, 'start_date');
+          if (startDate != null && startDate.isAfter(now)) {
+            return false;
+          }
+          return true;
+        }).toList()
+          ..sort((a, b) {
+            final aDate = _readAnimationDate(a.data(), 'end_date') ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            final bDate = _readAnimationDate(b.data(), 'end_date') ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            return aDate.compareTo(bDate);
+          });
+
+        if (animations.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(),
+          child: Column(
+            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.only(
+                  start: _homeSectionTitleLeftInset,
+                  bottom: 16.0,
+                ),
+                child: Text(
+                  'ANIMATIONS EN COURS',
+                  style: FlutterFlowTheme.of(context).titleLarge.override(
+                        font: GoogleFonts.interTight(
+                          fontWeight:
+                              FlutterFlowTheme.of(context).titleLarge.fontWeight,
+                          fontStyle:
+                              FlutterFlowTheme.of(context).titleLarge.fontStyle,
+                        ),
+                        fontSize: 20.0,
+                        letterSpacing: 0.0,
+                        fontWeight:
+                            FlutterFlowTheme.of(context).titleLarge.fontWeight,
+                        fontStyle:
+                            FlutterFlowTheme.of(context).titleLarge.fontStyle,
+                      ),
+                ),
+              ),
+              SizedBox(
+                width: double.infinity,
+                height: 160.0,
+                child: ListView.separated(
+                  padding: EdgeInsets.zero,
+                  primary: false,
+                  scrollDirection: Axis.horizontal,
+                  itemCount: animations.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10.0),
+                  itemBuilder: (context, index) {
+                    final animation = animations[index];
+                    final data = animation.data();
+                    return _buildAnimationCard(
+                      context,
+                      animationId: animation.id,
+                      name: _readAnimationText(data, 'name').isNotEmpty
+                          ? _readAnimationText(data, 'name')
+                          : 'Animation',
+                      coverImage: _readAnimationText(data, 'cover_image'),
+                      endDate: _readAnimationDate(data, 'end_date'),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<List<String>> _loadRecentWinnerMessages() async {
@@ -1454,6 +1679,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         ) >
                                                         0)
                                                       _buildRecentWinnersZone(),
+                                                    _buildActiveAnimationsSection(
+                                                      context,
+                                                    ),
+                                                    const SizedBox(height: 15.0),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -2211,6 +2440,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                               child: Column(
                                                 mainAxisSize: MainAxisSize.max,
                                                 children: [
+                                                  _buildActiveAnimationsSection(
+                                                    context,
+                                                  ),
+                                                  const SizedBox(height: 15.0),
                                                   Container(
                                                     width: double.infinity,
                                                     decoration:
@@ -2719,6 +2952,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                           child: Column(
                                             mainAxisSize: MainAxisSize.max,
                                             children: [
+                                              _buildActiveAnimationsSection(
+                                                context,
+                                              ),
+                                              const SizedBox(height: 15.0),
                                               Container(
                                                 width: double.infinity,
                                                 decoration:

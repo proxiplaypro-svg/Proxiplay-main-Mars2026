@@ -1,5 +1,6 @@
 
 import '/backend/backend.dart';
+import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'add_game_commercant_page_widget.dart' show AddGameCommercantPageWidget;
 import 'package:flutter/material.dart';
@@ -11,6 +12,9 @@ class AddGameCommercantPageModel
   final formKey = GlobalKey<FormState>();
   bool mainPrizeEnabled = true;
   bool secondaryPrizesEnabled = false;
+  GameAccessType? selectedGameAccessType;
+  AccessMode? selectedAccessMode;
+  bool hasConfirmedGameTypeStep = false;
   // State field(s) for TextField widget.
   FocusNode? textFieldFocusNode1;
   TextEditingController? textController1;

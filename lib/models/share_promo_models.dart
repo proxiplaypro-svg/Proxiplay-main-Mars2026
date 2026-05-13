@@ -180,7 +180,7 @@ class SharePromoStateViewModel {
     required this.message,
     required this.ctaText,
     required this.action,
-    required this.campaignId,
+    required this.animationId,
     required this.rewardType,
     required this.rewardValue,
   });
@@ -196,7 +196,7 @@ class SharePromoStateViewModel {
       message: map['message'] as String?,
       ctaText: map['ctaText'] as String?,
       action: map['action'] as String?,
-      campaignId: campaign['id'] as String?,
+      animationId: campaign['id'] as String?,
       rewardType: campaign['rewardType'] as String?,
       rewardValue: (campaign['rewardValue'] as num?)?.toInt(),
     );
@@ -208,7 +208,7 @@ class SharePromoStateViewModel {
   final String? message;
   final String? ctaText;
   final String? action;
-  final String? campaignId;
+  final String? animationId;
   final String? rewardType;
   final int? rewardValue;
 }

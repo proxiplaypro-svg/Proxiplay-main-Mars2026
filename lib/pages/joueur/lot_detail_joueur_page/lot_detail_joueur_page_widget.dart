@@ -150,6 +150,11 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
     );
   }
 
+  String? _lotConditions() {
+    final conditions = widget.lot?.description.trim() ?? '';
+    return conditions.isEmpty ? null : conditions;
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<HorairesRecord>>(
@@ -265,6 +270,7 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                           }
 
                           final columnGamesRecord = snapshot.data!;
+                          final lotConditions = _lotConditions();
 
                           return SingleChildScrollView(
                             child: Column(
@@ -888,22 +894,82 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                         _buildSectionCard(
                                           context: context,
                                           title: 'Détails du lot',
-                                          child: Center(
-                                            child: Text(
-                                              widget.lot!.name,
-                                              textAlign: TextAlign.center,
-                                              style: FlutterFlowTheme.of(context)
-                                                  .titleLarge
-                                                  .override(
-                                                    font: GoogleFonts.interTight(
-                                                      fontWeight: FontWeight.w500,
-                                                      fontStyle: FlutterFlowTheme.of(context).titleLarge.fontStyle,
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                widget.lot!.name,
+                                                textAlign: TextAlign.center,
+                                                style: FlutterFlowTheme.of(context)
+                                                    .titleLarge
+                                                    .override(
+                                                      font: GoogleFonts.interTight(
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        fontStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .titleLarge
+                                                                .fontStyle,
+                                                      ),
+                                                      color: const Color(0xFF2D2A72),
+                                                      letterSpacing: 0.0,
+                                                      fontWeight:
+                                                          FontWeight.w500,
                                                     ),
-                                                    color: const Color(0xFF2D2A72),
-                                                    letterSpacing: 0.0,
-                                                    fontWeight: FontWeight.w500,
+                                              ),
+                                              if (lotConditions != null) ...[
+                                                const SizedBox(height: 18.0),
+                                                Align(
+                                                  alignment:
+                                                      Alignment.centerLeft,
+                                                  child: Text(
+                                                    'Conditions',
+                                                    style: FlutterFlowTheme.of(
+                                                            context)
+                                                        .titleMedium
+                                                        .override(
+                                                          font: GoogleFonts.inter(
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            fontStyle: FlutterFlowTheme.of(
+                                                                    context)
+                                                                .titleMedium
+                                                                .fontStyle,
+                                                          ),
+                                                          color: const Color(0xFF2D2A72),
+                                                          letterSpacing: 0.0,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                        ),
                                                   ),
-                                            ),
+                                                ),
+                                                const SizedBox(height: 8.0),
+                                                Align(
+                                                  alignment:
+                                                      Alignment.centerLeft,
+                                                  child: Text(
+                                                    lotConditions,
+                                                    style: FlutterFlowTheme.of(
+                                                            context)
+                                                        .bodyLarge
+                                                        .override(
+                                                          font: GoogleFonts.inter(
+                                                            fontWeight:
+                                                                FontWeight.w400,
+                                                            fontStyle: FlutterFlowTheme.of(
+                                                                    context)
+                                                                .bodyLarge
+                                                                .fontStyle,
+                                                          ),
+                                                          color: const Color(0xFF5E667E),
+                                                          letterSpacing: 0.0,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
                                           ),
                                         ),
                                         const SizedBox.shrink(),

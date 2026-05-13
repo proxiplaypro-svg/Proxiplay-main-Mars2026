@@ -10,6 +10,7 @@ import 'schema/users_record.dart';
 import 'schema/favorite_games_record.dart';
 import 'schema/enseignes_record.dart';
 import 'schema/games_record.dart';
+import 'schema/animations_record.dart';
 import 'schema/favorite_enseignes_record.dart';
 import 'schema/my_lots_record.dart';
 import 'schema/participants_record.dart';
@@ -38,6 +39,7 @@ export 'schema/users_record.dart';
 export 'schema/favorite_games_record.dart';
 export 'schema/enseignes_record.dart';
 export 'schema/games_record.dart';
+export 'schema/animations_record.dart';
 export 'schema/favorite_enseignes_record.dart';
 export 'schema/my_lots_record.dart';
 export 'schema/participants_record.dart';
@@ -350,6 +352,84 @@ Future<FFFirestorePage<GamesRecord>> queryGamesRecordPage({
       if (isStream) {
         final streamSubscription =
             (page.dataStream)?.listen((List<GamesRecord> data) {
+          for (var item in data) {
+            final itemIndexes = controller.itemList!
+                .asMap()
+                .map((k, v) => MapEntry(v.reference.id, k));
+            final index = itemIndexes[item.reference.id];
+            final items = controller.itemList!;
+            if (index != null) {
+              items.replaceRange(index, index + 1, [item]);
+              controller.itemList = {
+                for (var item in items) item.reference: item
+              }.values.toList();
+            }
+          }
+        });
+        streamSubscriptions?.add(streamSubscription);
+      }
+      return page;
+    });
+
+/// Functions to query AnimationsRecords (as a Stream and as a Future).
+Future<int> queryAnimationsRecordCount({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+}) =>
+    queryCollectionCount(
+      AnimationsRecord.collection,
+      queryBuilder: queryBuilder,
+      limit: limit,
+    );
+
+Stream<List<AnimationsRecord>> queryAnimationsRecord({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollection(
+      AnimationsRecord.collection,
+      AnimationsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+
+Future<List<AnimationsRecord>> queryAnimationsRecordOnce({
+  Query Function(Query)? queryBuilder,
+  int limit = -1,
+  bool singleRecord = false,
+}) =>
+    queryCollectionOnce(
+      AnimationsRecord.collection,
+      AnimationsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      limit: limit,
+      singleRecord: singleRecord,
+    );
+Future<FFFirestorePage<AnimationsRecord>> queryAnimationsRecordPage({
+  Query Function(Query)? queryBuilder,
+  DocumentSnapshot? nextPageMarker,
+  required int pageSize,
+  required bool isStream,
+  required PagingController<DocumentSnapshot?, AnimationsRecord> controller,
+  List<StreamSubscription?>? streamSubscriptions,
+}) =>
+    queryCollectionPage(
+      AnimationsRecord.collection,
+      AnimationsRecord.fromSnapshot,
+      queryBuilder: queryBuilder,
+      nextPageMarker: nextPageMarker,
+      pageSize: pageSize,
+      isStream: isStream,
+    ).then((page) {
+      controller.appendPage(
+        page.data,
+        page.nextPageMarker,
+      );
+      if (isStream) {
+        final streamSubscription =
+            (page.dataStream)?.listen((List<AnimationsRecord> data) {
           for (var item in data) {
             final itemIndexes = controller.itemList!
                 .asMap()

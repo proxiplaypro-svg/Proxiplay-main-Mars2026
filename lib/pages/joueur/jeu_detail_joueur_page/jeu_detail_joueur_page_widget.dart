@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/backend/animation_utils.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -103,11 +104,41 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
       }
 
       if (response.succeeded == true) {
+        final newlyQualified =
+            widget.gameDoc != null && currentUserUid.isNotEmpty
+                ? await updateAnimationProgress(currentUserUid, widget.gameDoc!)
+                : false;
+        if (!mounted) {
+          return;
+        }
         await refreshCurrentUserDocument();
         if (!mounted) {
           return;
         }
         safeSetState(() {});
+        if (newlyQualified) {
+          await showDialog(
+            context: context,
+            builder: (dialogContext) {
+              return WebViewAware(
+                child: AlertDialog(
+                  title: const Text(
+                    'Felicitations, tu es qualifie pour le tirage final !',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+          if (!mounted) {
+            return;
+          }
+        }
         await context.pushNamed(
           PlayJoueurPageWidget.routeName,
           queryParameters: {

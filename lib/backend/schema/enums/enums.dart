@@ -48,6 +48,17 @@ enum GameType {
   quiz,
 }
 
+enum GameAccessType {
+  standard,
+  campaign,
+  loyalty,
+}
+
+enum AccessMode {
+  public,
+  qr_only,
+}
+
 enum DayOfTheWeek {
   Lundi,
   Mardi,
@@ -83,6 +94,10 @@ T? deserializeEnum<T>(String? value) {
       return Category.values.deserialize(value) as T?;
     case (GameType):
       return GameType.values.deserialize(value) as T?;
+    case (GameAccessType):
+      return GameAccessType.values.deserialize(value) as T?;
+    case (AccessMode):
+      return AccessMode.values.deserialize(value) as T?;
     case (DayOfTheWeek):
       return DayOfTheWeek.values.deserialize(value) as T?;
     default:

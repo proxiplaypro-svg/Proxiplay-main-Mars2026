@@ -1,5 +1,6 @@
 import '/flutter_flow/app_styles.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
+import '/backend/schema/enums/enums.dart';
 import '/widgets/proxiplay_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,6 +16,8 @@ class GameCard extends StatefulWidget {
     required this.endDateText,
     this.badgeText,
     this.winnerText,
+    this.gameAccessType,
+    this.accessMode,
     this.width,
     this.height,
     this.imageHeight,
@@ -34,6 +37,8 @@ class GameCard extends StatefulWidget {
   final String endDateText;
   final String? badgeText;
   final String? winnerText;
+  final GameAccessType? gameAccessType;
+  final AccessMode? accessMode;
   final double? width;
   final double? height;
   final double? imageHeight;
@@ -89,6 +94,7 @@ class _GameCardState extends State<GameCard> {
     final effectiveDesaturate = widget.desaturateImage || widget.isFinished;
     final effectiveBadge =
         widget.badgeText ?? (widget.isFinished ? 'Jeu termin\u00E9' : null);
+    final ribbon = _buildAccessRibbon();
     final hasPrize = _hasVisibleText(widget.prizeText);
     final responsiveWidth = (screenWidth * 0.58).clamp(188.0, 248.0);
     final computedWidth = widget.width ?? responsiveWidth;
@@ -206,6 +212,44 @@ class _GameCardState extends State<GameCard> {
                                       ),
                                       color: Colors.white,
                                       fontSize: AppStyles.gameCardBadgeSize,
+                                      letterSpacing: 0.0,
+                                    ),
+                              ),
+                            ),
+                          ),
+                        if (ribbon != null)
+                          Positioned(
+                            top: 10.0,
+                            right: 10.0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12.0,
+                                vertical: 6.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: ribbon.backgroundColor,
+                                borderRadius: BorderRadius.circular(999.0),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.14),
+                                    blurRadius: 8.0,
+                                    offset: const Offset(0.0, 2.0),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                ribbon.label,
+                                style: FlutterFlowTheme.of(context)
+                                    .bodyMedium
+                                    .override(
+                                      font: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w800,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .fontStyle,
+                                      ),
+                                      color: ribbon.textColor,
+                                      fontSize: 11.0,
                                       letterSpacing: 0.0,
                                     ),
                               ),
@@ -384,6 +428,30 @@ class _GameCardState extends State<GameCard> {
     return value != null && value.trim().isNotEmpty;
   }
 
+  _GameCardRibbonData? _buildAccessRibbon() {
+    if (widget.accessMode != AccessMode.qr_only) {
+      return null;
+    }
+
+    switch (widget.gameAccessType) {
+      case GameAccessType.campaign:
+        return const _GameCardRibbonData(
+          label: 'En commerce',
+          backgroundColor: Color(0xFFF59E0B),
+          textColor: Colors.white,
+        );
+      case GameAccessType.loyalty:
+        return const _GameCardRibbonData(
+          label: 'VIP',
+          backgroundColor: Color(0xFF6D28D9),
+          textColor: Colors.white,
+        );
+      case GameAccessType.standard:
+      case null:
+        return null;
+    }
+  }
+
   String _formatPriceText(String value) {
     final normalized = _normalizeText(value).trim();
     final match =
@@ -435,6 +503,8 @@ class GameCardWidget extends GameCard {
     required super.endDateText,
     super.badgeText,
     super.winnerText,
+    super.gameAccessType,
+    super.accessMode,
     super.width,
     super.height,
     super.imageHeight,
@@ -445,4 +515,16 @@ class GameCardWidget extends GameCard {
     super.isFinished,
     super.finishedInfoText,
   });
+}
+
+class _GameCardRibbonData {
+  const _GameCardRibbonData({
+    required this.label,
+    required this.backgroundColor,
+    required this.textColor,
+  });
+
+  final String label;
+  final Color backgroundColor;
+  final Color textColor;
 }

@@ -326,6 +326,8 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
         ? prize.enseigneName
         : 'Commerçant non renseigné';
 
+    final conditions = _lotConditions(prize);
+
     return InkWell(
       splashColor: const Color(0x122D2A72),
       focusColor: const Color(0x0A2D2A72),
@@ -477,12 +479,66 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                     ),
                   ],
                 ),
+                if (conditions != null) ...[
+                  const SizedBox(height: 14.0),
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7F7FB),
+                      borderRadius: BorderRadius.circular(18.0),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                          14.0, 12.0, 14.0, 12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Conditions',
+                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                  font: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w700,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontStyle,
+                                  ),
+                                  color: const Color(0xFF2D2A72),
+                                  letterSpacing: 0.0,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          const SizedBox(height: 6.0),
+                          Text(
+                            conditions,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                                  font: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w400,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontStyle,
+                                  ),
+                                  color: const Color(0xFF5E667E),
+                                  letterSpacing: 0.0,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  String? _lotConditions(PrizesRecord prize) {
+    final conditions = prize.description.trim();
+    return conditions.isEmpty ? null : conditions;
   }
 
   @override

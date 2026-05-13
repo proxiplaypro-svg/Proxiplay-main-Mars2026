@@ -66,6 +66,21 @@ class GamesRecord extends FirestoreRecord {
   GameType? get gameType => _gameType;
   bool hasGameType() => _gameType != null;
 
+  // "type" field.
+  GameAccessType? _type;
+  GameAccessType get type => _type ?? GameAccessType.standard;
+  bool hasType() => _type != null;
+
+  // "access_mode" field.
+  AccessMode? _accessMode;
+  AccessMode get accessMode => _accessMode ?? AccessMode.public;
+  bool hasAccessMode() => _accessMode != null;
+
+  // "animation_id" field.
+  String? _animationId;
+  String get animationId => _animationId ?? '';
+  bool hasAnimationId() => _animationId != null;
+
   // "photo" field.
   String? _photo;
   String get photo => _photo ?? '';
@@ -155,6 +170,13 @@ class GamesRecord extends FirestoreRecord {
     _gameType = snapshotData['game_type'] is GameType
         ? snapshotData['game_type']
         : deserializeEnum<GameType>(snapshotData['game_type']);
+    _type = snapshotData['type'] is GameAccessType
+        ? snapshotData['type']
+        : deserializeEnum<GameAccessType>(snapshotData['type']);
+    _accessMode = snapshotData['access_mode'] is AccessMode
+        ? snapshotData['access_mode']
+        : deserializeEnum<AccessMode>(snapshotData['access_mode']);
+    _animationId = snapshotData['animation_id'] as String?;
     _photo = snapshotData['photo'] as String?;
     _secondaryPrizeDescription =
         snapshotData['secondary_prize_description'] as String?;
@@ -194,6 +216,45 @@ class GamesRecord extends FirestoreRecord {
   ) =>
       GamesRecord._(reference, mapFromFirestore(data));
 
+  static GamesRecord fromJson(
+    Map<String, dynamic> data,
+    DocumentReference reference,
+  ) =>
+      GamesRecord._(reference, mapFromFirestore(data));
+
+  Map<String, dynamic> toJson() => mapToFirestore(
+        <String, dynamic>{
+          'name': _name,
+          'description': _description,
+          'start_date': _startDate,
+          'end_date': _endDate,
+          'enseigne_id': _enseigneId,
+          'create_by': _createBy,
+          'created_time': _createdTime,
+          'visible_public': _visiblePublic,
+          'prize_value': _prizeValue,
+          'game_type': _gameType,
+          'type': _type ?? GameAccessType.standard,
+          'access_mode': _accessMode ?? AccessMode.public,
+          'animation_id': _animationId,
+          'photo': _photo,
+          'secondary_prize_description': _secondaryPrizeDescription,
+          'secondary_prizes': _secondaryPrizes,
+          'views': _views,
+          'favorites': _favorites,
+          'participations': _participations,
+          'prohibited_for_minors': _prohibitedForMinors,
+          'hasWinner': _hasWinner,
+          'enseigne_name': _enseigneName,
+          'main_prize_winner': _mainPrizeWinner,
+          'hasMainPrize': _hasMainPrize,
+          'qr_link': _qrLink,
+          'qr_target': _qrTarget,
+          'qr_created_at': _qrCreatedAt,
+          'qr_version': _qrVersion,
+        }.withoutNulls,
+      );
+
   @override
   String toString() =>
       'GamesRecord(reference: ${reference.path}, data: $snapshotData)';
@@ -218,6 +279,9 @@ Map<String, dynamic> createGamesRecordData({
   bool? visiblePublic,
   num? prizeValue,
   GameType? gameType,
+  GameAccessType? type,
+  AccessMode? accessMode,
+  String? animationId,
   String? photo,
   String? secondaryPrizeDescription,
   List<Map<String, dynamic>>? secondaryPrizes,
@@ -246,6 +310,9 @@ Map<String, dynamic> createGamesRecordData({
       'visible_public': visiblePublic,
       'prize_value': prizeValue,
       'game_type': gameType,
+      'type': type ?? GameAccessType.standard,
+      'access_mode': accessMode ?? AccessMode.public,
+      'animation_id': animationId,
       'photo': photo,
       'secondary_prize_description': secondaryPrizeDescription,
       'secondary_prizes': secondaryPrizes,
@@ -282,6 +349,9 @@ class GamesRecordDocumentEquality implements Equality<GamesRecord> {
         e1?.visiblePublic == e2?.visiblePublic &&
         e1?.prizeValue == e2?.prizeValue &&
         e1?.gameType == e2?.gameType &&
+        e1?.type == e2?.type &&
+        e1?.accessMode == e2?.accessMode &&
+        e1?.animationId == e2?.animationId &&
         e1?.photo == e2?.photo &&
         e1?.secondaryPrizeDescription == e2?.secondaryPrizeDescription &&
         const ListEquality().equals(e1?.secondaryPrizes, e2?.secondaryPrizes) &&
@@ -311,6 +381,9 @@ class GamesRecordDocumentEquality implements Equality<GamesRecord> {
         e?.visiblePublic,
         e?.prizeValue,
         e?.gameType,
+        e?.type,
+        e?.accessMode,
+        e?.animationId,
         e?.photo,
         e?.secondaryPrizeDescription,
         e?.secondaryPrizes,

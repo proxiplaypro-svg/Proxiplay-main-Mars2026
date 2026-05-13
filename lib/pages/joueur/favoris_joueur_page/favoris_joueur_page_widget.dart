@@ -837,6 +837,12 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                         badgeText:
                                                             finishedBadgeText,
                                                         winnerText: winnerText,
+                                                        gameAccessType:
+                                                            containerGamesRecord
+                                                                .type,
+                                                        accessMode:
+                                                            containerGamesRecord
+                                                                .accessMode,
                                                         winnerMaxLines: 1,
                                                         isFinished: isFinished,
                                                         finishedInfoText:

@@ -184,6 +184,18 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               builder: (context, params) => const HomeJoueurPageWidget(),
             ),
             FFRoute(
+              name: AnimationDetailPage.routeName,
+              path: AnimationDetailPage.routePath,
+              requireAuth: true,
+              builder: (context, params) => AnimationDetailPage(
+                animationId: params.getParam(
+                      'animationId',
+                      ParamType.String,
+                    ) ??
+                    '',
+              ),
+            ),
+            FFRoute(
               name: LoginPageWidget.routeName,
               path: LoginPageWidget.routePath,
               builder: (context, params) => const LoginPageWidget(),

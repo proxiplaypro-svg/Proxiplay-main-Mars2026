@@ -88,6 +88,8 @@ export '/pages/joueur/partage_jeu_joueur_page/partage_jeu_joueur_page_widget.dar
     show PartageJeuJoueurPageWidget;
 export '/pages/joueur/share_jeu_page/share_jeu_page_widget.dart'
     show ShareJeuPageWidget;
+export '/pages/joueur/animation_detail_page/animation_detail_page_widget.dart'
+    show AnimationDetailPage;
 export '/abo_commercant_page/abo_commercant_page_widget.dart'
     show AboCommercantPageWidget;
 export '/pages/commercant/selected_auto_enseignes_for_add_game_commercant_page/selected_auto_enseignes_for_add_game_commercant_page_widget.dart'
