@@ -41,6 +41,8 @@ class AddGameCommercantPageWidget extends StatefulWidget {
 
 class _AddGameCommercantPageWidgetState
     extends State<AddGameCommercantPageWidget> {
+  // Temporary UI toggle: hide the VIP flow from merchants for now.
+  static const bool _showVipGameTypeOption = false;
   late AddGameCommercantPageModel _model;
   bool _isSubmittingGameCreation = false;
 
@@ -1332,24 +1334,27 @@ class _AddGameCommercantPageWidgetState
                               accessMode: AccessMode.public,
                             ),
                           ),
-                          const SizedBox(height: 12.0),
-                          _buildGameTypeOptionCard(
-                            context,
-                            icon: Icons.diamond_rounded,
-                            title: 'Programme VIP',
-                            description:
-                                'Tes clients jouent en boutique via QR code, récompense fidélité',
-                            badgeText: 'Option payante',
-                            badgeBackgroundColor: const Color(0xFFFFF4E5),
-                            badgeTextColor: const Color(0xFFB26A00),
-                            isSelected: _model.selectedGameAccessType ==
-                                    GameAccessType.loyalty &&
-                                _model.selectedAccessMode == AccessMode.qr_only,
-                            onTap: () => _selectGameTypeOption(
-                              type: GameAccessType.loyalty,
-                              accessMode: AccessMode.qr_only,
+                          if (_showVipGameTypeOption) ...[
+                            const SizedBox(height: 12.0),
+                            _buildGameTypeOptionCard(
+                              context,
+                              icon: Icons.diamond_rounded,
+                              title: 'Programme VIP',
+                              description:
+                                  'Tes clients jouent en boutique via QR code, récompense fidélité',
+                              badgeText: 'Option payante',
+                              badgeBackgroundColor: const Color(0xFFFFF4E5),
+                              badgeTextColor: const Color(0xFFB26A00),
+                              isSelected: _model.selectedGameAccessType ==
+                                      GameAccessType.loyalty &&
+                                  _model.selectedAccessMode ==
+                                      AccessMode.qr_only,
+                              onTap: () => _selectGameTypeOption(
+                                type: GameAccessType.loyalty,
+                                accessMode: AccessMode.qr_only,
+                              ),
                             ),
-                          ),
+                          ],
                           if (!_model.hasConfirmedGameTypeStep) ...[
                             const SizedBox(height: 16.0),
                             FFButtonWidget(
