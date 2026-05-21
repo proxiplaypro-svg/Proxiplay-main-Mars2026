@@ -35,6 +35,53 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
+  String _normalizeClaimCode(String rawValue) {
+    return rawValue.trim().toUpperCase();
+  }
+
+  Future<Set<DocumentReference>> _loadMerchantEnseigneRefs() async {
+    if (currentUserReference == null) {
+      return <DocumentReference>{};
+    }
+
+    final enseignes = await queryMyEnseignesRecordOnce(
+      parent: currentUserReference,
+    );
+
+    return enseignes
+        .map((record) => record.enseigneId)
+        .whereNotNull()
+        .toSet();
+  }
+
+  Future<PrizesRecord?> _findPrizeForMerchantClaimCode(String rawCode) async {
+    final normalizedCode = _normalizeClaimCode(rawCode);
+    if (normalizedCode.isEmpty) {
+      return null;
+    }
+
+    final prizes = await queryPrizesRecordOnce(
+      queryBuilder: (prizesRecord) => prizesRecord.where(
+        'claim_code',
+        isEqualTo: normalizedCode,
+      ),
+      limit: 10,
+    );
+
+    if (prizes.isEmpty || currentUserReference == null) {
+      return null;
+    }
+
+    final merchantEnseigneRefs = await _loadMerchantEnseigneRefs();
+
+    return prizes.firstWhereOrNull((prize) {
+      final belongsToMerchant = prize.ownerId == currentUserReference;
+      final belongsToMerchantEnseigne = prize.enseigneId != null &&
+          merchantEnseigneRefs.contains(prize.enseigneId);
+      return belongsToMerchant || belongsToMerchantEnseigne;
+    });
+  }
+
   Widget _buildStatusBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 7.0),
@@ -482,23 +529,16 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                   16.0, 0.0, 16.0, 16.0),
                                           child: FFButtonWidget(
                                             onPressed: () async {
+                                              final normalizedCode =
+                                                  _normalizeClaimCode(
+                                                _model.textController.text,
+                                              );
+                                              _model.textController.text =
+                                                  normalizedCode;
                                               _model.resultPrize =
-                                                  await queryPrizesRecordOnce(
-                                                queryBuilder: (prizesRecord) =>
-                                                    prizesRecord
-                                                        .where(
-                                                          'owner_id',
-                                                          isEqualTo:
-                                                              currentUserReference,
-                                                        )
-                                                        .where(
-                                                          'claim_code',
-                                                          isEqualTo: _model
-                                                              .textController
-                                                              .text,
-                                                        ),
-                                                singleRecord: true,
-                                              ).then((s) => s.firstOrNull);
+                                                  await _findPrizeForMerchantClaimCode(
+                                                normalizedCode,
+                                              );
                                               if (!context.mounted) return;
                                               if (_model.resultPrize != null) {
                                                 context.pushNamed(
@@ -546,7 +586,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                             title:
                                                                 'Pas de r\u00E9sultat',
                                                             description:
-                                                                'Le code ne correspond \u00E0 aucun lot',
+                                                                'Le code ne correspond \u00E0 aucun lot de votre boutique',
                                                           ),
                                                         ),
                                                       ),
