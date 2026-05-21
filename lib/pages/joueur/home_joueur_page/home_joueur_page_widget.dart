@@ -641,61 +641,68 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           return const SizedBox.shrink();
         }
 
-        return Container(
-          width: double.infinity,
-          decoration: const BoxDecoration(),
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  start: _homeSectionTitleLeftInset,
-                  bottom: 16.0,
-                ),
-                child: Text(
-                  'ANIMATIONS EN COURS',
-                  style: FlutterFlowTheme.of(context).titleLarge.override(
-                        font: GoogleFonts.interTight(
-                          fontWeight:
-                              FlutterFlowTheme.of(context).titleLarge.fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).titleLarge.fontStyle,
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 15.0),
+          child: Container(
+            width: double.infinity,
+            decoration: const BoxDecoration(),
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(
+                    start: _homeSectionTitleLeftInset,
+                    bottom: 16.0,
+                  ),
+                  child: Text(
+                    'ANIMATIONS EN COURS',
+                    style: FlutterFlowTheme.of(context).titleLarge.override(
+                          font: GoogleFonts.interTight(
+                            fontWeight: FlutterFlowTheme.of(context)
+                                .titleLarge
+                                .fontWeight,
+                            fontStyle: FlutterFlowTheme.of(context)
+                                .titleLarge
+                                .fontStyle,
+                          ),
+                          fontSize: 20.0,
+                          letterSpacing: 0.0,
+                          fontWeight: FlutterFlowTheme.of(context)
+                              .titleLarge
+                              .fontWeight,
+                          fontStyle: FlutterFlowTheme.of(context)
+                              .titleLarge
+                              .fontStyle,
                         ),
-                        fontSize: 20.0,
-                        letterSpacing: 0.0,
-                        fontWeight:
-                            FlutterFlowTheme.of(context).titleLarge.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                      ),
+                  ),
                 ),
-              ),
-              SizedBox(
-                width: double.infinity,
-                height: 160.0,
-                child: ListView.separated(
-                  padding: EdgeInsets.zero,
-                  primary: false,
-                  scrollDirection: Axis.horizontal,
-                  itemCount: animations.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 10.0),
-                  itemBuilder: (context, index) {
-                    final animation = animations[index];
-                    final data = animation.data();
-                    return _buildAnimationCard(
-                      context,
-                      animationId: animation.id,
-                      name: _readAnimationText(data, 'name').isNotEmpty
-                          ? _readAnimationText(data, 'name')
-                          : 'Animation',
-                      coverImage: _readAnimationText(data, 'cover_image'),
-                      endDate: _readAnimationDate(data, 'end_date'),
-                    );
-                  },
+                SizedBox(
+                  width: double.infinity,
+                  height: 160.0,
+                  child: ListView.separated(
+                    padding: EdgeInsets.zero,
+                    primary: false,
+                    scrollDirection: Axis.horizontal,
+                    itemCount: animations.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10.0),
+                    itemBuilder: (context, index) {
+                      final animation = animations[index];
+                      final data = animation.data();
+                      return _buildAnimationCard(
+                        context,
+                        animationId: animation.id,
+                        name: _readAnimationText(data, 'name').isNotEmpty
+                            ? _readAnimationText(data, 'name')
+                            : 'Animation',
+                        coverImage: _readAnimationText(data, 'cover_image'),
+                        endDate: _readAnimationDate(data, 'end_date'),
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -1682,7 +1689,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                     _buildActiveAnimationsSection(
                                                       context,
                                                     ),
-                                                    const SizedBox(height: 15.0),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -2443,7 +2449,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                   _buildActiveAnimationsSection(
                                                     context,
                                                   ),
-                                                  const SizedBox(height: 15.0),
                                                   Container(
                                                     width: double.infinity,
                                                     decoration:
@@ -2955,7 +2960,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                               _buildActiveAnimationsSection(
                                                 context,
                                               ),
-                                              const SizedBox(height: 15.0),
                                               Container(
                                                 width: double.infinity,
                                                 decoration:
