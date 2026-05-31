@@ -379,14 +379,31 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                     .mounted) {
                                                                   return;
                                                                 }
-                                                                if (_model
-                                                                    .cloudFunction3sn!
-                                                                    .succeeded!) {
-                                                                  final newlyQualified =
-                                                                      widget.gameDoc !=
+                                                                final alreadyParticipatedToday =
+                                                                    _model.cloudFunction3sn!
+                                                                                .jsonBody
+                                                                            is Map &&
+                                                                        (_model.cloudFunction3sn!.jsonBody
+                                                                                as Map)[
+                                                                            'alreadyParticipatedToday'] ==
+                                                                            true;
+                                                                final participationEnregistree =
+                                                                    _model.cloudFunction3sn!
+                                                                                .succeeded ==
+                                                                            true &&
+                                                                        !alreadyParticipatedToday;
+                                                                if (participationEnregistree) {
+                                                                  final newlyQualified = widget.gameDoc !=
                                                                               null &&
                                                                           currentUserUid
-                                                                              .isNotEmpty
+                                                                              .isNotEmpty &&
+                                                                          widget
+                                                                              .gameDoc!
+                                                                              .animationId
+                                                                              .trim()
+                                                                              .isNotEmpty &&
+                                                                          participationEnregistree ==
+                                                                              true
                                                                       ? await updateAnimationProgress(
                                                                           currentUserUid,
                                                                           widget.gameDoc!,

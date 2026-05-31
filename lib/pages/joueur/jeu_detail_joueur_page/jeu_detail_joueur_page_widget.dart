@@ -103,11 +103,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         return;
       }
 
-      if (response.succeeded == true) {
-        final newlyQualified =
-            widget.gameDoc != null && currentUserUid.isNotEmpty
-                ? await updateAnimationProgress(currentUserUid, widget.gameDoc!)
-                : false;
+      final alreadyParticipatedToday =
+          response.jsonBody is Map &&
+              (response.jsonBody as Map)['alreadyParticipatedToday'] == true;
+      final participationEnregistree =
+          response.succeeded == true && !alreadyParticipatedToday;
+      if (participationEnregistree) {
+        final newlyQualified = widget.gameDoc != null &&
+                currentUserUid.isNotEmpty &&
+                widget.gameDoc!.animationId.trim().isNotEmpty &&
+                participationEnregistree == true
+            ? await updateAnimationProgress(currentUserUid, widget.gameDoc!)
+            : false;
         if (!mounted) {
           return;
         }
