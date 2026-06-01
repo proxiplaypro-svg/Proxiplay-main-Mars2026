@@ -54,6 +54,8 @@ post_install do |installer|
         # dart: PermissionGroup.notification
         'PERMISSION_NOTIFICATIONS=1',
       ]
+      # Fix: Multiple commands produce ExtractAppIntentsMetadata (Xcode 16 + Firebase)
+      config.build_settings['SWIFT_EMIT_LOC_STRINGS'] = 'NO'
     end
   end
 end
