@@ -41,8 +41,6 @@ class AddGameCommercantPageWidget extends StatefulWidget {
 
 class _AddGameCommercantPageWidgetState
     extends State<AddGameCommercantPageWidget> {
-  // Temporary UI toggle: hide the VIP flow from merchants for now.
-  static const bool _showVipGameTypeOption = false;
   late AddGameCommercantPageModel _model;
   bool _isSubmittingGameCreation = false;
 
@@ -143,9 +141,6 @@ class _AddGameCommercantPageWidgetState
       return;
     }
 
-    _model.selectedGameAccessType = template.type;
-    _model.selectedAccessMode = template.accessMode;
-    _model.hasConfirmedGameTypeStep = true;
     final hasMainPrizeData = template.hasMainPrize == true;
     _model.mainPrizeEnabled = hasMainPrizeData;
     _model.textController1?.text = template.name;
@@ -173,165 +168,6 @@ class _AddGameCommercantPageWidgetState
     if (_model.secondaryPrizes.isEmpty) {
       _model.secondaryPrizes.add(SecondaryPrizeEntry());
     }
-  }
-
-  void _selectGameTypeOption({
-    required GameAccessType type,
-    required AccessMode accessMode,
-  }) {
-    setState(() {
-      _model.selectedGameAccessType = type;
-      _model.selectedAccessMode = accessMode;
-    });
-  }
-
-  void _continueAfterGameTypeSelection() {
-    if (_model.selectedGameAccessType == null ||
-        _model.selectedAccessMode == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Choisissez un type de jeu pour continuer.'),
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _model.hasConfirmedGameTypeStep = true;
-    });
-  }
-
-  Widget _buildGameTypeOptionCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String description,
-    required String badgeText,
-    required Color badgeBackgroundColor,
-    required Color badgeTextColor,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      splashColor: Colors.transparent,
-      focusColor: Colors.transparent,
-      hoverColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFFFAFD) : const Color(0xFFFCFCFE),
-          borderRadius: BorderRadius.circular(18.0),
-          border: Border.all(
-            color: isSelected
-                ? FlutterFlowTheme.of(context).primary
-                : const Color(0x120E1220),
-            width: isSelected ? 1.4 : 1.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isSelected
-                  ? FlutterFlowTheme.of(context).primary.withValues(alpha: 0.10)
-                  : const Color(0x090E1220),
-              blurRadius: isSelected ? 12.0 : 8.0,
-              offset: const Offset(0.0, 2.0),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 48.0,
-                  height: 48.0,
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? FlutterFlowTheme.of(context)
-                            .primary
-                            .withValues(alpha: 0.12)
-                        : const Color(0xFFF6F7FB),
-                    borderRadius: BorderRadius.circular(14.0),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: FlutterFlowTheme.of(context).primary,
-                    size: 24.0,
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10.0,
-                    vertical: 6.0,
-                  ),
-                  decoration: BoxDecoration(
-                    color: badgeBackgroundColor,
-                    borderRadius: BorderRadius.circular(999.0),
-                  ),
-                  child: Text(
-                    badgeText,
-                    style: FlutterFlowTheme.of(context).bodySmall.override(
-                          font: GoogleFonts.inter(
-                            fontWeight: FontWeight.w700,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodySmall
-                                .fontStyle,
-                          ),
-                          color: badgeTextColor,
-                          letterSpacing: 0.0,
-                          fontSize: 12.0,
-                          fontWeight: FontWeight.w700,
-                          fontStyle: FlutterFlowTheme.of(context)
-                              .bodySmall
-                              .fontStyle,
-                        ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14.0),
-            Text(
-              title,
-              style: FlutterFlowTheme.of(context).titleLarge.override(
-                    font: GoogleFonts.interTight(
-                      fontWeight: FontWeight.w600,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                    ),
-                    letterSpacing: 0.0,
-                    fontWeight: FontWeight.w600,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                  ),
-            ),
-            const SizedBox(height: 8.0),
-            Text(
-              description,
-              style: FlutterFlowTheme.of(context).bodyMedium.override(
-                    font: GoogleFonts.inter(
-                      fontWeight:
-                          FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                    ),
-                    color: const Color(0xFF6A6884),
-                    letterSpacing: 0.0,
-                    fontSize: 14.0,
-                    fontWeight: FontWeight.w400,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                  ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   InputDecoration _fieldDecoration(
@@ -948,6 +784,10 @@ class _AddGameCommercantPageWidgetState
       _model.datePicked!,
     );
 
+    final createByRef = currentUserReference;
+    print('create_by: ${createByRef}');
+    print('uid: ${currentUserUid}');
+
     var gamesRecordReference = GamesRecord.collection.doc();
     final qrLink = buildGameQrLink(gamesRecordReference.id);
     await gamesRecordReference.set({
@@ -957,12 +797,12 @@ class _AddGameCommercantPageWidgetState
             mainPrizeDescription.isNotEmpty ? mainPrizeDescription : null,
         endDate: _model.endDateTransformCopy,
         enseigneId: widget.enseigneRef,
-        createBy: currentUserReference,
+        createBy: createByRef,
         visiblePublic: true,
         prizeValue: shouldPersistMainPrize ? mainPrizeValue : null,
         gameType: GameType.scratcher,
-        type: _model.selectedGameAccessType,
-        accessMode: _model.selectedAccessMode,
+        type: GameAccessType.standard,
+        accessMode: AccessMode.public,
         photo: _model.uploadedFileUrl_uploadDataNyu,
         secondaryPrizeDescription: secondaryPrizeSummary,
         secondaryPrizes: secondaryPrizes,
@@ -995,12 +835,12 @@ class _AddGameCommercantPageWidgetState
             mainPrizeDescription.isNotEmpty ? mainPrizeDescription : null,
         endDate: _model.endDateTransformCopy,
         enseigneId: widget.enseigneRef,
-        createBy: currentUserReference,
+        createBy: createByRef,
         visiblePublic: true,
         prizeValue: shouldPersistMainPrize ? mainPrizeValue : null,
         gameType: GameType.scratcher,
-        type: _model.selectedGameAccessType,
-        accessMode: _model.selectedAccessMode,
+        type: GameAccessType.standard,
+        accessMode: AccessMode.public,
         photo: _model.uploadedFileUrl_uploadDataNyu,
         secondaryPrizeDescription: secondaryPrizeSummary,
         secondaryPrizes: secondaryPrizes,
@@ -1046,17 +886,6 @@ class _AddGameCommercantPageWidgetState
 
   Future<void> _handleCreatePressed() async {
     if (_isSubmittingGameCreation) {
-      return;
-    }
-
-    if (!_model.hasConfirmedGameTypeStep ||
-        _model.selectedGameAccessType == null ||
-        _model.selectedAccessMode == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Validez d’abord le type de jeu pour continuer.'),
-        ),
-      );
       return;
     }
 
@@ -1271,128 +1100,6 @@ class _AddGameCommercantPageWidgetState
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16.0),
-                          _buildSectionHeader(
-                            context,
-                            title: 'Type de jeu',
-                            description: _model.hasConfirmedGameTypeStep
-                                ? 'Étape validée. Vous pouvez modifier ce choix avant la création.'
-                                : 'Choisissez d’abord le format de votre jeu.',
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10.0,
-                                vertical: 6.0,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _model.hasConfirmedGameTypeStep
-                                    ? const Color(0xFFE9F7EF)
-                                    : const Color(0xFFF6F7FB),
-                                borderRadius: BorderRadius.circular(999.0),
-                              ),
-                              child: Text(
-                                _model.hasConfirmedGameTypeStep
-                                    ? 'Étape 1 validée'
-                                    : 'Étape 1',
-                                style: FlutterFlowTheme.of(context)
-                                    .bodySmall
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w700,
-                                        fontStyle:
-                                            FlutterFlowTheme.of(context)
-                                                .bodySmall
-                                                .fontStyle,
-                                      ),
-                                      color: _model.hasConfirmedGameTypeStep
-                                          ? const Color(0xFF237A4B)
-                                          : const Color(0xFF6A6884),
-                                      letterSpacing: 0.0,
-                                      fontWeight: FontWeight.w700,
-                                      fontStyle:
-                                          FlutterFlowTheme.of(context)
-                                              .bodySmall
-                                              .fontStyle,
-                                    ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16.0),
-                          _buildGameTypeOptionCard(
-                            context,
-                            icon: Icons.stars_rounded,
-                            title: 'Jeu standard',
-                            description:
-                                'Visible par tous les joueurs Proxiplay, jouable directement',
-                            badgeText: 'Gratuit',
-                            badgeBackgroundColor: const Color(0xFFE8F5E9),
-                            badgeTextColor: const Color(0xFF2E7D32),
-                            isSelected: _model.selectedGameAccessType ==
-                                    GameAccessType.standard &&
-                                _model.selectedAccessMode == AccessMode.public,
-                            onTap: () => _selectGameTypeOption(
-                              type: GameAccessType.standard,
-                              accessMode: AccessMode.public,
-                            ),
-                          ),
-                          if (_showVipGameTypeOption) ...[
-                            const SizedBox(height: 12.0),
-                            _buildGameTypeOptionCard(
-                              context,
-                              icon: Icons.diamond_rounded,
-                              title: 'Programme VIP',
-                              description:
-                                  'Tes clients jouent en boutique via QR code, récompense fidélité',
-                              badgeText: 'Option payante',
-                              badgeBackgroundColor: const Color(0xFFFFF4E5),
-                              badgeTextColor: const Color(0xFFB26A00),
-                              isSelected: _model.selectedGameAccessType ==
-                                      GameAccessType.loyalty &&
-                                  _model.selectedAccessMode ==
-                                      AccessMode.qr_only,
-                              onTap: () => _selectGameTypeOption(
-                                type: GameAccessType.loyalty,
-                                accessMode: AccessMode.qr_only,
-                              ),
-                            ),
-                          ],
-                          if (!_model.hasConfirmedGameTypeStep) ...[
-                            const SizedBox(height: 16.0),
-                            FFButtonWidget(
-                              onPressed: _continueAfterGameTypeSelection,
-                              text: 'Continuer',
-                              options: FFButtonOptions(
-                                width: double.infinity,
-                                height: 48.0,
-                                padding: const EdgeInsetsDirectional.fromSTEB(
-                                    0.0, 0.0, 0.0, 0.0),
-                                iconPadding:
-                                    const EdgeInsetsDirectional.fromSTEB(
-                                        0.0, 0.0, 0.0, 0.0),
-                                color: FlutterFlowTheme.of(context).primary,
-                                textStyle: FlutterFlowTheme.of(context)
-                                    .titleMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w700,
-                                        fontStyle:
-                                            FlutterFlowTheme.of(context)
-                                                .titleMedium
-                                                .fontStyle,
-                                      ),
-                                      color: Colors.white,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FontWeight.w700,
-                                      fontStyle:
-                                          FlutterFlowTheme.of(context)
-                                              .titleMedium
-                                              .fontStyle,
-                                    ),
-                                elevation: 0.0,
-                                borderRadius: BorderRadius.circular(16.0),
-                              ),
-                            ),
-                            const SizedBox(height: 12.0),
-                          ],
                           Container(
                             width: double.infinity,
                             decoration: BoxDecoration(
