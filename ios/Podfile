@@ -36,23 +36,41 @@ target 'ImageNotification' do
 end
 
 post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target)
-    if target.name == 'FirebaseCoreInternal' || target.name == 'FirebaseSharedSwift'
+  firebase_archive_conflict_targets = %w[
+    FirebaseCoreInternal
+    FirebaseSharedSwift
+    FirebaseFirestore
+    FirebaseCoreInternal-FirebaseCoreInternal_Privacy
+    FirebaseSharedSwift-FirebaseSharedSwift_Privacy
+    FirebaseFirestore-FirebaseFirestore_Privacy
+  ]
+
+  installer.generated_projects.each do |project|
+    project.targets.each do |target|
+      flutter_additional_ios_build_settings(target) if project == installer.pods_project
+
+      target.build_configurations.each do |config|
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+        config.build_settings['SWIFT_EMIT_LOC_STRINGS'] = 'NO'
+        config.build_settings['ENABLE_APP_INTENTS_METADATA_GENERATION'] = 'NO'
+
+        next unless project == installer.pods_project
+
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+          '$(inherited)',
+          'PERMISSION_CAMERA=1',
+          'PERMISSION_PHOTOS=1',
+          'PERMISSION_NOTIFICATIONS=1',
+        ]
+      end
+
+      next unless project == installer.pods_project
+      next unless firebase_archive_conflict_targets.include?(target.name)
+
       target.build_configurations.each do |config|
         config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'NO'
+        config.build_settings['SKIP_INSTALL'] = 'YES'
       end
-    end
-    target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
-      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
-        '$(inherited)',
-        'PERMISSION_CAMERA=1',
-        'PERMISSION_PHOTOS=1',
-        'PERMISSION_NOTIFICATIONS=1',
-      ]
-      config.build_settings['SWIFT_EMIT_LOC_STRINGS'] = 'NO'
-      config.build_settings['ENABLE_APP_INTENTS_METADATA_GENERATION'] = 'NO'
     end
   end
 end
