@@ -236,13 +236,12 @@ packages:
   device_info_plus:
     dependency: "direct main"
     description:
-      name: device_info_plus
-      sha256: "6a642e1daa10190af89ba6cb6386c0df7d071a3592080bfe1e44faa63ae1df65"
-      url: "https://pub.dev"
-    source: hosted
+      path: "third_party/device_info_plus"
+      relative: true
+    source: path
     version: "13.1.0"
   device_info_plus_platform_interface:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: device_info_plus_platform_interface
       sha256: "04b173a92e2d9161dfead145667037c8d834db725ce2e7b942bfe18fd2f45a46"
@@ -1328,7 +1327,7 @@ packages:
     source: hosted
     version: "13.1.0"
   share_plus_platform_interface:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: share_plus_platform_interface
       sha256: "7f7ae28cf400d13f811e297ff37742dba83b79e0a6f5dce14eec0248274e6ce9"
