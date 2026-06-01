@@ -27,11 +27,13 @@ end
 
 target 'Runner' do
   shared_ios_pods
+  pod 'GoogleUtilities'
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 target 'ImageNotification' do
   shared_ios_pods
+  pod 'GoogleUtilities'
   pod 'Firebase/Messaging'
 end
 
