@@ -333,8 +333,9 @@ class _PhotoEnseigneCommercantPageWidgetState
                                   } finally {
                                     ScaffoldMessenger.of(context)
                                         .hideCurrentSnackBar();
-                                    _model.isDataUploading_uploadDataUpdatePhoto =
-                                        false;
+                                    safeSetState(() => _model
+                                            .isDataUploading_uploadDataUpdatePhoto =
+                                        false);
                                   }
                                   if (selectedUploadedFiles.length ==
                                           selectedMedia.length &&
@@ -594,4 +595,3 @@ class _PhotoEnseigneCommercantPageWidgetState
     );
   }
 }
-
