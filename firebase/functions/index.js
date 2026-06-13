@@ -55,6 +55,18 @@ function getTrimmedString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeClaimCode(value) {
+  return getTrimmedString(value)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+function generateClaimCode() {
+  const timePart = Date.now().toString(36).toUpperCase();
+  const randomPart = crypto.randomBytes(2).toString("hex").toUpperCase();
+  return `${timePart}${randomPart}`;
+}
+
 function toDocRef(value) {
   if (!value) {
     return null;
@@ -436,21 +448,46 @@ async function queueUserScopedPushNotification({
     return false;
   }
 
-  await ref.set({
+  await ref.set(
+    buildPushNotificationRequestData({
+      title,
+      body,
+      userRefs: `users/${userUid}`,
+      createdBy,
+      initialPageName,
+      parameterData,
+    }),
+  );
+  return true;
+}
+
+function buildPushNotificationRequestData({
+  title,
+  body,
+  imageUrl = "",
+  parameterData = "",
+  initialPageName = "",
+  targetAudience = "All",
+  targetUserGroup = "All",
+  userRefs = "",
+  status = "started",
+  createdBy = "",
+  createdAt = admin.firestore.FieldValue.serverTimestamp(),
+}) {
+  return {
     notification_title: title,
     notification_text: body,
-    notification_image_url: "",
+    notification_image_url: imageUrl,
     notification_sound: "",
     parameter_data: parameterData,
     initial_page_name: initialPageName,
-    target_audience: "All",
-    target_user_group: "All",
-    user_refs: `users/${userUid}`,
-    status: "started",
-    created_at: admin.firestore.FieldValue.serverTimestamp(),
+    target_audience: targetAudience,
+    target_user_group: targetUserGroup,
+    user_refs: userRefs,
+    status,
+    created_at: createdAt,
     created_by: createdBy,
-  });
-  return true;
+  };
 }
 
 async function loadUserSnapshotsByRef(userRefs) {
@@ -959,20 +996,14 @@ async function queuePrizePushNotification({
   if (existing.exists) {
     return;
   }
-  await ref.set({
-    notification_title: title,
-    notification_text: body,
-    notification_image_url: "",
-    notification_sound: "",
-    parameter_data: "",
-    initial_page_name: "",
-    target_audience: "All",
-    target_user_group: "All",
-    user_refs: userRefPath,
-    status: "started",
-    created_at: admin.firestore.FieldValue.serverTimestamp(),
-    created_by: createdBy,
-  });
+  await ref.set(
+    buildPushNotificationRequestData({
+      title,
+      body,
+      userRefs: userRefPath,
+      createdBy,
+    }),
+  );
 }
 
 const kNotificationsConfigDocId = "notifications";
@@ -2807,18 +2838,15 @@ exports.createAdminPushNotification = functions.https.onCall(
     }
 
     const doc = {
-      notification_title: title,
-      notification_text: body,
-      notification_image_url: imageUrl,
-      notification_sound: "",
-      parameter_data: "",
-      initial_page_name: "",
-      target_audience: targetDevice, // existing field (device_type)
-      target_user_group: targetUserGroup, // new field (role targeting)
-      user_refs: userRefs.length ? userRefs.join(",") : "",
-      status: "started",
-      created_at: admin.firestore.FieldValue.serverTimestamp(),
-      created_by: `users/${context.auth.uid}`,
+      ...buildPushNotificationRequestData({
+        title,
+        body,
+        imageUrl,
+        targetAudience: targetDevice, // existing field (device_type)
+        targetUserGroup, // new field (role targeting)
+        userRefs: userRefs.length ? userRefs.join(",") : "",
+        createdBy: `users/${context.auth.uid}`,
+      }),
       ...(Number.isFinite(repeatEveryMinutes)
         ? { repeat_every_minutes: Number(repeatEveryMinutes) }
         : {}),
@@ -3337,20 +3365,15 @@ exports.notifyNewGameAvailableToAllEligible = functions
             .collection("ff_push_notifications")
             .doc(`new_game_${gameId}_${uid}_${Date.now()}`);
 
-          await notificationRef.set({
-            notification_title: "Nouveau jeu disponible 🎉",
-            notification_text: notificationBody,
-            notification_image_url: "",
-            notification_sound: "",
-            parameter_data: "", // Pourrait être JSON avec deeplink au jeu
-            initial_page_name: "",
-            target_audience: "All",
-            target_user_group: "All",
-            user_refs: `users/${uid}`,
-            status: "started",
-            created_at: admin.firestore.FieldValue.serverTimestamp(),
-            created_by: "system/new_game_available",
-          });
+          await notificationRef.set(
+            buildPushNotificationRequestData({
+              title: "Nouveau jeu disponible 🎉",
+              body: notificationBody,
+              parameterData: "", // Pourrait être JSON avec deeplink au jeu
+              userRefs: `users/${uid}`,
+              createdBy: "system/new_game_available",
+            }),
+          );
 
           // ===== CRÉER LOG ANTI-DOUBLON =====
           await existingNotifRef.set({
@@ -4121,20 +4144,14 @@ exports.relaunInactivePlayersByStatus = functions
             .collection("ff_push_notifications")
             .doc(`relaunch_${uid}_${Date.now()}`);
 
-          await notificationRef.set({
-            notification_title: messageTitle,
-            notification_text: messageBody,
-            notification_image_url: "",
-            notification_sound: "",
-            parameter_data: "",
-            initial_page_name: "",
-            target_audience: "All",
-            target_user_group: "All",
-            user_refs: `users/${uid}`,
-            status: "started",
-            created_at: admin.firestore.FieldValue.serverTimestamp(),
-            created_by: "system/relaunch_inactive",
-          });
+          await notificationRef.set(
+            buildPushNotificationRequestData({
+              title: messageTitle,
+              body: messageBody,
+              userRefs: `users/${uid}`,
+              createdBy: "system/relaunch_inactive",
+            }),
+          );
 
           // Mettre à jour le user avec dernier relance
           await userDoc.ref.update({
@@ -4257,7 +4274,7 @@ exports.pickMainPrizeWinners = functions.pubsub
         }
 
         const prizeRef = firestore.collection("prizes").doc();
-        const claimCode = `${Date.now().toString(36).toUpperCase()}`;
+        const claimCode = generateClaimCode();
         const ownerRef = gameData.create_by
           ? firestore.doc(gameData.create_by.path)
           : null;
@@ -4314,7 +4331,7 @@ exports.pickMainPrizeWinners = functions.pubsub
             enseigne_id: enseigneRef,
             enseigne_name: gameData.enseigne_name || "",
             owner_id: ownerRef,
-            claim_code: claimCode,
+            claim_code: normalizeClaimCode(claimCode),
             claimed: false,
             win_date: admin.firestore.FieldValue.serverTimestamp(),
           });
@@ -4593,4 +4610,13 @@ try {
     "birthday automation daily trigger not loaded yet:",
     error.message,
   );
+}
+
+try {
+  const {
+    scheduledDrawAnimationWinners,
+  } = require("../custom_cloud_functions/draw_animation_winner");
+  exports.scheduledDrawAnimationWinners = scheduledDrawAnimationWinners;
+} catch (error) {
+  console.log("scheduledDrawAnimationWinners not loaded yet:", error.message);
 }

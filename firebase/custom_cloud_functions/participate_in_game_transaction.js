@@ -1,7 +1,110 @@
 ﻿const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
+
+const {
+  queuePushNotificationRequest,
+} = require("./push_notification_request.js");
 
 const db = admin.firestore();
+
+function getTrimmedString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeClaimCode(value) {
+  return getTrimmedString(value)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+function generateClaimCode() {
+  const timePart = Date.now().toString(36).toUpperCase();
+  const randomPart = crypto.randomBytes(2).toString("hex").toUpperCase();
+  return `${timePart}${randomPart}`;
+}
+
+function toBoolean(value, fallback = false) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "y", "on"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "0", "no", "n", "off"].includes(normalized)) {
+      return false;
+    }
+  }
+  if (typeof value === "number") {
+    return value !== 0;
+  }
+  return fallback;
+}
+
+function getSmtpSettings() {
+  const smtpConfig = functions.config().smtp || {};
+  const host = getTrimmedString(smtpConfig.host);
+  const port = Number(smtpConfig.port || 587);
+  const secure = toBoolean(smtpConfig.secure, port === 465);
+  const user = getTrimmedString(smtpConfig.user);
+  const pass = typeof smtpConfig.pass === "string" ? smtpConfig.pass : "";
+  const fromEmail = getTrimmedString(smtpConfig.from_email);
+  const fromName = getTrimmedString(smtpConfig.from_name);
+  const replyTo = getTrimmedString(smtpConfig.reply_to);
+
+  const missing = [];
+  if (!host) missing.push("smtp.host");
+  if (!Number.isFinite(port) || port <= 0) missing.push("smtp.port");
+  if (!user) missing.push("smtp.user");
+  if (!pass) missing.push("smtp.pass");
+  if (!fromEmail) missing.push("smtp.from_email");
+  if (!fromName) missing.push("smtp.from_name");
+  if (missing.length > 0) {
+    throw new Error(`Missing SMTP config: ${missing.join(", ")}`);
+  }
+
+  return {
+    host,
+    port,
+    secure,
+    user,
+    pass,
+    fromEmail,
+    fromName,
+    replyTo,
+  };
+}
+
+function createSmtpMailer() {
+  const settings = getSmtpSettings();
+  return {
+    transporter: nodemailer.createTransport({
+      host: settings.host,
+      port: settings.port,
+      secure: settings.secure,
+      auth: {
+        user: settings.user,
+        pass: settings.pass,
+      },
+    }),
+    from: `${settings.fromName} <${settings.fromEmail}>`,
+    replyTo: settings.replyTo,
+  };
+}
+
+async function sendEmailNotification(mailer, to, subject, text, html = "") {
+  await mailer.transporter.sendMail({
+    from: mailer.from,
+    to,
+    subject,
+    text,
+    ...(html ? { html } : {}),
+    ...(mailer.replyTo ? { replyTo: mailer.replyTo } : {}),
+  });
+}
 
 function getParisDayKey(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -149,6 +252,7 @@ exports.participateInGameTransaction = functions.https.onCall(
     }
 
     let gameRefPath = data.gameRef;
+    const fromQr = data.from_qr === true;
     console.log("gameRefPath reÃƒÂ§u:", gameRefPath);
 
     if (!gameRefPath || typeof gameRefPath !== "string" || gameRefPath === "") {
@@ -163,16 +267,26 @@ exports.participateInGameTransaction = functions.https.onCall(
     console.log("gameRef Firestore path:", gameRef.path);
 
     let responseData = {};
+    let uid = "";
+    let userEmail = "";
+    let enseigneName = "";
+    let lotDetails = "";
+    let claim_code = "";
+    let enseigneRef = null;
+    let ownerRef = null;
+    let userRef = null;
+    let lotGagne = false;
+    let gameName = "";
 
     try {
       await db.runTransaction(async (transaction) => {
         const now = admin.firestore.Timestamp.now();
-        const uid = context.auth.uid;
+        uid = context.auth.uid;
         const dayKey = getParisDayKey(new Date());
         const participantDocId = `${dayKey}_${uid}`;
 
         const participantsRef = gameRef.collection("participants");
-        const userRef = db.collection("users").doc(uid);
+        userRef = db.collection("users").doc(uid);
         const participantTodayRef = participantsRef.doc(participantDocId);
         const uniquePlayerRef = gameRef
           .collection("unique_players")
@@ -202,15 +316,34 @@ exports.participateInGameTransaction = functions.https.onCall(
         // 1. RÃƒÂ©fÃƒÂ©rence ÃƒÂ  la sous-collection
         const instantWinnersRef = gameRef.collection("instant_winners");
 
-        // 2. Query prochain lot instantanÃƒÂ© non rÃƒÂ©clamÃƒÂ©
+        // 2. Query tous les instants gagnants echus et encore ouverts.
+        // Si plusieurs creneaux sont deja depasses, on ne garde comme
+        // gagnant eligible que le plus recent. Les plus anciens sont
+        // expires pour eviter une cascade de gains a chaque participation.
         const instantWinnersQuery = instantWinnersRef
           .where("hasWinner", "==", false)
           .where("date", "<=", now)
-          .orderBy("date", "asc")
-          .limit(1);
+          .orderBy("date", "asc");
 
         // 3. ExÃƒÂ©cuter la query dans la transaction
         const instantWinnerSnap = await transaction.get(instantWinnersQuery);
+        let eligibleInstantWinnerDoc = null;
+        let staleDueInstantWinnerDocs = [];
+        if (!instantWinnerSnap.empty) {
+          const dueInstantWinnerDocs = instantWinnerSnap.docs;
+          eligibleInstantWinnerDoc =
+            dueInstantWinnerDocs[dueInstantWinnerDocs.length - 1];
+          staleDueInstantWinnerDocs = dueInstantWinnerDocs.slice(
+            0,
+            Math.max(0, dueInstantWinnerDocs.length - 1)
+          );
+
+          if (staleDueInstantWinnerDocs.length > 0) {
+            console.log(
+              `participateInGameTransaction: gameId=${gameRef.id} expiredStaleInstantWinners=${staleDueInstantWinnerDocs.length} eligibleInstantWinnerId=${eligibleInstantWinnerDoc.id}`
+            );
+          }
+        }
 
         if (!gameDoc.exists) {
           throw new functions.https.HttpsError("not-found", "Le jeu n'existe pas.");
@@ -220,11 +353,31 @@ exports.participateInGameTransaction = functions.https.onCall(
         }
 
         const gameData = gameDoc.data();
+        if (gameData.access_mode === "qr_only" && fromQr !== true) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "Ce jeu nécessite un scan QR code en boutique."
+          );
+        }
         const userData = userDoc.data();
-        const ownerRef = db.doc(gameData.create_by.path);
-        const enseigneRef = db.doc(gameData.enseigne_id.path);
+        userEmail = getTrimmedString(userData.email);
+        ownerRef = gameData.create_by?.path
+          ? db.doc(gameData.create_by.path)
+          : null;
+        const enseigneRefField = gameData.enseigne_id || gameData.enseigne_ref;
+        enseigneRef = enseigneRefField?.path
+          ? db.doc(enseigneRefField.path)
+          : null;
+        gameName = getTrimmedString(gameData.name);
 
-        // RÃƒÂ©cupÃƒÂ©rer l'enseigne
+        if (!enseigneRef) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "L'enseigne associée au jeu est introuvable."
+          );
+        }
+
+        // RÃƒÂ©cupÃƒÂ©rer l'enseigne avant toute ÃƒÂ©criture transactionnelle
         const enseigneDoc = await transaction.get(enseigneRef);
         if (!enseigneDoc.exists) {
           throw new functions.https.HttpsError(
@@ -233,7 +386,10 @@ exports.participateInGameTransaction = functions.https.onCall(
           );
         }
         const enseigneData = enseigneDoc.data();
-        const enseigneName = enseigneData.name;
+        if (!ownerRef && enseigneData?.owner?.path) {
+          ownerRef = db.doc(enseigneData.owner.path);
+        }
+        enseigneName = getTrimmedString(enseigneData.name);
 
         const currentParticipation = gameData.participations || 0;
         const newPosition = currentParticipation + 1;
@@ -267,13 +423,6 @@ exports.participateInGameTransaction = functions.https.onCall(
           gameConsistencyPatch.hasWinner = false;
           gameConsistencyPatch.main_prize_winner = null;
         }
-        if (Object.keys(gameConsistencyPatch).length > 0) {
-          transaction.update(gameRef, gameConsistencyPatch);
-        }
-
-        const endOfDay = new Date();
-        endOfDay.setHours(21, 59, 59, 999);
-
         if (remainingPart <= 0 && !unlimitedAccessActive) {
           throw new functions.https.HttpsError(
             "failed-precondition",
@@ -281,14 +430,80 @@ exports.participateInGameTransaction = functions.https.onCall(
           );
         }
 
+        let animationEntryRef = null;
+        let animationEntryDoc = null;
+        let visitedMerchantIds = [];
+        let thresholdReached = false;
+        let shouldUpdateAnimationEntry = false;
+
+        try {
+          const animationId =
+            typeof gameData.animation_id === "string"
+              ? gameData.animation_id.trim()
+              : "";
+
+          if (animationId) {
+            const animationRef = db.collection("animations").doc(animationId);
+            const animationDoc = await transaction.get(animationRef);
+
+            if (animationDoc.exists) {
+              const animationData = animationDoc.data() || {};
+              const status = animationData.status;
+              const startDate = animationData.start_date;
+              const endDate = animationData.end_date;
+              const nowMillis = now.toMillis();
+              const startMillis =
+                startDate && typeof startDate.toMillis === "function"
+                  ? startDate.toMillis()
+                  : null;
+              const endMillis =
+                endDate && typeof endDate.toMillis === "function"
+                  ? endDate.toMillis()
+                  : null;
+              const isActiveAnimation =
+                status === "active" &&
+                startMillis !== null &&
+                endMillis !== null &&
+                nowMillis >= startMillis &&
+                nowMillis <= endMillis;
+
+              if (isActiveAnimation) {
+                animationEntryRef = animationRef
+                  .collection("entries")
+                  .doc(uid);
+                animationEntryDoc = await transaction.get(animationEntryRef);
+                const animationEntryData = animationEntryDoc.exists
+                  ? animationEntryDoc.data() || {}
+                  : {};
+                const rawVisitedMerchantIds =
+                  animationEntryData.visited_merchant_ids;
+                visitedMerchantIds = Array.isArray(rawVisitedMerchantIds)
+                  ? rawVisitedMerchantIds.map((merchantId) => merchantId.toString())
+                  : [];
+                const merchantId = enseigneRef.id;
+
+                if (merchantId && !visitedMerchantIds.includes(merchantId)) {
+                  visitedMerchantIds.push(merchantId);
+
+                  const threshold = Number.isInteger(animationData.threshold)
+                    ? animationData.threshold
+                    : parseInt(animationData.threshold, 10) || 0;
+                  const visitedCount = visitedMerchantIds.length;
+                  thresholdReached = visitedCount >= threshold;
+                  shouldUpdateAnimationEntry = true;
+                }
+              }
+            }
+          }
+        } catch (animationError) {
+          console.error(
+            `participateInGameTransaction: animation tracking skipped for gameId=${gameRef.id} uid=${uid}`,
+            animationError
+          );
+        }
+
         if (!uniquePlayerDoc.exists) {
           uniquePlayerNew = true;
-          transaction.set(uniquePlayerRef, {
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-          transaction.update(gameRef, {
-            unique_players_count: admin.firestore.FieldValue.increment(1),
-          });
         }
 
         if (alreadyParticipatedToday) {
@@ -360,11 +575,46 @@ exports.participateInGameTransaction = functions.https.onCall(
         }
 
         // Enregistrer participation
+        staleDueInstantWinnerDocs.forEach((staleDoc) => {
+          transaction.update(staleDoc.ref, {
+            hasWinner: true,
+            expired_without_winner: true,
+            expired_at: now,
+            expired_reason: "superseded_by_next_instant",
+          });
+        });
+
+        if (Object.keys(gameConsistencyPatch).length > 0) {
+          transaction.update(gameRef, gameConsistencyPatch);
+        }
+
+        if (uniquePlayerNew) {
+          transaction.set(uniquePlayerRef, {
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          transaction.update(gameRef, {
+            unique_players_count: admin.firestore.FieldValue.increment(1),
+          });
+        }
+
         transaction.set(participantTodayRef, {
           user_id: userRef,
           participation_date: now,
         });
 
+        if (shouldUpdateAnimationEntry && animationEntryRef) {
+          transaction.set(
+            animationEntryRef,
+            {
+              uid,
+              visited_merchant_ids: visitedMerchantIds,
+              visited_count: visitedMerchantIds.length,
+              threshold_reached: thresholdReached,
+              last_updated: now,
+            },
+            { merge: true }
+          );
+        }
 
         transaction.update(gameRef, {
           participations: admin.firestore.FieldValue.increment(1),
@@ -406,15 +656,14 @@ exports.participateInGameTransaction = functions.https.onCall(
         transaction.update(userRef, userUpdateData);
 
         // Lots (gains immÃƒÂ©diats uniquement)
-        let lotGagne = false;
-        let lotDetails = null;
+        let transactionLotGagne = false;
+        let transactionLotDetails = null;
         let prizeRef = null;
 
-        if (!instantWinnerSnap.empty) {
-          const instantWinnerDoc = instantWinnerSnap.docs[0];
-          const instantWinnerData = instantWinnerDoc.data() || {};
+        if (eligibleInstantWinnerDoc) {
+          const instantWinnerData = eligibleInstantWinnerDoc.data() || {};
 
-          const claim_code = `${Date.now().toString(36).toUpperCase()}`;
+          const generatedClaimCode = generateClaimCode();
           const selectedSecondaryPrizeName =
             typeof instantWinnerData.secondary_prize_name === "string" &&
             instantWinnerData.secondary_prize_name.trim().length > 0
@@ -425,7 +674,7 @@ exports.participateInGameTransaction = functions.https.onCall(
               ? instantWinnerData.secondary_prize_presentation.trim()
               : "";
 
-          transaction.update(instantWinnerDoc.ref, {
+          transaction.update(eligibleInstantWinnerDoc.ref, {
             hasWinner: true,
             player_id: userRef,
           });
@@ -441,7 +690,7 @@ exports.participateInGameTransaction = functions.https.onCall(
             enseigne_id: enseigneRef,
             enseigne_name: enseigneName,
             owner_id: ownerRef,
-            claim_code: claim_code,
+            claim_code: normalizeClaimCode(generatedClaimCode),
             claimed: false,
             win_date: now,
           });
@@ -451,8 +700,11 @@ exports.participateInGameTransaction = functions.https.onCall(
             prize_id: prizeRef,
           });
 
+          transactionLotGagne = true;
+          transactionLotDetails = selectedSecondaryPrizeName;
           lotGagne = true;
           lotDetails = selectedSecondaryPrizeName;
+          claim_code = normalizeClaimCode(generatedClaimCode);
         }
 
         // Messages aleatoires a afficher en cas de perte
@@ -465,14 +717,14 @@ exports.participateInGameTransaction = functions.https.onCall(
         // Message principal renvoye a l'app :
         // - Si gain immÃƒÂ©diat => lotDetails
         // - Si perte => message alÃƒÂ©atoire (mÃƒÂªme si pas de lot principal)
-        const message = lotGagne
-          ? lotDetails
+        const message = transactionLotGagne
+          ? transactionLotDetails
           : loseMessages[Math.floor(Math.random() * loseMessages.length)];
 
         responseData = {
           message,
           messageBonus,
-          isWin: lotGagne,
+          isWin: transactionLotGagne,
           prize_id: prizeRef ? prizeRef.path : null,
           alreadyParticipatedToday: false,
           // Optionnel: garde l'info cÃƒÂ´tÃƒÂ© app si besoin un jour
@@ -487,6 +739,103 @@ exports.participateInGameTransaction = functions.https.onCall(
         message: sanitizeDisplayText(responseData.message || ""),
         messageBonus: sanitizeDisplayText(responseData.messageBonus || ""),
       };
+
+      if (lotGagne === true) {
+        try {
+          const mailer = createSmtpMailer();
+
+          if (userEmail) {
+            const playerMailSubject = `🎉 Vous avez gagné chez ${enseigneName} !`;
+            const playerMailHtml = `
+              <p>Félicitations ! Vous avez gagné : ${lotDetails}</p>
+              <p>Rendez-vous chez ${enseigneName} pour récupérer votre lot.</p>
+              <p>Code de retrait : ${claim_code}</p>
+            `;
+            const playerMailText = [
+              `Félicitations ! Vous avez gagné : ${lotDetails}`,
+              `Rendez-vous chez ${enseigneName} pour récupérer votre lot.`,
+              `Code de retrait : ${claim_code}`,
+            ].join("\n");
+
+            await sendEmailNotification(
+              mailer,
+              userEmail,
+              playerMailSubject,
+              playerMailText,
+              playerMailHtml
+            );
+          }
+
+          let merchantOwnerRef = null;
+          if (enseigneRef) {
+            const enseigneSnapshot = await enseigneRef.get();
+            if (enseigneSnapshot.exists) {
+              const enseigneData = enseigneSnapshot.data() || {};
+              if (enseigneData.owner) {
+                merchantOwnerRef = enseigneData.owner;
+                // Warning si owner et create_by divergent
+                if (ownerRef && enseigneData.owner.path !== ownerRef.path) {
+                  console.warn(
+                    `participateInGameTransaction: owner mismatch for gameId=${gameRef.id} — create_by=${ownerRef.path} vs enseigne.owner=${enseigneData.owner.path} — using enseigne.owner`
+                  );
+                }
+              } else {
+                // Fallback sur create_by si owner absent
+                console.warn(
+                  `participateInGameTransaction: enseigne.owner absent for enseigneId=${enseigneRef.id}, falling back to create_by`
+                );
+                merchantOwnerRef = ownerRef;
+              }
+            }
+          }
+
+          let merchantEmail = "";
+          if (merchantOwnerRef) {
+            const merchantUserSnap = await merchantOwnerRef.get();
+            if (merchantUserSnap.exists) {
+              const merchantUserData = merchantUserSnap.data() || {};
+              merchantEmail = getTrimmedString(merchantUserData.email);
+            }
+          }
+
+          if (merchantEmail) {
+            const merchantMailSubject = "🎉 Un joueur a gagné dans votre commerce !";
+            const merchantMailHtml = `
+              <p>Un joueur vient de gagner : ${lotDetails}</p>
+              <p>Il se présentera avec le code : ${claim_code}</p>
+              <p>Jeu : ${gameName}</p>
+            `;
+            const merchantMailText = [
+              `Un joueur vient de gagner : ${lotDetails}`,
+              `Il se présentera avec le code : ${claim_code}`,
+              `Jeu : ${gameName}`,
+            ].join("\n");
+
+            await sendEmailNotification(
+              mailer,
+              merchantEmail,
+              merchantMailSubject,
+              merchantMailText,
+              merchantMailHtml
+            );
+          }
+
+          if (merchantOwnerRef) {
+            await queuePushNotificationRequest(db, {
+              title: "🎉 Un joueur a gagné !",
+              body: `Un joueur vient de gagner : ${lotDetails}. Code : ${claim_code}. Jeu : ${gameName}`,
+              userRefOrPath: merchantOwnerRef,
+              createdBy: `system/participate_in_game_transaction/${gameRef.id}`,
+            });
+          }
+        } catch (postTransactionNotificationError) {
+          console.error(
+            `participateInGameTransaction: post-transaction notifications failed for gameId=${gameRef.id} uid=${uid}`,
+            postTransactionNotificationError
+          );
+        }
+      }
+
       return responseData;
     } catch (error) {
       console.error("Erreur lors de la participation au jeu :", error);
