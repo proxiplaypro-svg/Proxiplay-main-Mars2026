@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "source": "firebase/functions"
+  },
   "hosting": {
     "public": "hosting",
     "ignore": ["firebase.json", "**/node_modules/**"],

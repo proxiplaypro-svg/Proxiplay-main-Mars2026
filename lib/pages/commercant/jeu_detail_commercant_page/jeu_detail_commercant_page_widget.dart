@@ -40,6 +40,7 @@ class _JeuDetailCommercantPageWidgetState
   late JeuDetailCommercantPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  final Set<String> _claimingPrizeIds = <String>{};
 
   @override
   void initState() {
@@ -261,9 +262,45 @@ class _JeuDetailCommercantPageWidgetState
     return prizes;
   }
 
+  Future<void> _claimPrize(PrizesRecord prize) async {
+    if (prize.claimed || _claimingPrizeIds.contains(prize.reference.id)) {
+      return;
+    }
+
+    setState(() {
+      _claimingPrizeIds.add(prize.reference.id);
+    });
+
+    try {
+      await prize.reference.update(createPrizesRecordData(claimed: true));
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Code validé avec succès.')),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Validation impossible pour le moment.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _claimingPrizeIds.remove(prize.reference.id);
+        });
+      }
+    }
+  }
+
   Widget _buildCodeRow(PrizesRecord prize) {
     final isClaimed = prize.claimed;
     final code = prize.claimCode.trim().isNotEmpty ? prize.claimCode : '---';
+    final isSubmitting = _claimingPrizeIds.contains(prize.reference.id);
 
     return Container(
       decoration: BoxDecoration(
@@ -369,6 +406,50 @@ class _JeuDetailCommercantPageWidgetState
                   ),
                 );
               },
+            ),
+          ],
+          if (!isClaimed) ...[
+            const SizedBox(height: 12.0),
+            SizedBox(
+              width: double.infinity,
+              child: FFButtonWidget(
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        await _claimPrize(prize);
+                      },
+                text: isSubmitting ? 'Validation...' : 'Valider ce code',
+                icon: const Icon(
+                  Icons.verified_rounded,
+                  size: 18.0,
+                ),
+                options: FFButtonOptions(
+                  height: 44.0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 0.0,
+                  ),
+                  iconPadding: const EdgeInsetsDirectional.fromSTEB(
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                  ),
+                  color: FlutterFlowTheme.of(context).primary,
+                  textStyle: FlutterFlowTheme.of(context).bodyMedium.override(
+                        font: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          fontStyle:
+                              FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                        ),
+                        color: Colors.white,
+                        letterSpacing: 0.0,
+                        fontWeight: FontWeight.w700,
+                      ),
+                  elevation: 0.0,
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+              ),
             ),
           ],
         ],
@@ -693,7 +774,7 @@ class _JeuDetailCommercantPageWidgetState
                             borderRadius: 12.0,
                             borderWidth: 1.0,
                             buttonSize: 48.0,
-                            fillColor: Colors.white.withOpacity(0.9),
+                            fillColor: Colors.white.withValues(alpha: 0.9),
                             icon: Icon(
                               Icons.chevron_left_rounded,
                               color: FlutterFlowTheme.of(context).primaryText,
@@ -856,6 +937,28 @@ class _JeuDetailCommercantPageWidgetState
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor:
                                       FlutterFlowTheme.of(context).primary,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0.0,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16.0,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16.0),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12.0),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () async {
+                                  await _openSharePage(game);
+                                },
+                                icon: const Icon(Icons.campaign_rounded),
+                                label: const Text('Ouvrir les outils de partage'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF4B4E9A),
                                   foregroundColor: Colors.white,
                                   elevation: 0.0,
                                   padding: const EdgeInsets.symmetric(

@@ -44,32 +44,17 @@ class _JeuShareCommercantPageWidgetState
   bool _isDownloadingQr = false;
   bool _isSharingPoster = false;
   bool _isDownloadingPoster = false;
+  bool _isDownloadingFacebookVisual = false;
 
   String get _gameId => (widget.gameId ?? '').trim();
 
   void _showSnackBar(String message) {
-    if (!context.mounted) {
+    if (!mounted) {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
-  }
-
-  String _buildDisplayLink(String qrLink) {
-    final uri = Uri.tryParse(qrLink);
-    if (uri == null || uri.host.isEmpty) {
-      return qrLink;
-    }
-    final segments = uri.pathSegments;
-    if (segments.length < 2) {
-      return '${uri.host}${uri.path}';
-    }
-    final gameId = segments.last;
-    final shortId = gameId.length > 11
-        ? '${gameId.substring(0, 5)}...${gameId.substring(gameId.length - 4)}'
-        : gameId;
-    return '${uri.host}/${segments.first}/$shortId';
   }
 
   String _buildReadyToPostText({
@@ -80,6 +65,88 @@ class _JeuShareCommercantPageWidgetState
         'Scannez le QR code en boutique ou cliquez ici :\n'
         '$qrLink\n\n'
         'À vous de jouer sur Proxiplay.';
+  }
+
+  // ignore: unused_element
+  String _buildFacebookPostText({
+    required GamesRecord game,
+    required String enseigneName,
+    required String gameLink,
+  }) {
+    final merchantHashtag = enseigneName.replaceAll(RegExp(r'\s+'), '');
+    final endDate = game.endDate != null
+        ? dateTimeFormat(
+            'd MMMM y',
+            game.endDate,
+            locale: FFLocalizations.of(context).languageCode,
+          )
+        : 'bientôt';
+
+    return '🎉 $enseigneName vous offre une chance de gagner !\n\n'
+        '🎁 ${game.name}\n'
+        '📍 Rendez-vous chez $enseigneName\n'
+        '📱 Scannez le QR code sur place et tentez votre chance !\n'
+        '🆓 C\'est 100% gratuit\n'
+        '⏰ Jusqu\'au $endDate\n'
+        '🔗 $gameLink\n\n'
+        '#Proxiplay #Dunkerque #$merchantHashtag #JeuGratuit #BonPlan';
+  }
+
+  // ignore: unused_element
+  String _buildFacebookVisualFooter(String enseigneName) {
+    const fallback = 'votre enseigne';
+    final trimmed = enseigneName.trim().isEmpty ? fallback : enseigneName.trim();
+    final truncated =
+        trimmed.length > 25 ? '${trimmed.substring(0, 25)}...' : trimmed;
+    return 'Chez $truncated • Gratuit • Jouez sur ProxiPlay';
+  }
+
+  String _buildNeutralFacebookPostText({
+    required GamesRecord game,
+    required String enseigneName,
+    required String gameLink,
+  }) {
+    final merchantHashtag = enseigneName.replaceAll(RegExp(r'\s+'), '');
+    final endDate = game.endDate != null
+        ? dateTimeFormat(
+            'd MMMM y',
+            game.endDate,
+            locale: FFLocalizations.of(context).languageCode,
+          )
+        : 'bientot';
+    final description = game.description.trim().isEmpty
+        ? 'Jouez gratuitement sur ProxiPlay.'
+        : game.description.trim();
+    final legalMessage = _buildAlcoholLegalMessage(game);
+    final legalBlock = legalMessage != null ? '\n\n$legalMessage' : '';
+
+    return '🎉 $enseigneName vous propose un jeu gratuit sur ProxiPlay !\n\n'
+        '🎁 A gagner : ${game.name}\n\n'
+        '📝 $description\n'
+        '📅 Jusqu\'au $endDate\n\n'
+        '📱 Jouez gratuitement sur ProxiPlay :\n'
+        '🔗 $gameLink'
+        '$legalBlock\n\n'
+        '#Proxiplay #$merchantHashtag #JeuGratuit #BonPlan';
+  }
+
+  String? _buildAlcoholLegalMessage(GamesRecord game) {
+    final source = '${game.name} ${game.description}'.toLowerCase();
+    final alcoholPattern = RegExp(
+      r'alcool|champagne|vin|biere|bière|whisky|rhum|vodka|gin|cidre|liqueur|aperitif|apéritif|spiritueux',
+    );
+    if (!alcoholPattern.hasMatch(source)) {
+      return null;
+    }
+    return '⚠️ L\'abus d\'alcool est dangereux pour la santé. A consommer avec modération.';
+  }
+
+  String _buildNeutralFacebookVisualFooter(String enseigneName) {
+    const fallback = 'votre enseigne';
+    final trimmed = enseigneName.trim().isEmpty ? fallback : enseigneName.trim();
+    final truncated =
+        trimmed.length > 25 ? '${trimmed.substring(0, 25)}...' : trimmed;
+    return '$truncated • Jeu gratuit • ProxiPlay';
   }
 
   Future<void> _copyText(
@@ -110,6 +177,7 @@ class _JeuShareCommercantPageWidgetState
     }
   }
 
+  // ignore: unused_element
   Future<void> _shareToFacebook(String qrLink) async {
     final facebookUri = Uri.https(
       'www.facebook.com',
@@ -279,11 +347,161 @@ class _JeuShareCommercantPageWidgetState
     }
   }
 
+  Future<void> _downloadFacebookVisual({
+    required GlobalKey visualBoundaryKey,
+    required GamesRecord game,
+  }) async {
+    if (_isDownloadingFacebookVisual) {
+      return;
+    }
+    if (kIsWeb) {
+      _showSnackBar('Téléchargement indisponible sur cet appareil.');
+      return;
+    }
+
+    setState(() => _isDownloadingFacebookVisual = true);
+    try {
+      final file = await _captureBoundaryToPng(
+        boundaryKey: visualBoundaryKey,
+        fileName: 'facebook-${game.reference.id}.png',
+      );
+      await _saveImageInGallery(
+        bytes: await file.readAsBytes(),
+        fileName: 'facebook-${game.reference.id}.png',
+      );
+      _showSnackBar('Visuel Facebook enregistré dans vos photos ✓');
+    } on UnsupportedError {
+      _showSnackBar('Téléchargement indisponible sur cet appareil.');
+    } catch (_) {
+      _showSnackBar('Impossible de générer le visuel Facebook.');
+    } finally {
+      if (mounted) {
+        setState(() => _isDownloadingFacebookVisual = false);
+      }
+    }
+  }
+
+  Future<void> _showFacebookPostDialog({
+    required GamesRecord game,
+    required String enseigneName,
+    required String gameLink,
+  }) async {
+    final facebookText = _buildNeutralFacebookPostText(
+      game: game,
+      enseigneName: enseigneName,
+      gameLink: gameLink,
+    );
+    final GlobalKey visualBoundaryKey = GlobalKey();
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16.0,
+            vertical: 20.0,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: FlutterFlowTheme.of(context).secondaryBackground,
+              borderRadius: BorderRadius.circular(24.0),
+            ),
+            padding: const EdgeInsets.all(16.0),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionTitle(
+                    'Créer le post Facebook',
+                    subtitle:
+                        'Copiez le texte puis ajoutez le visuel manuellement sur Facebook.',
+                  ),
+                  const SizedBox(height: 16.0),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: FlutterFlowTheme.of(context).primaryBackground,
+                      borderRadius: BorderRadius.circular(18.0),
+                    ),
+                    child: SelectableText(
+                      facebookText,
+                      style: FlutterFlowTheme.of(context).bodyMedium.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .fontWeight,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .fontStyle,
+                            ),
+                            letterSpacing: 0.0,
+                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 16.0),
+                  _buildSecondaryButton(
+                    label: 'Copier le texte',
+                    icon: Icons.content_copy_rounded,
+                    onPressed: () => _copyText(
+                      facebookText,
+                      successMessage: 'Texte Facebook copié ✓',
+                    ),
+                  ),
+                  const SizedBox(height: 16.0),
+                  RepaintBoundary(
+                    key: visualBoundaryKey,
+                    child: FacebookPostVisualPreview(
+                      gameName: game.name,
+                      enseigneName: enseigneName,
+                      imageUrl: game.photo,
+                      endDateLabel: game.endDate != null
+                          ? dateTimeFormat(
+                              'd/MM/y',
+                              game.endDate,
+                              locale: FFLocalizations.of(context).languageCode,
+                            )
+                          : 'bientôt',
+                      footerLine: _buildNeutralFacebookVisualFooter(enseigneName),
+                    ),
+                  ),
+                  const SizedBox(height: 16.0),
+                  _buildPrimaryButton(
+                    label: _isDownloadingFacebookVisual
+                        ? 'Téléchargement du visuel...'
+                        : 'Télécharger le visuel',
+                    icon: Icons.download_rounded,
+                    isLoading: _isDownloadingFacebookVisual,
+                    onPressed: () => _downloadFacebookVisual(
+                      visualBoundaryKey: visualBoundaryKey,
+                      game: game,
+                    ),
+                  ),
+                  const SizedBox(height: 12.0),
+                  _buildSecondaryButton(
+                    label: 'Fermer',
+                    icon: Icons.close_rounded,
+                    onPressed: () async {
+                      Navigator.pop(dialogContext);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _showPosterPreview({
     required GamesRecord game,
     required String qrLink,
   }) async {
     final GlobalKey posterBoundaryKey = GlobalKey();
+    // ignore: unused_local_variable
     final enseigneName =
         game.enseigneName.isNotEmpty ? game.enseigneName : 'votre enseigne';
 
@@ -307,14 +525,31 @@ class _JeuShareCommercantPageWidgetState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  RepaintBoundary(
-                    key: posterBoundaryKey,
-                    child: GamePosterPreview(
-                      gameName: game.name,
-                      enseigneName: enseigneName,
-                      qrLink: qrLink,
-                      displayQrLink: _buildDisplayLink(qrLink),
-                    ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final previewWidth =
+                          constraints.maxWidth.clamp(220.0, 420.0).toDouble();
+                      final previewHeight =
+                          MediaQuery.sizeOf(context).height * 0.48;
+                      return Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: previewWidth,
+                            maxHeight: previewHeight,
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: RepaintBoundary(
+                              key: posterBoundaryKey,
+                              child: GamePosterPreview(
+                                game: game,
+                                qrLink: qrLink,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 16.0),
                   _buildPrimaryButton(
@@ -362,7 +597,7 @@ class _JeuShareCommercantPageWidgetState
       return;
     }
     final enseigne = await EnseignesRecord.getDocumentOnce(game.enseigneId!);
-    if (!context.mounted) {
+    if (!mounted) {
       return;
     }
     context.pushNamed(
@@ -440,13 +675,15 @@ class _JeuShareCommercantPageWidgetState
     required Future<void> Function() onPressed,
     IconData? icon,
     bool isLoading = false,
+    Color? backgroundColor,
   }) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
         onPressed: isLoading ? null : () async => onPressed(),
         style: ElevatedButton.styleFrom(
-          backgroundColor: FlutterFlowTheme.of(context).primary,
+          backgroundColor:
+              backgroundColor ?? FlutterFlowTheme.of(context).primary,
           foregroundColor: Colors.white,
           elevation: 0.0,
           padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -523,19 +760,37 @@ class _JeuShareCommercantPageWidgetState
     required IconData icon,
     required String label,
     required Future<void> Function() onPressed,
+    bool isPrimary = false,
   }) {
+    final resolvedIsPrimary =
+        isPrimary || label.toLowerCase().contains('facebook');
+
     return Expanded(
       child: OutlinedButton.icon(
         onPressed: () async => onPressed(),
-        icon: Icon(icon, size: 18.0),
+        icon: Icon(
+          icon,
+          size: 18.0,
+          color: resolvedIsPrimary ? Colors.white : null,
+        ),
         label: Text(
           label,
           textAlign: TextAlign.center,
         ),
         style: OutlinedButton.styleFrom(
+          backgroundColor:
+              resolvedIsPrimary ? const Color(0xFF1877F2) : Colors.transparent,
+          foregroundColor: resolvedIsPrimary
+              ? Colors.white
+              : FlutterFlowTheme.of(context).primaryText,
           padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 10.0),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16.0),
+          ),
+          side: BorderSide(
+            color: resolvedIsPrimary
+                ? const Color(0xFF1877F2)
+                : FlutterFlowTheme.of(context).alternate,
           ),
         ),
       ),
@@ -611,9 +866,22 @@ class _JeuShareCommercantPageWidgetState
           _buildSectionTitle(
             'Partage immédiat',
             subtitle:
-                'Affichez ce QR code en boutique ou publiez-le sur vos réseaux.',
+                'Commencez par votre affiche ou votre post Facebook, puis partagez le QR code si besoin.',
           ),
           const SizedBox(height: 20.0),
+          _buildPrimaryButton(
+            label: 'Créer le post Facebook',
+            icon: Icons.facebook_rounded,
+            backgroundColor: const Color(0xFF1877F2),
+            onPressed: () => _showFacebookPostDialog(
+              game: game,
+              enseigneName: game.enseigneName.trim().isEmpty
+                  ? 'votre enseigne'
+                  : game.enseigneName.trim(),
+              gameLink: buildGameQrLink(game.reference.id),
+            ),
+          ),
+          const SizedBox(height: 12.0),
           Center(
             child: RepaintBoundary(
               key: _qrBoundaryKey,
@@ -634,7 +902,7 @@ class _JeuShareCommercantPageWidgetState
             ),
           ),
           const SizedBox(height: 18.0),
-          _buildPrimaryButton(
+          _buildSecondaryButton(
             label: _isSharing ? 'Ouverture du partage...' : 'Partager le jeu',
             icon: Icons.share_rounded,
             isLoading: _isSharing,
@@ -720,6 +988,8 @@ class _JeuShareCommercantPageWidgetState
   }
 
   Widget _buildSocialSection({
+    required GamesRecord game,
+    required String enseigneName,
     required String qrLink,
     required String readyText,
   }) {
@@ -737,8 +1007,12 @@ class _JeuShareCommercantPageWidgetState
             children: [
               _buildSocialButton(
                 icon: Icons.facebook_rounded,
-                label: 'Facebook',
-                onPressed: () => _shareToFacebook(qrLink),
+                label: 'Créer le post Facebook',
+                onPressed: () => _showFacebookPostDialog(
+                  game: game,
+                  enseigneName: enseigneName,
+                  gameLink: buildGameQrLink(game.reference.id),
+                ),
               ),
               const SizedBox(width: 10.0),
               _buildSocialButton(
@@ -943,6 +1217,13 @@ class _JeuShareCommercantPageWidgetState
                       children: [
                         _buildHeroCard(),
                         const SizedBox(height: 18.0),
+                        _buildSocialSection(
+                          game: game,
+                          enseigneName: enseigneName,
+                          qrLink: qrLink,
+                          readyText: readyText,
+                        ),
+                        const SizedBox(height: 18.0),
                         _buildQrSection(
                           game: game,
                           qrLink: qrLink,
@@ -950,11 +1231,6 @@ class _JeuShareCommercantPageWidgetState
                         ),
                         const SizedBox(height: 18.0),
                         _buildTextSection(readyText),
-                        const SizedBox(height: 18.0),
-                        _buildSocialSection(
-                          qrLink: qrLink,
-                          readyText: readyText,
-                        ),
                         const SizedBox(height: 18.0),
                         _buildAdviceSection(),
                         const SizedBox(height: 18.0),
@@ -984,117 +1260,623 @@ class _JeuShareCommercantPageWidgetState
 class GamePosterPreview extends StatelessWidget {
   const GamePosterPreview({
     super.key,
+    required this.game,
+    required this.qrLink,
+  });
+
+  final GamesRecord game;
+  final String qrLink;
+
+  @override
+  Widget build(BuildContext context) {
+    // ignore: unused_local_variable
+    final theme = FlutterFlowTheme.of(context);
+    final enseigneName = game.enseigneName.trim().isEmpty
+        ? 'Votre commerce'
+        : game.enseigneName.trim();
+    final prizeTitle = game.name.trim().isEmpty ? 'Un cadeau surprise' : game.name.trim();
+    final description = game.description.trim();
+    final periodLabel = game.startDate != null && game.endDate != null
+        ? '${dateTimeFormat('d/MM/y', game.startDate, locale: FFLocalizations.of(context).languageCode)} au ${dateTimeFormat('d/MM/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}'
+        : game.endDate != null
+            ? 'Jusqu\'au ${dateTimeFormat('d/MM/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}'
+            : 'Disponible en ce moment';
+    final endDateLabel = game.endDate != null
+        ? dateTimeFormat(
+            'd/MM/y',
+            game.endDate,
+            locale: FFLocalizations.of(context).languageCode,
+          )
+        : 'Bientot';
+    final secondaryPrizeLabel = game.secondaryPrizeDescription.trim().isNotEmpty
+        ? game.secondaryPrizeDescription.trim()
+        : game.secondaryPrizes.isNotEmpty
+            ? (game.secondaryPrizes.first['name'] ?? game.secondaryPrizes.first['presentation'] ?? '')
+                .toString()
+                .trim()
+            : 'Voir les dotations en jeu';
+    final heroDescription = description.isNotEmpty
+        ? description
+        : 'hors soldes et promotions, selon les conditions du commercant';
+    final legalCaption = game.endDate != null
+        ? 'Offre valable jusqu\'au ${dateTimeFormat('d MMMM y', game.endDate, locale: FFLocalizations.of(context).languageCode)}'
+        : 'Jeu disponible sur ProxiPlay';
+
+    return Container(
+      width: 420.0,
+      height: 594.0,
+      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24.0),
+        border: Border.all(
+          color: const Color(0xFFA0134D),
+          width: 2.0,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x140E1220),
+            blurRadius: 20.0,
+            offset: Offset(0.0, 8.0),
+          ),
+        ],
+      ),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: 388.0,
+            height: 548.0,
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/images/logo_D_secondaire_sans_html_avec_couleurs.svg',
+                      width: 170.0,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(height: 8.0),
+                    Text(
+                      'SCANNEZ, JOUEZ, GAGNEZ',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFFA0134D),
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 8.0),
+                    RichText(
+                      text: TextSpan(
+                        style: GoogleFonts.interTight(
+                          fontSize: 22.0,
+                          fontWeight: FontWeight.w800,
+                          height: 1.02,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: '${prizeTitle.toUpperCase()} ',
+                            style: const TextStyle(color: Color(0xFF2F2B79)),
+                          ),
+                          const TextSpan(
+                            text: 'A GAGNER !',
+                            style: TextStyle(color: Color(0xFFA0134D)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10.0),
+                    RichText(
+                      text: TextSpan(
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF2F2B79),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.25,
+                        ),
+                        children: [
+                          const TextSpan(
+                            text: 'C\'est ',
+                          ),
+                          const TextSpan(
+                            text: 'gratuit.',
+                            style: TextStyle(color: Color(0xFFA0134D)),
+                          ),
+                          TextSpan(text: ' Jouez maintenant chez $enseigneName.'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4.0),
+                    Text(
+                      heroDescription,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFF6F7188),
+                        fontSize: 11.0,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12.0),
+              Container(
+                width: 102.0,
+                padding: const EdgeInsets.fromLTRB(11.0, 10.0, 11.0, 10.0),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2F2B79),
+                  borderRadius: BorderRadius.circular(18.0),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'TENTEZ VOTRE\nCHANCE',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontSize: 10.0,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8.0),
+                    Container(
+                      padding: const EdgeInsets.all(7.0),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10.0),
+                      ),
+                      child: QrImageView(
+                        data: qrLink,
+                        version: QrVersions.auto,
+                        size: 70.0,
+                        gapless: false,
+                        backgroundColor: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8.0),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0,
+                        vertical: 6.0,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5A623),
+                        borderRadius: BorderRadius.circular(10.0),
+                      ),
+                      child: Text(
+                        'Fin le\n$endDateLabel',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF2F2B79),
+                          fontSize: 10.0,
+                          fontWeight: FontWeight.w800,
+                          height: 1.15,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10.0),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 7,
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(18.0),
+                      child: SizedBox(
+                        height: 138.0,
+                        width: double.infinity,
+                        child: game.photo.trim().isNotEmpty
+                            ? Image.network(
+                                game.photo,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
+                                  color: const Color(0xFFF7F3EF),
+                                ),
+                              )
+                            : Container(
+                                color: const Color(0xFFF7F3EF),
+                              ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 10.0,
+                      top: 10.0,
+                      child: Container(
+                        width: 62.0,
+                        height: 62.0,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF5B223),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '100 %\nGRATUIT',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            height: 1.0,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10.0),
+              Expanded(
+                flex: 3,
+                child: Column(
+                  children: const [
+                    _PosterStepItem(
+                      number: '1',
+                      title: 'SCANNEZ',
+                      description: 'Scannez le QR code avec votre telephone.',
+                    ),
+                    SizedBox(height: 10.0),
+                    _PosterStepItem(
+                      number: '2',
+                      title: 'JOUEZ',
+                      description: 'Jouez tout de suite gratuitement.',
+                    ),
+                    SizedBox(height: 10.0),
+                    _PosterStepItem(
+                      number: '3',
+                      title: 'GAGNEZ',
+                      description: 'Decouvrez immediatement si vous avez gagne.',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10.0),
+          Text(
+            legalCaption,
+            style: GoogleFonts.inter(
+              color: const Color(0xFF70738A),
+              fontSize: 10.4,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 12.0),
+          Row(
+            children: [
+              Expanded(
+                child: _PosterInfoCard(
+                  label: 'PERIODE',
+                  value: periodLabel,
+                ),
+              ),
+              const SizedBox(width: 10.0),
+              Expanded(
+                child: _PosterInfoCard(
+                  label: 'COMMERCANT',
+                  value: enseigneName,
+                ),
+              ),
+              const SizedBox(width: 10.0),
+              Expanded(
+                child: _PosterInfoCard(
+                  label: 'LOT PRINCIPAL',
+                  value: prizeTitle,
+                ),
+              ),
+              const SizedBox(width: 10.0),
+              Expanded(
+                child: _PosterInfoCard(
+                  label: 'LOTS SECONDAIRES',
+                  value: secondaryPrizeLabel,
+                ),
+              ),
+            ],
+          ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PosterStepItem extends StatelessWidget {
+  const _PosterStepItem({
+    required this.number,
+    required this.title,
+    required this.description,
+  });
+
+  final String number;
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Color(0xFFE7E7EF),
+            width: 1.0,
+          ),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22.0,
+            height: 22.0,
+            decoration: const BoxDecoration(
+              color: Color(0xFFA0134D),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              number,
+              style: GoogleFonts.inter(
+                color: Colors.white,
+                fontSize: 11.0,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10.0),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFF2F2B79),
+                    fontSize: 11.0,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 2.0),
+                Text(
+                  description,
+                  style: GoogleFonts.inter(
+                    color: const Color(0xFF6E718A),
+                    fontSize: 10.2,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PosterInfoCard extends StatelessWidget {
+  const _PosterInfoCard({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 74.0,
+      padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F8FB),
+        borderRadius: BorderRadius.circular(14.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(
+              color: const Color(0xFFA0134D),
+              fontSize: 9.0,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 6.0),
+          Expanded(
+            child: Text(
+              value,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                color: const Color(0xFF2F2B79),
+                fontSize: 11.0,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class FacebookPostVisualPreview extends StatelessWidget {
+  const FacebookPostVisualPreview({
+    super.key,
     required this.gameName,
     required this.enseigneName,
-    required this.qrLink,
-    required this.displayQrLink,
+    required this.imageUrl,
+    required this.endDateLabel,
+    required this.footerLine,
   });
 
   final String gameName;
   final String enseigneName;
-  final String qrLink;
-  final String displayQrLink;
+  final String imageUrl;
+  final String endDateLabel;
+  final String footerLine;
 
   @override
   Widget build(BuildContext context) {
-    final theme = FlutterFlowTheme.of(context);
     return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 420.0),
-      padding: const EdgeInsets.all(24.0),
+      width: 360.0,
+      height: 360.0,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(28.0),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          SvgPicture.asset(
-            'assets/images/logo_D_secondaire_sans_html_avec_couleurs.svg',
-            width: 180.0,
-            fit: BoxFit.contain,
-          ),
-          const SizedBox(height: 20.0),
-          Text(
-            'Un jeu vous attend ici !',
-            textAlign: TextAlign.center,
-            style: theme.headlineSmall.override(
-              font: GoogleFonts.interTight(
-                fontWeight: FontWeight.w700,
-                fontStyle: theme.headlineSmall.fontStyle,
+          if (imageUrl.trim().isNotEmpty)
+            Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFFFFF5E8),
+                      Color(0xFFF6D3A8),
+                    ],
+                  ),
+                ),
               ),
-              color: theme.primary,
-              letterSpacing: 0.0,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10.0),
-          Text(
-            enseigneName,
-            textAlign: TextAlign.center,
-            style: theme.titleLarge.override(
-              font: GoogleFonts.interTight(
-                fontWeight: FontWeight.w700,
-                fontStyle: theme.titleLarge.fontStyle,
+            )
+          else
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFFFF5E8),
+                    Color(0xFFF6D3A8),
+                  ],
+                ),
               ),
-              letterSpacing: 0.0,
-              fontWeight: FontWeight.w700,
             ),
-          ),
-          const SizedBox(height: 8.0),
-          Text(
-            gameName,
-            textAlign: TextAlign.center,
-            style: theme.bodyLarge.override(
-              font: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-                fontStyle: theme.bodyLarge.fontStyle,
-              ),
-              letterSpacing: 0.0,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 18.0),
-          Text(
-            'Scannez le QR code et tentez votre chance',
-            textAlign: TextAlign.center,
-            style: theme.bodyMedium.override(
-              font: GoogleFonts.inter(
-                fontWeight: theme.bodyMedium.fontWeight,
-                fontStyle: theme.bodyMedium.fontStyle,
-              ),
-              color: theme.secondaryText,
-              letterSpacing: 0.0,
-            ),
-          ),
-          const SizedBox(height: 20.0),
           Container(
-            padding: const EdgeInsets.all(18.0),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24.0),
-              border: Border.all(color: const Color(0x140E1220)),
-            ),
-            child: QrImageView(
-              data: qrLink,
-              version: QrVersions.auto,
-              size: 220.0,
-              gapless: false,
-              backgroundColor: Colors.white,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x00000000),
+                  Color(0x3D000000),
+                  Color(0xB3000000),
+                ],
+                stops: [0.0, 0.48, 1.0],
+              ),
             ),
           ),
-          const SizedBox(height: 20.0),
-          Text(
-            'Jouez sur Proxiplay',
-            textAlign: TextAlign.center,
-            style: theme.titleMedium.override(
-              font: GoogleFonts.interTight(
-                fontWeight: FontWeight.w700,
-                fontStyle: theme.titleMedium.fontStyle,
-              ),
-              color: theme.primary,
-              letterSpacing: 0.0,
-              fontWeight: FontWeight.w700,
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SvgPicture.asset(
+                      'assets/images/logo_D_secondaire_sans_html_avec_couleurs.svg',
+                      height: 40.0,
+                      fit: BoxFit.contain,
+                    ),
+                    const Spacer(),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 120.0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12.0,
+                          vertical: 9.0,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5A623),
+                          borderRadius: BorderRadius.circular(14.0),
+                        ),
+                        child: Text(
+                          'Fin le\n$endDateLabel',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 13.0,
+                            fontWeight: FontWeight.w700,
+                            height: 1.1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Text(
+                  gameName,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.interTight(
+                    color: Colors.white,
+                    fontSize: 32.0,
+                    fontWeight: FontWeight.w800,
+                    height: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 8.0),
+                Text(
+                  'À GAGNER !',
+                  style: GoogleFonts.interTight(
+                    color: const Color(0xFFF5A623),
+                    fontSize: 24.0,
+                    fontWeight: FontWeight.w800,
+                    height: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 10.0),
+                Text(
+                  footerLine,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontSize: 14.0,
+                    fontWeight: FontWeight.w500,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

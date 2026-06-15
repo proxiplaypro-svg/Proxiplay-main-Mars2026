@@ -785,8 +785,8 @@ class _AddGameCommercantPageWidgetState
     );
 
     final createByRef = currentUserReference;
-    print('create_by: ${createByRef}');
-    print('uid: ${currentUserUid}');
+    print('create_by: $createByRef');
+    print('uid: $currentUserUid');
 
     var gamesRecordReference = GamesRecord.collection.doc();
     final qrLink = buildGameQrLink(gamesRecordReference.id);
@@ -884,6 +884,34 @@ class _AddGameCommercantPageWidgetState
     return true;
   }
 
+  Future<bool> _promptShareAfterGameCreation() async {
+    final shouldShareNow = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return WebViewAware(
+          child: AlertDialog(
+            title: const Text('Jeu créé'),
+            content: const Text(
+              'Votre jeu est prêt. Voulez-vous le partager maintenant ?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Plus tard'),
+              ),
+              FilledButton.icon(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                icon: const Icon(Icons.share_rounded),
+                label: const Text('Partager maintenant'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    return shouldShareNow == true;
+  }
+
   Future<void> _handleCreatePressed() async {
     if (_isSubmittingGameCreation) {
       return;
@@ -935,8 +963,12 @@ class _AddGameCommercantPageWidgetState
         FocusManager.instance.primaryFocus?.unfocus();
         final createdGame = _model.gameResult;
         final createdGameId = createdGame?.reference.id ?? '';
+        final shouldShareNow = await _promptShareAfterGameCreation();
+        if (!context.mounted) {
+          return;
+        }
         try {
-          if (createdGame != null && createdGameId.isNotEmpty) {
+          if (shouldShareNow && createdGame != null && createdGameId.isNotEmpty) {
             context.goNamed(
               JeuShareCommercantPageWidget.routeName,
               pathParameters: {

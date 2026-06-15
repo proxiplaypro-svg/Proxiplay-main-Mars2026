@@ -1,13 +1,11 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
-import '/flutter_flow/nav/nav.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import '/utils/share_links.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -127,11 +125,28 @@ class _GameLaunchScreenState extends State<_GameLaunchScreen> {
     if (_gameId.isEmpty) {
       return;
     }
-    final deepLinkUrl = buildGameDeepLink(_gameId);
-    debugPrint('[QR_LINK_NATIVE_ATTEMPT] url=$deepLinkUrl');
-    await launchUrl(
-      Uri.parse(deepLinkUrl),
-      mode: LaunchMode.externalApplication,
+    final launchCandidates = <String>[
+      if (kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+        buildGameAndroidIntentUrl(_gameId),
+      buildGameDeepLink(_gameId),
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+        buildGameAndroidIntentUrl(_gameId),
+    ];
+
+    for (final url in launchCandidates) {
+      final didLaunch = await _tryLaunchNativeUrl(url);
+      if (didLaunch) {
+        return;
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Impossible d'ouvrir l'application pour le moment."),
+      ),
     );
   }
 
@@ -143,6 +158,22 @@ class _GameLaunchScreenState extends State<_GameLaunchScreen> {
       Uri.parse(url),
       mode: LaunchMode.externalApplication,
     );
+  }
+
+  Future<bool> _tryLaunchNativeUrl(String url) async {
+    final uri = Uri.parse(url);
+    debugPrint('[QR_LINK_NATIVE_ATTEMPT] url=$url');
+    try {
+      return await launchUrl(
+        uri,
+        mode:
+            kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+        webOnlyWindowName: kIsWeb ? '_self' : null,
+      );
+    } catch (error) {
+      debugPrint('[QR_LINK_NATIVE_FAILURE] url=$url error=$error');
+      return false;
+    }
   }
 
   Future<void> _maybeOpenNativeGame(GamesRecord? game) async {
@@ -176,6 +207,10 @@ class _GameLaunchScreenState extends State<_GameLaunchScreen> {
       JeuDetailJoueurPageWidget.routeName,
       queryParameters: {
         'source': 'qr_link',
+        'fromQr': serializeParam(
+          true,
+          ParamType.bool,
+        ),
       },
       extra: <String, dynamic>{
         'gameDoc': game,
@@ -320,7 +355,7 @@ class _GameLaunchScreenState extends State<_GameLaunchScreen> {
                         Text(
                           isMissingGame
                               ? 'Ce jeu est indisponible pour le moment.'
-                              : 'Ce lien ouvre un jeu Proxiplay. Ouvrez l application pour acceder directement au jeu, ou telechargez Proxiplay si elle n est pas encore installee.',
+                              : "Ce lien ouvre un jeu Proxiplay. Ouvrez l'application pour accéder directement au jeu, ou téléchargez Proxiplay si elle n'est pas encore installée.",
                           style: FlutterFlowTheme.of(context)
                               .bodyMedium
                               .override(
@@ -335,36 +370,15 @@ class _GameLaunchScreenState extends State<_GameLaunchScreen> {
                                 letterSpacing: 0.0,
                               ),
                         ),
-                        if (_gameId.isNotEmpty) ...[
-                          const SizedBox(height: 12.0),
-                          SelectableText(
-                            buildGameQrLink(_gameId),
-                            style: FlutterFlowTheme.of(context)
-                                .bodySmall
-                                .override(
-                                  font: GoogleFonts.inter(
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodySmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodySmall
-                                        .fontStyle,
-                                  ),
-                                  color:
-                                      FlutterFlowTheme.of(context).secondaryText,
-                                  letterSpacing: 0.0,
-                                ),
-                          ),
-                        ],
                         const SizedBox(height: 24.0),
                         _buildPrimaryButton(
-                          label: 'Ouvrir dans l application',
+                          label: "Ouvrir dans l'application",
                           onPressed: _openInApp,
                         ),
                         const SizedBox(height: 12.0),
                         _buildSecondaryButton(
-                          label: 'Telecharger Proxiplay',
-                          url: Theme.of(context).platform == TargetPlatform.iOS
+                          label: 'Télécharger Proxiplay',
+                          url: defaultTargetPlatform == TargetPlatform.iOS
                               ? proxiplayIosStoreUrl
                               : proxiplayAndroidStoreUrl,
                         ),

@@ -189,18 +189,29 @@
       var iosButton = document.getElementById("qr-open-ios");
       var androidButton = document.getElementById("qr-open-android");
       var linkLabel = document.getElementById("qr-launch-link");
+      var userAgent = navigator.userAgent || "";
+      var isAndroid = /Android/i.test(userAgent);
+      var storeUrl = "https://play.google.com/store/apps/details?id=com.proxiplay.proxiplay";
       var deepLink = "proxiplay://game/" + encodeURIComponent(gameId);
+      var androidIntentUrl =
+        "intent://game/" +
+        encodeURIComponent(gameId) +
+        "#Intent;scheme=proxiplay;package=com.proxiplay.proxiplay;" +
+        "S.browser_fallback_url=" +
+        encodeURIComponent(storeUrl) +
+        ";end";
+      var launchUrl = isAndroid ? androidIntentUrl : deepLink;
       var canonicalUrl = "https://play.proxiplay.fr/j/" + gameId;
 
       fallback.classList.add("is-visible");
       var attemptOpenNative = function (reason) {
-        console.log("[QR_LINK_NATIVE_ATTEMPT] url=" + deepLink + " reason=" + reason);
-        window.location.href = deepLink;
+        console.log("[QR_LINK_NATIVE_ATTEMPT] url=" + launchUrl + " reason=" + reason);
+        window.location.href = launchUrl;
       };
 
-      appButton.href = deepLink;
+      appButton.href = launchUrl;
       iosButton.href = "https://apps.apple.com/app/id6753818573";
-      androidButton.href = "https://play.google.com/store/apps/details?id=com.proxiplay.proxiplay";
+      androidButton.href = storeUrl;
       linkLabel.textContent = "Lien jeu : " + canonicalUrl;
 
       appButton.addEventListener("click", function (event) {

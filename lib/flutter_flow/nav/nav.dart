@@ -503,6 +503,11 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
                   'source',
                   ParamType.String,
                 ),
+                fromQr: params.getParam(
+                      'fromQr',
+                      ParamType.bool,
+                    ) ??
+                    false,
               ),
             ),
             FFRoute(

@@ -45,6 +45,14 @@ String buildGameDeepLink(String gameId) {
   return '$proxiplayCustomScheme://game/$normalizedGameId';
 }
 
+String buildGameAndroidIntentUrl(String gameId) {
+  final normalizedGameId = Uri.encodeComponent(gameId.trim());
+  final encodedStoreUrl = Uri.encodeComponent(proxiplayAndroidStoreUrl);
+  return 'intent://game/$normalizedGameId'
+      '#Intent;scheme=$proxiplayCustomScheme;package=$proxiplayAndroidPackageName;'
+      'S.browser_fallback_url=$encodedStoreUrl;end';
+}
+
 String buildAppShareText({
   String? title,
   String? description,
