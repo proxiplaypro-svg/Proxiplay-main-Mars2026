@@ -24,29 +24,26 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Proxiplay">
 
-  
-
-  <meta name="robots" content="noindex" />
+  <meta name="robots" content="noindex">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="icon" type="image/png" href="favicon.png">
 
   <!-- Open Graph & SEO tags -->
-  <meta property="og:title" content="Proxiplay" />
-  <meta property="og:description" content="Built with FlutterFlow." />
-  <meta property="og:image" content="https://storage.googleapis.com/flutterflow-prod-hosting/og_splash_gradient.png" /> 
-  <meta name="twitter:title" content="Proxiplay" />
-  <meta name="twitter:description" content="Built with FlutterFlow." />
-  <meta name="twitter:image" content="https://storage.googleapis.com/flutterflow-prod-hosting/og_splash_gradient.png" />
-  <meta name="twitter:card" content="summary_large_image" />
+  <meta property="og:title" content="Proxiplay">
+  <meta property="og:description" content="Built with FlutterFlow.">
+  <meta property="og:image" content="https://storage.googleapis.com/flutterflow-prod-hosting/og_splash_gradient.png">
+  <meta name="twitter:title" content="Proxiplay">
+  <meta name="twitter:description" content="Built with FlutterFlow.">
+  <meta name="twitter:image" content="https://storage.googleapis.com/flutterflow-prod-hosting/og_splash_gradient.png">
+  <meta name="twitter:card" content="summary_large_image">
 
-  <title> Proxiplay </title>
-  <meta name="description" content="Built with FlutterFlow." />
-    
+  <title>Proxiplay</title>
+  <meta name="description" content="Built with FlutterFlow.">
 
   <!-- Status Bar color in Safari browser (iOS) and PWA -->
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1f4f8">
-  <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#f1f4f8">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#f1f4f8">
 
   <link rel="manifest" href="manifest.json">
   <style>
@@ -143,7 +140,6 @@
       }
     }
   </style>
-  
 </head>
 <body>
   <div id="qr-launch-fallback" aria-live="polite">
@@ -177,52 +173,51 @@
   </div>
   <script>
     (function () {
-      var path = window.location.pathname || '';
-      if (!path.startsWith('/j/')) {
+      var path = window.location.pathname || "";
+      if (!path.startsWith("/j/")) {
         return;
       }
 
-      var gameId = path.substring(3).split('/')[0];
+      var gameId = path.substring(3).split("/")[0];
       if (!gameId) {
         return;
       }
 
-      var fallback = document.getElementById('qr-launch-fallback');
-      var fallbackHelp = document.getElementById('qr-launch-help');
-      var appButton = document.getElementById('qr-open-app');
-      var iosButton = document.getElementById('qr-open-ios');
-      var androidButton = document.getElementById('qr-open-android');
-      var linkLabel = document.getElementById('qr-launch-link');
-      var userAgent = navigator.userAgent || '';
+      var fallback = document.getElementById("qr-launch-fallback");
+      var fallbackHelp = document.getElementById("qr-launch-help");
+      var appButton = document.getElementById("qr-open-app");
+      var iosButton = document.getElementById("qr-open-ios");
+      var androidButton = document.getElementById("qr-open-android");
+      var linkLabel = document.getElementById("qr-launch-link");
+      var userAgent = navigator.userAgent || "";
       var isAndroid = /Android/i.test(userAgent);
-      var storeUrl =
-          'https://play.google.com/store/apps/details?id=com.proxiplay.proxiplay';
-      var deepLink = 'proxiplay://game/' + encodeURIComponent(gameId);
+      var storeUrl = "https://play.google.com/store/apps/details?id=com.proxiplay.proxiplay";
+      var deepLink = "proxiplay://game/" + encodeURIComponent(gameId);
       var androidIntentUrl =
-          'intent://game/' +
-          encodeURIComponent(gameId) +
-          '#Intent;scheme=proxiplay;package=com.proxiplay.proxiplay;' +
-          'S.browser_fallback_url=' +
-          encodeURIComponent(storeUrl) +
-          ';end';
+        "intent://game/" +
+        encodeURIComponent(gameId) +
+        "#Intent;scheme=proxiplay;package=com.proxiplay.proxiplay;" +
+        "S.browser_fallback_url=" +
+        encodeURIComponent(storeUrl) +
+        ";end";
       var launchUrl = isAndroid ? androidIntentUrl : deepLink;
-      var canonicalUrl = 'https://play.proxiplay.fr/j/' + gameId;
+      var canonicalUrl = "https://play.proxiplay.fr/j/" + gameId;
 
-      fallback.classList.add('is-visible');
+      fallback.classList.add("is-visible");
       var attemptOpenNative = function (reason) {
-        console.log('[QR_LINK_NATIVE_ATTEMPT] url=' + launchUrl + ' reason=' + reason);
+        console.log("[QR_LINK_NATIVE_ATTEMPT] url=" + launchUrl + " reason=" + reason);
         window.location.href = launchUrl;
       };
 
       appButton.href = launchUrl;
-      iosButton.href = 'https://apps.apple.com/app/id6753818573';
+      iosButton.href = "https://apps.apple.com/app/id6753818573";
       androidButton.href = storeUrl;
-      linkLabel.textContent = 'Lien jeu : ' + canonicalUrl;
+      linkLabel.textContent = "Lien jeu : " + canonicalUrl;
 
-      appButton.addEventListener('click', function (event) {
+      appButton.addEventListener("click", function (event) {
         event.preventDefault();
-        console.log('[QR_LINK_WEB_OPEN_CLICKED] gameId=' + gameId);
-        attemptOpenNative('button_click');
+        console.log("[QR_LINK_WEB_OPEN_CLICKED] gameId=" + gameId);
+        attemptOpenNative("button_click");
       });
 
       var opened = false;
@@ -230,22 +225,22 @@
         opened = true;
       };
 
-      window.addEventListener('pagehide', markOpened, { once: true });
-      document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'hidden') {
+      window.addEventListener("pagehide", markOpened, { once: true });
+      document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "hidden") {
           opened = true;
         }
       });
 
       setTimeout(function () {
-        attemptOpenNative('auto_open');
+        attemptOpenNative("auto_open");
       }, 120);
 
       setTimeout(function () {
         if (opened) {
           return;
         }
-        fallbackHelp.classList.add('is-visible');
+        fallbackHelp.classList.add("is-visible");
         appButton.focus();
       }, 1800);
     })();
