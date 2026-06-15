@@ -728,6 +728,41 @@ async function cleanupInvalidFcmTokens(tokenRefsByToken, responses, tokensBatch)
   return refsToDelete.length;
 }
 
+function summarizePushFailures(responses) {
+  const codeCounts = new Map();
+  const sampleErrors = [];
+
+  responses.forEach((response) => {
+    if (response.success) {
+      return;
+    }
+    const rawCode = response.error && response.error.code;
+    const code = getTrimmedString(rawCode) || "unknown";
+    codeCounts.set(code, (codeCounts.get(code) || 0) + 1);
+
+    if (sampleErrors.length < 5) {
+      sampleErrors.push({
+        code,
+        message: getTrimmedString(response.error && response.error.message),
+      });
+    }
+  });
+
+  const sortedCodeEntries = Array.from(codeCounts.entries()).sort((a, b) => {
+    if (b[1] !== a[1]) {
+      return b[1] - a[1];
+    }
+    return a[0].localeCompare(b[0]);
+  });
+
+  return {
+    totalFailures: responses.filter((response) => !response.success).length,
+    errorCodeCounts: Object.fromEntries(sortedCodeEntries),
+    topErrorCodes: sortedCodeEntries.slice(0, 10).map(([code]) => code),
+    sampleErrors,
+  };
+}
+
 function normalizeExternalUrl(url) {
   const trimmed = getTrimmedString(url);
   if (!trimmed) {
@@ -3566,21 +3601,31 @@ async function sendPushNotifications(snapshot) {
   }
 
   var numSent = 0;
+  let numFailed = 0;
   let invalidTokensDeleted = 0;
+  const aggregatedErrorCodeCounts = new Map();
+  const aggregatedSampleErrors = [];
   await Promise.all(
     messageBatches.map(async (messages) => {
       const response = await admin.messaging().sendEachForMulticast(messages);
       numSent += response.successCount;
       if (response.failureCount > 0) {
-        const errorCodes = response.responses
-          .filter((r) => !r.success)
-          .map((r) => r.error && r.error.code)
-          .filter((code) => !!code);
-        if (errorCodes.length) {
+        numFailed += response.failureCount;
+        const failureSummary = summarizePushFailures(response.responses);
+        Object.entries(failureSummary.errorCodeCounts).forEach(([code, count]) => {
+          aggregatedErrorCodeCounts.set(
+            code,
+            (aggregatedErrorCodeCounts.get(code) || 0) + count,
+          );
+        });
+        failureSummary.sampleErrors.forEach((entry) => {
+          if (aggregatedSampleErrors.length < 10) {
+            aggregatedSampleErrors.push(entry);
+          }
+        });
+        if (failureSummary.topErrorCodes.length) {
           console.log(
-            `Push send errors for ${snapshot.id}: ${errorCodes
-              .slice(0, 10)
-              .join(", ")}`,
+            `Push send errors for ${snapshot.id}: failures=${response.failureCount}, codes=${failureSummary.topErrorCodes.join(", ")}`,
           );
         }
         invalidTokensDeleted += await cleanupInvalidFcmTokens(
@@ -3592,10 +3637,43 @@ async function sendPushNotifications(snapshot) {
     }),
   );
 
-  await snapshot.ref.update({
-    status: "succeeded",
+  const sortedAggregatedErrorEntries = Array.from(
+    aggregatedErrorCodeCounts.entries(),
+  ).sort((a, b) => {
+    if (b[1] !== a[1]) {
+      return b[1] - a[1];
+    }
+    return a[0].localeCompare(b[0]);
+  });
+  const hasFailures = numFailed > 0;
+  const finalStatus = hasFailures
+    ? numSent > 0
+      ? "partial_failed"
+      : "failed"
+    : "succeeded";
+  const updatePayload = {
+    status: finalStatus,
     num_sent: numSent,
+    num_failed: numFailed,
+    attempted_tokens: tokensArr.length,
     invalid_tokens_deleted: invalidTokensDeleted,
+    error_codes: sortedAggregatedErrorEntries.map(([code]) => code),
+    error_code_counts: Object.fromEntries(sortedAggregatedErrorEntries),
+    sample_errors: aggregatedSampleErrors,
+  };
+  if (hasFailures) {
+    const topSummary = sortedAggregatedErrorEntries
+      .slice(0, 5)
+      .map(([code, count]) => `${code} (${count})`)
+      .join(", ");
+    updatePayload.error = topSummary || "push_delivery_failed";
+    console.log(
+      `Push send completed with failures for ${snapshot.id}: status=${finalStatus}, sent=${numSent}, failed=${numFailed}, invalidTokensDeleted=${invalidTokensDeleted}, summary=${updatePayload.error}`,
+    );
+  }
+
+  await snapshot.ref.update({
+    ...updatePayload,
   });
 }
 

@@ -88,6 +88,11 @@ class _PushNotificationsHandlerState extends State<PushNotificationsHandler> {
   @override
   void initState() {
     super.initState();
+    FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
     SchedulerBinding.instance.addPostFrameCallback((_) {
       handleOpenedPushNotification();
     });

@@ -16,18 +16,35 @@ class UserTokenInfo {
   final String fcmToken;
 }
 
+bool _isPushAuthorizationGranted(AuthorizationStatus status) {
+  return status == AuthorizationStatus.authorized ||
+      status == AuthorizationStatus.provisional ||
+      status.name == 'ephemeral';
+}
+
+Future<String?> _getFcmTokenAfterPermission() async {
+  final settings = await FirebaseMessaging.instance.requestPermission();
+  if (!_isPushAuthorizationGranted(settings.authorizationStatus)) {
+    return null;
+  }
+
+  if (!kIsWeb && Platform.isIOS) {
+    for (var attempt = 0; attempt < 6; attempt++) {
+      final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+      if (apnsToken != null && apnsToken.isNotEmpty) {
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+  }
+
+  return FirebaseMessaging.instance.getToken();
+}
+
 Stream<UserTokenInfo> getFcmTokenStream(String userPath) =>
     Stream.value(!kIsWeb && (Platform.isIOS || Platform.isAndroid))
         .where((shouldGetToken) => shouldGetToken)
-        .asyncMap<String?>(
-            (_) => FirebaseMessaging.instance.requestPermission().then(
-                  (settings) {
-                    return settings.authorizationStatus ==
-                            AuthorizationStatus.authorized
-                        ? FirebaseMessaging.instance.getToken()
-                        : null;
-                  },
-                ))
+        .asyncMap<String?>((_) => _getFcmTokenAfterPermission())
         .switchMap((fcmToken) =>
             Stream.value(fcmToken).merge(FirebaseMessaging.instance.onTokenRefresh))
         .where((fcmToken) => fcmToken != null && fcmToken.isNotEmpty)
