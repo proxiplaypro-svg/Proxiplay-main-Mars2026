@@ -761,9 +761,22 @@ class _JeuShareCommercantPageWidgetState
     required String label,
     required Future<void> Function() onPressed,
     bool isPrimary = false,
+    Color? backgroundColor,
+    Color? foregroundColor,
+    Color? borderColor,
   }) {
     final resolvedIsPrimary =
         isPrimary || label.toLowerCase().contains('facebook');
+    final resolvedBackgroundColor = backgroundColor ??
+        (resolvedIsPrimary ? const Color(0xFF1877F2) : Colors.transparent);
+    final resolvedForegroundColor = foregroundColor ??
+        (resolvedIsPrimary
+            ? Colors.white
+            : FlutterFlowTheme.of(context).primaryText);
+    final resolvedBorderColor = borderColor ??
+        (resolvedIsPrimary
+            ? const Color(0xFF1877F2)
+            : FlutterFlowTheme.of(context).alternate);
 
     return Expanded(
       child: OutlinedButton.icon(
@@ -771,26 +784,21 @@ class _JeuShareCommercantPageWidgetState
         icon: Icon(
           icon,
           size: 18.0,
-          color: resolvedIsPrimary ? Colors.white : null,
+          color: resolvedForegroundColor,
         ),
         label: Text(
           label,
           textAlign: TextAlign.center,
         ),
         style: OutlinedButton.styleFrom(
-          backgroundColor:
-              resolvedIsPrimary ? const Color(0xFF1877F2) : Colors.transparent,
-          foregroundColor: resolvedIsPrimary
-              ? Colors.white
-              : FlutterFlowTheme.of(context).primaryText,
+          backgroundColor: resolvedBackgroundColor,
+          foregroundColor: resolvedForegroundColor,
           padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 10.0),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16.0),
           ),
           side: BorderSide(
-            color: resolvedIsPrimary
-                ? const Color(0xFF1877F2)
-                : FlutterFlowTheme.of(context).alternate,
+            color: resolvedBorderColor,
           ),
         ),
       ),
@@ -866,7 +874,7 @@ class _JeuShareCommercantPageWidgetState
           _buildSectionTitle(
             'Partage immédiat',
             subtitle:
-                'Commencez par votre affiche ou votre post Facebook, puis partagez le QR code si besoin.',
+                'Commencez par votre affiche, puis partagez le QR code si besoin.',
           ),
           const SizedBox(height: 20.0),
           _buildPrimaryButton(
@@ -1006,19 +1014,18 @@ class _JeuShareCommercantPageWidgetState
           Row(
             children: [
               _buildSocialButton(
-                icon: Icons.facebook_rounded,
-                label: 'Créer le post Facebook',
-                onPressed: () => _showFacebookPostDialog(
+                icon: Icons.auto_awesome_rounded,
+                label: 'Générer une affiche',
+                onPressed: () => _showPosterPreview(
                   game: game,
-                  enseigneName: enseigneName,
-                  gameLink: buildGameQrLink(game.reference.id),
+                  qrLink: qrLink,
                 ),
               ),
               const SizedBox(width: 10.0),
               _buildSocialButton(
-                icon: Icons.message_rounded,
-                label: 'WhatsApp',
-                onPressed: () => _shareToWhatsApp(readyText),
+                icon: Icons.send_rounded,
+                label: 'Partager le texte',
+                onPressed: () => _shareText(readyText),
               ),
             ],
           ),
@@ -1069,6 +1076,19 @@ class _JeuShareCommercantPageWidgetState
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 14.0),
+          Row(
+            children: [
+              _buildSocialButton(
+                icon: Icons.message_rounded,
+                label: 'Partager sur WhatsApp',
+                backgroundColor: const Color(0xFF25D366),
+                foregroundColor: Colors.white,
+                borderColor: const Color(0xFF25D366),
+                onPressed: () => _shareToWhatsApp(readyText),
+              ),
+            ],
           ),
         ],
       ),
@@ -1327,7 +1347,7 @@ class GamePosterPreview extends StatelessWidget {
           alignment: Alignment.topCenter,
           child: SizedBox(
             width: 388.0,
-            height: 548.0,
+            height: 540.0,
             child: Column(
               mainAxisSize: MainAxisSize.max,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1472,7 +1492,7 @@ class GamePosterPreview extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10.0),
+          const SizedBox(height: 8.0),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1561,7 +1581,7 @@ class GamePosterPreview extends StatelessWidget {
               height: 1.2,
             ),
           ),
-          const SizedBox(height: 12.0),
+          const SizedBox(height: 10.0),
           Row(
             children: [
               Expanded(
@@ -1689,8 +1709,8 @@ class _PosterInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 74.0,
-      padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
+      height: 66.0,
+      padding: const EdgeInsets.symmetric(horizontal: 9.0, vertical: 8.0),
       decoration: BoxDecoration(
         color: const Color(0xFFF8F8FB),
         borderRadius: BorderRadius.circular(14.0),
@@ -1705,12 +1725,12 @@ class _PosterInfoCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(
               color: const Color(0xFFA0134D),
-              fontSize: 9.0,
+              fontSize: 8.2,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 6.0),
+          const SizedBox(height: 4.0),
           Expanded(
             child: Text(
               value,
@@ -1718,9 +1738,9 @@ class _PosterInfoCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.inter(
                 color: const Color(0xFF2F2B79),
-                fontSize: 11.0,
+                fontSize: 10.2,
                 fontWeight: FontWeight.w700,
-                height: 1.2,
+                height: 1.1,
               ),
             ),
           ),
