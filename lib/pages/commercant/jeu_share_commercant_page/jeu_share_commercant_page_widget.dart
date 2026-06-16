@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -45,6 +46,8 @@ class _JeuShareCommercantPageWidgetState
   bool _isSharingPoster = false;
   bool _isDownloadingPoster = false;
   bool _isDownloadingFacebookVisual = false;
+  OverlayEntry? _toastEntry;
+  Timer? _toastTimer;
 
   String get _gameId => (widget.gameId ?? '').trim();
 
@@ -52,9 +55,72 @@ class _JeuShareCommercantPageWidgetState
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+    _toastTimer?.cancel();
+    _toastEntry?.remove();
+
+    final overlay = Overlay.of(context, rootOverlay: true);
+    _toastEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        left: 20.0,
+        right: 20.0,
+        bottom: 28.0,
+        child: IgnorePointer(
+          child: Material(
+            color: Colors.transparent,
+            child: SafeArea(
+              top: false,
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 520.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 12.0,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xEE1F1F1F),
+                    borderRadius: BorderRadius.circular(14.0),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x33000000),
+                        blurRadius: 14.0,
+                        offset: Offset(0.0, 6.0),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: FlutterFlowTheme.of(context).bodyMedium.override(
+                          font: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            fontStyle: FlutterFlowTheme.of(context)
+                                .bodyMedium
+                                .fontStyle,
+                          ),
+                          color: Colors.white,
+                          letterSpacing: 0.0,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
+    overlay.insert(_toastEntry!);
+    _toastTimer = Timer(const Duration(seconds: 2), () {
+      _toastEntry?.remove();
+      _toastEntry = null;
+    });
+  }
+
+  @override
+  void dispose() {
+    _toastTimer?.cancel();
+    _toastEntry?.remove();
+    super.dispose();
   }
 
   String _buildReadyToPostText({
@@ -505,7 +571,6 @@ class _JeuShareCommercantPageWidgetState
     final enseigneName =
         game.enseigneName.isNotEmpty ? game.enseigneName : 'votre enseigne';
 
-    _showSnackBar('Affiche générée ✓');
     await showDialog(
       context: context,
       builder: (dialogContext) {
@@ -862,6 +927,7 @@ class _JeuShareCommercantPageWidgetState
     );
   }
 
+  // ignore: unused_element
   Widget _buildQrSection({
     required GamesRecord game,
     required String qrLink,
@@ -890,6 +956,22 @@ class _JeuShareCommercantPageWidgetState
             ),
           ),
           const SizedBox(height: 12.0),
+          _buildPrimaryButton(
+            label: 'Générer une affiche',
+            icon: Icons.auto_awesome_rounded,
+            onPressed: () => _showPosterPreview(
+              game: game,
+              qrLink: qrLink,
+            ),
+          ),
+          const SizedBox(height: 12.0),
+          _buildSecondaryButton(
+            label: _isSharing ? 'Ouverture du partage...' : 'Partager le jeu',
+            icon: Icons.share_rounded,
+            isLoading: _isSharing,
+            onPressed: () => _shareText(shareText),
+          ),
+          const SizedBox(height: 18.0),
           Center(
             child: RepaintBoundary(
               key: _qrBoundaryKey,
@@ -908,13 +990,6 @@ class _JeuShareCommercantPageWidgetState
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 18.0),
-          _buildSecondaryButton(
-            label: _isSharing ? 'Ouverture du partage...' : 'Partager le jeu',
-            icon: Icons.share_rounded,
-            isLoading: _isSharing,
-            onPressed: () => _shareText(shareText),
           ),
           const SizedBox(height: 12.0),
           _buildPrimaryButton(
@@ -995,6 +1070,7 @@ class _JeuShareCommercantPageWidgetState
     );
   }
 
+  // ignore: unused_element
   Widget _buildSocialSection({
     required GamesRecord game,
     required String enseigneName,
@@ -1095,6 +1171,162 @@ class _JeuShareCommercantPageWidgetState
     );
   }
 
+  Widget _buildQrSectionOrdered({
+    required GamesRecord game,
+    required String qrLink,
+    required String shareText,
+  }) {
+    return _buildCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle(
+            'Partage immédiat',
+            subtitle:
+                'Commencez par les actions les plus utiles, puis utilisez le QR code si besoin.',
+          ),
+          const SizedBox(height: 20.0),
+          _buildPrimaryButton(
+            label: 'Créer le post Facebook',
+            icon: Icons.facebook_rounded,
+            backgroundColor: const Color(0xFF1877F2),
+            onPressed: () => _showFacebookPostDialog(
+              game: game,
+              enseigneName: game.enseigneName.trim().isEmpty
+                  ? 'votre enseigne'
+                  : game.enseigneName.trim(),
+              gameLink: buildGameQrLink(game.reference.id),
+            ),
+          ),
+          const SizedBox(height: 12.0),
+          _buildPrimaryButton(
+            label: 'Générer une affiche',
+            icon: Icons.auto_awesome_rounded,
+            onPressed: () => _showPosterPreview(
+              game: game,
+              qrLink: qrLink,
+            ),
+          ),
+          const SizedBox(height: 12.0),
+          _buildSecondaryButton(
+            label: _isSharing ? 'Ouverture du partage...' : 'Partager le jeu',
+            icon: Icons.share_rounded,
+            isLoading: _isSharing,
+            onPressed: () => _shareText(shareText),
+          ),
+          const SizedBox(height: 18.0),
+          Center(
+            child: RepaintBoundary(
+              key: _qrBoundaryKey,
+              child: Container(
+                padding: const EdgeInsets.all(18.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28.0),
+                ),
+                child: QrImageView(
+                  data: qrLink,
+                  version: QrVersions.auto,
+                  size: 248.0,
+                  gapless: false,
+                  backgroundColor: Colors.white,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12.0),
+          _buildSecondaryButton(
+            label: _isDownloadingQr
+                ? 'Téléchargement du QR...'
+                : 'Télécharger le QR',
+            icon: Icons.download_rounded,
+            isLoading: _isDownloadingQr,
+            onPressed: () => _downloadQrCode(game.reference.id),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSocialSectionOrdered({
+    required String readyText,
+  }) {
+    return _buildCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitle(
+            'Publier sur vos réseaux',
+            subtitle:
+                'Choisissez le canal le plus rapide pour faire venir vos clients.',
+          ),
+          const SizedBox(height: 14.0),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: FlutterFlowTheme.of(context).primaryBackground,
+              borderRadius: BorderRadius.circular(18.0),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Instagram',
+                  style: FlutterFlowTheme.of(context).titleMedium.override(
+                        font: GoogleFonts.interTight(
+                          fontWeight: FontWeight.w700,
+                          fontStyle:
+                              FlutterFlowTheme.of(context).titleMedium.fontStyle,
+                        ),
+                        letterSpacing: 0.0,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 8.0),
+                Text(
+                  'Instagram ne permet pas de préremplir automatiquement une publication. Copiez le texte, ajoutez le QR code en image, puis publiez en story ou en post.',
+                  style: FlutterFlowTheme.of(context).bodyMedium.override(
+                        font: GoogleFonts.inter(
+                          fontWeight:
+                              FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                          fontStyle:
+                              FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                        ),
+                        letterSpacing: 0.0,
+                      ),
+                ),
+                const SizedBox(height: 14.0),
+                _buildSecondaryButton(
+                  label: 'Copier pour Instagram',
+                  icon: Icons.camera_alt_outlined,
+                  onPressed: () => _copyText(
+                    readyText,
+                    successMessage: 'Texte prêt à publier copié ✓',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14.0),
+          Row(
+            children: [
+              _buildSocialButton(
+                icon: Icons.message_rounded,
+                label: 'Partager sur WhatsApp',
+                backgroundColor: const Color(0xFF25D366),
+                foregroundColor: Colors.white,
+                borderColor: const Color(0xFF25D366),
+                onPressed: () => _shareToWhatsApp(readyText),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ignore: unused_element
   Widget _buildAdviceSection() {
     return _buildCard(
       child: Column(
@@ -1237,22 +1469,17 @@ class _JeuShareCommercantPageWidgetState
                       children: [
                         _buildHeroCard(),
                         const SizedBox(height: 18.0),
-                        _buildSocialSection(
-                          game: game,
-                          enseigneName: enseigneName,
-                          qrLink: qrLink,
-                          readyText: readyText,
-                        ),
-                        const SizedBox(height: 18.0),
-                        _buildQrSection(
+                        _buildQrSectionOrdered(
                           game: game,
                           qrLink: qrLink,
                           shareText: readyText,
                         ),
                         const SizedBox(height: 18.0),
-                        _buildTextSection(readyText),
+                        _buildSocialSectionOrdered(
+                          readyText: readyText,
+                        ),
                         const SizedBox(height: 18.0),
-                        _buildAdviceSection(),
+                        _buildTextSection(readyText),
                         const SizedBox(height: 18.0),
                         _buildPrimaryButton(
                           label: 'Voir mon jeu',
@@ -1329,10 +1556,6 @@ class GamePosterPreview extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24.0),
-        border: Border.all(
-          color: const Color(0xFFA0134D),
-          width: 2.0,
-        ),
         boxShadow: const [
           BoxShadow(
             color: Color(0x140E1220),
@@ -1347,7 +1570,7 @@ class GamePosterPreview extends StatelessWidget {
           alignment: Alignment.topCenter,
           child: SizedBox(
             width: 388.0,
-            height: 540.0,
+            height: 518.0,
             child: Column(
               mainAxisSize: MainAxisSize.max,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1388,7 +1611,7 @@ class GamePosterPreview extends StatelessWidget {
                             style: const TextStyle(color: Color(0xFF2F2B79)),
                           ),
                           const TextSpan(
-                            text: 'A GAGNER !',
+                            text: 'À GAGNER !',
                             style: TextStyle(color: Color(0xFFA0134D)),
                           ),
                         ],
@@ -1503,7 +1726,7 @@ class GamePosterPreview extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(18.0),
                       child: SizedBox(
-                        height: 138.0,
+                        height: 130.0,
                         width: double.infinity,
                         child: game.photo.trim().isNotEmpty
                             ? Image.network(
@@ -1572,16 +1795,16 @@ class GamePosterPreview extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10.0),
+          const SizedBox(height: 8.0),
           Text(
             legalCaption,
             style: GoogleFonts.inter(
               color: const Color(0xFF70738A),
-              fontSize: 10.4,
-              height: 1.2,
+              fontSize: 10.0,
+              height: 1.1,
             ),
           ),
-          const SizedBox(height: 10.0),
+          const SizedBox(height: 6.0),
           Row(
             children: [
               Expanded(
@@ -1612,6 +1835,12 @@ class GamePosterPreview extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 6.0),
+          Container(
+            height: 8.0,
+            width: double.infinity,
+            color: Colors.white,
           ),
               ],
             ),
@@ -1709,8 +1938,8 @@ class _PosterInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 66.0,
-      padding: const EdgeInsets.symmetric(horizontal: 9.0, vertical: 8.0),
+      height: 52.0,
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
       decoration: BoxDecoration(
         color: const Color(0xFFF8F8FB),
         borderRadius: BorderRadius.circular(14.0),
@@ -1725,12 +1954,12 @@ class _PosterInfoCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(
               color: const Color(0xFFA0134D),
-              fontSize: 8.2,
+              fontSize: 7.2,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 4.0),
+          const SizedBox(height: 1.0),
           Expanded(
             child: Text(
               value,
@@ -1738,9 +1967,9 @@ class _PosterInfoCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.inter(
                 color: const Color(0xFF2F2B79),
-                fontSize: 10.2,
+                fontSize: 9.2,
                 fontWeight: FontWeight.w700,
-                height: 1.1,
+                height: 0.98,
               ),
             ),
           ),
