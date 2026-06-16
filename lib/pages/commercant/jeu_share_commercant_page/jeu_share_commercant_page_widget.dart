@@ -1570,7 +1570,7 @@ class GamePosterPreview extends StatelessWidget {
           alignment: Alignment.topCenter,
           child: SizedBox(
             width: 388.0,
-            height: 518.0,
+            height: 582.0,
             child: Column(
               mainAxisSize: MainAxisSize.max,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1611,7 +1611,7 @@ class GamePosterPreview extends StatelessWidget {
                             style: const TextStyle(color: Color(0xFF2F2B79)),
                           ),
                           const TextSpan(
-                            text: 'À GAGNER !',
+                            text: '\u00C0 GAGNER !',
                             style: TextStyle(color: Color(0xFFA0134D)),
                           ),
                         ],

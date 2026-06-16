@@ -805,54 +805,95 @@ class _JeuDetailCommercantPageWidgetState
         color: FlutterFlowTheme.of(context).secondaryBackground,
         borderRadius: BorderRadius.circular(16.0),
       ),
-      child: Wrap(
-        alignment: WrapAlignment.end,
-        spacing: 8.0,
-        runSpacing: 8.0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FFButtonWidget(
-            onPressed: () async => _restartGame(game),
-            text: 'Relancer',
-            options: FFButtonOptions(
-              height: 36.0,
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              color: FlutterFlowTheme.of(context).primary,
-              textStyle: FlutterFlowTheme.of(context).bodySmall.override(
-                    font: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                    ),
-                    color: FlutterFlowTheme.of(context).info,
-                    letterSpacing: 0.0,
+          Text(
+            'Actions du jeu',
+            style: FlutterFlowTheme.of(context).titleMedium.override(
+                  font: GoogleFonts.interTight(
                     fontWeight: FontWeight.w700,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).titleMedium.fontStyle,
                   ),
-              borderRadius: BorderRadius.circular(18.0),
-            ),
+                  letterSpacing: 0.0,
+                  fontWeight: FontWeight.w700,
+                ),
           ),
-          FFButtonWidget(
-            onPressed: () async => _deleteGame(game),
-            text: 'Supprimer',
-            options: FFButtonOptions(
-              height: 36.0,
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              color: const Color(0xFFFFF3E0),
-              textStyle: FlutterFlowTheme.of(context).bodySmall.override(
-                    font: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                    ),
-                    color: const Color(0xFFE65100),
-                    letterSpacing: 0.0,
-                    fontWeight: FontWeight.w700,
+          const SizedBox(height: 6.0),
+          Text(
+            'Relancez ce jeu ou retirez-le de votre liste commerçant.',
+            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                  font: GoogleFonts.inter(
+                    fontWeight:
+                        FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                   ),
-              borderRadius: BorderRadius.circular(18.0),
-              borderSide: const BorderSide(
-                color: Color(0xFFE65100),
-                width: 1.0,
+                  color: FlutterFlowTheme.of(context).secondaryText,
+                  letterSpacing: 0.0,
+                ),
+          ),
+          const SizedBox(height: 14.0),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async => _restartGame(game),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Relancer ce jeu'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2F2B79),
+                foregroundColor: Colors.white,
+                elevation: 0.0,
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16.0),
+                ),
+                textStyle: GoogleFonts.inter(
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
+          ),
+          const SizedBox(height: 10.0),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async => _deleteGame(game),
+              icon: const Icon(Icons.delete_outline_rounded),
+              label: const Text('Retirer ce jeu'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFA0134D),
+                side: const BorderSide(
+                  color: Color(0xFFE8B9CB),
+                  width: 1.4,
+                ),
+                backgroundColor: const Color(0xFFFFF7FA),
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16.0),
+                ),
+                textStyle: GoogleFonts.inter(
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8.0),
+          Text(
+            'La suppression retire le jeu de votre liste, sans effacer les statistiques.',
+            style: FlutterFlowTheme.of(context).bodySmall.override(
+                  font: GoogleFonts.inter(
+                    fontWeight:
+                        FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                  ),
+                  color: FlutterFlowTheme.of(context).secondaryText,
+                  letterSpacing: 0.0,
+                ),
           ),
         ],
       ),
