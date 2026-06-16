@@ -24,6 +24,7 @@ import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:text_search/text_search.dart';
 import 'home_joueur_page_model.dart';
@@ -44,6 +45,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     with WidgetsBindingObserver {
   static final Random _random = Random();
   static const double _homeSectionTitleLeftInset = 4.0;
+  static const double _homeHorizontalCardGap = 10.0;
+  static const double _homePageHorizontalPadding = 20.0;
 
   late HomeJoueurPageModel _model;
   final _sharePromoService = SharePromoService();
@@ -52,7 +55,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   bool _homeDataReady = false;
   bool _isRefreshingOnResume = false;
   late Future<SharePromoStateViewModel?> _sharePromoFuture;
-  late Future<List<String>> _recentWinnerMessagesFuture;
   SharePromoStateViewModel? _latestSharePromoState;
   final Map<String, Future<EnseignesRecord>> _enseigneFutureCache = {};
   final Map<String, Future<Map<String, EnseignesRecord>>>
@@ -84,14 +86,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
     _sharePromoFuture = _loadSharePromoState();
-    _recentWinnerMessagesFuture = _loadRecentWinnerMessages();
-  }
-
-  void _reloadRecentWinnerMessages({bool triggerSetState = true}) {
-    _recentWinnerMessagesFuture = _loadRecentWinnerMessages();
-    if (triggerSetState && mounted) {
-      safeSetState(() {});
-    }
   }
 
   void _markHomeDataReady({int? itemCount}) {
@@ -308,9 +302,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     );
     await refreshCurrentUserDocument();
     if (mounted) {
-      _reloadRecentWinnerMessages(triggerSetState: false);
       safeSetState(() {});
     }
+  }
+
+  double _computeHomeCardWidth(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final availableWidth = screenWidth - (_homePageHorizontalPadding * 2);
+    return ((availableWidth - _homeHorizontalCardGap) / 2)
+        .clamp(168.0, AppStyles.gameCardWidth);
   }
 
   Widget _buildHomeGameCard({
@@ -325,6 +325,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     int winnerMaxLines = 1,
     bool isFinished = false,
     bool fitContent = true,
+    double? width,
     double? height,
     double? imageHeight,
   }) {
@@ -344,6 +345,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         winnerMaxLines: winnerMaxLines,
         isFinished: isFinished,
         fitContent: fitContent,
+        width: width ?? _computeHomeCardWidth(context),
         height: height,
         imageHeight: imageHeight,
         onTap: () async {
@@ -452,6 +454,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     return accessUntil.isAfter(getCurrentTimestamp);
   }
 
+  // ignore: unused_element
   String _buildRecentWinnerMessage(PrizesRecord prize, UsersRecord user) {
     final firstName = extractWinnerFirstName(user);
     return _buildRecentWinnerMessageFromFirstName(firstName, prize);
@@ -709,54 +712,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     );
   }
 
-  Future<List<String>> _loadRecentWinnerMessages() async {
-    try {
-      final prizes = await queryPrizesRecordOnce(
-        queryBuilder: (query) => query.orderBy('win_date', descending: true),
-        limit: 12,
-      );
-      final recentPrizes = prizes
-          .where(
-            (prize) =>
-                prize.hasWinDate() &&
-                prize.hasWinnerId() &&
-                prize.name.trim().isNotEmpty,
-          )
-          .take(8)
-          .toList();
-      if (recentPrizes.isEmpty) {
-        return const <String>[];
-      }
-
-      final messages = <String>[];
-
-      for (final prize in recentPrizes) {
-        final winnerRef = prize.winnerId;
-        if (winnerRef == null) {
-          continue;
-        }
-
-        UsersRecord? winner;
-        try {
-          winner = await UsersRecord.getDocumentOnce(winnerRef);
-        } catch (_) {
-          winner = null;
-        }
-
-        final firstName = extractWinnerFirstName(winner);
-        messages.add(
-          winner != null && firstName.isNotEmpty
-              ? _buildRecentWinnerMessage(prize, winner)
-              : _buildRecentWinnerMessageFromFirstName(firstName, prize),
-        );
-      }
-
-      return messages;
-    } catch (_) {
-      return const <String>[];
-    }
-  }
-
   Widget _buildTopDynamicZone(BuildContext context) {
     return AuthUserStreamWidget(
       builder: (context) {
@@ -823,6 +778,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   }
 
   Widget _buildRecentWinnersZone() {
+    context.watch<FFAppState>();
     return AuthUserStreamWidget(
       builder: (context) {
         final remainingPart =
@@ -832,16 +788,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           return const SizedBox.shrink();
         }
 
-        return FutureBuilder<List<String>>(
-          future: _recentWinnerMessagesFuture,
-          builder: (context, snapshot) {
-            final messages = snapshot.data ?? const <String>[];
-            if (messages.isEmpty) {
-              return const SizedBox.shrink();
-            }
-            return RecentWinnersTicker(messages: messages);
-          },
-        );
+        final messages = FFAppState().globalTickerMessages;
+        if (messages.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return RecentWinnersTicker(messages: messages);
       },
     );
   }
@@ -1140,7 +1091,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   Future<void> _refreshHomeContent() async {
     await refreshCurrentUserDocument();
     _sharePromoFuture = _loadSharePromoState();
-    _reloadRecentWinnerMessages(triggerSetState: false);
     final controllers = <PagingController<DocumentSnapshot?, GamesRecord>?>[
       _model.listViewPagingController2,
       _model.listViewPagingController3,
@@ -3021,21 +2971,26 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 isEqualTo:
                                                                     false,
                                                               )
+                                                              .where(
+                                                                'prize_value',
+                                                                isGreaterThan:
+                                                                    0,
+                                                              )
                                                               .orderBy(
                                                                   'prize_value',
                                                                   descending:
                                                                       true),
                                                         ),
-                                                        padding:
-                                                            EdgeInsets.zero,
+                                                        padding: const EdgeInsets
+                                                            .only(right: 20.0),
                                                         primary: false,
                                                         reverse: false,
                                                         scrollDirection:
                                                             Axis.horizontal,
                                                         separatorBuilder: (_,
                                                                 __) =>
-                                                            const SizedBox(
-                                                                width: 10.0),
+                                                            const SizedBox
+                                                                .shrink(),
                                                         builderDelegate:
                                                             PagedChildBuilderDelegate<
                                                                 GamesRecord>(
@@ -3074,38 +3029,46 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               return const SizedBox
                                                                   .shrink();
                                                             }
-                                                            return FutureBuilder<
-                                                                EnseignesRecord>(
-                                                              future: _getCachedEnseigneFuture(
-                                                                  listViewGamesRecord
-                                                                      .enseigneId!),
-                                                              builder: (context,
-                                                                  enseigneSnapshot) {
-                                                                final enseigne =
-                                                                    enseigneSnapshot
-                                                                        .data;
-                                                                return _buildHomeGameCard(
-                                                                  game:
-                                                                      listViewGamesRecord,
-                                                                  enseigne:
-                                                                      enseigne,
-                                                                  prizeText: listViewGamesRecord
-                                                                              .prizeValue ==
-                                                                          0
-                                                                      ? 'Gains instantanés'
-                                                                      : _formatEuroAmount(listViewGamesRecord.prizeValue),
-                                                                  endDateText: listViewGamesRecord
-                                                                              .endDate !=
-                                                                          null
-                                                                      ? 'Jusqu\'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}'
-                                                                      : 'Jusqu\'au : -',
-                                                                  onTap:
-                                                                      () async {
-                                                                    await _openGameDetails(
-                                                                        listViewGamesRecord);
+                                                            return Row(
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .min,
+                                                              children: [
+                                                                FutureBuilder<
+                                                                    EnseignesRecord>(
+                                                                  future: _getCachedEnseigneFuture(
+                                                                      listViewGamesRecord
+                                                                          .enseigneId!),
+                                                                  builder: (context,
+                                                                      enseigneSnapshot) {
+                                                                    final enseigne =
+                                                                        enseigneSnapshot
+                                                                            .data;
+                                                                    return _buildHomeGameCard(
+                                                                      game:
+                                                                          listViewGamesRecord,
+                                                                      enseigne:
+                                                                          enseigne,
+                                                                      prizeText: listViewGamesRecord.prizeValue ==
+                                                                              0
+                                                                          ? 'Gains instantanés'
+                                                                          : _formatEuroAmount(listViewGamesRecord.prizeValue),
+                                                                      endDateText: listViewGamesRecord.endDate !=
+                                                                              null
+                                                                          ? 'Jusqu\'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}'
+                                                                          : 'Jusqu\'au : -',
+                                                                      onTap:
+                                                                          () async {
+                                                                        await _openGameDetails(
+                                                                            listViewGamesRecord);
+                                                                      },
+                                                                    );
                                                                   },
-                                                                );
-                                                              },
+                                                                ),
+                                                                const SizedBox(
+                                                                    width:
+                                                                        10.0),
+                                                              ],
                                                             );
                                                           },
                                                         ),
@@ -3191,16 +3154,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                   descending:
                                                                       true),
                                                         ),
-                                                        padding:
-                                                            EdgeInsets.zero,
+                                                        padding: const EdgeInsets
+                                                            .only(right: 20.0),
                                                         primary: false,
                                                         reverse: false,
                                                         scrollDirection:
                                                             Axis.horizontal,
                                                         separatorBuilder: (_,
                                                                 __) =>
-                                                            const SizedBox(
-                                                                width: 10.0),
+                                                            const SizedBox
+                                                                .shrink(),
                                                         builderDelegate:
                                                             PagedChildBuilderDelegate<
                                                                 GamesRecord>(
@@ -3234,38 +3197,46 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               return const SizedBox
                                                                   .shrink();
                                                             }
-                                                            return FutureBuilder<
-                                                                EnseignesRecord>(
-                                                              future: _getCachedEnseigneFuture(
-                                                                  listViewGamesRecord
-                                                                      .enseigneId!),
-                                                              builder: (context,
-                                                                  enseigneSnapshot) {
-                                                                final enseigne =
-                                                                    enseigneSnapshot
-                                                                        .data;
-                                                                return _buildHomeGameCard(
-                                                                  game:
-                                                                      listViewGamesRecord,
-                                                                  enseigne:
-                                                                      enseigne,
-                                                                  prizeText: listViewGamesRecord
-                                                                              .prizeValue ==
-                                                                          0
-                                                                      ? 'Gains instantanés'
-                                                                      : _formatEuroAmount(listViewGamesRecord.prizeValue),
-                                                                  endDateText: listViewGamesRecord
-                                                                              .endDate !=
-                                                                          null
-                                                                      ? 'Jusqu\'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}'
-                                                                      : 'Jusqu\'au : -',
-                                                                  onTap:
-                                                                      () async {
-                                                                    await _openGameDetails(
-                                                                        listViewGamesRecord);
+                                                            return Row(
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .min,
+                                                              children: [
+                                                                FutureBuilder<
+                                                                    EnseignesRecord>(
+                                                                  future: _getCachedEnseigneFuture(
+                                                                      listViewGamesRecord
+                                                                          .enseigneId!),
+                                                                  builder: (context,
+                                                                      enseigneSnapshot) {
+                                                                    final enseigne =
+                                                                        enseigneSnapshot
+                                                                            .data;
+                                                                    return _buildHomeGameCard(
+                                                                      game:
+                                                                          listViewGamesRecord,
+                                                                      enseigne:
+                                                                          enseigne,
+                                                                      prizeText: listViewGamesRecord.prizeValue ==
+                                                                              0
+                                                                          ? 'Gains instantanés'
+                                                                          : _formatEuroAmount(listViewGamesRecord.prizeValue),
+                                                                      endDateText: listViewGamesRecord.endDate !=
+                                                                              null
+                                                                          ? 'Jusqu\'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}'
+                                                                          : 'Jusqu\'au : -',
+                                                                      onTap:
+                                                                          () async {
+                                                                        await _openGameDetails(
+                                                                            listViewGamesRecord);
+                                                                      },
+                                                                    );
                                                                   },
-                                                                );
-                                                              },
+                                                                ),
+                                                                const SizedBox(
+                                                                    width:
+                                                                        10.0),
+                                                              ],
                                                             );
                                                           },
                                                         ),
@@ -3340,16 +3311,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               .orderBy(
                                                                   'end_date'),
                                                         ),
-                                                        padding:
-                                                            EdgeInsets.zero,
+                                                        padding: const EdgeInsets
+                                                            .only(right: 20.0),
                                                         primary: false,
                                                         reverse: false,
                                                         scrollDirection:
                                                             Axis.horizontal,
                                                         separatorBuilder: (_,
                                                                 __) =>
-                                                            const SizedBox(
-                                                                width: 10.0),
+                                                            const SizedBox
+                                                                .shrink(),
                                                         builderDelegate:
                                                             PagedChildBuilderDelegate<
                                                                 GamesRecord>(
@@ -3381,38 +3352,46 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               return const SizedBox
                                                                   .shrink();
                                                             }
-                                                            return FutureBuilder<
-                                                                EnseignesRecord>(
-                                                              future: _getCachedEnseigneFuture(
-                                                                  listViewGamesRecord
-                                                                      .enseigneId!),
-                                                              builder: (context,
-                                                                  enseigneSnapshot) {
-                                                                final enseigne =
-                                                                    enseigneSnapshot
-                                                                        .data;
-                                                                return _buildHomeGameCard(
-                                                                  game:
-                                                                      listViewGamesRecord,
-                                                                  enseigne:
-                                                                      enseigne,
-                                                                  prizeText: listViewGamesRecord
-                                                                              .prizeValue ==
-                                                                          0
-                                                                      ? 'Gains instantanés'
-                                                                      : _formatEuroAmount(listViewGamesRecord.prizeValue),
-                                                                  endDateText: listViewGamesRecord
-                                                                              .endDate !=
-                                                                          null
-                                                                      ? 'Jusqu\'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}'
-                                                                      : 'Jusqu\'au : -',
-                                                                  onTap:
-                                                                      () async {
-                                                                    await _openGameDetails(
-                                                                        listViewGamesRecord);
+                                                            return Row(
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .min,
+                                                              children: [
+                                                                FutureBuilder<
+                                                                    EnseignesRecord>(
+                                                                  future: _getCachedEnseigneFuture(
+                                                                      listViewGamesRecord
+                                                                          .enseigneId!),
+                                                                  builder: (context,
+                                                                      enseigneSnapshot) {
+                                                                    final enseigne =
+                                                                        enseigneSnapshot
+                                                                            .data;
+                                                                    return _buildHomeGameCard(
+                                                                      game:
+                                                                          listViewGamesRecord,
+                                                                      enseigne:
+                                                                          enseigne,
+                                                                      prizeText: listViewGamesRecord.prizeValue ==
+                                                                              0
+                                                                          ? 'Gains instantanés'
+                                                                          : _formatEuroAmount(listViewGamesRecord.prizeValue),
+                                                                      endDateText: listViewGamesRecord.endDate !=
+                                                                              null
+                                                                          ? 'Jusqu\'au : ${dateTimeFormat('d/M/y', listViewGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}'
+                                                                          : 'Jusqu\'au : -',
+                                                                      onTap:
+                                                                          () async {
+                                                                        await _openGameDetails(
+                                                                            listViewGamesRecord);
+                                                                      },
+                                                                    );
                                                                   },
-                                                                );
-                                                              },
+                                                                ),
+                                                                const SizedBox(
+                                                                    width:
+                                                                        10.0),
+                                                              ],
                                                             );
                                                           },
                                                         ),

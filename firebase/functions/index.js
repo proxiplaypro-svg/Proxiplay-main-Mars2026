@@ -17,6 +17,7 @@ const kFunctionsRegion = "us-central1";
 const kGameDedupeWindowMs = 20 * 1000;
 const kGameDedupeGroupsCollection = "_game_dedupe_groups";
 const kGameDedupeReviewsCollection = "_game_dedupe_reviews";
+const kGlobalStatsDocPath = "stats/global";
 const kInvalidFcmErrorCodes = new Set([
   "messaging/invalid-registration-token",
   "messaging/registration-token-not-registered",
@@ -786,6 +787,42 @@ function buildGoogleMapsLink(enseigneData) {
   )}`;
 }
 
+function isTickerStatsActiveGame(gameData, nowMs) {
+  if (!isPublishedGame(gameData)) {
+    return false;
+  }
+
+  const enseigneRef = toDocRef(gameData && gameData.enseigne_id);
+  if (!enseigneRef) {
+    return false;
+  }
+
+  const startDateMs = timestampToMillis(gameData && gameData.start_date);
+  if (Number.isFinite(startDateMs) && startDateMs > nowMs) {
+    return false;
+  }
+
+  const endDateMs = timestampToMillis(gameData && gameData.end_date);
+  if (!Number.isFinite(endDateMs) || endDateMs <= nowMs) {
+    return false;
+  }
+
+  return true;
+}
+
+function buildDailyTickerWinnerMessage(firstName, prizeName, enseigneName) {
+  const normalizedFirstName = getTrimmedString(firstName) || "Un joueur";
+  const normalizedPrizeName = getTrimmedString(prizeName);
+  const normalizedEnseigneName = getTrimmedString(enseigneName);
+  if (!normalizedPrizeName) {
+    return "";
+  }
+  if (normalizedEnseigneName) {
+    return `${normalizedFirstName} a gagné ${normalizedPrizeName} chez ${normalizedEnseigneName}`;
+  }
+  return `${normalizedFirstName} a gagné ${normalizedPrizeName}`;
+}
+
 /**
  * Reset player daily parts at midnight France time.
  * - Sets users.remaining_part to 3
@@ -863,6 +900,134 @@ exports.resetDailyRemainingParts = functions.pubsub
         batches: totalBatches,
         batchErrors: totalBatchErrors,
         pages: pageCount,
+      }),
+    );
+
+    return null;
+  });
+
+exports.refreshGlobalStats = functions
+  .runWith({timeoutSeconds: 540, memory: "1GB"})
+  .pubsub.schedule("0 3 * * *")
+  .timeZone(kParisTimeZone)
+  .onRun(async () => {
+    const startedAt = Date.now();
+    console.log(
+      "[refreshGlobalStats] start",
+      JSON.stringify({
+        schedule: "0 3 * * *",
+        timezone: kParisTimeZone,
+        targetDoc: kGlobalStatsDocPath,
+      }),
+    );
+
+    const totalPlayersAgg = await firestore
+      .collection("users")
+      .where("user_role", "==", "joueur")
+      .count()
+      .get();
+    const totalPlayers = totalPlayersAgg.data().count || 0;
+
+    const gamesSnap = await firestore.collection("games").get();
+    let totalGamesPlayed = 0;
+    const activeMerchants = new Set();
+    const nowMs = Date.now();
+
+    gamesSnap.docs.forEach((gameDoc) => {
+      const gameData = gameDoc.data() || {};
+      totalGamesPlayed += normalizeInteger(gameData.participations) || 0;
+
+      if (isTickerStatsActiveGame(gameData, nowMs)) {
+        const enseigneRef = toDocRef(gameData.enseigne_id);
+        if (enseigneRef) {
+          activeMerchants.add(enseigneRef.path);
+        }
+      }
+    });
+
+    const prizesSnap = await firestore
+      .collection("prizes")
+      .orderBy("win_date", "desc")
+      .limit(12)
+      .get();
+
+    const recentWinnerMessages = [];
+    const winnerCache = new Map();
+    let winnerUserLookups = 0;
+
+    for (const prizeDoc of prizesSnap.docs) {
+      if (recentWinnerMessages.length >= 8) {
+        break;
+      }
+
+      const prizeData = prizeDoc.data() || {};
+      const prizeName = getTrimmedString(prizeData.name);
+      if (!prizeName || !prizeData.win_date) {
+        continue;
+      }
+
+      let winnerFirstName = normalizeFirstName(
+        firstNonEmptyString(prizeData, [
+          "winner_first_name",
+          "winnerFirstName",
+          "winner_name",
+          "winnerName",
+        ]),
+      );
+
+      const winnerRef = toDocRef(prizeData.winner_id);
+      if (!winnerFirstName && winnerRef) {
+        if (!winnerCache.has(winnerRef.path)) {
+          winnerUserLookups += 1;
+          winnerCache.set(winnerRef.path, getDocData(winnerRef));
+        }
+        const winnerData = (await winnerCache.get(winnerRef.path)) || {};
+        winnerFirstName = normalizeFirstName(
+          firstNonEmptyString(winnerData, [
+            "first_name",
+            "firstName",
+            "display_name",
+            "displayName",
+            "pseudo",
+          ]),
+        );
+      }
+
+      const message = buildDailyTickerWinnerMessage(
+        winnerFirstName,
+        prizeName,
+        prizeData.enseigne_name,
+      );
+      if (message) {
+        recentWinnerMessages.push(message);
+      }
+    }
+
+    await firestore.doc(kGlobalStatsDocPath).set(
+      {
+        totalPlayers,
+        totalGamesPlayed,
+        totalMerchants: activeMerchants.size,
+        recentWinnerMessages,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      {merge: true},
+    );
+
+    console.log(
+      "[refreshGlobalStats] completed",
+      JSON.stringify({
+        totalPlayers,
+        totalGamesPlayed,
+        totalMerchants: activeMerchants.size,
+        tickerMessages: recentWinnerMessages.length,
+        estimatedBackendReads: {
+          playersAggregate: 1,
+          gamesDocuments: gamesSnap.size,
+          prizesDocuments: prizesSnap.size,
+          winnerUserLookups,
+        },
+        elapsedMs: Date.now() - startedAt,
       }),
     );
 

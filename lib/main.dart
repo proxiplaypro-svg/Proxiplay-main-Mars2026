@@ -26,6 +26,7 @@ import 'utils/perf_trace.dart';
 import 'utils/share_links.dart';
 
 import 'services/remote_config_service.dart';
+import 'services/global_ticker_service.dart';
 import 'pages/status_screens/maintenance_screen.dart';
 import 'widgets/app_update_gate.dart';
 
@@ -49,6 +50,26 @@ void main() async {
     create: (context) => appState,
     child: const MyApp(),
   ));
+
+  unawaited(() async {
+    try {
+      final tickerSnapshot = await const GlobalTickerService().fetchOnce();
+      if (tickerSnapshot == null) {
+        return;
+      }
+      appState.update(() {
+        appState.setGlobalTickerData(
+          totalPlayers: tickerSnapshot.totalPlayers,
+          totalGamesPlayed: tickerSnapshot.totalGamesPlayed,
+          totalMerchants: tickerSnapshot.totalMerchants,
+          messages: tickerSnapshot.messages,
+          updatedAt: tickerSnapshot.updatedAt,
+        );
+      });
+    } catch (error) {
+      debugPrint('[GlobalTicker] startup_load_failed error=$error');
+    }
+  }());
 
   if (!kIsWeb) {
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);

@@ -27,6 +27,22 @@ class FFAppState extends ChangeNotifier {
           prefs.getString('ff_pendingDeepLinkGameId') ?? _pendingDeepLinkGameId;
       _pendingReferralCode =
           prefs.getString('ff_pendingReferralCode') ?? _pendingReferralCode;
+      _globalTickerTotalPlayers =
+          prefs.getInt('ff_globalTickerTotalPlayers') ??
+              _globalTickerTotalPlayers;
+      _globalTickerTotalGamesPlayed =
+          prefs.getInt('ff_globalTickerTotalGamesPlayed') ??
+              _globalTickerTotalGamesPlayed;
+      _globalTickerTotalMerchants =
+          prefs.getInt('ff_globalTickerTotalMerchants') ??
+              _globalTickerTotalMerchants;
+      _globalTickerMessages =
+          prefs.getStringList('ff_globalTickerMessages') ??
+              _globalTickerMessages;
+      final updatedAtMillis = prefs.getInt('ff_globalTickerUpdatedAtMillis');
+      _globalTickerUpdatedAt = updatedAtMillis != null
+          ? DateTime.fromMillisecondsSinceEpoch(updatedAtMillis)
+          : _globalTickerUpdatedAt;
       debugPrint(
         '[ReferralDebug][AppState] initialized pendingReferralCode='
         '${_pendingReferralCode.isEmpty ? '<empty>' : _pendingReferralCode}',
@@ -147,6 +163,85 @@ class FFAppState extends ChangeNotifier {
     _pendingReferralCode = '';
     if (_prefsReady) {
       prefs.remove('ff_pendingReferralCode');
+    }
+  }
+
+  int _globalTickerTotalPlayers = 0;
+  int get globalTickerTotalPlayers => _globalTickerTotalPlayers;
+  set globalTickerTotalPlayers(int value) {
+    _globalTickerTotalPlayers = value;
+    if (_prefsReady) {
+      prefs.setInt('ff_globalTickerTotalPlayers', value);
+    }
+  }
+
+  int _globalTickerTotalGamesPlayed = 0;
+  int get globalTickerTotalGamesPlayed => _globalTickerTotalGamesPlayed;
+  set globalTickerTotalGamesPlayed(int value) {
+    _globalTickerTotalGamesPlayed = value;
+    if (_prefsReady) {
+      prefs.setInt('ff_globalTickerTotalGamesPlayed', value);
+    }
+  }
+
+  int _globalTickerTotalMerchants = 0;
+  int get globalTickerTotalMerchants => _globalTickerTotalMerchants;
+  set globalTickerTotalMerchants(int value) {
+    _globalTickerTotalMerchants = value;
+    if (_prefsReady) {
+      prefs.setInt('ff_globalTickerTotalMerchants', value);
+    }
+  }
+
+  List<String> _globalTickerMessages = const <String>[];
+  List<String> get globalTickerMessages => _globalTickerMessages;
+  set globalTickerMessages(List<String> value) {
+    _globalTickerMessages = List<String>.from(value);
+    if (_prefsReady) {
+      prefs.setStringList('ff_globalTickerMessages', _globalTickerMessages);
+    }
+  }
+
+  DateTime? _globalTickerUpdatedAt;
+  DateTime? get globalTickerUpdatedAt => _globalTickerUpdatedAt;
+  set globalTickerUpdatedAt(DateTime? value) {
+    _globalTickerUpdatedAt = value;
+    if (_prefsReady) {
+      if (value == null) {
+        prefs.remove('ff_globalTickerUpdatedAtMillis');
+      } else {
+        prefs.setInt('ff_globalTickerUpdatedAtMillis', value.millisecondsSinceEpoch);
+      }
+    }
+  }
+
+  void setGlobalTickerData({
+    required int totalPlayers,
+    required int totalGamesPlayed,
+    required int totalMerchants,
+    required List<String> messages,
+    DateTime? updatedAt,
+  }) {
+    _globalTickerTotalPlayers = totalPlayers;
+    _globalTickerTotalGamesPlayed = totalGamesPlayed;
+    _globalTickerTotalMerchants = totalMerchants;
+    _globalTickerMessages = List<String>.from(messages);
+    _globalTickerUpdatedAt = updatedAt;
+
+    if (_prefsReady) {
+      prefs.setInt('ff_globalTickerTotalPlayers', _globalTickerTotalPlayers);
+      prefs.setInt(
+          'ff_globalTickerTotalGamesPlayed', _globalTickerTotalGamesPlayed);
+      prefs.setInt('ff_globalTickerTotalMerchants', _globalTickerTotalMerchants);
+      prefs.setStringList('ff_globalTickerMessages', _globalTickerMessages);
+      if (_globalTickerUpdatedAt == null) {
+        prefs.remove('ff_globalTickerUpdatedAtMillis');
+      } else {
+        prefs.setInt(
+          'ff_globalTickerUpdatedAtMillis',
+          _globalTickerUpdatedAt!.millisecondsSinceEpoch,
+        );
+      }
     }
   }
 }
