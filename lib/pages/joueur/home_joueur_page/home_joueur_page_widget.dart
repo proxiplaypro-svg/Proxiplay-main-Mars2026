@@ -10,6 +10,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/models/share_promo_models.dart';
 import '/services/share_promo_service.dart';
+import '/services/global_ticker_service.dart';
 import '/widgets/recent_winners_ticker.dart';
 import '/widgets/proxiplay_loading_logo.dart';
 import '/widgets/proxiplay_network_image.dart';
@@ -64,6 +65,27 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   final Map<String, Future<Map<String, EnseignesRecord>>>
       _newGamesEnseignesSectionCache = {};
 
+  Future<void> _ensureTickerLoaded() async {
+    if (FFAppState().globalTickerMessages.isNotEmpty) {
+      return;
+    }
+
+    final tickerSnapshot = await const GlobalTickerService().fetchOnce();
+    if (!mounted || tickerSnapshot == null || tickerSnapshot.messages.isEmpty) {
+      return;
+    }
+
+    FFAppState().update(() {
+      FFAppState().setGlobalTickerData(
+        totalPlayers: tickerSnapshot.totalPlayers,
+        totalGamesPlayed: tickerSnapshot.totalGamesPlayed,
+        totalMerchants: tickerSnapshot.totalMerchants,
+        messages: tickerSnapshot.messages,
+        updatedAt: tickerSnapshot.updatedAt,
+      );
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -86,6 +108,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
     _sharePromoFuture = _loadSharePromoState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureTickerLoaded();
+    });
   }
 
   void _markHomeDataReady({int? itemCount}) {
@@ -781,13 +806,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     context.watch<FFAppState>();
     return AuthUserStreamWidget(
       builder: (context) {
-        final remainingPart =
-            valueOrDefault<int>(currentUserDocument?.remainingPart, 0);
-        final hasRemainingPart = remainingPart > 0;
-        if (!hasRemainingPart) {
-          return const SizedBox.shrink();
-        }
-
         final messages = FFAppState().globalTickerMessages;
         if (messages.isEmpty) {
           return const SizedBox.shrink();
@@ -1629,13 +1647,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                   children: [
                                                     _buildTopDynamicZone(
                                                         context),
-                                                    if (valueOrDefault<int>(
-                                                          currentUserDocument
-                                                              ?.remainingPart,
-                                                          0,
-                                                        ) >
-                                                        0)
-                                                      _buildRecentWinnersZone(),
+                                                    _buildRecentWinnersZone(),
                                                     _buildActiveAnimationsSection(
                                                       context,
                                                     ),

@@ -53,38 +53,51 @@ class GlobalTickerService {
       '$estimatedTickerReadsBeforePerRefresh reads per reload',
     );
 
-    final snapshot = await FirebaseFirestore.instance
-        .collection('stats')
-        .doc('global')
-        .get();
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('stats')
+          .doc('global')
+          .get();
 
-    debugPrint(
-      '[TickerReads][after_estimate] global_ticker='
-      '$tickerReadsAfterStartup read at startup, then 0 reads on home rebuild/resume',
-    );
+      debugPrint(
+        '[TickerReads][after_estimate] global_ticker='
+        '$tickerReadsAfterStartup read at startup, then 0 reads on home rebuild/resume',
+      );
 
-    if (!snapshot.exists) {
-      debugPrint('[GlobalTicker] stats/global missing, falling back to one-time legacy load');
+      if (!snapshot.exists) {
+        debugPrint(
+          '[GlobalTicker] stats/global missing, falling back to one-time legacy load',
+        );
+        return _fetchLegacyFallback();
+      }
+
+      final data = snapshot.data();
+      if (data == null) {
+        debugPrint(
+          '[GlobalTicker] stats/global empty payload, falling back to one-time legacy load',
+        );
+        return _fetchLegacyFallback();
+      }
+
+      final parsed = GlobalTickerSnapshot.fromMap(data);
+      if (parsed.messages.isEmpty) {
+        debugPrint(
+          '[GlobalTicker] stats/global has no ticker messages, falling back to one-time legacy load',
+        );
+        return _fetchLegacyFallback();
+      }
+      debugPrint(
+        '[GlobalTicker] loaded updatedAt=${parsed.updatedAt?.toIso8601String() ?? 'null'} '
+        'players=${parsed.totalPlayers} games=${parsed.totalGamesPlayed} '
+        'merchants=${parsed.totalMerchants} tickerMessages=${parsed.messages.length}',
+      );
+      return parsed;
+    } catch (error) {
+      debugPrint(
+        '[GlobalTicker] stats/global read failed, falling back to one-time legacy load error=$error',
+      );
       return _fetchLegacyFallback();
     }
-
-    final data = snapshot.data();
-    if (data == null) {
-      debugPrint('[GlobalTicker] stats/global empty payload, falling back to one-time legacy load');
-      return _fetchLegacyFallback();
-    }
-
-    final parsed = GlobalTickerSnapshot.fromMap(data);
-    if (parsed.messages.isEmpty) {
-      debugPrint('[GlobalTicker] stats/global has no ticker messages, falling back to one-time legacy load');
-      return _fetchLegacyFallback();
-    }
-    debugPrint(
-      '[GlobalTicker] loaded updatedAt=${parsed.updatedAt?.toIso8601String() ?? 'null'} '
-      'players=${parsed.totalPlayers} games=${parsed.totalGamesPlayed} '
-      'merchants=${parsed.totalMerchants} tickerMessages=${parsed.messages.length}',
-    );
-    return parsed;
   }
 
   Future<GlobalTickerSnapshot?> _fetchLegacyFallback() async {

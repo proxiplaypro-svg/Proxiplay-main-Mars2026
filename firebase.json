@@ -1,4 +1,8 @@
 {
+  "firestore": {
+    "rules": "firebase/firestore.rules",
+    "indexes": "firebase/firestore.indexes.json"
+  },
   "functions": {
     "source": "firebase/functions"
   },
@@ -33,6 +37,23 @@
       {
         "source": "/j/**",
         "destination": "/j/index.html"
+      }
+    ],
+    "redirects": [
+      {
+        "source": "/",
+        "destination": "https://www.proxiplay.fr/",
+        "type": 301
+      },
+      {
+        "source": "/legal.html",
+        "destination": "https://www.proxiplay.fr/legal.html",
+        "type": 301
+      },
+      {
+        "source": "/suppression-compte/**",
+        "destination": "https://www.proxiplay.fr/suppression-compte.html",
+        "type": 301
       }
     ]
   }
