@@ -2,6 +2,7 @@
 import '/components/app_bar_joueur_widget.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/list_empty_component_widget.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -70,6 +71,105 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
           ),
         );
         return games.where(_isGameVisibleForPlayer).length;
+      },
+    );
+  }
+
+  Future<void> _addMerchantToFavorites(DocumentReference enseigneRef) async {
+    if (currentUserReference == null) {
+      return;
+    }
+    final favoriteRef = FavoriteEnseignesRecord.createDoc(
+      currentUserReference!,
+      id: enseigneRef.id,
+    );
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final favoriteSnap = await transaction.get(favoriteRef);
+      if (favoriteSnap.exists) {
+        return;
+      }
+
+      transaction.set(favoriteRef, {
+        ...createFavoriteEnseignesRecordData(
+          enseigneId: enseigneRef,
+        ),
+        ...mapToFirestore(
+          {
+            'added_at': FieldValue.serverTimestamp(),
+          },
+        ),
+      });
+    });
+  }
+
+  Future<void> _removeMerchantFromFavorites(
+    FavoriteEnseignesRecord favoriteRecord,
+  ) async {
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final favoriteSnap = await transaction.get(favoriteRecord.reference);
+      if (!favoriteSnap.exists) {
+        return;
+      }
+
+      transaction.delete(favoriteRecord.reference);
+    });
+  }
+
+  Widget _buildMerchantFavoriteButton(EnseignesRecord enseigne) {
+    if (currentUserUid.isEmpty || currentUserReference == null) {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<List<FavoriteEnseignesRecord>>(
+      stream: queryFavoriteEnseignesRecord(
+        parent: currentUserReference,
+        queryBuilder: (favoriteEnseignesRecord) => favoriteEnseignesRecord.where(
+          'enseigne_id',
+          isEqualTo: enseigne.reference,
+        ),
+        singleRecord: true,
+      ),
+      builder: (context, snapshot) {
+        final favoriteRecord =
+            snapshot.hasData && snapshot.data!.isNotEmpty ? snapshot.data!.first : null;
+        final isFavorite = favoriteRecord != null;
+
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20.0),
+            onTap: () async {
+              if (isFavorite) {
+                await _removeMerchantFromFavorites(favoriteRecord);
+              } else {
+                await _addMerchantToFavorites(enseigne.reference);
+              }
+            },
+            child: Ink(
+              width: 36.0,
+              height: 36.0,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.92),
+                shape: BoxShape.circle,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x26000000),
+                    blurRadius: 10.0,
+                    offset: Offset(0.0, 3.0),
+                  ),
+                ],
+              ),
+              child: Icon(
+                isFavorite
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                color: const Color(0xFFA0134D),
+                size: 20.0,
+              ),
+            ),
+          ),
+        );
       },
     );
   }
@@ -415,15 +515,27 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                 BorderRadius
                                                                     .circular(
                                                                         8.0),
-                                                            child:
-                                                                ProxiplayNetworkImage(
+                                                        child: Stack(
+                                                          fit: StackFit.expand,
+                                                          children: [
+                                                            ProxiplayNetworkImage(
                                                               imageUrl:
                                                                   imageImagesRecord!
                                                                       .url,
                                                               fit: BoxFit.cover,
                                                             ),
-                                                          );
-                                                        },
+                                                            Positioned(
+                                                              top: 10.0,
+                                                              right: 10.0,
+                                                              child:
+                                                                  _buildMerchantFavoriteButton(
+                                                                searchItem,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                    },
                                                       ),
                                                     ),
                                                   ),
@@ -916,9 +1028,21 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                                       topLeft: Radius.circular(20.0),
                                                                                       topRight: Radius.circular(20.0),
                                                                                     ),
-                                                                                    child: ProxiplayNetworkImage(
-                                                                                      imageUrl: imageImagesRecord!.url,
-                                                                                      fit: BoxFit.cover,
+                                                                                    child: Stack(
+                                                                                      fit: StackFit.expand,
+                                                                                      children: [
+                                                                                        ProxiplayNetworkImage(
+                                                                                          imageUrl: imageImagesRecord!.url,
+                                                                                          fit: BoxFit.cover,
+                                                                                        ),
+                                                                                        Positioned(
+                                                                                          top: 10.0,
+                                                                                          right: 10.0,
+                                                                                          child: _buildMerchantFavoriteButton(
+                                                                                            enseigneItem,
+                                                                                          ),
+                                                                                        ),
+                                                                                      ],
                                                                                     ),
                                                                                   );
                                                                                 },

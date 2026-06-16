@@ -218,6 +218,76 @@ class _EnseigneDetailJoueurPageWidgetState
     }
   }
 
+  Widget _buildMerchantFavoriteButton({
+    double buttonSize = 40.0,
+    double iconSize = 24.0,
+  }) {
+    if (currentUserUid == '') {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<List<FavoriteEnseignesRecord>>(
+      stream: queryFavoriteEnseignesRecord(
+        parent: currentUserReference,
+        queryBuilder: (favoriteEnseignesRecord) => favoriteEnseignesRecord.where(
+          'enseigne_id',
+          isEqualTo: widget.enseigneDoc?.reference,
+        ),
+        singleRecord: true,
+      ),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return SizedBox(
+            width: buttonSize,
+            height: buttonSize,
+            child: const Center(
+              child: SizedBox(
+                width: 26.0,
+                height: 26.0,
+                child: ProxiplayLoadingLogo(size: 22.0),
+              ),
+            ),
+          );
+        }
+
+        final favoriteRecord =
+            snapshot.data!.isNotEmpty ? snapshot.data!.first : null;
+        final isFavorite = favoriteRecord != null;
+
+        return FlutterFlowIconButton(
+          borderRadius: buttonSize / 2,
+          buttonSize: buttonSize,
+          icon: Icon(
+            isFavorite
+                ? Icons.favorite_rounded
+                : Icons.favorite_border_rounded,
+            color: const Color(0xFFA0134D),
+            size: iconSize,
+          ),
+          onPressed: () async {
+            if (isFavorite) {
+              debugPrint(
+                '[MERCHANT_PAGE_DEBUG] favorite_tap enseigneId=${favoriteRecord.enseigneId?.id ?? "unknown"}',
+              );
+              await _removeMerchantFromFavorites(favoriteRecord);
+            } else {
+              final enseigneRef = widget.enseigneDoc?.reference;
+              debugPrint(
+                '[MERCHANT_PAGE_DEBUG] favorite_tap enseigneId=${enseigneRef?.id ?? "unknown"}',
+              );
+              if (enseigneRef == null) {
+                return;
+              }
+              await _addMerchantToFavorites(enseigneRef);
+              safeSetState(() => _model.firestoreRequestCompleter = null);
+              await _model.waitForFirestoreRequestCompleted();
+            }
+          },
+        );
+      },
+    );
+  }
+
   bool _looksLikeUrl(String s) {
     final lower = s.toLowerCase();
     return lower.startsWith('http://') ||
@@ -432,102 +502,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                 ),
                               ),
                             ),
-                            Builder(
-                              builder: (context) {
-                                if (currentUserUid != '') {
-                                  return StreamBuilder<
-                                      List<FavoriteEnseignesRecord>>(
-                                    stream: queryFavoriteEnseignesRecord(
-                                      parent: currentUserReference,
-                                      queryBuilder: (favoriteEnseignesRecord) =>
-                                          favoriteEnseignesRecord.where(
-                                        'enseigne_id',
-                                        isEqualTo:
-                                            widget.enseigneDoc?.reference,
-                                      ),
-                                      singleRecord: true,
-                                    ),
-                                    builder: (context, snapshot) {
-                                      // Customize what your widget looks like when it's loading.
-                                      if (!snapshot.hasData) {
-                                        return const Center(
-                                          child: SizedBox(
-                                            width: 50.0,
-                                            height: 50.0,
-                                            child: ProxiplayLoadingLogo(
-                                                size: 42.0),
-                                          ),
-                                        );
-                                      }
-                                      List<FavoriteEnseignesRecord>
-                                          conditionalBuilderFavoriteEnseignesRecordList =
-                                          snapshot.data!;
-                                      final conditionalBuilderFavoriteEnseignesRecord =
-                                          conditionalBuilderFavoriteEnseignesRecordList
-                                                  .isNotEmpty
-                                              ? conditionalBuilderFavoriteEnseignesRecordList
-                                                  .first
-                                              : null;
-
-                                      return Builder(
-                                        builder: (context) {
-                                          if (!(conditionalBuilderFavoriteEnseignesRecord !=
-                                              null)) {
-                                            return FlutterFlowIconButton(
-                                              borderRadius: 8.0,
-                                              buttonSize: 40.0,
-                                              icon: Icon(
-                                                Icons.favorite_border_rounded,
-                                                color: const Color(0xFFA0134D),
-                                                size: 24.0,
-                                              ),
-                                              onPressed: () async {
-                                                final enseigneRef = widget
-                                                    .enseigneDoc?.reference;
-                                                debugPrint(
-                                                  '[MERCHANT_PAGE_DEBUG] favorite_tap enseigneId=${enseigneRef?.id ?? "unknown"}',
-                                                );
-                                                if (enseigneRef == null) {
-                                                  return;
-                                                }
-                                                await _addMerchantToFavorites(enseigneRef);
-                                                safeSetState(() => _model
-                                                        .firestoreRequestCompleter =
-                                                    null);
-                                                await _model
-                                                    .waitForFirestoreRequestCompleted();
-                                              },
-                                            );
-                                          } else {
-                                            return FlutterFlowIconButton(
-                                              borderRadius: 8.0,
-                                              buttonSize: 40.0,
-                                              icon: Icon(
-                                                Icons.favorite_rounded,
-                                                color: const Color(0xFFA0134D),
-                                                size: 24.0,
-                                              ),
-                                              onPressed: () async {
-                                                debugPrint(
-                                                  '[MERCHANT_PAGE_DEBUG] favorite_tap enseigneId=${conditionalBuilderFavoriteEnseignesRecord.enseigneId?.id ?? "unknown"}',
-                                                );
-                                                await _removeMerchantFromFavorites(
-                                                  conditionalBuilderFavoriteEnseignesRecord,
-                                                );
-                                              },
-                                            );
-                                          }
-                                        },
-                                      );
-                                    },
-                                  );
-                                } else {
-                                  return Container(
-                                    decoration: const BoxDecoration(),
-                                  );
-                                }
-                              },
-                            ),
+                            const SizedBox(width: 40.0),
                           ],
                         ),
                       ),
@@ -594,26 +569,42 @@ class _EnseigneDetailJoueurPageWidgetState
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      widget.enseigneDoc!.name,
-                                      style: FlutterFlowTheme.of(context)
-                                          .headlineSmall
-                                          .override(
-                                            font: GoogleFonts.interTight(
-                                              fontWeight: FontWeight.w700,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .headlineSmall
-                                                      .fontStyle,
-                                            ),
-                                            color: const Color(0xFF23255E),
-                                            letterSpacing: 0.0,
-                                            fontWeight: FontWeight.w700,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .headlineSmall
-                                                    .fontStyle,
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            widget.enseigneDoc!.name,
+                                            style: FlutterFlowTheme.of(context)
+                                                .headlineSmall
+                                                .override(
+                                                  font: GoogleFonts.interTight(
+                                                    fontWeight: FontWeight.w700,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .headlineSmall
+                                                            .fontStyle,
+                                                  ),
+                                                  color:
+                                                      const Color(0xFF23255E),
+                                                  letterSpacing: 0.0,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontStyle:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .headlineSmall
+                                                          .fontStyle,
+                                                ),
                                           ),
+                                        ),
+                                        const SizedBox(width: 8.0),
+                                        _buildMerchantFavoriteButton(
+                                          buttonSize: 48.0,
+                                          iconSize: 30.0,
+                                        ),
+                                      ],
                                     ),
                                     if (!functions.checkValueIsEmpty(
                                         widget.enseigneDoc!.city))
