@@ -241,7 +241,7 @@ class _FFButtonWidgetState extends State<FFButtonWidget> {
         !loading &&
         !hideIconForReplay) {
       Widget icon = widget.icon ??
-          FaIcon(
+          Icon(
             widget.iconData!,
             size: widget.options.iconSize,
             color: widget.options.iconColor,
