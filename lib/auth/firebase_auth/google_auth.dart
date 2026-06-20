@@ -3,7 +3,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-final _googleSignIn = GoogleSignIn(scopes: ['profile', 'email']);
+const _googleScopes = <String>['profile', 'email'];
+final _googleSignIn = GoogleSignIn.instance;
+Future<void>? _googleSignInInitialization;
+
+Future<void> _ensureGoogleSignInInitialized() {
+  return _googleSignInInitialization ??= _googleSignIn.initialize();
+}
 
 Map<String, String> splitGoogleDisplayName(String displayName) {
   final clean = displayName.trim();
@@ -102,30 +108,39 @@ Future<UserCredential?> googleSignInFunc() async {
       return userCredential;
     }
 
+    await _ensureGoogleSignInInitialized();
     await signOutWithGoogle().catchError((_, __) => null);
-    final googleUser = await _googleSignIn.signIn();
-    if (googleUser == null) {
-      if (kDebugMode) {
-        debugPrint('GOOGLE FIREBASE AUTH: user cancelled Google sign-in');
-      }
-      return null;
-    }
+    final googleUser = await _googleSignIn.authenticate(
+      scopeHint: _googleScopes,
+    );
 
-    final googleAuth = await googleUser.authentication;
+    final googleAuth = googleUser.authentication;
 
-    if (googleAuth.accessToken == null && googleAuth.idToken == null) {
+    if (googleAuth.idToken == null) {
       debugPrint('GOOGLE FIREBASE AUTH ERROR: missing Google tokens');
       return null;
     }
 
     final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
     final userCredential =
         await FirebaseAuth.instance.signInWithCredential(credential);
     await _ensureFirestoreUserDoc(userCredential);
     return userCredential;
+  } on GoogleSignInException catch (e, stack) {
+    if (e.code == GoogleSignInExceptionCode.canceled ||
+        e.code == GoogleSignInExceptionCode.interrupted) {
+      if (kDebugMode) {
+        debugPrint('GOOGLE FIREBASE AUTH: user cancelled Google sign-in');
+      }
+      return null;
+    }
+    debugPrint('GOOGLE FIREBASE AUTH ERROR: $e');
+    if (kDebugMode) {
+      debugPrintStack(stackTrace: stack);
+    }
+    return null;
   } catch (e, stack) {
     debugPrint('GOOGLE FIREBASE AUTH ERROR: $e');
     if (kDebugMode) {
@@ -135,4 +150,7 @@ Future<UserCredential?> googleSignInFunc() async {
   }
 }
 
-Future signOutWithGoogle() => _googleSignIn.signOut();
+Future signOutWithGoogle() async {
+  await _ensureGoogleSignInInitialized();
+  return _googleSignIn.signOut();
+}

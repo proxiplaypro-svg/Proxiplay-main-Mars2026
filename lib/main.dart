@@ -65,11 +65,18 @@ class MyApp extends StatefulWidget {
   @override
   State<MyApp> createState() => _MyAppState();
 
-  static _MyAppState of(BuildContext context) =>
+  static MyAppController of(BuildContext context) =>
       context.findAncestorStateOfType<_MyAppState>()!;
 }
 
-class _MyAppState extends State<MyApp> {
+abstract class MyAppController {
+  String getRoute([RouteMatchBase? routeMatch]);
+  List<String> getRouteStack();
+  void setLocale(String language);
+  void setThemeMode(ThemeMode mode);
+}
+
+class _MyAppState extends State<MyApp> implements MyAppController {
   final GlobalKey<NavigatorState> _fallbackNavigatorKey =
       GlobalKey<NavigatorState>();
 
@@ -86,15 +93,18 @@ class _MyAppState extends State<MyApp> {
   VoidCallback? _routerReferralListener;
   String? _lastReferralLocation;
 
-  String getRoute([RouteMatch? routeMatch]) {
-    final RouteMatch lastMatch =
-        routeMatch ?? _router.routerDelegate.currentConfiguration.last;
-    final RouteMatchList matchList = lastMatch is ImperativeRouteMatch
-        ? lastMatch.matches
-        : _router.routerDelegate.currentConfiguration;
-    return matchList.uri.toString();
+  @override
+  String getRoute([RouteMatchBase? routeMatch]) {
+    if (routeMatch == null) {
+      return _router.routerDelegate.currentConfiguration.uri.toString();
+    }
+    if (routeMatch is ImperativeRouteMatch) {
+      return routeMatch.matches.uri.toString();
+    }
+    return routeMatch.matchedLocation;
   }
 
+  @override
   List<String> getRouteStack() =>
       _router.routerDelegate.currentConfiguration.matches
           .map((e) => getRoute(e))
@@ -217,10 +227,12 @@ class _MyAppState extends State<MyApp> {
     super.dispose();
   }
 
+  @override
   void setLocale(String language) {
     safeSetState(() => _locale = createLocale(language));
   }
 
+  @override
   void setThemeMode(ThemeMode mode) => safeSetState(() {
         _themeMode = mode;
       });
