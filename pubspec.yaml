@@ -182,8 +182,7 @@ dependency_overrides:
   http: 1.4.0
   mime: 2.0.0
   uuid: ^4.0.0
-  win32: 6.3.0
-  win32_registry: 3.0.3
+  win32: 5.15.0
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4
