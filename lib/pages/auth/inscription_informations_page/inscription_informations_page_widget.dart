@@ -37,8 +37,11 @@ class _InscriptionInformationsPageWidgetState
   Timer? _citySearchDebounce;
   List<CityAutocompleteSuggestion> _citySuggestions = const [];
   bool _isCityLoading = false;
+  bool _isSubmitting = false;
+  bool _hasNavigatedAway = false;
   String? _citySearchError;
   bool _hasSeededInitialValues = false;
+  AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -243,6 +246,84 @@ class _InscriptionInformationsPageWidgetState
     FocusScope.of(context).unfocus();
   }
 
+  void _showFormMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+        ),
+      );
+  }
+
+  bool _isFirestoreNetworkError(Object error) {
+    final lowered = error.toString().toLowerCase();
+    return lowered.contains('unable to resolve host') ||
+        lowered.contains('no address associated with hostname') ||
+        lowered.contains('firestore.googleapis.com') ||
+        lowered.contains('socketexception') ||
+        lowered.contains('network');
+  }
+
+  void _showFirestoreUnavailableMessage() {
+    _showFormMessage(
+      'Connexion impossible. Vérifiez votre réseau puis réessayez.',
+    );
+  }
+
+  bool _validateForm(bool isMerchant) {
+    final isValid = _model.formKey.currentState?.validate() ?? false;
+    if (!isValid) {
+      safeSetState(() {
+        _autovalidateMode = AutovalidateMode.onUserInteraction;
+      });
+      _showFormMessage(
+        'Veuillez corriger les champs du formulaire avant de continuer.',
+      );
+      return false;
+    }
+
+    if (!isMerchant && _model.datePicked == null) {
+      safeSetState(() {
+        _autovalidateMode = AutovalidateMode.onUserInteraction;
+      });
+      _showFormMessage('Veuillez renseigner votre date de naissance.');
+      return false;
+    }
+
+    final phoneDigits = (_model.telephoneTextController?.text ?? '')
+        .replaceAll(RegExp(r'\D'), '');
+    if (phoneDigits.length != 10) {
+      safeSetState(() {
+        _autovalidateMode = AutovalidateMode.onUserInteraction;
+      });
+      _showFormMessage('Veuillez saisir un numéro de téléphone valide.');
+      return false;
+    }
+
+    return true;
+  }
+
+  void _navigateOnce(GoRouter router, String routeName) {
+    if (!mounted || _hasNavigatedAway) {
+      return;
+    }
+    _hasNavigatedAway = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      router.goNamed(routeName);
+    });
+  }
+
+  bool get _shouldShowLegacyPseudoField => false;
+
+  bool get _shouldHandleLegacyReconnectFallback => false;
+
   @override
   Widget build(BuildContext context) {
     _seedFormFromCurrentUserDocument();
@@ -281,6 +362,9 @@ class _InscriptionInformationsPageWidgetState
                       icon: const Icon(Icons.arrow_back),
                       color: FlutterFlowTheme.of(context).primary,
                       onPressed: () async {
+                        if (_isSubmitting || _hasNavigatedAway) {
+                          return;
+                        }
                         if (Navigator.of(context).canPop()) {
                           context.pop();
                         } else {
@@ -355,7 +439,7 @@ class _InscriptionInformationsPageWidgetState
                   ),
                   Form(
                     key: _model.formKey,
-                    autovalidateMode: AutovalidateMode.disabled,
+                    autovalidateMode: _autovalidateMode,
                     child: Padding(
                       padding:
                           const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
@@ -575,7 +659,8 @@ class _InscriptionInformationsPageWidgetState
                                       final datePickedDate =
                                           await showDatePicker(
                                         context: context,
-                                        initialDate: getCurrentTimestamp,
+                                        initialDate:
+                                            _model.datePicked ?? getCurrentTimestamp,
                                         firstDate: DateTime(1900),
                                         lastDate: getCurrentTimestamp,
                                         builder: (context, child) {
@@ -633,17 +718,15 @@ class _InscriptionInformationsPageWidgetState
                                       );
 
                                       if (datePickedDate != null) {
+                                        if (!mounted) {
+                                          return;
+                                        }
                                         safeSetState(() {
                                           _model.datePicked = DateTime(
                                             datePickedDate.year,
                                             datePickedDate.month,
                                             datePickedDate.day,
                                           );
-                                        });
-                                      } else if (_model.datePicked != null) {
-                                        safeSetState(() {
-                                          _model.datePicked =
-                                              getCurrentTimestamp;
                                         });
                                       }
                                     },
@@ -735,19 +818,18 @@ class _InscriptionInformationsPageWidgetState
                                 ),
                               ),
                             ),
-                          if (false)
+                          if (_shouldShowLegacyPseudoField)
                             Padding(
                               padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 0.0, 0.0, 16.0),
-                              child: AuthUserStreamWidget(
-                                builder: (context) => SizedBox(
-                                  width: double.infinity,
-                                  child: TextFormField(
-                                    controller: _model.pseudoTextController,
-                                    focusNode: _model.pseudoFocusNode,
-                                    autofocus: false,
-                                    obscureText: false,
-                                    decoration: InputDecoration(
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: TextFormField(
+                                  controller: _model.pseudoTextController,
+                                  focusNode: _model.pseudoFocusNode,
+                                  autofocus: false,
+                                  obscureText: false,
+                                  decoration: InputDecoration(
                                       labelText:
                                           'Pseudo (5 caractères minimum)',
                                       labelStyle: FlutterFlowTheme.of(context)
@@ -815,22 +897,10 @@ class _InscriptionInformationsPageWidgetState
                                           FlutterFlowTheme.of(context).fieldBg,
                                       contentPadding: const EdgeInsets.all(24.0),
                                     ),
-                                    style: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .override(
-                                          font: GoogleFonts.inter(
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .primaryText,
-                                          letterSpacing: 0.0,
+                                  style: FlutterFlowTheme.of(context)
+                                      .bodyMedium
+                                      .override(
+                                        font: GoogleFonts.inter(
                                           fontWeight:
                                               FlutterFlowTheme.of(context)
                                                   .bodyMedium
@@ -840,10 +910,21 @@ class _InscriptionInformationsPageWidgetState
                                                   .bodyMedium
                                                   .fontStyle,
                                         ),
-                                    validator: _model
-                                        .pseudoTextControllerValidator
-                                        .asValidator(context),
-                                  ),
+                                        color: FlutterFlowTheme.of(context)
+                                            .primaryText,
+                                        letterSpacing: 0.0,
+                                        fontWeight:
+                                            FlutterFlowTheme.of(context)
+                                                .bodyMedium
+                                                .fontWeight,
+                                        fontStyle:
+                                            FlutterFlowTheme.of(context)
+                                                .bodyMedium
+                                                .fontStyle,
+                                      ),
+                                  validator: _model
+                                      .pseudoTextControllerValidator
+                                      .asValidator(context),
                                 ),
                               ),
                             ),
@@ -851,16 +932,15 @@ class _InscriptionInformationsPageWidgetState
                             Padding(
                               padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 0.0, 0.0, 16.0),
-                              child: AuthUserStreamWidget(
-                                builder: (context) => SizedBox(
-                                  width: double.infinity,
-                                  child: TextFormField(
-                                    controller: _model.villeTextController,
-                                    focusNode: _model.villeFocusNode,
-                                    autofocus: false,
-                                    obscureText: false,
-                                    onChanged: _onCityChanged,
-                                    decoration: InputDecoration(
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: TextFormField(
+                                  controller: _model.villeTextController,
+                                  focusNode: _model.villeFocusNode,
+                                  autofocus: false,
+                                  obscureText: false,
+                                  onChanged: _onCityChanged,
+                                  decoration: InputDecoration(
                                       labelText: 'Ville de résidence',
                                       labelStyle: FlutterFlowTheme.of(context)
                                           .labelMedium
@@ -927,22 +1007,10 @@ class _InscriptionInformationsPageWidgetState
                                           FlutterFlowTheme.of(context).fieldBg,
                                       contentPadding: const EdgeInsets.all(24.0),
                                     ),
-                                    style: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .override(
-                                          font: GoogleFonts.inter(
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .bodyMedium
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .primaryText,
-                                          letterSpacing: 0.0,
+                                  style: FlutterFlowTheme.of(context)
+                                      .bodyMedium
+                                      .override(
+                                        font: GoogleFonts.inter(
                                           fontWeight:
                                               FlutterFlowTheme.of(context)
                                                   .bodyMedium
@@ -952,10 +1020,21 @@ class _InscriptionInformationsPageWidgetState
                                                   .bodyMedium
                                                   .fontStyle,
                                         ),
-                                    validator: _model
-                                        .villeTextControllerValidator
-                                        .asValidator(context),
-                                  ),
+                                        color: FlutterFlowTheme.of(context)
+                                            .primaryText,
+                                        letterSpacing: 0.0,
+                                        fontWeight:
+                                            FlutterFlowTheme.of(context)
+                                                .bodyMedium
+                                                .fontWeight,
+                                        fontStyle:
+                                            FlutterFlowTheme.of(context)
+                                                .bodyMedium
+                                                .fontStyle,
+                                      ),
+                                  validator: _model
+                                      .villeTextControllerValidator
+                                      .asValidator(context),
                                 ),
                               ),
                             ),
@@ -965,7 +1044,7 @@ class _InscriptionInformationsPageWidgetState
                                   _citySuggestions.isNotEmpty))
                             Padding(
                               padding: const EdgeInsetsDirectional.fromSTEB(
-                                  0.0, -8.0, 0.0, 16.0),
+                                  0.0, 0.0, 0.0, 16.0),
                               child: Container(
                                 width: double.infinity,
                                 decoration: BoxDecoration(
@@ -1129,19 +1208,32 @@ class _InscriptionInformationsPageWidgetState
                                   0.0, 0.0, 0.0, 20.0),
                               child: FFButtonWidget(
                                 onPressed: () async {
-                                  if (_model.formKey.currentState == null ||
-                                      !_model.formKey.currentState!
-                                          .validate()) {
+                                  if (_isSubmitting || _hasNavigatedAway) {
                                     return;
                                   }
-                                  if (!isMerchant &&
-                                      _model.datePicked == null) {
+                                  final router = GoRouter.of(context);
+                                  FocusScope.of(context).unfocus();
+                                  FocusManager.instance.primaryFocus?.unfocus();
+                                  _citySearchDebounce?.cancel();
+                                  if (!_validateForm(isMerchant)) {
                                     return;
                                   }
 
                                   // This page assumes an authenticated user (it updates the current user's doc).
                                   // Guard against edge cases where auth state/doc isn't ready yet.
                                   if (currentUserReference == null) {
+                                    _showFormMessage(
+                                      'Veuillez vous reconnecter (session expirée).',
+                                    );
+                                    _navigateOnce(
+                                      router,
+                                      LoginPageWidget.routeName,
+                                    );
+                                    return;
+                                  }
+
+                                  if (_shouldHandleLegacyReconnectFallback &&
+                                      currentUserReference == null) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text(
@@ -1149,41 +1241,64 @@ class _InscriptionInformationsPageWidgetState
                                         ),
                                       ),
                                     );
-                                    context.goNamed(LoginPageWidget.routeName);
+                                    router.goNamed(LoginPageWidget.routeName);
                                     return;
                                   }
 
                                   final normalizedCityInseeCode =
                                       normalizeInseeCode(_model.cityInseeCode);
 
-                                  await currentUserReference!
-                                      .update(createUsersRecordData(
-                                    phoneNumber:
-                                        _model.telephoneTextController.text,
-                                    firstName: _model.prenomTextController.text,
-                                    lastName: _model.nomTextController.text,
-                                    accountStatus:
-                                        currentUserDocument?.userRole ==
-                                                Roles.commercant
-                                            ? AccountStatus.pendingValidation
-                                            : AccountStatus.approved,
-                                    city: _model.villeTextController.text,
-                                    cityInseeCode:
-                                        normalizedCityInseeCode.isNotEmpty
-                                            ? normalizedCityInseeCode
-                                            : null,
-                                    remainingPart: 3,
-                                    partLastUpdate: getCurrentTimestamp,
-                                    birthday:
-                                        isMerchant ? null : _model.datePicked,
-                                  ));
-                                  if (currentUserDocument?.userRole ==
-                                      Roles.commercant) {
-                                    context.goNamed(
-                                        WaitingValidationPageWidget.routeName);
-                                  } else {
-                                    context.goNamed(LoginPageWidget.routeName);
+                                  safeSetState(() {
+                                    _isSubmitting = true;
+                                  });
+                                  try {
+                                    await currentUserReference!.set(
+                                        createUsersRecordData(
+                                      phoneNumber: _model
+                                          .telephoneTextController.text
+                                          .trim(),
+                                      firstName:
+                                          _model.prenomTextController.text.trim(),
+                                      lastName:
+                                          _model.nomTextController.text.trim(),
+                                      city:
+                                          _model.villeTextController.text.trim(),
+                                      cityInseeCode:
+                                          normalizedCityInseeCode.isNotEmpty
+                                              ? normalizedCityInseeCode
+                                              : null,
+                                      birthday:
+                                          isMerchant ? null : _model.datePicked,
+                                    ),
+                                        SetOptions(merge: true));
+                                    await refreshCurrentUserDocument();
+                                    if (!mounted) {
+                                      return;
+                                    }
+                                    final destination = isMerchant
+                                        ? WaitingValidationPageWidget.routeName
+                                        : HomeJoueurPageWidget.routeName;
+                                    _navigateOnce(router, destination);
+                                  } catch (error) {
+                                    debugPrint(
+                                      'Signup completion error: $error',
+                                    );
+                                    debugPrintStack();
+                                    if (_isFirestoreNetworkError(error)) {
+                                      _showFirestoreUnavailableMessage();
+                                    } else {
+                                      _showFormMessage(
+                                        'Une erreur est survenue pendant la finalisation de votre inscription.',
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted && !_hasNavigatedAway) {
+                                      safeSetState(() {
+                                        _isSubmitting = false;
+                                      });
+                                    }
                                   }
+                                  return;
                                 },
                                 text: 'Suivant',
                                 options: FFButtonOptions(

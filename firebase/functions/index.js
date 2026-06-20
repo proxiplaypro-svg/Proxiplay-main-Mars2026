@@ -906,6 +906,246 @@ exports.resetDailyRemainingParts = functions.pubsub
     return null;
   });
 
+/**
+ * Initialize secure player counters at profile creation time.
+ * This keeps remaining_part and part_last_update server-controlled.
+ */
+async function initializePlayerRemainingPartsIfNeeded(userRef, uid, userData, source) {
+  const safeUserData = userData || {};
+  const userRole = getTrimmedString(safeUserData.user_role);
+  const currentRemainingPart = safeUserData.remaining_part;
+
+  console.log(
+    `[initializePlayerRemainingPartsIfNeeded] source=${source} uid=${uid} role=${userRole || "unknown"} remaining_part=${currentRemainingPart}`,
+  );
+
+  if (userRole !== "joueur") {
+    console.log(
+      `[initializePlayerRemainingPartsIfNeeded] ignored uid=${uid} reason=role role=${userRole || "unknown"}`,
+    );
+    return false;
+  }
+
+  if (currentRemainingPart !== null && typeof currentRemainingPart !== "undefined") {
+    console.log(
+      `[initializePlayerRemainingPartsIfNeeded] ignored uid=${uid} reason=remaining_part_exists value=${currentRemainingPart}`,
+    );
+    return false;
+  }
+
+  console.log("Initializing remaining_part");
+  await userRef.set(
+    {
+      remaining_part: 3,
+      part_last_update: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    {merge: true},
+  );
+  console.log(
+    `[initializePlayerRemainingPartsIfNeeded] initialized uid=${uid} fields=remaining_part,part_last_update`,
+  );
+  return true;
+}
+
+async function initializeMerchantAccountStatusIfNeeded(userRef, uid, userData, source) {
+  const safeUserData = userData || {};
+  const userRole = getTrimmedString(safeUserData.user_role);
+  const currentAccountStatus = getTrimmedString(safeUserData.account_status);
+
+  console.log(
+    `[initializeMerchantAccountStatusIfNeeded] source=${source} uid=${uid} role=${userRole || "unknown"} account_status=${currentAccountStatus || "<absent>"}`,
+  );
+
+  if (userRole !== "commercant") {
+    console.log(
+      `[initializeMerchantAccountStatusIfNeeded] ignored uid=${uid} reason=role role=${userRole || "unknown"}`,
+    );
+    return false;
+  }
+
+  if (currentAccountStatus) {
+    console.log(
+      `[initializeMerchantAccountStatusIfNeeded] ignored uid=${uid} reason=account_status_exists value=${currentAccountStatus}`,
+    );
+    return false;
+  }
+
+  console.log("Initializing merchant account_status");
+  await userRef.set(
+    {
+      account_status: "pendingValidation",
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    {merge: true},
+  );
+  console.log(
+    `[initializeMerchantAccountStatusIfNeeded] initialized uid=${uid} fields=account_status,updatedAt`,
+  );
+  return true;
+}
+
+exports.initializeNewPlayerRemainingParts = functions.firestore
+  .document("users/{uid}")
+  .onCreate(async (snapshot, context) => {
+    const uid = context.params.uid;
+
+    try {
+      const userData = snapshot.data() || {};
+      console.log("New user doc", uid, userData);
+      console.log("user_role", userData.user_role);
+      await initializePlayerRemainingPartsIfNeeded(
+        snapshot.ref,
+        uid,
+        userData,
+        "onCreate",
+      );
+      return null;
+    } catch (error) {
+      console.error(
+        `[initializeNewPlayerRemainingParts] failed uid=${uid}`,
+        error,
+      );
+      throw error;
+    }
+  });
+
+exports.initializeNewMerchantAccountStatus = functions.firestore
+  .document("users/{uid}")
+  .onCreate(async (snapshot, context) => {
+    const uid = context.params.uid;
+
+    try {
+      const userData = snapshot.data() || {};
+      console.log("New merchant candidate doc", uid, userData);
+      console.log("merchant user_role", userData.user_role);
+      await initializeMerchantAccountStatusIfNeeded(
+        snapshot.ref,
+        uid,
+        userData,
+        "onCreate",
+      );
+      return null;
+    } catch (error) {
+      console.error(
+        `[initializeNewMerchantAccountStatus] failed uid=${uid}`,
+        error,
+      );
+      throw error;
+    }
+  });
+
+exports.initializePlayerRemainingPartsOnRoleAssignment = functions.firestore
+  .document("users/{uid}")
+  .onUpdate(async (change, context) => {
+    const uid = context.params.uid;
+
+    try {
+      const beforeData = change.before.data() || {};
+      const afterData = change.after.data() || {};
+      const beforeRole = getTrimmedString(beforeData.user_role);
+      const afterRole = getTrimmedString(afterData.user_role);
+      const currentRemainingPart = afterData.remaining_part;
+
+      console.log(
+        `[initializePlayerRemainingPartsOnRoleAssignment] uid=${uid} before_role=${beforeRole || "unknown"} after_role=${afterRole || "unknown"} remaining_part=${currentRemainingPart}`,
+      );
+
+      if (afterRole !== "joueur") {
+        console.log(
+          `[initializePlayerRemainingPartsOnRoleAssignment] ignored uid=${uid} reason=role role=${afterRole || "unknown"}`,
+        );
+        return null;
+      }
+
+      if (currentRemainingPart !== null && typeof currentRemainingPart !== "undefined") {
+        console.log(
+          `[initializePlayerRemainingPartsOnRoleAssignment] ignored uid=${uid} reason=remaining_part_exists value=${currentRemainingPart}`,
+        );
+        return null;
+      }
+
+      if (beforeRole === afterRole && beforeRole === "joueur") {
+        console.log(
+          `[initializePlayerRemainingPartsOnRoleAssignment] role already joueur uid=${uid} proceeding because remaining_part is absent`,
+        );
+      } else {
+        console.log(
+          `[initializePlayerRemainingPartsOnRoleAssignment] role detected uid=${uid} role=${afterRole}`,
+        );
+      }
+
+      await initializePlayerRemainingPartsIfNeeded(
+        change.after.ref,
+        uid,
+        afterData,
+        "onUpdate",
+      );
+      return null;
+    } catch (error) {
+      console.error(
+        `[initializePlayerRemainingPartsOnRoleAssignment] failed uid=${uid}`,
+        error,
+      );
+      throw error;
+    }
+  });
+
+exports.initializeMerchantAccountStatusOnRoleAssignment = functions.firestore
+  .document("users/{uid}")
+  .onUpdate(async (change, context) => {
+    const uid = context.params.uid;
+
+    try {
+      const beforeData = change.before.data() || {};
+      const afterData = change.after.data() || {};
+      const beforeRole = getTrimmedString(beforeData.user_role);
+      const afterRole = getTrimmedString(afterData.user_role);
+      const currentAccountStatus = getTrimmedString(afterData.account_status);
+
+      console.log(
+        `[initializeMerchantAccountStatusOnRoleAssignment] uid=${uid} before_role=${beforeRole || "unknown"} after_role=${afterRole || "unknown"} account_status=${currentAccountStatus || "<absent>"}`,
+      );
+
+      if (afterRole !== "commercant") {
+        console.log(
+          `[initializeMerchantAccountStatusOnRoleAssignment] ignored uid=${uid} reason=role role=${afterRole || "unknown"}`,
+        );
+        return null;
+      }
+
+      if (currentAccountStatus) {
+        console.log(
+          `[initializeMerchantAccountStatusOnRoleAssignment] ignored uid=${uid} reason=account_status_exists value=${currentAccountStatus}`,
+        );
+        return null;
+      }
+
+      if (beforeRole === afterRole && beforeRole === "commercant") {
+        console.log(
+          `[initializeMerchantAccountStatusOnRoleAssignment] role already commercant uid=${uid} proceeding because account_status is absent`,
+        );
+      } else {
+        console.log(
+          `[initializeMerchantAccountStatusOnRoleAssignment] role detected uid=${uid} role=${afterRole}`,
+        );
+      }
+
+      await initializeMerchantAccountStatusIfNeeded(
+        change.after.ref,
+        uid,
+        afterData,
+        "onUpdate",
+      );
+      return null;
+    } catch (error) {
+      console.error(
+        `[initializeMerchantAccountStatusOnRoleAssignment] failed uid=${uid}`,
+        error,
+      );
+      throw error;
+    }
+  });
+
 exports.refreshGlobalStats = functions
   .runWith({timeoutSeconds: 540, memory: "1GB"})
   .pubsub.schedule("0 3 * * *")

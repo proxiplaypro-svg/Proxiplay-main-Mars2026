@@ -100,6 +100,11 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
       mounted,
       queryParameters: {
         'source': 'qr_link',
+        'fromQr': serializeParam(
+              true,
+              ParamType.bool,
+            ) ??
+            'false',
       },
       extra: <String, dynamic>{
         'gameDoc': gameDoc,
