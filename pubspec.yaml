@@ -132,7 +132,7 @@ dependencies:
   pointer_interceptor_platform_interface: 0.10.0+1
   pointer_interceptor_web: ^0.10.3
   provider: ^6.1.5+1
-  rive: ^0.14.7
+  rive: 0.13.20
   qr_flutter: 4.1.0
   rxdart: ^0.28.0
   scratcher: ^2.5.0
