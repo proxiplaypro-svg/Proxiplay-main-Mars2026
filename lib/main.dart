@@ -29,6 +29,20 @@ import 'services/remote_config_service.dart';
 import 'pages/status_screens/maintenance_screen.dart';
 import 'widgets/app_update_gate.dart';
 
+class AppBootstrapResult {
+  const AppBootstrapResult({
+    required this.appState,
+    required this.firebaseInitialized,
+    this.bootstrapError,
+    this.bootstrapStackTrace,
+  });
+
+  final FFAppState appState;
+  final bool firebaseInitialized;
+  final Object? bootstrapError;
+  final StackTrace? bootstrapStackTrace;
+}
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await initFirebase();
@@ -41,13 +55,42 @@ void main() async {
   GoRouter.optionURLReflectsImperativeAPIs = true;
   usePathUrlStrategy();
 
-  await initFirebase();
-
   final appState = FFAppState(); // Initialize FFAppState
-  await appState.initializePersistedState();
+  Object? bootstrapError;
+  StackTrace? bootstrapStackTrace;
+  var firebaseInitialized = false;
+
+  try {
+    await initFirebase().timeout(const Duration(seconds: 12));
+    firebaseInitialized = true;
+  } catch (error, stackTrace) {
+    bootstrapError = error;
+    bootstrapStackTrace = stackTrace;
+    debugPrint('[APP_BOOTSTRAP] firebase_init_failed error=$error');
+    debugPrint('[APP_BOOTSTRAP] firebase_init_stack=$stackTrace');
+  }
+
+  try {
+    await appState
+        .initializePersistedState()
+        .timeout(const Duration(seconds: 5));
+  } catch (error, stackTrace) {
+    bootstrapError ??= error;
+    bootstrapStackTrace ??= stackTrace;
+    debugPrint('[APP_BOOTSTRAP] prefs_init_failed error=$error');
+    debugPrint('[APP_BOOTSTRAP] prefs_init_stack=$stackTrace');
+  }
+
   runApp(ChangeNotifierProvider(
     create: (context) => appState,
-    child: const MyApp(),
+    child: MyApp(
+      bootstrapResult: AppBootstrapResult(
+        appState: appState,
+        firebaseInitialized: firebaseInitialized,
+        bootstrapError: bootstrapError,
+        bootstrapStackTrace: bootstrapStackTrace,
+      ),
+    ),
   ));
 
   if (!kIsWeb) {
@@ -55,11 +98,15 @@ void main() async {
   }
 
   unawaited(actions.lockOrientationScreen());
-  unawaited(actions.appTracking());
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  const MyApp({
+    super.key,
+    required this.bootstrapResult,
+  });
+
+  final AppBootstrapResult bootstrapResult;
 
   // This widget is the root of your application.
   @override
@@ -90,6 +137,8 @@ class _MyAppState extends State<MyApp> implements MyAppController {
   bool _isMaintenance = false;
 
   StreamSubscription<BaseAuthUser>? _userStreamSub;
+  StreamSubscription<dynamic>? _authUserSub;
+  StreamSubscription<dynamic>? _fcmTokenSub;
   VoidCallback? _routerReferralListener;
   String? _lastReferralLocation;
 
@@ -111,15 +160,17 @@ class _MyAppState extends State<MyApp> implements MyAppController {
           .toList();
   late Stream<BaseAuthUser> userStream;
 
-  final authUserSub = authenticatedUserStream.listen((_) {});
-  final fcmTokenSub = fcmTokenUserStream.listen((_) {});
-
   @override
   void initState() {
     super.initState();
 
     _appStateNotifier = AppStateNotifier.instance;
     _router = createRouter(_appStateNotifier);
+    if (!widget.bootstrapResult.firebaseInitialized) {
+      return;
+    }
+    _authUserSub = authenticatedUserStream.listen((_) {});
+    _fcmTokenSub = fcmTokenUserStream.listen((_) {});
     _routerReferralListener = () {
       _capturePendingReferralCodeFromRouter(source: 'warm_start');
     };
@@ -166,6 +217,20 @@ class _MyAppState extends State<MyApp> implements MyAppController {
       const Duration(milliseconds: 2000),
       () => _appStateNotifier.stopShowingSplashImage(),
     );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 800), () async {
+        if (!mounted) {
+          return;
+        }
+        try {
+          await actions.appTracking();
+        } catch (error, stackTrace) {
+          debugPrint('[APP_BOOTSTRAP] app_tracking_failed error=$error');
+          debugPrint('[APP_BOOTSTRAP] app_tracking_stack=$stackTrace');
+        }
+      });
+    });
   }
 
   Future<void> _checkRemoteConfig() async {
@@ -218,8 +283,8 @@ class _MyAppState extends State<MyApp> implements MyAppController {
 
   @override
   void dispose() {
-    authUserSub.cancel();
-    fcmTokenSub.cancel();
+    _authUserSub?.cancel();
+    _fcmTokenSub?.cancel();
     _userStreamSub?.cancel();
     if (_routerReferralListener != null) {
       _router.routerDelegate.removeListener(_routerReferralListener!);
@@ -239,6 +304,16 @@ class _MyAppState extends State<MyApp> implements MyAppController {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.bootstrapResult.firebaseInitialized) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: _StartupFailureScreen(
+          error: widget.bootstrapResult.bootstrapError,
+          stackTrace: widget.bootstrapResult.bootstrapStackTrace,
+        ),
+      );
+    }
+
     // 1. Chargement
     if (_isLoadingConfig) {
       return MaterialApp(
@@ -310,6 +385,62 @@ class _MyAppState extends State<MyApp> implements MyAppController {
         child: child ?? const SizedBox.shrink(),
       ),
       routerConfig: _router,
+    );
+  }
+}
+
+class _StartupFailureScreen extends StatelessWidget {
+  const _StartupFailureScreen({
+    required this.error,
+    required this.stackTrace,
+  });
+
+  final Object? error;
+  final StackTrace? stackTrace;
+
+  @override
+  Widget build(BuildContext context) {
+    debugPrint('[APP_BOOTSTRAP] startup_screen_shown error=$error');
+    if (stackTrace != null) {
+      debugPrint('[APP_BOOTSTRAP] startup_screen_stack=$stackTrace');
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/images/icon.png',
+                  width: 96.0,
+                  height: 96.0,
+                ),
+                const SizedBox(height: 20.0),
+                Text(
+                  'L’application n’a pas pu démarrer correctement.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1F2937),
+                      ),
+                ),
+                const SizedBox(height: 12.0),
+                Text(
+                  'Fermez puis relancez Proxiplay. Si le problème persiste, vérifiez votre connexion et réessayez.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF4B5563),
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
