@@ -2,6 +2,7 @@ import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/animation_utils.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
+import '/backend/schema/enums/enums.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -17,6 +18,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
 import 'jeu_detail_joueur_page_model.dart';
@@ -29,11 +31,13 @@ class JeuDetailJoueurPageWidget extends StatefulWidget {
     required this.gameDoc,
     this.enseigneDoc,
     this.source,
+    this.fromQr = false,
   });
 
   final GamesRecord? gameDoc;
   final EnseignesRecord? enseigneDoc;
   final String? source;
+  final bool fromQr;
 
   static String routeName = 'JeuDetailJoueurPage';
   static String routePath = 'jeuDetailJoueurPage';
@@ -87,6 +91,343 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     });
   }
 
+  // ignore: unused_element
+  Future<void> _showQrOnlyGameDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return WebViewAware(
+          child: AlertDialog(
+            title: const Text('Scanner le QR code'),
+            content: const Text(
+              'Scannez le QR code affiché en boutique pour jouer et valider votre visite.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<EnseignesRecord?> _loadEnseigneForGame(GamesRecord game) async {
+    if (game.enseigneId != null) {
+      try {
+        final enseigne = await EnseignesRecord.getDocumentOnce(game.enseigneId!);
+        if (enseigne.name.trim().isNotEmpty) {
+          return enseigne;
+        }
+      } catch (_) {}
+    }
+
+    final enseigneName = game.enseigneName.trim();
+    if (enseigneName.isEmpty) {
+      return null;
+    }
+
+    try {
+      final enseignes = await queryEnseignesRecordOnce(
+        queryBuilder: (query) => query.where('name', isEqualTo: enseigneName),
+        singleRecord: true,
+      );
+      if (enseignes.isNotEmpty) {
+        return enseignes.first;
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  GamesRecord _buildPresentationGame(
+    GamesRecord game, {
+    EnseignesRecord? enseigne,
+  }) {
+    final prizeDescription =
+        (game.snapshotData['prize_description'] as String? ?? '').trim();
+    final prizePresentation =
+        (game.snapshotData['prize_presentation'] as String? ?? '').trim();
+    final prizeCount = game.snapshotData['prize_count'];
+    final countInt = prizeCount is int
+        ? prizeCount
+        : int.tryParse(prizeCount?.toString() ?? '') ?? 1;
+    final snapshotSecondaryPrizes =
+        game.snapshotData['secondary_prizes'] as List<dynamic>? ?? const [];
+
+    String presentationDescription() {
+      for (final item in game.secondaryPrizes) {
+        final presentation = (item['presentation'] as String? ?? '').trim();
+        if (presentation.isNotEmpty) {
+          return presentation;
+        }
+      }
+
+      final secondaryDescription = game.secondaryPrizeDescription.trim();
+      if (secondaryDescription.isNotEmpty) {
+        return secondaryDescription;
+      }
+
+      if (prizeDescription.isNotEmpty) {
+        return prizeDescription;
+      }
+
+      return game.description;
+    }
+
+    return GamesRecord.getDocumentFromData(
+      <String, dynamic>{
+        ...game.snapshotData,
+        'name': prizeDescription.isNotEmpty ? prizeDescription : game.name,
+        'description': presentationDescription(),
+        if (enseigne != null) 'enseigne_id': enseigne.reference,
+        if (enseigne != null) 'enseigne_name': enseigne.name,
+        if (snapshotSecondaryPrizes.isEmpty && prizeDescription.isNotEmpty)
+          'secondary_prizes': [
+            <String, dynamic>{
+              'name': prizeDescription,
+              'count': countInt,
+              'presentation': prizePresentation,
+            },
+          ],
+      },
+      game.reference,
+    );
+  }
+
+  Future<void> _openScannedGameDetail(String gameId) async {
+    final gameRef = GamesRecord.collection.doc(gameId);
+    final scannedGameDoc = await GamesRecord.getDocumentOnce(gameRef);
+    final enseigne = await _loadEnseigneForGame(scannedGameDoc);
+    final presentationGame = _buildPresentationGame(
+      scannedGameDoc,
+      enseigne: enseigne,
+    );
+    if (!mounted) {
+      return;
+    }
+
+    await context.pushNamed(
+      JeuDetailJoueurPageWidget.routeName,
+      queryParameters: {
+        'gameDoc': serializeParam(
+          presentationGame,
+          ParamType.Document,
+        ),
+        if (enseigne != null)
+          'enseigneDoc': serializeParam(
+            enseigne,
+            ParamType.Document,
+          ),
+        'fromQr': serializeParam(
+          true,
+          ParamType.bool,
+        ),
+      }.withoutNulls,
+      extra: <String, dynamic>{
+        'gameDoc': presentationGame,
+        if (enseigne != null) 'enseigneDoc': enseigne,
+        'source': 'qr_scan',
+      },
+    );
+  }
+
+  Widget _buildQrOnlyPrimaryButton() {
+    if (widget.fromQr) {
+      return SizedBox(
+        width: double.infinity,
+        height: 52.0,
+        child: ElevatedButton.icon(
+          icon: _isLaunchingGame
+              ? const SizedBox(
+                  width: 18.0,
+                  height: 18.0,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.white,
+                ),
+          label: Text(_isLaunchingGame ? 'Chargement du jeu…' : 'Jouer'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFC0392B),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14.0),
+            ),
+          ),
+          onPressed: _isLaunchingGame
+              ? null
+              : () async {
+                  await _launchGame(
+                    participate: () async {
+                      try {
+                        final result = await FirebaseFunctions.instance
+                            .httpsCallable(
+                              'participateInGameTransaction',
+                            )
+                            .call({
+                              "gameRef": widget.gameDoc!.reference.id,
+                              "from_qr": true,
+                            });
+                        _model.cloudFunction3sn =
+                            ParticipateInGameTransactionCloudFunctionCallResponse(
+                          data: ResultParticipationGameStruct.fromMap(
+                            result.data,
+                          ),
+                          succeeded: true,
+                          resultAsString: result.data.toString(),
+                          jsonBody: result.data,
+                        );
+                      } on FirebaseFunctionsException catch (error) {
+                        _model.cloudFunction3sn =
+                            ParticipateInGameTransactionCloudFunctionCallResponse(
+                          data: createResultParticipationGameStruct(
+                            message:
+                                error.message ?? "Erreur (${error.code})",
+                          ),
+                          errorCode: error.code,
+                          succeeded: false,
+                        );
+                      }
+                      return _model.cloudFunction3sn!;
+                    },
+                  );
+                },
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      height: 52.0,
+      child: ElevatedButton.icon(
+        icon: const Icon(
+          Icons.qr_code_scanner_rounded,
+          color: Colors.white,
+        ),
+        label: const Text('Scanner le QR code en boutique'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFC0392B),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14.0),
+          ),
+        ),
+        onPressed: () async {
+          if (_isLaunchingGame) {
+            return;
+          }
+
+          var handled = false;
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (scannerContext) {
+                return StatefulBuilder(
+                  builder: (context, setScannerState) {
+                    return Scaffold(
+                      appBar: AppBar(
+                        title: const Text('Scanner le QR code'),
+                        backgroundColor: const Color(0xFF1A1A4E),
+                        foregroundColor: Colors.white,
+                      ),
+                      body: MobileScanner(
+                        onDetect: (capture) async {
+                          if (handled) {
+                            return;
+                          }
+                          final barcode = capture.barcodes.isNotEmpty
+                              ? capture.barcodes.first
+                              : null;
+                          final url = barcode?.rawValue;
+                          if (url == null || url.isEmpty) {
+                            return;
+                          }
+                          if (!url.contains('proxiplay.fr/j/')) {
+                            return;
+                          }
+
+                          final uri = Uri.tryParse(url);
+                          if (uri == null) {
+                            return;
+                          }
+                          final segments = uri.pathSegments;
+                          final jIndex = segments.indexOf('j');
+                          if (jIndex == -1 || jIndex + 1 >= segments.length) {
+                            return;
+                          }
+
+                          final scannedGameId = segments[jIndex + 1].trim();
+                          if (scannedGameId.isEmpty) {
+                            return;
+                          }
+
+                          handled = true;
+                          setScannerState(() {});
+
+                          Navigator.of(scannerContext).pop();
+                          if (!mounted) {
+                            return;
+                          }
+
+                          if (scannedGameId ==
+                              (widget.gameDoc?.reference.id ?? '')) {
+                            await _launchGame(
+                              participate: () async {
+                                try {
+                                  final result = await FirebaseFunctions.instance
+                                      .httpsCallable(
+                                        'participateInGameTransaction',
+                                      )
+                                      .call({
+                                        "gameRef": widget.gameDoc!.reference.id,
+                                        "from_qr": true,
+                                      });
+                                  _model.cloudFunction3sn =
+                                      ParticipateInGameTransactionCloudFunctionCallResponse(
+                                    data: ResultParticipationGameStruct.fromMap(
+                                      result.data,
+                                    ),
+                                    succeeded: true,
+                                    resultAsString: result.data.toString(),
+                                    jsonBody: result.data,
+                                  );
+                                } on FirebaseFunctionsException catch (error) {
+                                  _model.cloudFunction3sn =
+                                      ParticipateInGameTransactionCloudFunctionCallResponse(
+                                    data: createResultParticipationGameStruct(
+                                      message:
+                                          error.message ?? "Erreur (${error.code})",
+                                    ),
+                                    errorCode: error.code,
+                                    succeeded: false,
+                                  );
+                                }
+                                return _model.cloudFunction3sn!;
+                              },
+                            );
+                            return;
+                          }
+
+                          await _openScannedGameDetail(scannedGameId);
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _launchGame({
     required Future<ParticipateInGameTransactionCloudFunctionCallResponse>
         Function() participate,
@@ -109,16 +450,32 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
       final participationEnregistree =
           response.succeeded == true && !alreadyParticipatedToday;
       if (participationEnregistree) {
-        final newlyQualified = widget.gameDoc != null &&
-                currentUserUid.isNotEmpty &&
-                widget.gameDoc!.animationId.trim().isNotEmpty &&
-                participationEnregistree == true
-            ? await updateAnimationProgress(currentUserUid, widget.gameDoc!)
-            : false;
+        var newlyQualified = false;
+        if (widget.gameDoc != null &&
+            currentUserUid.isNotEmpty &&
+            widget.gameDoc!.animationId.trim().isNotEmpty &&
+            participationEnregistree == true) {
+          try {
+            newlyQualified =
+                await updateAnimationProgress(currentUserUid, widget.gameDoc!);
+          } catch (error) {
+            debugPrint(
+              '[ANIMATION_PROGRESS] update skipped gameId=${widget.gameDoc?.reference.id} '
+              'animationId=${widget.gameDoc?.animationId} error=$error',
+            );
+          }
+        }
         if (!mounted) {
           return;
         }
-        await refreshCurrentUserDocument();
+        try {
+          await refreshCurrentUserDocument();
+        } catch (error) {
+          debugPrint(
+            '[ANIMATION_PROGRESS] refreshCurrentUserDocument failed '
+            'gameId=${widget.gameDoc?.reference.id} error=$error',
+          );
+        }
         if (!mounted) {
           return;
         }
@@ -146,21 +503,17 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             return;
           }
         }
-        await context.pushNamed(
-          PlayJoueurPageWidget.routeName,
-          queryParameters: {
-            'game': serializeParam(
-              widget.gameDoc,
-              ParamType.Document,
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => PlayJoueurPageWidget(
+              game: widget.gameDoc,
+              resultParticipation:
+                  ResultParticipationGameStruct.maybeFromMap(
+                response.jsonBody,
+              ),
+              source: widget.source,
             ),
-            'resultParticipation': serializeParam(
-              ResultParticipationGameStruct.maybeFromMap(response.jsonBody),
-              ParamType.DataStruct,
-            ),
-          }.withoutNulls,
-          extra: <String, dynamic>{
-            'game': widget.gameDoc,
-          },
+          ),
         );
       } else {
         _setLaunchingGame(false);
@@ -315,8 +668,21 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final noRemainingParts = _hasNoRemainingParts(currentUserDocument, now);
         final endDate = widget.gameDoc?.endDate;
         final gameDoc = widget.gameDoc!;
+        final effectiveEnseigneDoc = widget.enseigneDoc ??
+            (gameDoc.enseigneId != null
+                ? EnseignesRecord.getDocumentFromData(
+                    <String, dynamic>{
+                      'name': gameDoc.enseigneName,
+                    },
+                    gameDoc.enseigneId!,
+                  )
+                : null);
         final gameName = gameDoc.name;
         final gamePhoto = gameDoc.photo;
+        final enseigneDisplayName = effectiveEnseigneDoc?.name.trim().isNotEmpty ==
+                true
+            ? effectiveEnseigneDoc!.name.trim()
+            : gameDoc.enseigneName.trim();
         final hasWinnerAnnouncement = endDate != null &&
             getCurrentTimestamp.isAfter(endDate) &&
             gameDoc.hasWinner &&
@@ -358,6 +724,15 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final secondaryPrizeRulesText = secondaryPrizeCount > 0
             ? '$secondaryPrizeCount lot${secondaryPrizeCount > 1 ? 's' : ''} ${secondaryPrizeCount > 1 ? 'sont' : 'est'} \u00e0 gagner imm\u00e9diatement'
             : 'Des lots sont \u00e0 gagner imm\u00e9diatement';
+        final highlightedSecondaryPrize = validSecondaryPrizeItems.isNotEmpty
+            ? validSecondaryPrizeItems.first
+            : null;
+        final highlightedPrizeName =
+            (highlightedSecondaryPrize?['name'] as String? ?? '').trim();
+        final highlightedPrizeDescription =
+            (highlightedSecondaryPrize?['presentation'] as String? ?? '').trim();
+        final highlightedPrizeCountLabel =
+            (highlightedSecondaryPrize?['countLabel'] as String? ?? '').trim();
         String getLotsTitle(int totalLots) =>
             totalLots == 1 ? 'Lot \u00e0 gagner' : 'Lots \u00e0 gagner';
         final detailCardDecoration = BoxDecoration(
@@ -751,11 +1126,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                         buildAppShareText(
                           title:
                               '${widget.gameDoc?.name ?? 'ce jeu'} sur ProxiPlay',
-                          description: widget.enseigneDoc?.name
-                                      .trim()
-                                      .isNotEmpty ==
-                                  true
-                              ? 'Disponible chez ${widget.enseigneDoc!.name}.'
+                          description: enseigneDisplayName.isNotEmpty
+                              ? 'Disponible chez $enseigneDisplayName.'
                               : null,
                         ),
                         sharePositionOrigin: getWidgetBoundingBox(context),
@@ -835,6 +1207,66 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                           letterSpacing: -0.5,
                                         ),
                                       ),
+                                      if (highlightedPrizeName.isNotEmpty ||
+                                          highlightedPrizeDescription.isNotEmpty ||
+                                          highlightedPrizeCountLabel.isNotEmpty) ...[
+                                        const SizedBox(height: 16.0),
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(16.0),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF8F8FC),
+                                            borderRadius:
+                                                BorderRadius.circular(16.0),
+                                            border: Border.all(
+                                              color: const Color(0xFFE7EAF3),
+                                            ),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              if (highlightedPrizeName.isNotEmpty)
+                                                Text(
+                                                  highlightedPrizeName,
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 18.0,
+                                                    fontWeight: FontWeight.w700,
+                                                    color:
+                                                        const Color(0xFF1A1A1A),
+                                                  ),
+                                                ),
+                                              if (highlightedPrizeCountLabel
+                                                  .isNotEmpty) ...[
+                                                const SizedBox(height: 6.0),
+                                                Text(
+                                                  highlightedPrizeCountLabel,
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 13.0,
+                                                    fontWeight: FontWeight.w600,
+                                                    color:
+                                                        const Color(0xFFA0134D),
+                                                  ),
+                                                ),
+                                              ],
+                                              if (highlightedPrizeDescription
+                                                  .isNotEmpty) ...[
+                                                const SizedBox(height: 8.0),
+                                                Text(
+                                                  highlightedPrizeDescription,
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 14.0,
+                                                    fontWeight: FontWeight.w500,
+                                                    color:
+                                                        const Color(0xFF4B5563),
+                                                    height: 1.35,
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                       const SizedBox(height: 24.0),
                                       // Action Buttons Column
                                       Column(
@@ -859,6 +1291,19 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     functions.isAdult(
                                                                         currentUserDocument!
                                                                             .birthday!))) {
+                                                              if (widget.gameDoc!
+                                                                      .accessMode ==
+                                                                  AccessMode
+                                                                      .qr_only) {
+                                                                return Visibility(
+                                                                  visible: widget
+                                                                          .gameDoc!
+                                                                          .endDate! >
+                                                                      getCurrentTimestamp,
+                                                                  child:
+                                                                      _buildQrOnlyPrimaryButton(),
+                                                                );
+                                                              }
                                                               return Visibility(
                                                                 visible: widget
                                                                         .gameDoc!
@@ -890,6 +1335,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                               try {
                                                                                 final result = await FirebaseFunctions.instance.httpsCallable('participateInGameTransaction').call({
                                                                                   "gameRef": widget.gameDoc!.reference.id,
+                                                                                  "from_qr": widget.fromQr,
                                                                                 });
                                                                                 _model.cloudFunction3sn = ParticipateInGameTransactionCloudFunctionCallResponse(
                                                                                   data: ResultParticipationGameStruct.fromMap(result.data),
@@ -930,7 +1376,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     } else if (_isLaunchingGame) {
                                                                       return 'Chargement du jeu…';
                                                                     } else {
-                                                                      return 'Jouer';
+                                                                      return 'Scanner';
                                                                     }
                                                                   }(),
                                                                   icon: _isLaunchingGame
@@ -944,7 +1390,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                             strokeWidth:
                                                                                 2.2,
                                                                             color:
-                                                                                Colors.white,
+                                                                              Colors.white,
                                                                           ),
                                                                         )
                                                                       : null,
@@ -991,8 +1437,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                             context)
                                                                         .primary
                                                                         .withValues(
-                                                                            alpha:
-                                                                                0.7),
+                                                                          alpha:
+                                                                              0.7,
+                                                                        ),
                                                                   ),
                                                                 ),
                                                               );
@@ -1027,6 +1474,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                           },
                                                         );
                                                       } else {
+                                                        if (widget.gameDoc!
+                                                                .accessMode ==
+                                                            AccessMode.qr_only) {
+                                                          return Visibility(
+                                                            visible: widget
+                                                                    .gameDoc!
+                                                                    .endDate! >
+                                                                getCurrentTimestamp,
+                                                            child:
+                                                                _buildQrOnlyPrimaryButton(),
+                                                          );
+                                                        }
                                                         return Visibility(
                                                           visible: widget
                                                                   .gameDoc!
@@ -1071,6 +1530,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                   .call({
                                                                                 "gameRef":
                                                                                     widget.gameDoc!.reference.id,
+                                                                                "from_qr":
+                                                                                    widget.fromQr,
                                                                               });
                                                                               _model.cloudFunction3sn2 = ParticipateInGameTransactionCloudFunctionCallResponse(
                                                                                 data:
@@ -1113,7 +1574,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   } else if (_isLaunchingGame) {
                                                                     return 'Chargement du jeu…';
                                                                   } else {
-                                                                    return 'Jouer';
+                                                                    return 'Scanner';
                                                                   }
                                                                 }(),
                                                                 icon: _isLaunchingGame
@@ -1127,7 +1588,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                           strokeWidth:
                                                                               2.2,
                                                                           color:
-                                                                              Colors.white,
+                                                                          Colors.white,
                                                                         ),
                                                                       )
                                                                     : null,
@@ -1185,12 +1646,17 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     },
                                                   );
                                                 } else {
+                                                  if (widget.gameDoc!
+                                                          .accessMode ==
+                                                      AccessMode.qr_only) {
+                                                    return _buildQrOnlyPrimaryButton();
+                                                  }
                                                   return FFButtonWidget(
                                                     onPressed: () async {
                                                       await showCreateAccountToPlayDialog(
                                                           context);
                                                     },
-                                                    text: 'Jouer',
+                                                    text: 'Scanner',
                                                     options: FFButtonOptions(
                                                       width: double.infinity,
                                                       height: 56.0,
@@ -1235,7 +1701,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                           // if (leftActionVisible)
 
                                           if (showShopCard &&
-                                              widget.enseigneDoc != null) ...[
+                                              effectiveEnseigneDoc != null) ...[
                                             const SizedBox(height: 12.0),
                                             Material(
                                               color: Colors.transparent,
@@ -1249,13 +1715,13 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     queryParameters: {
                                                       'enseigneDoc':
                                                           serializeParam(
-                                                        widget.enseigneDoc,
+                                                        effectiveEnseigneDoc,
                                                         ParamType.Document,
                                                       ),
                                                     }.withoutNulls,
                                                     extra: <String, dynamic>{
                                                       'enseigneDoc':
-                                                          widget.enseigneDoc,
+                                                          effectiveEnseigneDoc,
                                                     },
                                                   );
                                                 },
@@ -1302,9 +1768,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   ImagesRecord>>(
                                                             future:
                                                                 queryImagesRecordOnce(
-                                                              parent: widget
-                                                                  .enseigneDoc!
-                                                                  .reference,
+                                                              parent:
+                                                                  effectiveEnseigneDoc
+                                                                      .reference,
                                                               singleRecord:
                                                                   true,
                                                             ),
@@ -1354,12 +1820,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   .start,
                                                           children: [
                                                             Text(
-                                                              widget.enseigneDoc!
+                                                              effectiveEnseigneDoc
                                                                       .name
                                                                       .trim()
                                                                       .isNotEmpty
-                                                                  ? widget
-                                                                      .enseigneDoc!
+                                                                  ? effectiveEnseigneDoc
                                                                       .name
                                                                   : 'Enseigne partenaire',
                                                               maxLines: 1,
@@ -1378,8 +1843,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     0.0,
                                                               ),
                                                             ),
-                                                            if (widget
-                                                                .enseigneDoc!
+                                                            if (effectiveEnseigneDoc
                                                                 .city
                                                                 .trim()
                                                                 .isNotEmpty)
@@ -1405,8 +1869,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     Expanded(
                                                                       child:
                                                                           Text(
-                                                                        widget
-                                                                            .enseigneDoc!
+                                                                        effectiveEnseigneDoc
                                                                             .city,
                                                                         maxLines:
                                                                             1,
@@ -1743,14 +2206,13 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                       // ),
                                       Builder(
                                         builder: (context) {
-                                          if (widget.enseigneDoc != null) {
+                                          if (effectiveEnseigneDoc != null) {
                                             return Column(
                                               mainAxisSize: MainAxisSize.max,
                                               children: [
                                                 // Website Link Card
                                                 if (!functions
-                                                    .checkValueIsEmpty(widget
-                                                        .enseigneDoc!
+                                                        .checkValueIsEmpty(effectiveEnseigneDoc
                                                         .siteWebUrl))
                                                   // Container(
                                                   //   width: double.infinity,
@@ -2024,8 +2486,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       List<HorairesRecord>>(
                                                     future:
                                                         queryHorairesRecordOnce(
-                                                      parent: widget.enseigneDoc
-                                                          ?.reference,
+                                                      parent: effectiveEnseigneDoc
+                                                          .reference,
                                                       queryBuilder:
                                                           (horairesRecord) =>
                                                               horairesRecord
@@ -2055,8 +2517,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     List<HorairesRecord>>(
                                                   future:
                                                       queryHorairesRecordOnce(
-                                                    parent: widget
-                                                        .enseigneDoc?.reference,
+                                                    parent:
+                                                        effectiveEnseigneDoc
+                                                            .reference,
                                                     queryBuilder:
                                                         (horairesRecord) =>
                                                             horairesRecord.orderBy(
@@ -2502,32 +2965,36 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   const SizedBox(height: 10.0)),
                                             );
                                           } else {
-                                            return Container(
-                                              width: double.infinity,
-                                              decoration: BoxDecoration(
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .secondaryBackground,
-                                                borderRadius:
-                                                    BorderRadius.circular(20.0),
-                                              ),
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.all(10.0),
-                                                child: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.max,
-                                                  children: [
-                                                    Text(
-                                                      'Cette enseigne n\'existe plus.',
-                                                      style:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
+                                            return Column(
+                                              mainAxisSize: MainAxisSize.max,
+                                              children: [
+                                                Container(
+                                                  width: double.infinity,
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .secondaryBackground,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            20.0),
+                                                  ),
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            10.0),
+                                                    child: Column(
+                                                      mainAxisSize:
+                                                          MainAxisSize.max,
+                                                      children: [
+                                                        Text(
+                                                          'Les informations de cette enseigne sont indisponibles pour le moment.',
+                                                          style: FlutterFlowTheme
+                                                                  .of(context)
                                                               .bodyMedium
                                                               .override(
-                                                                font:
-                                                                    GoogleFonts
-                                                                        .inter(
+                                                                font: GoogleFonts
+                                                                    .inter(
                                                                   fontWeight: FlutterFlowTheme.of(
                                                                           context)
                                                                       .bodyMedium
@@ -2548,11 +3015,214 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     .bodyMedium
                                                                     .fontStyle,
                                                               ),
+                                                        ),
+                                                      ].divide(const SizedBox(
+                                                          height: 10.0)),
                                                     ),
-                                                  ].divide(const SizedBox(
-                                                      height: 10.0)),
+                                                  ),
                                                 ),
-                                              ),
+                                                if (shouldShowMainPrize ||
+                                                    hasSecondaryPrizeContent)
+                                                  Container(
+                                                    width: double.infinity,
+                                                    margin:
+                                                        const EdgeInsets.only(
+                                                            bottom: 16.0),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              20.0),
+                                                      border: Border.all(
+                                                        color: const Color(
+                                                            0xFFE7EAF3),
+                                                      ),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          blurRadius: 18.0,
+                                                          color: const Color(
+                                                                  0xFF1F3A5F)
+                                                              .withOpacity(
+                                                                  0.06),
+                                                          offset: const Offset(
+                                                              0.0, 10.0),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              16.0),
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            lotsTitle,
+                                                            style:
+                                                                detailSectionTitleStyle,
+                                                          ),
+                                                          if (shouldShowMainPrize) ...[
+                                                            const SizedBox(
+                                                                height: 14.0),
+                                                            buildMainPrizeWidget(
+                                                              mainPrizeDescription,
+                                                            ),
+                                                          ],
+                                                          if (shouldShowMainPrize &&
+                                                              hasSecondaryPrizeContent)
+                                                            const SizedBox(
+                                                                height: 12.0),
+                                                          if (hasSecondaryPrizeContent)
+                                                            ...secondaryPrizeWidgets,
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                Container(
+                                                  width: double.infinity,
+                                                  margin: const EdgeInsets.only(
+                                                      bottom: 16.0),
+                                                  padding:
+                                                      const EdgeInsets.all(
+                                                          16.0),
+                                                  decoration:
+                                                      detailCardDecoration,
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        'Règles du jeu',
+                                                        style:
+                                                            detailSectionTitleStyle,
+                                                      ),
+                                                      const SizedBox(
+                                                          height: 12.0),
+                                                      Row(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons
+                                                                .access_time_rounded,
+                                                            size: 16.0,
+                                                            color: Color(
+                                                                0xFF6B7280),
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 8.0),
+                                                          Expanded(
+                                                            child: Text(
+                                                              shouldShowMainPrize
+                                                                  ? 'Début du jeu le ${widget.gameDoc?.startDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.startDate, locale: FFLocalizations.of(context).languageCode) : '-'}'
+                                                                  : 'Fin du jeu le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
+                                                              style:
+                                                                  detailBodyStyle,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      const SizedBox(
+                                                          height: 8.0),
+                                                      Row(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons
+                                                                .pan_tool_alt_rounded,
+                                                            size: 16.0,
+                                                            color: Color(
+                                                                0xFF6B7280),
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 8.0),
+                                                          Expanded(
+                                                            child: Text(
+                                                              'Grattez la zone ci-dessus pour découvrir si vous avez gagné',
+                                                              style:
+                                                                  detailBodyStyle,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      const SizedBox(
+                                                          height: 8.0),
+                                                      if (shouldShowMainPrize)
+                                                        Row(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            const Icon(
+                                                              Icons
+                                                                  .emoji_events_outlined,
+                                                              size: 16.0,
+                                                              color: Color(
+                                                                  0xFF6B7280),
+                                                            ),
+                                                            const SizedBox(
+                                                                width: 8.0),
+                                                            Expanded(
+                                                              child: Column(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment
+                                                                        .start,
+                                                                children: [
+                                                                  Text(
+                                                                    'Le lot principal sera attribué par tirage au sort le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
+                                                                    style:
+                                                                        detailBodyStyle,
+                                                                  ),
+                                                                  const SizedBox(
+                                                                      height:
+                                                                          4.0),
+                                                                  Text(
+                                                                    'Plus vous participez, plus vous augmentez vos chances lors du tirage au sort',
+                                                                    style:
+                                                                        detailBodyStyle,
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      const SizedBox(
+                                                          height: 8.0),
+                                                      if (hasSecondaryPrizeContent)
+                                                        Row(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            const Icon(
+                                                              Icons
+                                                                  .emoji_events_outlined,
+                                                              size: 16.0,
+                                                              color: Color(
+                                                                  0xFF6B7280),
+                                                            ),
+                                                            const SizedBox(
+                                                                width: 8.0),
+                                                            Expanded(
+                                                              child: Text(
+                                                                secondaryPrizeRulesText,
+                                                                style:
+                                                                    detailBodyStyle,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ].divide(
+                                                  const SizedBox(height: 10.0)),
                                             );
                                           }
                                         },
