@@ -1376,7 +1376,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     } else if (_isLaunchingGame) {
                                                                       return 'Chargement du jeu…';
                                                                     } else {
-                                                                      return 'Scanner';
+                                                                      return 'Jouer';
                                                                     }
                                                                   }(),
                                                                   icon: _isLaunchingGame
@@ -1574,7 +1574,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                   } else if (_isLaunchingGame) {
                                                                     return 'Chargement du jeu…';
                                                                   } else {
-                                                                    return 'Scanner';
+                                                                    return 'Jouer';
                                                                   }
                                                                 }(),
                                                                 icon: _isLaunchingGame
