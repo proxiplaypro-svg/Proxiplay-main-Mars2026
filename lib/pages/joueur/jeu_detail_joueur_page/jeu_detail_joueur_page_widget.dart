@@ -757,7 +757,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
           color: const Color(0xFF374151),
           height: 1.35,
         );
-        Widget buildMainPrizeWidget(String description) {
+        Widget buildMainPrizeWidget(
+          String description, {
+          bool showDescription = true,
+        }) {
+          if (!showDescription) {
+            return const SizedBox.shrink();
+          }
+
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -793,7 +800,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                   vertical: 4.0,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF4E6),
+                  color: const Color(0xFFA0134D),
                   borderRadius: BorderRadius.circular(20.0),
                 ),
                 child: Text(
@@ -801,7 +808,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                   style: GoogleFonts.inter(
                     fontSize: 11.0,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFFFF9500),
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -859,7 +866,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                     vertical: 4.0,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEAFBF2),
+                    color: const Color(0xFF2B285F),
                     borderRadius: BorderRadius.circular(20.0),
                   ),
                   child: Text(
@@ -867,7 +874,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                     style: GoogleFonts.inter(
                       fontSize: 11.0,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF10B981),
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -1198,12 +1205,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                           letterSpacing: -0.5,
                                         ),
                                       ),
-                                      if (shouldShowMainPrize) ...[
-                                        const SizedBox(height: 16.0),
-                                        buildMainPrizeWidget(
-                                          mainPrizeDescription,
-                                        ),
-                                      ],
                                       const SizedBox(height: 24.0),
                                       // Action Buttons Column
                                       Column(
@@ -1678,7 +1679,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                             16.0),
                                                     border: Border.all(
                                                       color: const Color(
-                                                          0xFFE5E7EB),
+                                                          0xFFA0134D),
                                                       width: 1.0,
                                                     ),
                                                     boxShadow: [
@@ -2699,7 +2700,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     return Container();
                                                   },
                                                 ),
-                                                if (hasSecondaryPrizeContent)
+                                                if (hasSecondaryPrizeContent ||
+                                                    shouldShowMainPrize)
                                                   Container(
                                                     width: double.infinity,
                                                     margin:
@@ -2740,6 +2742,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                             style:
                                                                 detailSectionTitleStyle,
                                                           ),
+                                                          if (shouldShowMainPrize)
+                                                            ...[
+                                                              const SizedBox(
+                                                                  height: 14.0),
+                                                              buildMainPrizeWidget(
+                                                                mainPrizeDescription,
+                                                              ),
+                                                            ],
                                                           if (hasSecondaryPrizeContent)
                                                             ...[
                                                               const SizedBox(
@@ -2950,7 +2960,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     ),
                                                   ),
                                                 ),
-                                                if (hasSecondaryPrizeContent)
+                                                if (hasSecondaryPrizeContent ||
+                                                    shouldShowMainPrize)
                                                   Container(
                                                     width: double.infinity,
                                                     margin:
@@ -2991,6 +3002,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                             style:
                                                                 detailSectionTitleStyle,
                                                           ),
+                                                          if (shouldShowMainPrize)
+                                                            ...[
+                                                              const SizedBox(
+                                                                  height: 14.0),
+                                                              buildMainPrizeWidget(
+                                                                mainPrizeDescription,
+                                                              ),
+                                                            ],
                                                           if (hasSecondaryPrizeContent)
                                                             ...[
                                                               const SizedBox(

@@ -1,14 +1,14 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
-import '/components/game_card_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
-class AnimationDetailPage extends StatelessWidget {
+class AnimationDetailPage extends StatefulWidget {
   const AnimationDetailPage({
     super.key,
     required this.animationId,
@@ -19,8 +19,24 @@ class AnimationDetailPage extends StatelessWidget {
   static String routeName = 'AnimationDetailPage';
   static String routePath = 'animationDetailPage';
 
+  @override
+  State<AnimationDetailPage> createState() => _AnimationDetailPageState();
+}
+
+class _AnimationDetailPageState extends State<AnimationDetailPage> {
+  static const Color _pageBackgroundColor = Color(0xFFF0EEE8);
+  static const Color _proxiplayBlue = Color(0xFF1A1A4E);
+  static const Color _proxiplayBlueLight = Color(0xFF2C2C6E);
+  static const Color _progressRed = Color(0xFFA0134D);
+  static const Color _accentRed = Color(0xFFA0134D);
+  static const Color _cardWhite = Color(0xFFFFFFFF);
+  static const Color _mutedGrey = Color(0xFFE3E5EA);
+  static const Color _mutedText = Color(0xFF7D8597);
+
+  final GlobalKey _mainPrizeSectionKey = GlobalKey();
+
   DocumentReference get _animationRef =>
-      AnimationsRecord.collection.doc(animationId);
+      AnimationsRecord.collection.doc(widget.animationId);
 
   Stream<_AnimationProgressData> _progressStream() {
     if (currentUserUid.isEmpty) {
@@ -28,28 +44,35 @@ class AnimationDetailPage extends StatelessWidget {
     }
 
     return FirebaseFirestore.instance
-        .collection('users')
-        .doc(currentUserUid)
         .collection('animations')
-        .doc(animationId)
+        .doc(widget.animationId)
+        .collection('entries')
+        .doc(currentUserUid)
         .snapshots()
         .map((snapshot) {
       final data = snapshot.data() ?? const <String, dynamic>{};
-      final rawVisited = data['visited_merchants'];
-      final visitedMerchants = rawVisited is Iterable
-          ? rawVisited.map((e) => e.toString()).toList()
+      final visitedCount = data['visited_count'] is int
+          ? data['visited_count'] as int
+          : 0;
+      final thresholdReached = data['threshold_reached'] == true;
+      final rawVisitedMerchantIds = data['visited_merchant_ids'];
+      final visitedMerchantIds = rawVisitedMerchantIds is List
+          ? rawVisitedMerchantIds
+              .map((value) => value?.toString().trim() ?? '')
+              .where((value) => value.isNotEmpty)
+              .toList()
           : const <String>[];
-      final qualified = data['qualified'] == true;
       return _AnimationProgressData(
-        visitedMerchants: visitedMerchants,
-        qualified: qualified,
+        visitedCount: visitedCount,
+        thresholdReached: thresholdReached,
+        visitedMerchantIds: visitedMerchantIds,
       );
     });
   }
 
   Stream<List<GamesRecord>> _animationGamesStream() {
     return GamesRecord.collection
-        .where('animation_id', isEqualTo: animationId)
+        .where('animation_id', isEqualTo: widget.animationId)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
@@ -59,47 +82,113 @@ class AnimationDetailPage extends StatelessWidget {
   }
 
   String _formatPrizeLabel(GamesRecord game) {
-    if (game.prizeValue <= 0) {
-      return 'Gains instantanes';
+    final secondaryPrize = game.secondaryPrizeDescription.trim();
+    if (secondaryPrize.isNotEmpty) {
+      return secondaryPrize;
     }
 
-    final hasDecimals = game.prizeValue % 1 != 0;
-    return hasDecimals
-        ? '${game.prizeValue.toStringAsFixed(2).replaceAll('.', ',')} EUR'
-        : '${game.prizeValue.toStringAsFixed(0)} EUR';
+    final prizeDescription =
+        (game.snapshotData['prize_description'] as String? ?? '').trim();
+    if (prizeDescription.isNotEmpty) {
+      return prizeDescription;
+    }
+
+    return 'Lot à découvrir en boutique';
   }
 
-  String _formatAnimationDates(BuildContext context, AnimationsRecord animation) {
-    final locale = FFLocalizations.of(context).languageCode;
-    final start = animation.startDate != null
-        ? dateTimeFormat('d/M/y', animation.startDate, locale: locale)
-        : '-';
-    final end = animation.endDate != null
-        ? dateTimeFormat('d/M/y', animation.endDate, locale: locale)
-        : '-';
-    return 'Du $start au $end';
+  String _presentationGameDescription(GamesRecord game) {
+    for (final item in game.secondaryPrizes) {
+      final presentation = (item['presentation'] as String? ?? '').trim();
+      if (presentation.isNotEmpty) {
+        return presentation;
+      }
+    }
+
+    final secondaryDescription = game.secondaryPrizeDescription.trim();
+    if (secondaryDescription.isNotEmpty) {
+      return secondaryDescription;
+    }
+
+    final prizeDescription =
+        (game.snapshotData['prize_description'] as String? ?? '').trim();
+    if (prizeDescription.isNotEmpty) {
+      return prizeDescription;
+    }
+
+    return game.description;
   }
 
   static Future<EnseignesRecord?> loadEnseigne(
-    DocumentReference? enseigneRef,
+    GamesRecord game,
   ) async {
-    if (enseigneRef == null) {
+    if (game.enseigneId != null) {
+      try {
+        final enseigne = await EnseignesRecord.getDocumentOnce(game.enseigneId!);
+        if (enseigne.name.trim().isNotEmpty) {
+          return enseigne;
+        }
+      } catch (_) {}
+    }
+
+    final enseigneName = game.enseigneName.trim();
+    if (enseigneName.isEmpty) {
       return null;
     }
 
     try {
-      return await EnseignesRecord.getDocumentOnce(enseigneRef);
-    } catch (_) {
-      return null;
-    }
+      final enseignes = await queryEnseignesRecordOnce(
+        queryBuilder: (query) => query.where('name', isEqualTo: enseigneName),
+        singleRecord: true,
+      );
+      if (enseignes.isNotEmpty) {
+        return enseignes.first;
+      }
+    } catch (_) {}
+
+    return null;
   }
 
+  // Kept for the QR flow and future entry points to a specific game.
+  // ignore: unused_element
   Future<void> _openGameDetail(
     BuildContext context,
     GamesRecord game, {
     EnseignesRecord? enseigne,
+    bool fromQr = false,
+    String source = 'campaign',
   }) async {
-    final resolvedEnseigne = enseigne ?? await loadEnseigne(game.enseigneId);
+    final resolvedEnseigne =
+        enseigne ?? await loadEnseigne(game);
+    final prizeDescription =
+        (game.snapshotData['prize_description'] as String? ?? '').trim();
+    final prizePresentation =
+        (game.snapshotData['prize_presentation'] as String? ?? '').trim();
+    final prizeCount = game.snapshotData['prize_count'];
+    final countInt = prizeCount is int
+        ? prizeCount
+        : int.tryParse(prizeCount?.toString() ?? '') ?? 1;
+    final snapshotSecondaryPrizes =
+        game.snapshotData['secondary_prizes'] as List<dynamic>? ?? const [];
+    final presentationGame = GamesRecord.getDocumentFromData(
+      <String, dynamic>{
+        ...game.snapshotData,
+        'name': prizeDescription.isNotEmpty
+            ? prizeDescription
+            : game.enseigneName,
+        'description': _presentationGameDescription(game),
+        if (resolvedEnseigne != null) 'enseigne_id': resolvedEnseigne.reference,
+        if (resolvedEnseigne != null) 'enseigne_name': resolvedEnseigne.name,
+        if (snapshotSecondaryPrizes.isEmpty && prizeDescription.isNotEmpty)
+          'secondary_prizes': [
+            <String, dynamic>{
+              'name': prizeDescription,
+              'count': countInt,
+              'presentation': prizePresentation,
+            },
+          ],
+      },
+      game.reference,
+    );
 
     if (!context.mounted) {
       return;
@@ -119,20 +208,74 @@ class AnimationDetailPage extends StatelessWidget {
       JeuDetailJoueurPageWidget.routeName,
       queryParameters: {
         'gameDoc': serializeParam(
-          game,
+          presentationGame,
           ParamType.Document,
         ),
         'enseigneDoc': enseigneParam,
+        'fromQr': serializeParam(
+          fromQr,
+          ParamType.bool,
+        ),
       }.withoutNulls,
       extra: <String, dynamic>{
-        'gameDoc': game,
+        'gameDoc': presentationGame,
         if (resolvedEnseigne != null) 'enseigneDoc': resolvedEnseigne,
-        'source': 'campaign',
+        'source': source,
         kTransitionInfoKey: const TransitionInfo(
           hasTransition: true,
           transitionType: PageTransitionType.rightToLeft,
         ),
       },
+    );
+  }
+
+  Future<void> _openQrScanner(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _QrScannerPage(
+          onDetected: (String url) async {
+            Navigator.of(context).pop();
+            final uri = Uri.tryParse(url);
+            if (uri == null) {
+              return;
+            }
+            final segments = uri.pathSegments;
+            final jIndex = segments.indexOf('j');
+            if (jIndex == -1 || jIndex + 1 >= segments.length) {
+              return;
+            }
+            final gameId = segments[jIndex + 1].trim();
+            if (gameId.isEmpty) {
+              return;
+            }
+            final gameRef = GamesRecord.collection.doc(gameId);
+            final gameDoc = await GamesRecord.getDocumentOnce(gameRef);
+            if (!context.mounted) {
+              return;
+            }
+            await _openGameDetail(
+              context,
+              gameDoc,
+              fromQr: true,
+              source: 'qr_scan',
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _scrollToMainPrizeSection() async {
+    final targetContext = _mainPrizeSectionKey.currentContext;
+    if (targetContext == null) {
+      return;
+    }
+
+    await Scrollable.ensureVisible(
+      targetContext,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOut,
+      alignment: 0.08,
     );
   }
 
@@ -143,7 +286,6 @@ class AnimationDetailPage extends StatelessWidget {
       builder: (context, animationSnapshot) {
         if (animationSnapshot.hasError) {
           return _AnimationDetailScaffold(
-            title: 'Animation',
             body: _CenteredState(
               child: Text(
                 'Impossible de charger cette animation.',
@@ -155,18 +297,27 @@ class AnimationDetailPage extends StatelessWidget {
         }
 
         if (!animationSnapshot.hasData) {
-          return _AnimationDetailScaffold(
-            title: 'Animation',
-            body: const _CenteredState(
+          return const _AnimationDetailScaffold(
+            body: _CenteredState(
               child: CircularProgressIndicator(),
             ),
           );
         }
 
         final animation = animationSnapshot.data!;
+        final hasMainPrizeSection = animation.prizeImage.trim().isNotEmpty ||
+            animation.prizeDescription.trim().isNotEmpty;
 
         return _AnimationDetailScaffold(
-          title: animation.name.isNotEmpty ? animation.name : 'Animation',
+          bottomNavigationBar: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 16.0),
+              child: _ScanQrButton(
+                onPressed: () => _openQrScanner(context),
+              ),
+            ),
+          ),
           body: StreamBuilder<_AnimationProgressData>(
             stream: _progressStream(),
             builder: (context, progressSnapshot) {
@@ -180,132 +331,67 @@ class AnimationDetailPage extends StatelessWidget {
                   final games = gamesSnapshot.data ?? const <GamesRecord>[];
 
                   return SingleChildScrollView(
-                    padding: EdgeInsets.zero,
+                    padding: const EdgeInsets.only(bottom: 120.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(
-                          width: double.infinity,
-                          height: 200.0,
-                          child: animation.coverImage.isNotEmpty
-                              ? Image.network(
-                                  animation.coverImage,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return _BannerPlaceholder(
-                                      label: animation.name,
-                                    );
-                                  },
-                                )
-                              : _BannerPlaceholder(
-                                  label: animation.name,
-                                ),
+                        if (animation.description.trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              16.0,
+                              16.0,
+                              16.0,
+                              0.0,
+                            ),
+                            child: Text(
+                              animation.description.trim(),
+                              style: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .override(
+                                    font: GoogleFonts.inter(
+                                      fontWeight: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontStyle,
+                                    ),
+                                    color: _proxiplayBlue,
+                                    fontSize: 14.0,
+                                    letterSpacing: 0.0,
+                                  ),
+                            ),
+                          ),
+                        _AnimationBanner(animation: animation),
+                        _ProgressCard(
+                          progress: progress,
+                          threshold: animation.threshold,
                         ),
+                        if (hasMainPrizeSection)
+                          _MainPrizeShortcutCard(
+                            prizeDescription: animation.prizeDescription.trim(),
+                            onTap: _scrollToMainPrizeSection,
+                          ),
                         Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 24.0),
+                          padding: const EdgeInsets.fromLTRB(
+                            16.0,
+                            0.0,
+                            16.0,
+                            0.0,
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _SectionTitle(
-                                title: 'Gros lot final',
-                              ),
-                              const SizedBox(height: 12.0),
-                              _InfoCard(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (animation.prizeImage.isNotEmpty)
-                                      ClipRRect(
-                                        borderRadius:
-                                            BorderRadius.circular(16.0),
-                                        child: Image.network(
-                                          animation.prizeImage,
-                                          width: double.infinity,
-                                          height: 180.0,
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stackTrace) =>
-                                                  const SizedBox.shrink(),
-                                        ),
-                                      ),
-                                    if (animation.prizeImage.isNotEmpty)
-                                      const SizedBox(height: 14.0),
-                                    Text(
-                                      animation.prizeDescription.isNotEmpty
-                                          ? animation.prizeDescription
-                                          : 'Lot final a venir',
-                                      style: FlutterFlowTheme.of(context)
-                                          .bodyLarge
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight: FontWeight.w600,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyLarge
-                                                      .fontStyle,
-                                            ),
-                                            letterSpacing: 0.0,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 10.0),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.calendar_today_rounded,
-                                          size: 18.0,
-                                          color:
-                                              FlutterFlowTheme.of(context)
-                                                  .primary,
-                                        ),
-                                        const SizedBox(width: 8.0),
-                                        Expanded(
-                                          child: Text(
-                                            _formatAnimationDates(
-                                              context,
-                                              animation,
-                                            ),
-                                            style: FlutterFlowTheme.of(context)
-                                                .bodyMedium
-                                                .override(
-                                                  font: GoogleFonts.inter(
-                                                    fontWeight: FontWeight.w500,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodyMedium
-                                                            .fontStyle,
-                                                  ),
-                                                  letterSpacing: 0.0,
-                                                ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 20.0),
-                              _SectionTitle(
-                                title: 'Ta progression',
-                              ),
-                              const SizedBox(height: 12.0),
-                              _ProgressCard(
-                                progress: progress,
-                                threshold: animation.threshold,
-                              ),
-                              const SizedBox(height: 20.0),
-                              _SectionTitle(
-                                title: 'Commerces participants',
+                              const _SectionHeader(
+                                icon: Icons.card_giftcard_rounded,
+                                title:
+                                    'Commerces participants & lots immédiats',
                               ),
                               const SizedBox(height: 12.0),
                               if (hasGamesError)
-                                _InfoCard(
-                                  child: Text(
-                                    'Impossible de charger les jeux participants.',
-                                    style:
-                                        FlutterFlowTheme.of(context).bodyMedium,
-                                  ),
+                                const _StatusCard(
+                                  message:
+                                      'Impossible de charger les jeux participants.',
                                 )
                               else if (!gamesSnapshot.hasData)
                                 const Padding(
@@ -315,42 +401,42 @@ class AnimationDetailPage extends StatelessWidget {
                                   ),
                                 )
                               else if (games.isEmpty)
-                                _InfoCard(
-                                  child: Text(
-                                    'Aucun jeu participant pour le moment.',
-                                    style:
-                                        FlutterFlowTheme.of(context).bodyMedium,
-                                  ),
+                                const _StatusCard(
+                                  message:
+                                      'Aucun commerce participant pour le moment.',
                                 )
                               else
                                 Column(
                                   children: games.map((game) {
+                                    final enseigneId =
+                                        game.enseigneId?.id.trim() ?? '';
+                                    final isVisited = progress.visitedMerchantIds
+                                        .contains(enseigneId);
                                     return Padding(
                                       padding:
-                                          const EdgeInsets.only(bottom: 16.0),
-                                      child: _AnimationGameTile(
+                                          const EdgeInsets.only(bottom: 8.0),
+                                      child: _MerchantGameCard(
                                         game: game,
                                         prizeText: _formatPrizeLabel(game),
-                                        endDateText: game.endDate != null
-                                            ? 'Valable jusqu\'au : ${dateTimeFormat(
-                                                'd/M/y',
-                                                game.endDate,
-                                                locale:
-                                                    FFLocalizations.of(context)
-                                                        .languageCode,
-                                              )}'
-                                            : 'Valable jusqu\'au : -',
-                                        onOpen: game.accessMode ==
-                                                AccessMode.public
-                                            ? () => _openGameDetail(
-                                                  context,
-                                                  game,
-                                                )
-                                            : null,
+                                        isVisited: isVisited,
+                                        onTap: (enseigne) => _openGameDetail(
+                                          context,
+                                          game,
+                                          enseigne: enseigne,
+                                        ),
                                       ),
                                     );
                                   }).toList(),
                                 ),
+                              if (hasMainPrizeSection) ...[
+                                const SizedBox(height: 24.0),
+                                _MainPrizeSection(
+                                  sectionKey: _mainPrizeSectionKey,
+                                  prizeImage: animation.prizeImage.trim(),
+                                  prizeDescription:
+                                      animation.prizeDescription.trim(),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -367,84 +453,60 @@ class AnimationDetailPage extends StatelessWidget {
   }
 }
 
-class _AnimationGameTile extends StatelessWidget {
-  const _AnimationGameTile({
-    required this.game,
-    required this.prizeText,
-    required this.endDateText,
-    this.onOpen,
+class _AnimationBanner extends StatelessWidget {
+  const _AnimationBanner({
+    required this.animation,
   });
 
-  final GamesRecord game;
-  final String prizeText;
-  final String endDateText;
-  final Future<void> Function()? onOpen;
+  final AnimationsRecord animation;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<EnseignesRecord?>(
-      future: AnimationDetailPage.loadEnseigne(game.enseigneId),
-      builder: (context, snapshot) {
-        final enseigne = snapshot.data;
-        final storeName = (enseigne?.name ?? game.enseigneName).trim();
-        final city = (enseigne?.city ?? '').trim();
-        final isQrOnly = game.accessMode == AccessMode.qr_only;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            GameCardWidget(
-              title: game.name,
-              imageUrl: game.photo,
-              storeName: storeName.isNotEmpty ? storeName : 'Commerce partenaire',
-              city: city,
-              prizeText: prizeText,
-              endDateText: endDateText,
-              gameAccessType: game.type,
-              accessMode: game.accessMode,
-              width: double.infinity,
-              onTap: isQrOnly
-                  ? null
-                  : () async {
-                      await onOpen?.call();
-                    },
-            ),
-            const SizedBox(height: 10.0),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: isQrOnly
-                    ? null
-                    : () async {
-                        await onOpen?.call();
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isQrOnly
-                      ? const Color(0xFFE5E7EB)
-                      : FlutterFlowTheme.of(context).primary,
-                  foregroundColor: isQrOnly
-                      ? const Color(0xFF6B7280)
-                      : Colors.white,
-                  disabledBackgroundColor: const Color(0xFFE5E7EB),
-                  disabledForegroundColor: const Color(0xFF6B7280),
-                  minimumSize: const Size.fromHeight(48.0),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14.0),
+    return Container(
+      height: 200.0,
+      width: double.infinity,
+      margin: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24.0),
+        gradient: animation.coverImage.trim().isEmpty
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  _AnimationDetailPageState._proxiplayBlue,
+                  _AnimationDetailPageState._proxiplayBlueLight,
+                ],
+              )
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 18.0,
+            offset: const Offset(0.0, 8.0),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: animation.coverImage.trim().isNotEmpty
+          ? Image.network(
+              animation.coverImage,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        _AnimationDetailPageState._proxiplayBlue,
+                        _AnimationDetailPageState._proxiplayBlueLight,
+                      ],
+                    ),
                   ),
-                  elevation: 0.0,
-                ),
-                child: Text(
-                  isQrOnly ? 'Disponible en commerce' : 'Voir le jeu',
-                  style: GoogleFonts.inter(
-                    fontSize: 15.0,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+                );
+              },
+            )
+          : const SizedBox.expand(),
     );
   }
 }
@@ -461,59 +523,564 @@ class _ProgressCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final safeThreshold = threshold <= 0 ? 1 : threshold;
-    final visitedCount = progress.visitedMerchants.length;
-    final progressValue = (visitedCount / safeThreshold).clamp(0.0, 1.0);
+    final visitedCount = progress.visitedCount.clamp(0, safeThreshold);
+    final remaining = (safeThreshold - visitedCount).clamp(0, safeThreshold);
 
-    return _InfoCard(
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: _AnimationDetailPageState._cardWhite,
+        borderRadius: BorderRadius.circular(16.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 14.0,
+            offset: const Offset(0.0, 6.0),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '$visitedCount/$safeThreshold commercants visites',
-            style: FlutterFlowTheme.of(context).titleMedium.override(
-                  font: GoogleFonts.interTight(
-                    fontWeight: FontWeight.w700,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                  ),
-                  letterSpacing: 0.0,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Ta progression',
+                  style: FlutterFlowTheme.of(context).titleMedium.override(
+                        font: GoogleFonts.interTight(
+                          fontWeight: FontWeight.w700,
+                          fontStyle: FlutterFlowTheme.of(context)
+                              .titleMedium
+                              .fontStyle,
+                        ),
+                        color: _AnimationDetailPageState._proxiplayBlue,
+                        letterSpacing: 0.0,
+                        fontWeight: FontWeight.w700,
+                      ),
                 ),
-          ),
-          const SizedBox(height: 12.0),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999.0),
-            child: LinearProgressIndicator(
-              value: progressValue,
-              minHeight: 12.0,
-              backgroundColor: const Color(0xFFE5E7EB),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                FlutterFlowTheme.of(context).primary,
               ),
-            ),
-          ),
-          if (progress.qualified) ...[
-            const SizedBox(height: 14.0),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12.0,
-                vertical: 8.0,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F5E9),
-                borderRadius: BorderRadius.circular(999.0),
-              ),
-              child: Text(
-                'Qualifie pour le tirage !',
+              Text(
+                '$visitedCount/$safeThreshold commerces visités',
                 style: FlutterFlowTheme.of(context).bodyMedium.override(
                       font: GoogleFonts.inter(
                         fontWeight: FontWeight.w700,
                         fontStyle:
                             FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                       ),
-                      color: const Color(0xFF2E7D32),
+                      color: _AnimationDetailPageState._proxiplayBlue,
+                      letterSpacing: 0.0,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18.0),
+          Row(
+            children: List.generate(safeThreshold, (index) {
+              final stepNumber = index + 1;
+              final isVisited = index < visitedCount;
+              final isCurrent =
+                  !progress.thresholdReached && index == visitedCount;
+
+              return Expanded(
+                child: Row(
+                  children: [
+                    _ProgressStepCircle(
+                      stepNumber: stepNumber,
+                      isVisited: isVisited,
+                      isCurrent: isCurrent,
+                    ),
+                    if (index < safeThreshold - 1)
+                      Expanded(
+                        child: Container(
+                          height: 4.0,
+                          color: index < visitedCount - 1
+                              ? _AnimationDetailPageState._progressRed
+                              : _AnimationDetailPageState._mutedGrey,
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 16.0),
+          Text(
+            progress.thresholdReached
+                ? 'Tu es qualifié pour le tirage final !'
+                : 'Visite encore $remaining commerces en scannant le QR code en boutique pour participer au tirage final.',
+            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                  font: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                  ),
+                  color: progress.thresholdReached
+                      ? _AnimationDetailPageState._progressRed
+                      : _AnimationDetailPageState._proxiplayBlue,
+                  letterSpacing: 0.0,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressStepCircle extends StatelessWidget {
+  const _ProgressStepCircle({
+    required this.stepNumber,
+    required this.isVisited,
+    required this.isCurrent,
+  });
+
+  final int stepNumber;
+  final bool isVisited;
+  final bool isCurrent;
+
+  @override
+  Widget build(BuildContext context) {
+    final backgroundColor = isVisited
+        ? _AnimationDetailPageState._progressRed
+        : (isCurrent ? Colors.white : const Color(0xFFF1F2F5));
+    final borderColor = isCurrent
+        ? _AnimationDetailPageState._proxiplayBlue
+        : Colors.transparent;
+    final textColor = isVisited
+        ? Colors.white
+        : (isCurrent
+            ? _AnimationDetailPageState._proxiplayBlue
+            : _AnimationDetailPageState._mutedText);
+
+    return Container(
+      width: 36.0,
+      height: 36.0,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: borderColor,
+          width: 3.0,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: isVisited
+          ? const Icon(
+              Icons.check_rounded,
+              color: Colors.white,
+              size: 20.0,
+            )
+          : Text(
+              '$stepNumber',
+              style: FlutterFlowTheme.of(context).bodyMedium.override(
+                    font: GoogleFonts.inter(
+                      fontWeight: FontWeight.w700,
+                      fontStyle:
+                          FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                    ),
+                    color: textColor,
+                    letterSpacing: 0.0,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+    );
+  }
+}
+
+class _MainPrizeShortcutCard extends StatelessWidget {
+  const _MainPrizeShortcutCard({
+    required this.prizeDescription,
+    required this.onTap,
+  });
+
+  final String prizeDescription;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Material(
+        color: _AnimationDetailPageState._cardWhite,
+        borderRadius: BorderRadius.circular(16.0),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16.0),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.emoji_events_rounded,
+                  color: _AnimationDetailPageState._accentRed,
+                  size: 28.0,
+                ),
+                const SizedBox(width: 12.0),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Gros lot à gagner',
+                        style: FlutterFlowTheme.of(context).bodySmall.override(
+                              font: GoogleFonts.inter(
+                                fontWeight: FontWeight.w500,
+                                fontStyle: FlutterFlowTheme.of(context)
+                                    .bodySmall
+                                    .fontStyle,
+                              ),
+                              color: _AnimationDetailPageState._mutedText,
+                              fontSize: 12.0,
+                              letterSpacing: 0.0,
+                            ),
+                      ),
+                      const SizedBox(height: 4.0),
+                      Text(
+                        prizeDescription,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: FlutterFlowTheme.of(context).bodyLarge.override(
+                              font: GoogleFonts.inter(
+                                fontWeight: FontWeight.w700,
+                                fontStyle: FlutterFlowTheme.of(context)
+                                    .bodyLarge
+                                    .fontStyle,
+                              ),
+                              color: _AnimationDetailPageState._proxiplayBlue,
+                              fontSize: 16.0,
+                              letterSpacing: 0.0,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12.0),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: _AnimationDetailPageState._mutedText,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+  });
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: _AnimationDetailPageState._accentRed,
+          size: 22.0,
+        ),
+        const SizedBox(width: 8.0),
+        Expanded(
+          child: Text(
+            title,
+            style: FlutterFlowTheme.of(context).titleLarge.override(
+                  font: GoogleFonts.interTight(
+                    fontWeight: FontWeight.w700,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).titleLarge.fontStyle,
+                  ),
+                  color: _AnimationDetailPageState._proxiplayBlue,
+                  letterSpacing: 0.0,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MainPrizeSection extends StatelessWidget {
+  const _MainPrizeSection({
+    required this.sectionKey,
+    required this.prizeImage,
+    required this.prizeDescription,
+  });
+
+  final GlobalKey sectionKey;
+  final String prizeImage;
+  final String prizeDescription;
+
+  @override
+  Widget build(BuildContext context) {
+    if (prizeImage.isEmpty && prizeDescription.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      key: sectionKey,
+      width: double.infinity,
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionHeader(
+            icon: Icons.emoji_events_rounded,
+            title: 'Lot principal',
+          ),
+          if (prizeImage.isNotEmpty || prizeDescription.isNotEmpty)
+            const SizedBox(height: 12.0),
+          if (prizeImage.isNotEmpty)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16.0),
+              child: Image.network(
+                prizeImage,
+                width: double.infinity,
+                height: 220.0,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          if (prizeDescription.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                prizeDescription,
+                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                      font: GoogleFonts.inter(
+                        fontWeight:
+                            FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                        fontStyle:
+                            FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                      ),
+                      color: _AnimationDetailPageState._proxiplayBlue,
+                      fontSize: 14.0,
                       letterSpacing: 0.0,
                     ),
               ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MerchantGameCard extends StatelessWidget {
+  const _MerchantGameCard({
+    required this.game,
+    required this.prizeText,
+    required this.isVisited,
+    required this.onTap,
+  });
+
+  final GamesRecord game;
+  final String prizeText;
+  final bool isVisited;
+  final Future<void> Function(EnseignesRecord? enseigne) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<EnseignesRecord?>(
+      future: _AnimationDetailPageState.loadEnseigne(game),
+      builder: (context, snapshot) {
+        final enseigne = snapshot.data;
+        final storeName = (enseigne?.name ?? game.enseigneName).trim().isNotEmpty
+            ? (enseigne?.name ?? game.enseigneName).trim()
+            : 'Commerce partenaire';
+        final imageUrl = game.photo.trim();
+
+        return GestureDetector(
+          onTap: () async {
+            await onTap(enseigne);
+          },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12.0),
+            decoration: BoxDecoration(
+              color: _AnimationDetailPageState._cardWhite,
+              borderRadius: BorderRadius.circular(12.0),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10.0,
+                  offset: const Offset(0.0, 4.0),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                _MerchantImage(imageUrl: imageUrl, fallbackLabel: storeName),
+                const SizedBox(width: 12.0),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        storeName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: FlutterFlowTheme.of(context).bodyLarge.override(
+                              font: GoogleFonts.inter(
+                                fontWeight: FontWeight.w700,
+                                fontStyle: FlutterFlowTheme.of(context)
+                                    .bodyLarge
+                                    .fontStyle,
+                              ),
+                              color: _AnimationDetailPageState._proxiplayBlue,
+                              letterSpacing: 0.0,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      const SizedBox(height: 4.0),
+                      Text(
+                        prizeText,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: FlutterFlowTheme.of(context).bodyMedium.override(
+                              font: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600,
+                                fontStyle: FlutterFlowTheme.of(context)
+                                    .bodyMedium
+                                    .fontStyle,
+                              ),
+                              color: _AnimationDetailPageState._progressRed,
+                              letterSpacing: 0.0,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8.0),
+                _MerchantStatusBadge(isVisited: isVisited),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MerchantImage extends StatelessWidget {
+  const _MerchantImage({
+    required this.imageUrl,
+    required this.fallbackLabel,
+  });
+
+  final String imageUrl;
+  final String fallbackLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallbackText = fallbackLabel.isNotEmpty
+        ? fallbackLabel.characters.first.toUpperCase()
+        : '?';
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12.0),
+      child: Container(
+        width: 48.0,
+        height: 48.0,
+        color: const Color(0xFFEFF2F7),
+        child: imageUrl.isNotEmpty
+            ? Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Center(
+                    child: Text(
+                      fallbackText,
+                      style: FlutterFlowTheme.of(context).titleMedium.override(
+                            font: GoogleFonts.interTight(
+                              fontWeight: FontWeight.w700,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .titleMedium
+                                  .fontStyle,
+                            ),
+                            color: _AnimationDetailPageState._proxiplayBlue,
+                            letterSpacing: 0.0,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  );
+                },
+              )
+            : Center(
+                child: Text(
+                  fallbackText,
+                  style: FlutterFlowTheme.of(context).titleMedium.override(
+                        font: GoogleFonts.interTight(
+                          fontWeight: FontWeight.w700,
+                          fontStyle:
+                              FlutterFlowTheme.of(context).titleMedium.fontStyle,
+                        ),
+                        color: _AnimationDetailPageState._proxiplayBlue,
+                        letterSpacing: 0.0,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _MerchantStatusBadge extends StatelessWidget {
+  const _MerchantStatusBadge({
+    required this.isVisited,
+  });
+
+  final bool isVisited;
+
+  @override
+  Widget build(BuildContext context) {
+    final backgroundColor = isVisited
+        ? _AnimationDetailPageState._progressRed.withValues(alpha: 0.14)
+        : const Color(0xFFF1F2F5);
+    final foregroundColor = isVisited
+        ? _AnimationDetailPageState._progressRed
+        : _AnimationDetailPageState._mutedText;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999.0),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            isVisited ? 'Visité' : 'En boutique',
+            style: FlutterFlowTheme.of(context).bodySmall.override(
+                  font: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                  ),
+                  color: foregroundColor,
+                  letterSpacing: 0.0,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          if (isVisited) ...[
+            const SizedBox(width: 4.0),
+            Icon(
+              Icons.check_rounded,
+              size: 16.0,
+              color: foregroundColor,
             ),
           ],
         ],
@@ -522,49 +1089,128 @@ class _ProgressCard extends StatelessWidget {
   }
 }
 
-class _AnimationDetailScaffold extends StatelessWidget {
-  const _AnimationDetailScaffold({
-    required this.title,
-    required this.body,
+class _ScanQrButton extends StatelessWidget {
+  const _ScanQrButton({
+    required this.onPressed,
   });
 
-  final String title;
-  final Widget body;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-      appBar: AppBar(
-        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-        elevation: 0.0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.safePop(),
+    return SizedBox(
+      width: double.infinity,
+      height: 56.0,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _AnimationDetailPageState._progressRed,
+          foregroundColor: Colors.white,
+          elevation: 0.0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30.0),
+          ),
         ),
-        title: Text(
-          title,
-          style: FlutterFlowTheme.of(context).titleLarge.override(
-                font: GoogleFonts.interTight(
-                  fontWeight: FontWeight.w700,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                ),
-                letterSpacing: 0.0,
+        child: Row(
+          children: [
+            Container(
+              width: 36.0,
+              height: 36.0,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(12.0),
               ),
+              child: const Icon(
+                Icons.qr_code_scanner_rounded,
+                color: Colors.white,
+                size: 22.0,
+              ),
+            ),
+            const SizedBox(width: 12.0),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Scanner un QR code',
+                    style: FlutterFlowTheme.of(context).bodyLarge.override(
+                          font: GoogleFonts.inter(
+                            fontWeight: FontWeight.w700,
+                            fontStyle: FlutterFlowTheme.of(context)
+                                .bodyLarge
+                                .fontStyle,
+                          ),
+                          color: Colors.white,
+                          letterSpacing: 0.0,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  Text(
+                    'chez un commerçant',
+                    style: FlutterFlowTheme.of(context).bodySmall.override(
+                          font: GoogleFonts.inter(
+                            fontWeight: FontWeight.w500,
+                            fontStyle: FlutterFlowTheme.of(context)
+                                .bodySmall
+                                .fontStyle,
+                          ),
+                          color: Colors.white.withValues(alpha: 0.8),
+                          letterSpacing: 0.0,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
-      body: body,
     );
   }
 }
 
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({
-    required this.child,
+class _AnimationDetailScaffold extends StatelessWidget {
+  const _AnimationDetailScaffold({
+    required this.body,
+    this.bottomNavigationBar,
   });
 
-  final Widget child;
+  final Widget body;
+  final Widget? bottomNavigationBar;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _AnimationDetailPageState._pageBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: _AnimationDetailPageState._pageBackgroundColor,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+        elevation: 0.0,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: _AnimationDetailPageState._proxiplayBlue,
+          ),
+          onPressed: () => context.safePop(),
+        ),
+        title: Image.asset(
+          'assets/images/logo_D_secondaire.png',
+          height: 32.0,
+        ),
+      ),
+      body: body,
+      bottomNavigationBar: bottomNavigationBar,
+    );
+  }
+}
+
+class _StatusCard extends StatelessWidget {
+  const _StatusCard({
+    required this.message,
+  });
+
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -572,39 +1218,20 @@ class _InfoCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: FlutterFlowTheme.of(context).secondaryBackground,
-        borderRadius: BorderRadius.circular(20.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 14.0,
-            offset: const Offset(0.0, 4.0),
-          ),
-        ],
+        color: _AnimationDetailPageState._cardWhite,
+        borderRadius: BorderRadius.circular(16.0),
       ),
-      child: child,
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    required this.title,
-  });
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: FlutterFlowTheme.of(context).titleLarge.override(
-            font: GoogleFonts.interTight(
-              fontWeight: FontWeight.w700,
-              fontStyle: FlutterFlowTheme.of(context).titleLarge.fontStyle,
+      child: Text(
+        message,
+        style: FlutterFlowTheme.of(context).bodyMedium.override(
+              font: GoogleFonts.inter(
+                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+              ),
+              color: _AnimationDetailPageState._proxiplayBlue,
+              letterSpacing: 0.0,
             ),
-            letterSpacing: 0.0,
-          ),
+      ),
     );
   }
 }
@@ -627,39 +1254,56 @@ class _CenteredState extends StatelessWidget {
   }
 }
 
-class _BannerPlaceholder extends StatelessWidget {
-  const _BannerPlaceholder({
-    required this.label,
+class _AnimationProgressData {
+  const _AnimationProgressData({
+    this.visitedCount = 0,
+    this.thresholdReached = false,
+    this.visitedMerchantIds = const <String>[],
   });
 
-  final String label;
+  final int visitedCount;
+  final bool thresholdReached;
+  final List<String> visitedMerchantIds;
+}
+
+class _QrScannerPage extends StatefulWidget {
+  const _QrScannerPage({required this.onDetected});
+
+  final void Function(String url) onDetected;
+
+  @override
+  State<_QrScannerPage> createState() => _QrScannerPageState();
+}
+
+class _QrScannerPageState extends State<_QrScannerPage> {
+  bool _handled = false;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: FlutterFlowTheme.of(context).primary.withValues(alpha: 0.12),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: FlutterFlowTheme.of(context).titleLarge.override(
-              font: GoogleFonts.interTight(
-                fontWeight: FontWeight.w700,
-                fontStyle: FlutterFlowTheme.of(context).titleLarge.fontStyle,
-              ),
-              letterSpacing: 0.0,
-            ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Scanner le QR code'),
+        backgroundColor: const Color(0xFF1A1A4E),
+        foregroundColor: Colors.white,
+      ),
+      body: MobileScanner(
+        onDetect: (capture) {
+          if (_handled) {
+            return;
+          }
+          final barcode =
+              capture.barcodes.isNotEmpty ? capture.barcodes.first : null;
+          final url = barcode?.rawValue;
+          if (url == null || url.isEmpty) {
+            return;
+          }
+          if (!url.contains('proxiplay.fr/j/')) {
+            return;
+          }
+          _handled = true;
+          widget.onDetected(url);
+        },
       ),
     );
   }
-}
-
-class _AnimationProgressData {
-  const _AnimationProgressData({
-    this.visitedMerchants = const <String>[],
-    this.qualified = false,
-  });
-
-  final List<String> visitedMerchants;
-  final bool qualified;
 }

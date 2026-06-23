@@ -2499,11 +2499,38 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             reverse: false,
                                                             scrollDirection:
                                                                 Axis.horizontal,
-                                                            separatorBuilder: (_,
-                                                                    __) =>
-                                                                const SizedBox(
-                                                                    width:
-                                                                        10.0),
+                                                            separatorBuilder:
+                                                                (context,
+                                                                    separatorIndex) {
+                                                              final items = _model
+                                                                      .listViewPagingController5
+                                                                      ?.itemList ??
+                                                                  const <GamesRecord>[];
+                                                              final currentItemVisible =
+                                                                  separatorIndex <
+                                                                          items
+                                                                              .length &&
+                                                                      _isGameVisibleForPlayer(
+                                                                          items[
+                                                                              separatorIndex]);
+                                                              final nextItemVisible =
+                                                                  separatorIndex + 1 <
+                                                                          items
+                                                                              .length &&
+                                                                      _isGameVisibleForPlayer(
+                                                                          items[
+                                                                              separatorIndex + 1]);
+
+                                                              if (!currentItemVisible ||
+                                                                  !nextItemVisible) {
+                                                                return const SizedBox
+                                                                    .shrink();
+                                                              }
+
+                                                              return const SizedBox(
+                                                                  width:
+                                                                      _homeHorizontalCardGap);
+                                                            },
                                                             builderDelegate:
                                                                 PagedChildBuilderDelegate<
                                                                     GamesRecord>(
@@ -2667,11 +2694,38 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             reverse: false,
                                                             scrollDirection:
                                                                 Axis.horizontal,
-                                                            separatorBuilder: (_,
-                                                                    __) =>
-                                                                const SizedBox(
-                                                                    width:
-                                                                        10.0),
+                                                            separatorBuilder:
+                                                                (context,
+                                                                    separatorIndex) {
+                                                              final items = _model
+                                                                      .listViewPagingController6
+                                                                      ?.itemList ??
+                                                                  const <GamesRecord>[];
+                                                              final currentItemVisible =
+                                                                  separatorIndex <
+                                                                          items
+                                                                              .length &&
+                                                                      _isGameVisibleForPlayer(
+                                                                          items[
+                                                                              separatorIndex]);
+                                                              final nextItemVisible =
+                                                                  separatorIndex + 1 <
+                                                                          items
+                                                                              .length &&
+                                                                      _isGameVisibleForPlayer(
+                                                                          items[
+                                                                              separatorIndex + 1]);
+
+                                                              if (!currentItemVisible ||
+                                                                  !nextItemVisible) {
+                                                                return const SizedBox
+                                                                    .shrink();
+                                                              }
+
+                                                              return const SizedBox(
+                                                                  width:
+                                                                      _homeHorizontalCardGap);
+                                                            },
                                                             builderDelegate:
                                                                 PagedChildBuilderDelegate<
                                                                     GamesRecord>(
@@ -2827,11 +2881,38 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             reverse: false,
                                                             scrollDirection:
                                                                 Axis.horizontal,
-                                                            separatorBuilder: (_,
-                                                                    __) =>
-                                                                const SizedBox(
-                                                                    width:
-                                                                        10.0),
+                                                            separatorBuilder:
+                                                                (context,
+                                                                    separatorIndex) {
+                                                              final items = _model
+                                                                      .listViewPagingController7
+                                                                      ?.itemList ??
+                                                                  const <GamesRecord>[];
+                                                              final currentItemVisible =
+                                                                  separatorIndex <
+                                                                          items
+                                                                              .length &&
+                                                                      _isGameVisibleForPlayer(
+                                                                          items[
+                                                                              separatorIndex]);
+                                                              final nextItemVisible =
+                                                                  separatorIndex + 1 <
+                                                                          items
+                                                                              .length &&
+                                                                      _isGameVisibleForPlayer(
+                                                                          items[
+                                                                              separatorIndex + 1]);
+
+                                                              if (!currentItemVisible ||
+                                                                  !nextItemVisible) {
+                                                                return const SizedBox
+                                                                    .shrink();
+                                                              }
+
+                                                              return const SizedBox(
+                                                                  width:
+                                                                      _homeHorizontalCardGap);
+                                                            },
                                                             builderDelegate:
                                                                 PagedChildBuilderDelegate<
                                                                     GamesRecord>(
@@ -2999,10 +3080,39 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         reverse: false,
                                                         scrollDirection:
                                                             Axis.horizontal,
-                                                        separatorBuilder: (_,
-                                                                __) =>
-                                                            const SizedBox
-                                                                .shrink(),
+                                                        separatorBuilder:
+                                                            (context,
+                                                                separatorIndex) {
+                                                          final items = _model
+                                                                  .listViewPagingController8
+                                                                  ?.itemList ??
+                                                              const <GamesRecord>[];
+                                                          final currentItemVisible =
+                                                              separatorIndex <
+                                                                      items
+                                                                          .length &&
+                                                                  _isGameVisibleForPlayer(
+                                                                      items[
+                                                                          separatorIndex]);
+                                                          final nextItemVisible =
+                                                              separatorIndex + 1 <
+                                                                      items
+                                                                          .length &&
+                                                                  _isGameVisibleForPlayer(
+                                                                      items[
+                                                                          separatorIndex + 1]);
+
+                                                          if (!currentItemVisible ||
+                                                              !nextItemVisible) {
+                                                            return const SizedBox
+                                                                .shrink();
+                                                          }
+
+                                                          return const SizedBox(
+                                                            width:
+                                                                _homeHorizontalCardGap,
+                                                          );
+                                                        },
                                                         builderDelegate:
                                                             PagedChildBuilderDelegate<
                                                                 GamesRecord>(
@@ -3041,13 +3151,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               return const SizedBox
                                                                   .shrink();
                                                             }
-                                                            return Row(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .min,
-                                                              children: [
-                                                                FutureBuilder<
-                                                                    EnseignesRecord>(
+                                                            return FutureBuilder<
+                                                                EnseignesRecord>(
                                                                   future: _getCachedEnseigneFuture(
                                                                       listViewGamesRecord
                                                                           .enseigneId!),
@@ -3076,12 +3181,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       },
                                                                     );
                                                                   },
-                                                                ),
-                                                                const SizedBox(
-                                                                    width:
-                                                                        10.0),
-                                                              ],
-                                                            );
+                                                                );
                                                           },
                                                         ),
                                                       ),
@@ -3172,10 +3272,39 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         reverse: false,
                                                         scrollDirection:
                                                             Axis.horizontal,
-                                                        separatorBuilder: (_,
-                                                                __) =>
-                                                            const SizedBox
-                                                                .shrink(),
+                                                        separatorBuilder:
+                                                            (context,
+                                                                separatorIndex) {
+                                                          final items = _model
+                                                                  .listViewPagingController9
+                                                                  ?.itemList ??
+                                                              const <GamesRecord>[];
+                                                          final currentItemVisible =
+                                                              separatorIndex <
+                                                                      items
+                                                                          .length &&
+                                                                  _isGameVisibleForPlayer(
+                                                                      items[
+                                                                          separatorIndex]);
+                                                          final nextItemVisible =
+                                                              separatorIndex + 1 <
+                                                                      items
+                                                                          .length &&
+                                                                  _isGameVisibleForPlayer(
+                                                                      items[
+                                                                          separatorIndex + 1]);
+
+                                                          if (!currentItemVisible ||
+                                                              !nextItemVisible) {
+                                                            return const SizedBox
+                                                                .shrink();
+                                                          }
+
+                                                          return const SizedBox(
+                                                            width:
+                                                                _homeHorizontalCardGap,
+                                                          );
+                                                        },
                                                         builderDelegate:
                                                             PagedChildBuilderDelegate<
                                                                 GamesRecord>(
@@ -3209,13 +3338,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               return const SizedBox
                                                                   .shrink();
                                                             }
-                                                            return Row(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .min,
-                                                              children: [
-                                                                FutureBuilder<
-                                                                    EnseignesRecord>(
+                                                            return FutureBuilder<
+                                                                EnseignesRecord>(
                                                                   future: _getCachedEnseigneFuture(
                                                                       listViewGamesRecord
                                                                           .enseigneId!),
@@ -3244,12 +3368,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       },
                                                                     );
                                                                   },
-                                                                ),
-                                                                const SizedBox(
-                                                                    width:
-                                                                        10.0),
-                                                              ],
-                                                            );
+                                                                );
                                                           },
                                                         ),
                                                       ),
@@ -3329,10 +3448,39 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         reverse: false,
                                                         scrollDirection:
                                                             Axis.horizontal,
-                                                        separatorBuilder: (_,
-                                                                __) =>
-                                                            const SizedBox
-                                                                .shrink(),
+                                                        separatorBuilder:
+                                                            (context,
+                                                                separatorIndex) {
+                                                          final items = _model
+                                                                  .listViewPagingController10
+                                                                  ?.itemList ??
+                                                              const <GamesRecord>[];
+                                                          final currentItemVisible =
+                                                              separatorIndex <
+                                                                      items
+                                                                          .length &&
+                                                                  _isGameVisibleForPlayer(
+                                                                      items[
+                                                                          separatorIndex]);
+                                                          final nextItemVisible =
+                                                              separatorIndex + 1 <
+                                                                      items
+                                                                          .length &&
+                                                                  _isGameVisibleForPlayer(
+                                                                      items[
+                                                                          separatorIndex + 1]);
+
+                                                          if (!currentItemVisible ||
+                                                              !nextItemVisible) {
+                                                            return const SizedBox
+                                                                .shrink();
+                                                          }
+
+                                                          return const SizedBox(
+                                                            width:
+                                                                _homeHorizontalCardGap,
+                                                          );
+                                                        },
                                                         builderDelegate:
                                                             PagedChildBuilderDelegate<
                                                                 GamesRecord>(
@@ -3364,13 +3512,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               return const SizedBox
                                                                   .shrink();
                                                             }
-                                                            return Row(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .min,
-                                                              children: [
-                                                                FutureBuilder<
-                                                                    EnseignesRecord>(
+                                                            return FutureBuilder<
+                                                                EnseignesRecord>(
                                                                   future: _getCachedEnseigneFuture(
                                                                       listViewGamesRecord
                                                                           .enseigneId!),
@@ -3399,12 +3542,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       },
                                                                     );
                                                                   },
-                                                                ),
-                                                                const SizedBox(
-                                                                    width:
-                                                                        10.0),
-                                                              ],
-                                                            );
+                                                                );
                                                           },
                                                         ),
                                                       ),

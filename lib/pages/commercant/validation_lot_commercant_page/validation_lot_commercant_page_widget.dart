@@ -32,6 +32,7 @@ class _ValidationLotCommercantPageWidgetState
   late ValidationLotCommercantPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -561,12 +562,41 @@ class _ValidationLotCommercantPageWidgetState
                             ),
                             if (!widget.prize!.claimed)
                               FFButtonWidget(
+                                showLoadingIndicator: _isSubmitting,
                                 onPressed: () async {
-                                  await widget.prize!.reference
-                                      .update(createPrizesRecordData(
-                                    claimed: true,
-                                  ));
-                                  context.safePop();
+                                  if (_isSubmitting) {
+                                    return;
+                                  }
+
+                                  setState(() {
+                                    _isSubmitting = true;
+                                  });
+
+                                  try {
+                                    await widget.prize!.reference
+                                        .update(createPrizesRecordData(
+                                      claimed: true,
+                                    ));
+                                    if (!context.mounted) return;
+                                    context.safePop();
+                                  } catch (error) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: const Text(
+                                          'Validation impossible pour le moment.',
+                                        ),
+                                        backgroundColor:
+                                            FlutterFlowTheme.of(context).error,
+                                      ),
+                                    );
+                                  } finally {
+                                    if (mounted) {
+                                      setState(() {
+                                        _isSubmitting = false;
+                                      });
+                                    }
+                                  }
                                 },
                                 text: 'Valider la Récupération',
                                 options: FFButtonOptions(

@@ -13,6 +13,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
@@ -36,7 +37,10 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
   String _normalizeClaimCode(String rawValue) {
-    return rawValue.trim().toUpperCase();
+    return rawValue
+        .trim()
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]'), '');
   }
 
   Future<Set<DocumentReference>> _loadMerchantEnseigneRefs() async {
@@ -50,7 +54,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
 
     return enseignes
         .map((record) => record.enseigneId)
-        .whereNotNull()
+        .nonNulls
         .toSet();
   }
 
@@ -60,21 +64,61 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
       return null;
     }
 
-    final prizes = await queryPrizesRecordOnce(
+    if (currentUserReference == null) {
+      return null;
+    }
+
+    final merchantEnseigneRefs = await _loadMerchantEnseigneRefs();
+    final prizeByPath = <String, PrizesRecord>{};
+
+    final exactMatchPrizes = await queryPrizesRecordOnce(
       queryBuilder: (prizesRecord) => prizesRecord.where(
         'claim_code',
         isEqualTo: normalizedCode,
       ),
       limit: 10,
     );
-
-    if (prizes.isEmpty || currentUserReference == null) {
-      return null;
+    for (final prize in exactMatchPrizes) {
+      prizeByPath[prize.reference.path] = prize;
     }
 
-    final merchantEnseigneRefs = await _loadMerchantEnseigneRefs();
+    final merchantOwnedPrizes = await queryPrizesRecordOnce(
+      queryBuilder: (prizesRecord) => prizesRecord.where(
+        'owner_id',
+        isEqualTo: currentUserReference,
+      ),
+      limit: 200,
+    );
+    for (final prize in merchantOwnedPrizes) {
+      prizeByPath[prize.reference.path] = prize;
+    }
 
-    return prizes.firstWhereOrNull((prize) {
+    if (merchantEnseigneRefs.isNotEmpty) {
+      final enseignePrizeGroups = await Future.wait(
+        merchantEnseigneRefs.map(
+          (enseigneRef) => queryPrizesRecordOnce(
+            queryBuilder: (prizesRecord) => prizesRecord.where(
+              'enseigne_id',
+              isEqualTo: enseigneRef,
+            ),
+            limit: 200,
+          ),
+        ),
+      );
+
+      for (final prizes in enseignePrizeGroups) {
+        for (final prize in prizes) {
+          prizeByPath[prize.reference.path] = prize;
+        }
+      }
+    }
+
+    return prizeByPath.values.firstWhereOrNull((prize) {
+      final normalizedPrizeCode = _normalizeClaimCode(prize.claimCode);
+      if (normalizedPrizeCode != normalizedCode) {
+        return false;
+      }
+
       final belongsToMerchant = prize.ownerId == currentUserReference;
       final belongsToMerchantEnseigne = prize.enseigneId != null &&
           merchantEnseigneRefs.contains(prize.enseigneId);
@@ -409,6 +453,13 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                           focusNode: _model.textFieldFocusNode,
                                           autofocus: false,
                                           obscureText: false,
+                                          textCapitalization:
+                                              TextCapitalization.characters,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(
+                                              RegExp(r'[A-Za-z0-9\-\s]'),
+                                            ),
+                                          ],
                                           decoration: InputDecoration(
                                             labelStyle:
                                                 FlutterFlowTheme.of(context)

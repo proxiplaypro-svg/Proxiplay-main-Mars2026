@@ -38,6 +38,21 @@ class ScratchCardWidget extends StatefulWidget {
 }
 
 class _ScratchCardWidgetState extends State<ScratchCardWidget> {
+  bool _isRevealed = false;
+  bool _hasScratchStarted = false;
+  bool _hasReachedThreshold = false;
+
+  void _revealCardIfNeeded() {
+    if (!_hasScratchStarted || !_hasReachedThreshold || _isRevealed) {
+      return;
+    }
+
+    setState(() {
+      _isRevealed = true;
+    });
+    widget.setCardRevealed();
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -50,10 +65,23 @@ class _ScratchCardWidgetState extends State<ScratchCardWidget> {
           fit: BoxFit.cover,
         ),
         onThreshold: () {
-          widget.setCardRevealed();
+          if (!_hasScratchStarted) {
+            return;
+          }
+          _hasReachedThreshold = true;
         },
-        onScratchStart: widget.onScratchStart,
-        onScratchEnd: widget.onScratchEnd,
+        onScratchStart: () {
+          if (!_hasScratchStarted) {
+            setState(() {
+              _hasScratchStarted = true;
+            });
+          }
+          widget.onScratchStart?.call();
+        },
+        onScratchEnd: () {
+          _revealCardIfNeeded();
+          widget.onScratchEnd?.call();
+        },
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -67,7 +95,7 @@ class _ScratchCardWidgetState extends State<ScratchCardWidget> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                widget.rewardText,
+                _isRevealed ? widget.rewardText : widget.hiddenContent,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -75,7 +103,7 @@ class _ScratchCardWidgetState extends State<ScratchCardWidget> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              if (widget.rewardTextBonus.isNotEmpty) ...[
+              if (_isRevealed && widget.rewardTextBonus.isNotEmpty) ...[
                 // ✅ Affiche seulement si non vide
                 const SizedBox(height: 10), // ✅ Espacement entre les textes
                 Text(

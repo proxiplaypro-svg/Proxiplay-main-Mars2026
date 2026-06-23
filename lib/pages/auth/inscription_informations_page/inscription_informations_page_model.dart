@@ -79,6 +79,11 @@ class InscriptionInformationsPageModel
       return 'Numéro de téléphone obligatoire';
     }
 
+    final digitsOnly = val.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.length != 10) {
+      return 'Veuillez saisir un numéro de téléphone valide';
+    }
+
     return null;
   }
 
