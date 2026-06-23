@@ -2,6 +2,7 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+const participateInGameTransaction = require("./participate_in_game_transaction.js");
 admin.initializeApp();
 
 const kFcmTokensCollection = "fcm_tokens";
@@ -27,6 +28,9 @@ const kPushNotificationRuntimeOpts = {
   timeoutSeconds: 540,
   memory: "2GB",
 };
+
+exports.participateInGameTransaction =
+  participateInGameTransaction.participateInGameTransaction;
 
 function inferLegacyHasMainPrize(gameData) {
   return (
