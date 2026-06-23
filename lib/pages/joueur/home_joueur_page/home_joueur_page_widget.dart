@@ -1755,10 +1755,29 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                           false,
                                                                       scrollDirection:
                                                                           Axis.horizontal,
-                                                                      separatorBuilder: (_,
-                                                                              __) =>
-                                                                          const SizedBox(
-                                                                              width: 10.0),
+                                                                      separatorBuilder:
+                                                                          (context,
+                                                                              separatorIndex) {
+                                                                        final items =
+                                                                            featuredController.itemList ??
+                                                                                const <GamesRecord>[];
+                                                                        final currentItemVisible =
+                                                                            separatorIndex < items.length &&
+                                                                                _isGameVisibleForPlayer(items[separatorIndex]);
+                                                                        final nextItemVisible =
+                                                                            separatorIndex + 1 < items.length &&
+                                                                                _isGameVisibleForPlayer(items[separatorIndex + 1]);
+
+                                                                        if (!currentItemVisible ||
+                                                                            !nextItemVisible) {
+                                                                          return const SizedBox
+                                                                              .shrink();
+                                                                        }
+
+                                                                        return const SizedBox(
+                                                                            width:
+                                                                                _homeHorizontalCardGap);
+                                                                      },
                                                                       builderDelegate:
                                                                           PagedChildBuilderDelegate<
                                                                               GamesRecord>(
