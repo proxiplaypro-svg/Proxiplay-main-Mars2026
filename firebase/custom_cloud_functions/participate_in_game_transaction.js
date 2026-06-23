@@ -524,9 +524,8 @@ exports.participateInGameTransaction = functions.https.onCall(
         if (participantDetailDoc.exists) {
           const detailData = participantDetailDoc.data();
           const lastPlay = detailData.last_play?.toDate?.();
-          const nowDate = new Date();
-          nowDate.setHours(0, 0, 0, 0);
-          const hasPlayedToday = lastPlay && lastPlay >= nowDate;
+          const hasPlayedToday =
+            !!lastPlay && getParisDayKey(lastPlay) === dayKey;
           const bonus = detailData.game_bonus || 0;
 
           if (hasPlayedToday && bonus <= 0) {
