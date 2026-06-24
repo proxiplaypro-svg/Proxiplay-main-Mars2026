@@ -12,7 +12,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 Future appTracking() async {
   // Add your function code here!
   if (kIsWeb) {
-    print("Skipping app tracking in web environment.");
+    debugPrint("Skipping app tracking in web environment.");
     return;
   }
 

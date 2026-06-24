@@ -614,7 +614,7 @@ class _AdminPushNotificationsPageWidgetState
       debugPrint(
         '[runInactivePlayerAutomationsManual] dryRun response:\n$jsonResponse',
       );
-      print('[runInactivePlayerAutomationsManual] dryRun response:\n$jsonResponse');
+      debugPrint('[runInactivePlayerAutomationsManual] dryRun response:\n$jsonResponse');
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -626,7 +626,7 @@ class _AdminPushNotificationsPageWidgetState
       debugPrint(
         '[runInactivePlayerAutomationsManual] error code=${error.code} message=${error.message}',
       );
-      print(
+      debugPrint(
         '[runInactivePlayerAutomationsManual] error code=${error.code} message=${error.message}',
       );
 
@@ -642,7 +642,7 @@ class _AdminPushNotificationsPageWidgetState
       );
     } catch (error) {
       debugPrint('[runInactivePlayerAutomationsManual] error=$error');
-      print('[runInactivePlayerAutomationsManual] error=$error');
+      debugPrint('[runInactivePlayerAutomationsManual] error=$error');
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

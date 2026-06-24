@@ -535,7 +535,6 @@ class _AboCommercantPageWidgetState extends State<AboCommercantPageWidget> {
                                     0.0, 32.0, 0.0, 0.0),
                                 child: FFButtonWidget(
                                   onPressed: () {
-                                    print('Button pressed ...');
                                   },
                                   text: 'Sélectionner l\'abonnement annuel',
                                   options: FFButtonOptions(

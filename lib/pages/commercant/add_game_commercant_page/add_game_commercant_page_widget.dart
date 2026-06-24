@@ -785,8 +785,6 @@ class _AddGameCommercantPageWidgetState
     );
 
     final createByRef = currentUserReference;
-    print('create_by: $createByRef');
-    print('uid: $currentUserUid');
 
     var gamesRecordReference = GamesRecord.collection.doc();
     final qrLink = buildGameQrLink(gamesRecordReference.id);

@@ -147,7 +147,7 @@ T? getParameter<T>(Map<String, dynamic> data, String paramName) {
     }
     return param;
   } catch (e) {
-    print('Error parsing parameter "$paramName": $e');
+    debugPrint('Error parsing parameter "$paramName": $e');
     return null;
   }
 }

@@ -8,7 +8,7 @@ Future initFirebase() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   final options = app.options;
-  print(
+  debugPrint(
     'FIREBASE INIT projectId=${options.projectId} '
     'appId=${options.appId} '
     'messagingSenderId=${options.messagingSenderId}',

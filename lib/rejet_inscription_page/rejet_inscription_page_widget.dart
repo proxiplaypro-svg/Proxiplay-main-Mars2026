@@ -163,7 +163,6 @@ class _RejetInscriptionPageWidgetState
                               width: double.infinity,
                               child: FFButtonWidget(
                                 onPressed: () {
-                                  print('Button pressed ...');
                                 },
                                 text: 'Réessayer',
                                 options: FFButtonOptions(

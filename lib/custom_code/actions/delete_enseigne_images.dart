@@ -17,7 +17,7 @@ Future<void> deleteEnseigneImages(DocumentReference refEnseigne) async {
     QuerySnapshot imageDocs = await imageCollection.get();
 
     if (imageDocs.docs.isEmpty) {
-      print("✅ Aucune image trouvée pour cette enseigne.");
+      debugPrint("✅ Aucune image trouvée pour cette enseigne.");
       return;
     }
 
@@ -32,12 +32,12 @@ Future<void> deleteEnseigneImages(DocumentReference refEnseigne) async {
           String filePath =
               Uri.decodeFull(imageUrl.split('/o/')[1].split('?alt=media')[0]);
 
-          print("Suppression de l'image : $filePath");
+          debugPrint("Suppression de l'image : $filePath");
           await firebase_storage.FirebaseStorage.instance
               .ref(filePath)
               .delete();
         } catch (e) {
-          print("Erreur de suppression de l'image : $e");
+          debugPrint("Erreur de suppression de l'image : $e");
         }
       }
 
@@ -48,8 +48,8 @@ Future<void> deleteEnseigneImages(DocumentReference refEnseigne) async {
     // Supprimer ensuite l'enseigne après suppression des images
     // await refEnseigne.delete();
 
-    print(" Enseigne et images supprimées avec succès.");
+    debugPrint(" Enseigne et images supprimées avec succès.");
   } catch (e) {
-    print(" Erreur lors de la suppression des images et de l'enseigne : $e");
+    debugPrint(" Erreur lors de la suppression des images et de l'enseigne : $e");
   }
 }

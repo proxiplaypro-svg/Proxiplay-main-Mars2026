@@ -10,7 +10,7 @@ Future<PrizesRecord?> getRefPrize(String refPrize) async {
     throw Exception("⚠️ refPrize est vide !");
   }
 
-  print("📌 Récupération du document: $refPrize");
+  debugPrint("📌 Récupération du document: $refPrize");
 
   // Récupérer la référence du document
   DocumentReference docRef = FirebaseFirestore.instance.doc(refPrize);
@@ -20,14 +20,14 @@ Future<PrizesRecord?> getRefPrize(String refPrize) async {
     DocumentSnapshot docSnapshot = await docRef.get();
 
     if (docSnapshot.exists) {
-      print("✅ Document trouvé !");
+      debugPrint("✅ Document trouvé !");
       return PrizesRecord.fromSnapshot(docSnapshot); // ✅ Conversion correcte
     } else {
-      print("⚠️ Document non trouvé !");
+      debugPrint("⚠️ Document non trouvé !");
       return null;
     }
   } catch (e) {
-    print("❌ Erreur lors de la récupération du document: $e");
+    debugPrint("❌ Erreur lors de la récupération du document: $e");
     return null;
   }
 }
