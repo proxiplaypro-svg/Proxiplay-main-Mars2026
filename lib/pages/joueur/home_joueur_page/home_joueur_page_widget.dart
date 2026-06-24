@@ -894,8 +894,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   }
 
   Widget _buildRecentWinnersZone() {
-    final messages =
-        context.select<FFAppState, List<String>>((s) => s.globalTickerMessages);
+    context.watch<FFAppState>();
+    final messages = FFAppState().globalTickerMessages;
     if (messages.isEmpty) {
       return const SizedBox.shrink();
     }
