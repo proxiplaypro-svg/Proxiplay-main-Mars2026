@@ -2648,9 +2648,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                             endDateText: game.endDate != null ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}" : "Jusqu'au : -",
                                                                             badgeText: finishedBadgeText,
                                                                             isFinished: true,
-                                                                            fitContent: false,
+                                                                            fitContent: true,
                                                                             finishedInfoText: finishedInfoText,
-                                                                            height: AppStyles.finishedGameListHeight,
                                                                             imageHeight: AppStyles.finishedGameImageHeight,
                                                                             onTap: () async {
                                                                               await _openGameDetails(game);
@@ -2679,9 +2678,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                               winnerText: winnerLabel,
                                                                               winnerMaxLines: 1,
                                                                               isFinished: true,
-                                                                              fitContent: false,
+                                                                              fitContent: true,
                                                                               finishedInfoText: finishedInfoText,
-                                                                              height: AppStyles.finishedGameListHeight,
                                                                               imageHeight: AppStyles.finishedGameImageHeight,
                                                                               onTap: () async {
                                                                                 await _openGameDetails(game);

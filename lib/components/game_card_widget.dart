@@ -106,10 +106,144 @@ class _GameCardState extends State<GameCard> {
     final baseHeight = widget.isFinished
         ? AppStyles.finishedGameListHeight
         : AppStyles.gameCardHeight;
-    final effectiveHeight = widget.height ??
-        (baseHeight +
-            ((widget.width == double.infinity && !widget.isFinished) ? 8.0 : 0.0));
+    final effectiveHeight = widget.fitContent
+        ? widget.height
+        : (widget.height ??
+            (baseHeight +
+                ((widget.width == double.infinity && !widget.isFinished)
+                    ? 8.0
+                    : 0.0)));
     final cardRadius = BorderRadius.circular(AppStyles.gameCardRadius);
+
+    final cardBody = Stack(
+      children: [
+        Column(
+          mainAxisSize:
+              effectiveHeight == null ? MainAxisSize.min : MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: effectiveImageHeight,
+              child: effectiveDesaturate
+                  ? ColorFiltered(
+                      colorFilter: ColorFilter.mode(
+                        Colors.grey.withValues(alpha: 0.9),
+                        BlendMode.saturation,
+                      ),
+                      child: ProxiplayNetworkImage(
+                        imageUrl: widget.imageUrl,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : ProxiplayNetworkImage(
+                      imageUrl: widget.imageUrl,
+                      fit: BoxFit.cover,
+                    ),
+            ),
+            if (effectiveHeight == null)
+              _buildContent(context)
+            else
+              Expanded(
+                child: _buildContent(context),
+              ),
+          ],
+        ),
+        if (effectiveBadge != null && effectiveBadge.isNotEmpty)
+          Positioned(
+            left: 0.0,
+            top: 0.0,
+            child: Container(
+              padding: AppStyles.gameCardBadgePadding,
+              decoration: const BoxDecoration(
+                color: AppStyles.gameCardBadgeColor,
+                borderRadius: BorderRadius.only(
+                  bottomRight: Radius.circular(18.0),
+                ),
+              ),
+              child: Text(
+                _normalizeText(effectiveBadge),
+                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                      font: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800,
+                        fontStyle:
+                            FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                      ),
+                      color: Colors.white,
+                      fontSize: AppStyles.gameCardBadgeSize,
+                      letterSpacing: 0.0,
+                    ),
+              ),
+            ),
+          ),
+        if (ribbon != null)
+          Positioned(
+            top: 10.0,
+            right: 10.0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12.0,
+                vertical: 6.0,
+              ),
+              decoration: BoxDecoration(
+                color: ribbon.backgroundColor,
+                borderRadius: BorderRadius.circular(999.0),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.14),
+                    blurRadius: 8.0,
+                    offset: const Offset(0.0, 2.0),
+                  ),
+                ],
+              ),
+              child: Text(
+                ribbon.label,
+                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                      font: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800,
+                        fontStyle:
+                            FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                      ),
+                      color: ribbon.textColor,
+                      fontSize: 11.0,
+                      letterSpacing: 0.0,
+                    ),
+              ),
+            ),
+          ),
+        if (hasPrize)
+          Positioned(
+            left: 8.0,
+            top: effectiveImageHeight - 16.0,
+            child: Container(
+              padding: AppStyles.gameCardPriceBadgePadding,
+              decoration: BoxDecoration(
+                color: AppStyles.gameCardPriceBadgeColor,
+                borderRadius: BorderRadius.circular(16.0),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 8.0,
+                    offset: const Offset(0.0, 2.0),
+                  ),
+                ],
+              ),
+              child: Text(
+                _formatPriceText(widget.prizeText),
+                style: FlutterFlowTheme.of(context).bodyMedium.override(
+                      font: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800,
+                        fontStyle:
+                            FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                      ),
+                      color: Colors.white,
+                      fontSize: AppStyles.gameCardPriceBadgeSize,
+                      letterSpacing: 0.0,
+                    ),
+              ),
+            ),
+          ),
+      ],
+    );
 
     return SizedBox(
       width: computedWidth,
@@ -160,140 +294,7 @@ class _GameCardState extends State<GameCard> {
                           ? Colors.white
                           : FlutterFlowTheme.of(context).secondaryBackground,
                     ),
-                    child: Stack(
-                      children: [
-                        Column(
-                          mainAxisSize: MainAxisSize.max,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            SizedBox(
-                              height: effectiveImageHeight,
-                              child: effectiveDesaturate
-                                  ? ColorFiltered(
-                                      colorFilter: ColorFilter.mode(
-                                        Colors.grey.withValues(alpha: 0.9),
-                                        BlendMode.saturation,
-                                      ),
-                                      child: ProxiplayNetworkImage(
-                                        imageUrl: widget.imageUrl,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    )
-                                  : ProxiplayNetworkImage(
-                                      imageUrl: widget.imageUrl,
-                                      fit: BoxFit.cover,
-                                    ),
-                            ),
-                            Expanded(
-                              child: _buildContent(context),
-                            ),
-                          ],
-                        ),
-                        if (effectiveBadge != null && effectiveBadge.isNotEmpty)
-                          Positioned(
-                            left: 0.0,
-                            top: 0.0,
-                            child: Container(
-                              padding: AppStyles.gameCardBadgePadding,
-                              decoration: const BoxDecoration(
-                                color: AppStyles.gameCardBadgeColor,
-                                borderRadius: BorderRadius.only(
-                                  bottomRight: Radius.circular(18.0),
-                                ),
-                              ),
-                              child: Text(
-                                _normalizeText(effectiveBadge),
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w800,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: Colors.white,
-                                      fontSize: AppStyles.gameCardBadgeSize,
-                                      letterSpacing: 0.0,
-                                    ),
-                              ),
-                            ),
-                          ),
-                        if (ribbon != null)
-                          Positioned(
-                            top: 10.0,
-                            right: 10.0,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12.0,
-                                vertical: 6.0,
-                              ),
-                              decoration: BoxDecoration(
-                                color: ribbon.backgroundColor,
-                                borderRadius: BorderRadius.circular(999.0),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.14),
-                                    blurRadius: 8.0,
-                                    offset: const Offset(0.0, 2.0),
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                ribbon.label,
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w800,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: ribbon.textColor,
-                                      fontSize: 11.0,
-                                      letterSpacing: 0.0,
-                                    ),
-                              ),
-                            ),
-                          ),
-                        if (hasPrize)
-                          Positioned(
-                            left: 8.0,
-                            top: effectiveImageHeight - 16.0,
-                            child: Container(
-                              padding: AppStyles.gameCardPriceBadgePadding,
-                              decoration: BoxDecoration(
-                                color: AppStyles.gameCardPriceBadgeColor,
-                                borderRadius: BorderRadius.circular(16.0),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.2),
-                                    blurRadius: 8.0,
-                                    offset: const Offset(0.0, 2.0),
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                _formatPriceText(widget.prizeText),
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w800,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: Colors.white,
-                                      fontSize: AppStyles.gameCardPriceBadgeSize,
-                                      letterSpacing: 0.0,
-                                    ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                    child: cardBody,
                   ),
                 ),
               ),
