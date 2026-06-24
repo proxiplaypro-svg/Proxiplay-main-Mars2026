@@ -316,6 +316,7 @@ class _GameCardState extends State<GameCard> {
       child: Padding(
         padding: contentPadding,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (titleTopSpacing > 0.0) SizedBox(height: titleTopSpacing),
