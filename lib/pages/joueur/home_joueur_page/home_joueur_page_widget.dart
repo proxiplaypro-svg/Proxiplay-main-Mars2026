@@ -45,6 +45,7 @@ class HomeJoueurPageWidget extends StatefulWidget {
 class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     with WidgetsBindingObserver {
   static final Random _random = Random();
+  static final Map<String, String> _cityFormatCache = {};
   static const double _homeSectionTitleLeftInset = 4.0;
   static const double _homeHorizontalCardGap = 10.0;
   static const double _homePageHorizontalPadding = 20.0;
@@ -175,27 +176,25 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   // Display only city on home game cards.
   String _formatCityOnly(String? value) {
     final raw = (value ?? '').trim();
-    if (raw.isEmpty) {
-      return '';
-    }
-
-    final withoutZip = raw.replaceFirst(RegExp(r'^\d{5}\s*'), '').trim();
-    final cityOnly = withoutZip.isEmpty ? raw : withoutZip;
-
-    return cityOnly
-        .split(RegExp(r'\s+'))
-        .where((word) => word.isNotEmpty)
-        .map(
-          (word) => word
-              .split('-')
-              .where((part) => part.isNotEmpty)
-              .map(
-                (part) =>
-                    part[0].toUpperCase() + part.substring(1).toLowerCase(),
-              )
-              .join('-'),
-        )
-        .join(' ');
+    if (raw.isEmpty) return '';
+    return _cityFormatCache.putIfAbsent(raw, () {
+      final withoutZip = raw.replaceFirst(RegExp(r'^\d{5}\s*'), '').trim();
+      final cityOnly = withoutZip.isEmpty ? raw : withoutZip;
+      return cityOnly
+          .split(RegExp(r'\s+'))
+          .where((word) => word.isNotEmpty)
+          .map(
+            (word) => word
+                .split('-')
+                .where((part) => part.isNotEmpty)
+                .map(
+                  (part) =>
+                      part[0].toUpperCase() + part.substring(1).toLowerCase(),
+                )
+                .join('-'),
+          )
+          .join(' ');
+    });
   }
 
   String _getGameCardLocation(EnseignesRecord? enseigne) {
@@ -895,16 +894,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   }
 
   Widget _buildRecentWinnersZone() {
-    context.watch<FFAppState>();
-    return AuthUserStreamWidget(
-      builder: (context) {
-        final messages = FFAppState().globalTickerMessages;
-        if (messages.isEmpty) {
-          return const SizedBox.shrink();
-        }
-        return RecentWinnersTicker(messages: messages);
-      },
-    );
+    final messages =
+        context.select<FFAppState, List<String>>((s) => s.globalTickerMessages);
+    if (messages.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return RecentWinnersTicker(messages: messages);
   }
 
   String _buildRandomShareMessage({
