@@ -184,8 +184,7 @@ class _GameCardState extends State<GameCard> {
                                       fit: BoxFit.cover,
                                     ),
                             ),
-                            Flexible(
-                              fit: FlexFit.loose,
+                            Expanded(
                               child: _buildContent(context),
                             ),
                           ],
@@ -319,7 +318,6 @@ class _GameCardState extends State<GameCard> {
       child: Padding(
         padding: contentPadding,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (titleTopSpacing > 0.0) SizedBox(height: titleTopSpacing),
