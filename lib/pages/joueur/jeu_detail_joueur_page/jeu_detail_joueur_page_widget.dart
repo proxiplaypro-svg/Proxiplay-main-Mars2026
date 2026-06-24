@@ -651,6 +651,13 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             ),
           );
         }
+        if (widget.gameDoc == null) {
+          return Scaffold(
+            backgroundColor:
+                FlutterFlowTheme.of(context).primaryBackground,
+            body: const Center(child: SizedBox.shrink()),
+          );
+        }
         List<ParticipantsDetailsRecord>
             jeuDetailJoueurPageParticipantsDetailsRecordList =
             snapshot.data ?? const <ParticipantsDetailsRecord>[];

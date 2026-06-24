@@ -373,7 +373,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
               game: game,
               enseigne: enseigne,
               prizeText: game.prizeValue == 0
-                  ? 'Gains instantanÃ©s'
+                  ? 'Gains instantanés'
                   : _formatEuroAmount(game.prizeValue),
               endDateText: game.endDate != null
                   ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}"
@@ -416,7 +416,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         return _buildHomeGameCard(
           game: game,
           prizeText: game.prizeValue == 0
-              ? 'Gains instantanÃ©s'
+              ? 'Gains instantanés'
               : _formatEuroAmount(game.prizeValue),
           endDateText: game.endDate != null
               ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}"
@@ -2017,6 +2017,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     .where(
                                                                       'end_date',
                                                                       isGreaterThan:
+                                                                          getCurrentTimestamp,
+                                                                    )
+                                                                    .where(
+                                                                      'start_date',
+                                                                      isLessThanOrEqualTo:
                                                                           getCurrentTimestamp,
                                                                     )
                                                                     .orderBy(
