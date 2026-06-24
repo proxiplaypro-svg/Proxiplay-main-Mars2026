@@ -2019,11 +2019,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       isGreaterThan:
                                                                           getCurrentTimestamp,
                                                                     )
-                                                                    .where(
-                                                                      'start_date',
-                                                                      isLessThanOrEqualTo:
-                                                                          getCurrentTimestamp,
-                                                                    )
                                                                     .orderBy(
                                                                         'end_date'),
                                                               );
