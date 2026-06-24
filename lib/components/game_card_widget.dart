@@ -184,7 +184,10 @@ class _GameCardState extends State<GameCard> {
                                       fit: BoxFit.cover,
                                     ),
                             ),
-                            Expanded(child: _buildContent(context)),
+                            Flexible(
+                              fit: FlexFit.loose,
+                              child: _buildContent(context),
+                            ),
                           ],
                         ),
                         if (effectiveBadge != null && effectiveBadge.isNotEmpty)
