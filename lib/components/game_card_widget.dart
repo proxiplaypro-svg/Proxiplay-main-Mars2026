@@ -245,10 +245,7 @@ class _GameCardState extends State<GameCard> {
       ],
     );
 
-    return SizedBox(
-      width: computedWidth,
-      height: effectiveHeight,
-      child: AnimatedContainer(
+    final animatedCard = AnimatedContainer(
         duration: _pressDuration,
         curve: Curves.easeOutCubic,
         transform: Matrix4.translationValues(0.0, _isPressed ? 6.0 : 0.0, 0.0),
@@ -301,7 +298,22 @@ class _GameCardState extends State<GameCard> {
             ),
           ),
         ),
-      ),
+      );
+
+    if (effectiveHeight == null) {
+      return SizedBox(
+        width: computedWidth,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: animatedCard,
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: computedWidth,
+      height: effectiveHeight,
+      child: animatedCard,
     );
   }
 
