@@ -55,6 +55,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   final scaffoldKey = GlobalKey<ScaffoldState>();
   bool _homeDataReady = false;
   bool _isRefreshingOnResume = false;
+  DateTime? _lastResumeRefresh;
   late Future<SharePromoStateViewModel?> _sharePromoFuture;
   SharePromoStateViewModel? _latestSharePromoState;
   final Map<String, Future<EnseignesRecord>> _enseigneFutureCache = {};
@@ -95,11 +96,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     PerfTrace.log('HOME_DATA_LOADING_START');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PerfTrace.log('HOME_FIRST_FRAME');
-      Future.delayed(const Duration(milliseconds: 900), () {
-        if (mounted) {
-          _markHomeDataReady();
-        }
-      });
+      if (mounted) {
+        _markHomeDataReady();
+      }
     });
 
     logFirebaseEvent('screen_view',
@@ -1202,6 +1201,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   Future<void> _refreshHomeContent() async {
     await refreshCurrentUserDocument();
     _sharePromoFuture = _loadSharePromoState();
+    // Vider les caches d'enseignes pour forcer le rechargement des données fraîches.
+    _featuredEnseignesSectionCache.clear();
+    _endingSoonEnseignesSectionCache.clear();
+    _newGamesEnseignesSectionCache.clear();
     final controllers = <PagingController<DocumentSnapshot?, GamesRecord>?>[
       _model.listViewPagingController2,
       _model.listViewPagingController3,
@@ -1216,19 +1219,24 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     for (final controller in controllers) {
       controller?.refresh();
     }
-    safeSetState(() {});
-    await Future.delayed(const Duration(milliseconds: 350));
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed && !_isRefreshingOnResume) {
-      _isRefreshingOnResume = true;
-      _refreshHomeContent().whenComplete(() {
-        _isRefreshingOnResume = false;
-      });
+    if (state != AppLifecycleState.resumed) return;
+    if (_isRefreshingOnResume) return;
+    final now = DateTime.now();
+    if (_lastResumeRefresh != null &&
+        now.difference(_lastResumeRefresh!) <
+            const Duration(minutes: 5)) {
+      return;
     }
+    _lastResumeRefresh = now;
+    _isRefreshingOnResume = true;
+    _refreshHomeContent().whenComplete(() {
+      _isRefreshingOnResume = false;
+    });
   }
 
   @override
@@ -2144,13 +2152,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       scrollDirection:
                                                                           Axis.horizontal,
                                                                       separatorBuilder:
-                                                                          (context,
-                                                                              separatorIndex) {
-                                                                        final items =
-                                                                            endingSoonController.itemList ??
-                                                                                const <GamesRecord>[];
-                                                                        return const SizedBox(width: 10.0);
-                                                                      },
+                                                                          (_, __) =>
+                                                                              const SizedBox(width: 10.0),
                                                                       builderDelegate:
                                                                           PagedChildBuilderDelegate<
                                                                               GamesRecord>(
