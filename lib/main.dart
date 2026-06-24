@@ -150,7 +150,7 @@ class MyAppState extends State<MyApp> {
   late AppStateNotifier _appStateNotifier;
   late GoRouter _router;
 
-  bool _isLoadingConfig = true;
+  bool _isLoadingConfig = false;
   bool _isMaintenance = false;
 
   StreamSubscription<BaseAuthUser>? _userStreamSub;

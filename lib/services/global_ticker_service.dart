@@ -45,8 +45,36 @@ class GlobalTickerService {
 
   static const int estimatedTickerReadsBeforePerRefresh = 9;
   static const int tickerReadsAfterStartup = 1;
+  static Future<GlobalTickerSnapshot?>? _inFlightFetch;
+  static GlobalTickerSnapshot? _cachedSnapshot;
 
   Future<GlobalTickerSnapshot?> fetchOnce() async {
+    final cachedSnapshot = _cachedSnapshot;
+    if (cachedSnapshot != null) {
+      return cachedSnapshot;
+    }
+
+    final inFlightFetch = _inFlightFetch;
+    if (inFlightFetch != null) {
+      return inFlightFetch;
+    }
+
+    final fetchFuture = _fetchOnceInternal();
+    _inFlightFetch = fetchFuture;
+    try {
+      final snapshot = await fetchFuture;
+      if (snapshot != null) {
+        _cachedSnapshot = snapshot;
+      }
+      return snapshot;
+    } finally {
+      if (identical(_inFlightFetch, fetchFuture)) {
+        _inFlightFetch = null;
+      }
+    }
+  }
+
+  Future<GlobalTickerSnapshot?> _fetchOnceInternal() async {
     debugPrint(
       '[TickerReads][before_estimate] recent_winners_ticker='
       '1 prizes query + up to 8 user reads => up to '
