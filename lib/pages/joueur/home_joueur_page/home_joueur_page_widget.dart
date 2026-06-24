@@ -1826,8 +1826,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                   width: double
                                                                       .infinity,
                                                                   height: AppStyles
-                                                                          .gameCardHeight +
-                                                                      8.0,
+                                                                      .gameCardHeight,
                                                                   decoration:
                                                                       const BoxDecoration(),
                                                                   child:
@@ -2053,8 +2052,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       width: double
                                                                           .infinity,
                                                                       height: AppStyles
-                                                                              .gameCardHeight +
-                                                                          8.0,
+                                                                          .gameCardHeight,
                                                                       decoration:
                                                                           const BoxDecoration(
                                                                         color: Colors
@@ -2303,8 +2301,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       width: double
                                                                           .infinity,
                                                                       height: AppStyles
-                                                                              .gameCardHeight +
-                                                                          8.0,
+                                                                          .gameCardHeight,
                                                                       decoration:
                                                                           const BoxDecoration(
                                                                         color: Colors
@@ -2699,7 +2696,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                       ),
                                                     ),
                                                   ].divide(const SizedBox(
-                                                      height: 15.0)),
+                                                      height: 3.0)),
                                                 ),
                                               ),
                                             );
@@ -2766,8 +2763,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           width:
                                                               double.infinity,
                                                           height: AppStyles
-                                                                  .gameCardHeight +
-                                                              8.0,
+                                                              .gameCardHeight,
                                                           decoration:
                                                               const BoxDecoration(),
                                                           child: PagedListView<
@@ -2958,8 +2954,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           width:
                                                               double.infinity,
                                                           height: AppStyles
-                                                                  .gameCardHeight +
-                                                              8.0,
+                                                              .gameCardHeight,
                                                           decoration:
                                                               const BoxDecoration(
                                                             color: Colors
@@ -3221,8 +3216,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     Container(
                                                                       width: double
                                                                           .infinity,
-                                                                      height: AppStyles.gameCardHeight +
-                                                                          8.0,
+                                                                      height:
+                                                                          AppStyles.gameCardHeight,
                                                                       decoration:
                                                                           const BoxDecoration(
                                                                         color: Colors
@@ -3441,7 +3436,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                     ),
                                                   ),
                                                 ].divide(const SizedBox(
-                                                    height: 10.0)),
+                                                    height: 3.0)),
                                               ),
                                             );
                                           }
@@ -3539,8 +3534,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             width: double
                                                                 .infinity,
                                                             height: AppStyles
-                                                                    .gameCardHeight +
-                                                                8.0,
+                                                                .gameCardHeight,
                                                             decoration:
                                                                 const BoxDecoration(),
                                                             child:
@@ -3812,8 +3806,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                       Container(
                                                         width: double.infinity,
                                                         height: AppStyles
-                                                                .gameCardHeight +
-                                                            8.0,
+                                                            .gameCardHeight,
                                                         decoration:
                                                             const BoxDecoration(
                                                           color:
@@ -4014,8 +4007,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             width: double
                                                                 .infinity,
                                                             height: AppStyles
-                                                                    .gameCardHeight +
-                                                                8.0,
+                                                                .gameCardHeight,
                                                             decoration:
                                                                 const BoxDecoration(
                                                               color: Colors
@@ -4220,7 +4212,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                 ),
                                               ),
                                             ].divide(
-                                                const SizedBox(height: 15.0)),
+                                                const SizedBox(height: 3.0)),
                                           ),
                                         ),
                                       );
