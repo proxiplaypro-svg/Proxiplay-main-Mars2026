@@ -49,6 +49,8 @@
 	<string>Cette application nécessite l'accès à votre caméra pour vous permettre de capturer des images.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Cette application nécessite l'accès à votre photothèque pour vous permettre de sélectionner des images.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Proxiplay a besoin d'accéder à vos photos pour enregistrer l'affiche du jeu.</string>
 	<key>PermissionGroupNotification</key>
 	<string>Autorisez-vous cette application à vous envoyer des notifications ?</string>
 	<key>NSUserTrackingUsageDescription</key>

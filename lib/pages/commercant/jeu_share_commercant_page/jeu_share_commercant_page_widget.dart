@@ -307,7 +307,7 @@ class _JeuShareCommercantPageWidgetState
     required Uint8List bytes,
     required String fileName,
   }) async {
-    if (kIsWeb || !Platform.isAndroid) {
+    if (kIsWeb) {
       throw UnsupportedError('Gallery save unavailable on this platform.');
     }
 
