@@ -185,7 +185,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           nextPageMarker: nextPageMarker,
           streamSubscriptions: listViewStreamSubscriptions2,
           controller: controller,
-          pageSize: 10,
+          pageSize: 100,
           isStream: true,
         ),
       );
@@ -216,7 +216,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           nextPageMarker: nextPageMarker,
           streamSubscriptions: listViewStreamSubscriptions3,
           controller: controller,
-          pageSize: 10,
+          pageSize: 100,
           isStream: true,
         ),
       );
@@ -247,7 +247,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           nextPageMarker: nextPageMarker,
           streamSubscriptions: listViewStreamSubscriptions4,
           controller: controller,
-          pageSize: 10,
+          pageSize: 100,
           isStream: true,
         ),
       );
@@ -278,7 +278,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           nextPageMarker: nextPageMarker,
           streamSubscriptions: listViewStreamSubscriptions5,
           controller: controller,
-          pageSize: 10,
+          pageSize: 100,
           isStream: true,
         ),
       );
@@ -309,7 +309,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           nextPageMarker: nextPageMarker,
           streamSubscriptions: listViewStreamSubscriptions6,
           controller: controller,
-          pageSize: 10,
+          pageSize: 100,
           isStream: true,
         ),
       );
@@ -340,7 +340,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           nextPageMarker: nextPageMarker,
           streamSubscriptions: listViewStreamSubscriptions7,
           controller: controller,
-          pageSize: 10,
+          pageSize: 100,
           isStream: true,
         ),
       );
@@ -371,7 +371,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           nextPageMarker: nextPageMarker,
           streamSubscriptions: listViewStreamSubscriptions8,
           controller: controller,
-          pageSize: 10,
+          pageSize: 100,
           isStream: true,
         ),
       );
@@ -402,7 +402,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           nextPageMarker: nextPageMarker,
           streamSubscriptions: listViewStreamSubscriptions9,
           controller: controller,
-          pageSize: 10,
+          pageSize: 100,
           isStream: true,
         ),
       );
@@ -433,7 +433,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           nextPageMarker: nextPageMarker,
           streamSubscriptions: listViewStreamSubscriptions10,
           controller: controller,
-          pageSize: 10,
+          pageSize: 100,
           isStream: true,
         ),
       );
