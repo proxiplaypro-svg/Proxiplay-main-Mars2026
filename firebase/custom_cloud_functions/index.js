@@ -13,4 +13,4 @@ const backfillPlayerStatusCached = require("./backfill_player_status_cached.js")
 exports.backfillPlayerStatusCached =
   backfillPlayerStatusCached.backfillPlayerStatusCached;
 const drawAnimationWinner = require("./draw_animation_winner.js");
-exports.onAnimationEnded = drawAnimationWinner.onAnimationEnded;
+exports.drawAnimationWinners = drawAnimationWinner.drawAnimationWinners;
