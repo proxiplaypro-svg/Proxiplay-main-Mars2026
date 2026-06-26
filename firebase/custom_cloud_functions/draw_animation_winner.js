@@ -52,16 +52,7 @@ function getSmtpSettings() {
     throw new Error(`Missing SMTP config: ${missing.join(", ")}`);
   }
 
-  return {
-    host,
-    port,
-    secure,
-    user,
-    pass,
-    fromEmail,
-    fromName,
-    replyTo,
-  };
+  return { host, port, secure, user, pass, fromEmail, fromName, replyTo };
 }
 
 function createSmtpMailer() {
@@ -71,10 +62,7 @@ function createSmtpMailer() {
       host: settings.host,
       port: settings.port,
       secure: settings.secure,
-      auth: {
-        user: settings.user,
-        pass: settings.pass,
-      },
+      auth: { user: settings.user, pass: settings.pass },
     }),
     from: `${settings.fromName} <${settings.fromEmail}>`,
     replyTo: settings.replyTo,
@@ -96,16 +84,26 @@ exports.scheduledDrawAnimationWinners = functions.pubsub
   .schedule("every 60 minutes")
   .onRun(async (context) => {
     const now = admin.firestore.Timestamp.now();
+
+    // Animations actives dont la date de fin est passée
     const animationsSnap = await db
       .collection("animations")
       .where("status", "==", "active")
       .where("end_date", "<=", now)
       .get();
 
+    // Uniquement celles sans gagnant déjà tiré
     const eligibleAnimations = animationsSnap.docs.filter((doc) => {
-      const animationData = doc.data() || {};
-      return !getTrimmedString(animationData.winner_uid);
+      const data = doc.data() || {};
+      return !getTrimmedString(data.winner_uid);
     });
+
+    // Charge tous les documents de progression qualifiés (users/{uid}/animations/{animId})
+    // même approche que l'API admin /api/admin/animations/[id]/detail
+    const allProgressSnap = await db
+      .collectionGroup("animations")
+      .where("qualified", "==", true)
+      .get();
 
     let processed = 0;
     let drawn = 0;
@@ -122,12 +120,14 @@ exports.scheduledDrawAnimationWinners = functions.pubsub
         const animationData = animationSnap.data() || {};
         const prizeDescription = getTrimmedString(animationData.prize_description);
 
-        const qualifiedEntriesSnap = await animationRef
-          .collection("entries")
-          .where("threshold_reached", "==", true)
-          .get();
+        // Filtre les joueurs qualifiés pour cette animation spécifique
+        // users/{uid}/animations/{animationId} — doc.id === animationId
+        const qualifiedEntries = allProgressSnap.docs.filter((doc) => {
+          const uid = doc.ref.parent.parent && doc.ref.parent.parent.id;
+          return doc.id === animationId && typeof uid === "string" && uid.length > 0;
+        });
 
-        if (qualifiedEntriesSnap.empty) {
+        if (qualifiedEntries.length === 0) {
           skipped += 1;
           functions.logger.info(
             `scheduledDrawAnimationWinners: no qualified entries for animationId=${animationId}`
@@ -135,55 +135,80 @@ exports.scheduledDrawAnimationWinners = functions.pubsub
           continue;
         }
 
-        const qualifiedEntries = qualifiedEntriesSnap.docs;
+        // Tirage aléatoire
         const randomIndex = Math.floor(Math.random() * qualifiedEntries.length);
         const winnerEntry = qualifiedEntries[randomIndex];
-        const winnerUid = winnerEntry.id;
+        const winnerUid = winnerEntry.ref.parent.parent.id;
+
         const userRef = db.collection("users").doc(winnerUid);
         const userSnap = await userRef.get();
         const userData = userSnap.exists ? userSnap.data() || {} : {};
         const winnerEmail = getTrimmedString(userData.email);
-        const winnerName = getTrimmedString(userData.first_name);
+        const winnerFirstName = getTrimmedString(userData.first_name || userData.firstName);
+        const winnerDisplayName = getTrimmedString(userData.display_name || userData.displayName);
+        const winnerLabel =
+          winnerDisplayName ||
+          [winnerFirstName, getTrimmedString(userData.last_name || userData.lastName)]
+            .filter(Boolean)
+            .join(" ") ||
+          winnerEmail ||
+          "Gagnant inconnu";
 
+        const drawnAt = admin.firestore.FieldValue.serverTimestamp();
+
+        // Écrit le gagnant dans animations/{id}/winner/current
+        // (format attendu par l'API admin /api/admin/animations/[id]/detail)
+        await animationRef.collection("winner").doc("current").set({
+          uid: winnerUid,
+          label: winnerLabel,
+          email: winnerEmail,
+          selected_at: drawnAt,
+        });
+
+        // Met à jour le document animation : winner_uid + status ended
         await animationRef.set(
           {
             winner_uid: winnerUid,
             winner_ref: userRef,
-            drawn_at: admin.firestore.FieldValue.serverTimestamp(),
+            drawn_at: drawnAt,
             status: "ended",
           },
           { merge: true }
         );
 
+        // Crée le document prize dans prizes/
+        // animation_id est stocké en string pour matcher la query de l'API admin
         await db.collection("prizes").add({
           prize_type: "principal",
           name: prizeDescription,
+          prize_label: prizeDescription,
           winner_id: userRef,
-          animation_id: animationRef,
+          animation_id: animationId,
           claimed: false,
-          win_date: admin.firestore.FieldValue.serverTimestamp(),
+          win_date: drawnAt,
         });
 
+        // Notifications
         try {
           const mailer = createSmtpMailer();
 
           if (winnerEmail) {
-            const subject = "\uD83C\uDF89 Vous avez gagn\u00E9 le gros lot !";
+            const subject = "Vous avez gagne le gros lot !";
             const html = `
-        <p>F\u00E9licitations ${winnerName || ""} ! Vous avez \u00E9t\u00E9 tir\u00E9 au sort et remportez : ${prizeDescription}</p>
-        <p>L'\u00E9quipe Proxiplay vous contactera pour organiser la remise du lot.</p>
-      `;
+              <p>Felicitations ${winnerFirstName || ""} ! Vous avez ete tire au sort et remportez : ${prizeDescription}</p>
+              <p>L'equipe Proxiplay vous contactera pour organiser la remise du lot.</p>
+            `;
             const text = [
-              `F\u00E9licitations ${winnerName || ""} ! Vous avez \u00E9t\u00E9 tir\u00E9 au sort et remportez : ${prizeDescription}`,
-              "L'\u00E9quipe Proxiplay vous contactera pour organiser la remise du lot.",
+              `Felicitations ${winnerFirstName || ""} ! Vous avez ete tire au sort et remportez : ${prizeDescription}`,
+              "L'equipe Proxiplay vous contactera pour organiser la remise du lot.",
             ].join("\n");
 
             await sendEmailNotification(mailer, winnerEmail, subject, text, html);
           }
 
           await queuePushNotificationRequest(db, {
-            title: "\uD83C\uDF89 Vous avez gagn\u00E9 le gros lot !",
-            body: `F\u00E9licitations ! Vous remportez : ${prizeDescription}`,
+            title: "Vous avez gagne le gros lot !",
+            body: `Felicitations ! Vous remportez : ${prizeDescription}`,
             userRefOrPath: userRef,
             createdBy: `system/scheduled_draw_animation_winners/${animationId}`,
           });
@@ -199,9 +224,9 @@ exports.scheduledDrawAnimationWinners = functions.pubsub
           animationId,
           winnerUid,
           winnerEmail,
-          winnerName,
+          winnerLabel,
           qualifiedEntriesCount: qualifiedEntries.length,
-          contextEventId: context?.eventId || null,
+          contextEventId: context && context.eventId || null,
         });
       } catch (error) {
         failed += 1;
@@ -219,7 +244,7 @@ exports.scheduledDrawAnimationWinners = functions.pubsub
       drawn,
       skipped,
       failed,
-      contextEventId: context?.eventId || null,
+      contextEventId: context && context.eventId || null,
     });
 
     return null;
