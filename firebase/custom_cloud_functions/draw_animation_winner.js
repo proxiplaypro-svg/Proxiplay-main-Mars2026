@@ -70,29 +70,36 @@ async function sendEmailNotification(mailer, to, subject, text, html) {
   });
 }
 
+function generateClaimCode(length = 8) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < length; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
 async function drawWinnerForAnimation(animationRef, animationId, animationData) {
   const prizeDescription = getTrimmedString(animationData.prize_description);
+  const animationName = getTrimmedString(animationData.name);
 
-  // Joueurs qualifiés : users/{uid}/animations/{animationId} avec qualified == true
-  const progressSnap = await db
-    .collectionGroup("animations")
-    .where("qualified", "==", true)
+  // Joueurs qualifiés : animations/{id}/entries/{uid} avec threshold_reached == true
+  // Écrit par participateInGameTransaction (source de vérité CF)
+  const entriesSnap = await animationRef
+    .collection("entries")
+    .where("threshold_reached", "==", true)
     .get();
 
-  const qualifiedEntries = progressSnap.docs.filter((doc) => {
-    const uid = doc.ref.parent.parent && doc.ref.parent.parent.id;
-    return doc.id === animationId && typeof uid === "string" && uid.length > 0;
-  });
-
-  if (qualifiedEntries.length === 0) {
+  if (entriesSnap.empty) {
     functions.logger.info(
       `drawAnimationWinners: no qualified entries for animationId=${animationId}`
     );
     return;
   }
 
+  const qualifiedEntries = entriesSnap.docs;
   const randomIndex = Math.floor(Math.random() * qualifiedEntries.length);
-  const winnerUid = qualifiedEntries[randomIndex].ref.parent.parent.id;
+  const winnerUid = qualifiedEntries[randomIndex].id;
 
   const userRef = db.collection("users").doc(winnerUid);
   const userSnap = await userRef.get();
@@ -108,10 +115,11 @@ async function drawWinnerForAnimation(animationRef, animationId, animationData) 
     winnerEmail ||
     "Gagnant inconnu";
 
-  const drawnAt = admin.firestore.FieldValue.serverTimestamp();
+  const drawnAt = admin.firestore.Timestamp.now();
+  const claimCode = generateClaimCode();
 
-  // Écrit le gagnant dans animations/{id}/winner/current
-  // (format attendu par l'API admin /api/admin/animations/[id]/detail)
+  // Gagnant dans animations/{id}/winner/current
+  // Format attendu par l'API admin /api/admin/animations/[id]/detail
   await animationRef.collection("winner").doc("current").set({
     uid: winnerUid,
     label: winnerLabel,
@@ -119,35 +127,52 @@ async function drawWinnerForAnimation(animationRef, animationId, animationData) 
     selected_at: drawnAt,
   });
 
-  // Marque le gagnant + passe le statut à ended sur le document animation
-  // winner_uid sert aussi de garde-fou contre un double tirage
+  // winner_uid sur le document animation = garde-fou contre double tirage
   await animationRef.set(
     { winner_uid: winnerUid, winner_ref: userRef, drawn_at: drawnAt, status: "ended" },
     { merge: true }
   );
 
-  // Crée le document prize (animation_id en string pour matcher les queries admin)
-  await db.collection("prizes").add({
+  // Prize principal dans prizes/ — champs compatibles Flutter PrizesRecord
+  const prizeRef = db.collection("prizes").doc();
+  await prizeRef.set({
     prize_type: "principal",
-    name: prizeDescription,
+    name: prizeDescription || animationName || "Gros lot",
+    description: prizeDescription,
     prize_label: prizeDescription,
     winner_id: userRef,
     animation_id: animationId,
+    claim_code: claimCode,
     claimed: false,
     win_date: drawnAt,
   });
 
-  // Notifications
+  // my_lots : rend le lot visible dans "Mes lots" de l'app Flutter joueur
+  await db.collection("users").doc(winnerUid).collection("my_lots").add({
+    prize_id: prizeRef,
+  });
+
+  // Récupérer les commerçants participants pour les notifier
+  const participatingGamesSnap = await db
+    .collection("games")
+    .where("animation_id", "==", animationId)
+    .get();
+
+  // Notification au gagnant (joueur)
   try {
     const mailer = createSmtpMailer();
     if (winnerEmail) {
       const subject = "Vous avez gagne le gros lot !";
       const html = `
-        <p>Felicitations ${winnerFirstName || ""} ! Vous avez ete tire au sort et remportez : ${prizeDescription}</p>
+        <p>Felicitations ${winnerFirstName || ""} !</p>
+        <p>Vous avez ete tire au sort et remportez : <strong>${prizeDescription}</strong></p>
+        <p>Votre code de reclamation : <strong>${claimCode}</strong></p>
         <p>L'equipe Proxiplay vous contactera pour organiser la remise du lot.</p>
       `;
       const text = [
-        `Felicitations ${winnerFirstName || ""} ! Vous avez ete tire au sort et remportez : ${prizeDescription}`,
+        `Felicitations ${winnerFirstName || ""} !`,
+        `Vous avez ete tire au sort et remportez : ${prizeDescription}`,
+        `Votre code de reclamation : ${claimCode}`,
         "L'equipe Proxiplay vous contactera pour organiser la remise du lot.",
       ].join("\n");
       await sendEmailNotification(mailer, winnerEmail, subject, text, html);
@@ -160,9 +185,63 @@ async function drawWinnerForAnimation(animationRef, animationId, animationData) 
     });
   } catch (notificationError) {
     functions.logger.error(
-      `drawAnimationWinners: notification failure animationId=${animationId} winnerUid=${winnerUid}`,
+      `drawAnimationWinners: winner notification failure animationId=${animationId} winnerUid=${winnerUid}`,
       notificationError
     );
+  }
+
+  // Notifications aux commerçants participants
+  const ownerRefsSeen = new Set();
+  for (const gameDoc of participatingGamesSnap.docs) {
+    try {
+      const gameData = gameDoc.data() || {};
+      const enseigneRef = gameData.enseigne_ref || gameData.enseigne_id || null;
+      if (!enseigneRef || typeof enseigneRef.get !== "function") continue;
+
+      const enseigneSnap = await enseigneRef.get();
+      if (!enseigneSnap.exists) continue;
+
+      const enseigneData = enseigneSnap.data() || {};
+      const ownerRef = enseigneData.owner || null;
+      if (!ownerRef || typeof ownerRef.id !== "string") continue;
+      if (ownerRefsSeen.has(ownerRef.id)) continue;
+      ownerRefsSeen.add(ownerRef.id);
+
+      const ownerSnap = await ownerRef.get();
+      if (!ownerSnap.exists) continue;
+
+      const ownerData = ownerSnap.data() || {};
+      const merchantEmail = getTrimmedString(ownerData.email);
+      const enseigneName = getTrimmedString(enseigneData.name || gameData.enseigne_name);
+
+      const mailer = createSmtpMailer();
+      if (merchantEmail) {
+        const subject = `Un gagnant a ete tire au sort pour l'animation : ${animationName}`;
+        const html = `
+          <p>Bonjour ${enseigneName ? enseigneName : ""} !</p>
+          <p>Le tirage au sort de l'animation <strong>${animationName}</strong> vient d'avoir lieu.</p>
+          <p>Le gagnant du gros lot (<em>${prizeDescription}</em>) sera contacte par l'equipe Proxiplay.</p>
+        `;
+        const text = [
+          `Bonjour ${enseigneName ? enseigneName : ""} !`,
+          `Le tirage au sort de l'animation "${animationName}" vient d'avoir lieu.`,
+          `Le gagnant du gros lot (${prizeDescription}) sera contacte par l'equipe Proxiplay.`,
+        ].join("\n");
+        await sendEmailNotification(mailer, merchantEmail, subject, text, html);
+      }
+
+      await queuePushNotificationRequest(db, {
+        title: `Tirage au sort : ${animationName}`,
+        body: `Un gagnant a ete designe pour le gros lot de l'animation.`,
+        userRefOrPath: ownerRef,
+        createdBy: `system/draw_animation_winners/${animationId}`,
+      });
+    } catch (merchantNotifError) {
+      functions.logger.error(
+        `drawAnimationWinners: merchant notification failure gameId=${gameDoc.id}`,
+        merchantNotifError
+      );
+    }
   }
 
   functions.logger.info("drawAnimationWinners: winner drawn", {
@@ -170,11 +249,13 @@ async function drawWinnerForAnimation(animationRef, animationId, animationData) 
     winnerUid,
     winnerEmail,
     winnerLabel,
-    qualifiedEntriesCount: qualifiedEntries.length,
+    claimCode,
+    qualifiedCount: qualifiedEntries.length,
+    merchantsNotified: ownerRefsSeen.size,
   });
 }
 
-// Tourne chaque nuit à minuit (heure de Paris).
+// Tourne chaque nuit à minuit (Europe/Paris).
 // Traite toutes les animations "active" dont end_date est passée et sans gagnant.
 exports.drawAnimationWinners = functions.pubsub
   .schedule("0 0 * * *")
