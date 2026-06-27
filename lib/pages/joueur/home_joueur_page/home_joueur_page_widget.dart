@@ -639,6 +639,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     required String name,
     required String coverImage,
     required DateTime? endDate,
+    bool isEnded = false,
   }) {
     return InkWell(
       splashColor: Colors.transparent,
@@ -662,6 +663,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                   : Container(
                       color: FlutterFlowTheme.of(context).fieldBg,
                     ),
+              if (isEnded)
+                Container(color: Colors.black.withValues(alpha: 0.45)),
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -675,6 +678,27 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                   ),
                 ),
               ),
+              if (isEnded)
+                Positioned(
+                  top: 10.0,
+                  right: 10.0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0, vertical: 4.0),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFA0134D),
+                      borderRadius: BorderRadius.circular(20.0),
+                    ),
+                    child: const Text(
+                      'Terminé',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11.0,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
               Positioned(
                 left: 14.0,
                 right: 14.0,
@@ -701,8 +725,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                     const SizedBox(height: 4.0),
                     Text(
                       endDate != null
-                          ? "Jusqu'au ${dateTimeFormat('dd/MM', endDate, locale: FFLocalizations.of(context).languageCode)}"
-                          : "Jusqu'au -",
+                          ? isEnded
+                              ? "Terminé le ${dateTimeFormat('dd/MM', endDate, locale: FFLocalizations.of(context).languageCode)}"
+                              : "Jusqu'au ${dateTimeFormat('dd/MM', endDate, locale: FFLocalizations.of(context).languageCode)}"
+                          : isEnded
+                              ? 'Terminé'
+                              : "Jusqu'au -",
                       style: FlutterFlowTheme.of(context).bodySmall.override(
                             font: GoogleFonts.inter(
                               fontWeight: FontWeight.w500,
@@ -736,16 +764,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         }
 
         final now = getCurrentTimestamp;
-        final animations = snapshot.data!.docs.where((doc) {
+        final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+        final allDocs = snapshot.data!.docs;
+
+        final activeAnimations = allDocs.where((doc) {
           final data = doc.data();
           final endDate = _readAnimationDate(data, 'end_date');
-          if (endDate != null && !endDate.isAfter(now)) {
-            return false;
-          }
           final startDate = _readAnimationDate(data, 'start_date');
-          if (startDate != null && startDate.isAfter(now)) {
-            return false;
-          }
+          if (endDate != null && !endDate.isAfter(now)) return false;
+          if (startDate != null && startDate.isAfter(now)) return false;
           return true;
         }).toList()
           ..sort((a, b) {
@@ -756,9 +783,27 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
             return aDate.compareTo(bDate);
           });
 
-        if (animations.isEmpty) {
+        final endedAnimations = allDocs.where((doc) {
+          final data = doc.data();
+          final endDate = _readAnimationDate(data, 'end_date');
+          if (endDate == null) return false;
+          return !endDate.isAfter(now) && endDate.isAfter(thirtyDaysAgo);
+        }).toList()
+          ..sort((a, b) {
+            final aDate = _readAnimationDate(a.data(), 'end_date') ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            final bDate = _readAnimationDate(b.data(), 'end_date') ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            return bDate.compareTo(aDate);
+          });
+
+        if (activeAnimations.isEmpty && endedAnimations.isEmpty) {
           return const SizedBox.shrink();
         }
+
+        final sectionTitle = activeAnimations.isNotEmpty
+            ? 'ANIMATIONS EN COURS'
+            : 'ANIMATIONS RÉCENTES';
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 15.0),
@@ -775,7 +820,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                     bottom: 16.0,
                   ),
                   child: Text(
-                    'ANIMATIONS EN COURS',
+                    sectionTitle,
                     style: FlutterFlowTheme.of(context).titleLarge.override(
                           font: GoogleFonts.interTight(
                             fontWeight: FlutterFlowTheme.of(context)
@@ -803,19 +848,24 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                     padding: EdgeInsets.zero,
                     primary: false,
                     scrollDirection: Axis.horizontal,
-                    itemCount: animations.length,
+                    itemCount:
+                        activeAnimations.length + endedAnimations.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 10.0),
                     itemBuilder: (context, index) {
-                      final animation = animations[index];
-                      final data = animation.data();
+                      final isEndedItem = index >= activeAnimations.length;
+                      final doc = isEndedItem
+                          ? endedAnimations[index - activeAnimations.length]
+                          : activeAnimations[index];
+                      final data = doc.data();
                       return _buildAnimationCard(
                         context,
-                        animationId: animation.id,
+                        animationId: doc.id,
                         name: _readAnimationText(data, 'name').isNotEmpty
                             ? _readAnimationText(data, 'name')
                             : 'Animation',
                         coverImage: _readAnimationText(data, 'cover_image'),
                         endDate: _readAnimationDate(data, 'end_date'),
+                        isEnded: isEndedItem,
                       );
                     },
                   ),

@@ -5101,9 +5101,9 @@ try {
 
 try {
   const {
-    scheduledDrawAnimationWinners,
+    drawAnimationWinners,
   } = require("../custom_cloud_functions/draw_animation_winner");
-  exports.scheduledDrawAnimationWinners = scheduledDrawAnimationWinners;
+  exports.drawAnimationWinners = drawAnimationWinners;
 } catch (error) {
-  console.log("scheduledDrawAnimationWinners not loaded yet:", error.message);
+  console.log("drawAnimationWinners not loaded yet:", error.message);
 }

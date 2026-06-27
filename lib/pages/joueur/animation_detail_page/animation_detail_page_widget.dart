@@ -437,6 +437,10 @@ class _AnimationDetailPageState extends State<AnimationDetailPage> {
                                       animation.prizeDescription.trim(),
                                 ),
                               ],
+                              const SizedBox(height: 24.0),
+                              _DrawWinnerSection(
+                                animationId: widget.animationId,
+                              ),
                             ],
                           ),
                         ),
@@ -1304,6 +1308,97 @@ class _QrScannerPageState extends State<_QrScannerPage> {
           widget.onDetected(url);
         },
       ),
+    );
+  }
+}
+
+class _DrawWinnerSection extends StatelessWidget {
+  const _DrawWinnerSection({required this.animationId});
+
+  final String animationId;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .doc('animations/$animationId/winner/current')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          return const SizedBox.shrink();
+        }
+        final data = snapshot.data!.data() ?? {};
+        final label = (data['label'] as String? ?? '').trim();
+        if (label.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final selectedAt = data['selected_at'];
+        String dateLabel = '';
+        if (selectedAt is Timestamp) {
+          final dt = selectedAt.toDate();
+          dateLabel = DateFormat('dd/MM/yyyy', 'fr_FR').format(dt);
+        }
+
+        return Container(
+          margin: const EdgeInsets.only(top: 4.0),
+          padding: const EdgeInsets.all(16.0),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A4E),
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.emoji_events_rounded,
+                color: Color(0xFFFFD700),
+                size: 32.0,
+              ),
+              const SizedBox(width: 12.0),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Gagnant du tirage',
+                      style: FlutterFlowTheme.of(context).labelSmall.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            color: Colors.white.withValues(alpha: 0.7),
+                            letterSpacing: 0.0,
+                          ),
+                    ),
+                    const SizedBox(height: 2.0),
+                    Text(
+                      label,
+                      style: FlutterFlowTheme.of(context).titleSmall.override(
+                            font: GoogleFonts.interTight(
+                              fontWeight: FontWeight.w700,
+                            ),
+                            color: Colors.white,
+                            letterSpacing: 0.0,
+                          ),
+                    ),
+                    if (dateLabel.isNotEmpty)
+                      Text(
+                        'Tirage du $dateLabel',
+                        style:
+                            FlutterFlowTheme.of(context).bodySmall.override(
+                                  font: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                  fontSize: 11.0,
+                                  letterSpacing: 0.0,
+                                ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
