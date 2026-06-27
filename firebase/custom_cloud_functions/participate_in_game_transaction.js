@@ -423,7 +423,11 @@ exports.participateInGameTransaction = functions.https.onCall(
           gameConsistencyPatch.hasWinner = false;
           gameConsistencyPatch.main_prize_winner = null;
         }
-        if (remainingPart <= 0 && !unlimitedAccessActive) {
+        const isAnimationGame =
+          typeof gameData.animation_id === "string" &&
+          gameData.animation_id.trim().length > 0;
+
+        if (!isAnimationGame && remainingPart <= 0 && !unlimitedAccessActive) {
           throw new functions.https.HttpsError(
             "failed-precondition",
             "Vous n'avez plus de parties disponibles."
@@ -621,7 +625,7 @@ exports.participateInGameTransaction = functions.https.onCall(
 
         let messageBonus = "";
         let remainingPartDelta = 0;
-        if (!unlimitedAccessActive) {
+        if (!isAnimationGame && !unlimitedAccessActive) {
           remainingPartDelta -= 1;
         }
 

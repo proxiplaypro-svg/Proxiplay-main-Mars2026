@@ -78,6 +78,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     if (isGuestOrAnonymous) {
       return false;
     }
+    final animationId = widget.gameDoc?.animationId ?? '';
+    if (animationId.trim().isNotEmpty) {
+      return false;
+    }
     return valueOrDefault(user?.remainingPart, 0) <= 0 &&
         !_hasUnlimitedAccess(user, now);
   }
