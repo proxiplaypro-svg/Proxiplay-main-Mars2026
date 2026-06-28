@@ -752,6 +752,187 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     );
   }
 
+  Widget _buildFinishedAnimationHomeCard(
+    BuildContext context, {
+    required String animationId,
+    required String name,
+    required String coverImage,
+    required DateTime? endDate,
+  }) {
+    final borderRadius = BorderRadius.circular(AppStyles.gameCardRadius);
+
+    return SizedBox(
+      width: _computeHomeCardWidth(context),
+      height: AppStyles.finishedGameListHeight,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: borderRadius,
+          onTap: () async {
+            await _openAnimationDetails(animationId);
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: borderRadius,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 12.0,
+                  offset: const Offset(0.0, 4.0),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: borderRadius,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    height: AppStyles.finishedGameImageHeight,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        coverImage.isNotEmpty
+                            ? ColorFiltered(
+                                colorFilter: ColorFilter.mode(
+                                  Colors.grey.withValues(alpha: 0.9),
+                                  BlendMode.saturation,
+                                ),
+                                child: ProxiplayNetworkImage(
+                                  imageUrl: coverImage,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Container(
+                                color: FlutterFlowTheme.of(context).fieldBg,
+                              ),
+                        Positioned(
+                          left: 0.0,
+                          top: 0.0,
+                          child: Container(
+                            padding: AppStyles.gameCardBadgePadding,
+                            decoration: const BoxDecoration(
+                              color: AppStyles.gameCardBadgeColor,
+                              borderRadius: BorderRadius.only(
+                                bottomRight: Radius.circular(18.0),
+                              ),
+                            ),
+                            child: Text(
+                              'Termin√©',
+                              style: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .override(
+                                    font: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w800,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontStyle,
+                                    ),
+                                    color: Colors.white,
+                                    fontSize: AppStyles.gameCardBadgeSize,
+                                    letterSpacing: 0.0,
+                                  ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: AppStyles.gameCardContentPadding,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: FlutterFlowTheme.of(context)
+                                .bodyMedium
+                                .override(
+                                  font: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w700,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontStyle,
+                                  ),
+                                  fontSize: AppStyles.gameCardTitleSize,
+                                  color: Colors.black,
+                                  letterSpacing: 0.0,
+                                ),
+                          ),
+                          const SizedBox(height: 6.0),
+                          _buildFinishedAnimationInfoRow(
+                            context,
+                            Icons.auto_awesome_rounded,
+                            'Animation',
+                            fontWeight: FontWeight.w700,
+                          ),
+                          const SizedBox(height: 6.0),
+                          _buildFinishedAnimationInfoRow(
+                            context,
+                            Icons.date_range,
+                            endDate != null
+                                ? "Termin√©e le ${dateTimeFormat('d/M/y', endDate, locale: FFLocalizations.of(context).languageCode)}"
+                                : 'Termin√©e',
+                          ),
+                          const SizedBox(height: 6.0),
+                          _buildFinishedAnimationInfoRow(
+                            context,
+                            Icons.info_outline,
+                            'Animation termin√©e',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFinishedAnimationInfoRow(
+    BuildContext context,
+    IconData icon,
+    String text, {
+    FontWeight? fontWeight,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1.0),
+          child: Icon(icon, size: 18.0, color: const Color(0xFF26235C)),
+        ),
+        const SizedBox(width: 8.0),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: FlutterFlowTheme.of(context).bodySmall.override(
+                  font: GoogleFonts.inter(
+                    fontWeight: fontWeight ??
+                        FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                  ),
+                  color: const Color(0xFF26235C),
+                  fontSize: AppStyles.gameCardBodySize,
+                  letterSpacing: 0.0,
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildActiveAnimationsSection(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
@@ -764,7 +945,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         }
 
         final now = getCurrentTimestamp;
-        final thirtyDaysAgo = now.subtract(const Duration(days: 30));
         final allDocs = snapshot.data!.docs;
 
         final activeAnimations = allDocs.where((doc) {
@@ -783,27 +963,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
             return aDate.compareTo(bDate);
           });
 
-        final endedAnimations = allDocs.where((doc) {
-          final data = doc.data();
-          final endDate = _readAnimationDate(data, 'end_date');
-          if (endDate == null) return false;
-          return !endDate.isAfter(now) && endDate.isAfter(thirtyDaysAgo);
-        }).toList()
-          ..sort((a, b) {
-            final aDate = _readAnimationDate(a.data(), 'end_date') ??
-                DateTime.fromMillisecondsSinceEpoch(0);
-            final bDate = _readAnimationDate(b.data(), 'end_date') ??
-                DateTime.fromMillisecondsSinceEpoch(0);
-            return bDate.compareTo(aDate);
-          });
-
-        if (activeAnimations.isEmpty && endedAnimations.isEmpty) {
+        if (activeAnimations.isEmpty) {
           return const SizedBox.shrink();
         }
-
-        final sectionTitle = activeAnimations.isNotEmpty
-            ? 'ANIMATIONS EN COURS'
-            : 'ANIMATIONS R√âCENTES';
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 15.0),
@@ -820,7 +982,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                     bottom: 16.0,
                   ),
                   child: Text(
-                    sectionTitle,
+                    'ANIMATIONS EN COURS',
                     style: FlutterFlowTheme.of(context).titleLarge.override(
                           font: GoogleFonts.interTight(
                             fontWeight: FlutterFlowTheme.of(context)
@@ -848,14 +1010,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                     padding: EdgeInsets.zero,
                     primary: false,
                     scrollDirection: Axis.horizontal,
-                    itemCount:
-                        activeAnimations.length + endedAnimations.length,
+                    itemCount: activeAnimations.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 10.0),
                     itemBuilder: (context, index) {
-                      final isEndedItem = index >= activeAnimations.length;
-                      final doc = isEndedItem
-                          ? endedAnimations[index - activeAnimations.length]
-                          : activeAnimations[index];
+                      final doc = activeAnimations[index];
                       final data = doc.data();
                       return _buildAnimationCard(
                         context,
@@ -865,7 +1023,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                             : 'Animation',
                         coverImage: _readAnimationText(data, 'cover_image'),
                         endDate: _readAnimationDate(data, 'end_date'),
-                        isEnded: isEndedItem,
                       );
                     },
                   ),
@@ -2628,116 +2785,200 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         DateTime.fromMillisecondsSinceEpoch(
                                                                             0)));
 
-                                                              if (recentlyEndedGames
-                                                                  .isEmpty) {
-                                                                return const ListEmptyComponentWidget(
-                                                                  title:
-                                                                      'Aucun jeu termin\u00E9',
-                                                                  description:
-                                                                      ' ',
-                                                                );
-                                                              }
+                                                              return StreamBuilder<
+                                                                  QuerySnapshot<
+                                                                      Map<String,
+                                                                          dynamic>>>(
+                                                                stream: FirebaseFirestore
+                                                                    .instance
+                                                                    .collection(
+                                                                        'animations')
+                                                                    .where(
+                                                                      'status',
+                                                                      isEqualTo:
+                                                                          'active',
+                                                                    )
+                                                                    .snapshots(),
+                                                                builder: (context,
+                                                                    animationsSnapshot) {
+                                                                  if (!animationsSnapshot
+                                                                      .hasData) {
+                                                                    return const SizedBox
+                                                                        .shrink();
+                                                                  }
 
-                                                              return SizedBox(
-                                                                width: double
-                                                                    .infinity,
-                                                                height: AppStyles
-                                                                    .finishedGameListHeight,
-                                                                child: ListView
-                                                                    .separated(
-                                                                  padding:
-                                                                      EdgeInsets
-                                                                          .zero,
-                                                                  primary:
-                                                                      false,
-                                                                  scrollDirection:
-                                                                      Axis.horizontal,
-                                                                  itemCount:
-                                                                      recentlyEndedGames
-                                                                          .length,
-                                                                  separatorBuilder: (_,
-                                                                          __) =>
-                                                                      const SizedBox(
-                                                                          width:
-                                                                              10.0),
-                                                                  itemBuilder:
-                                                                      (context,
-                                                                          idx) {
-                                                                    final game =
-                                                                        recentlyEndedGames[
-                                                                            idx];
-                                                                    return FutureBuilder<
-                                                                        EnseignesRecord>(
-                                                                      future: _getCachedEnseigneFuture(
-                                                                          game.enseigneId!),
-                                                                      builder:
+                                                                  final thirtyDaysAgo = now
+                                                                      .subtract(
+                                                                    const Duration(
+                                                                        days:
+                                                                            30),
+                                                                  );
+                                                                  final recentEndedAnimations =
+                                                                      animationsSnapshot
+                                                                          .data!
+                                                                          .docs
+                                                                          .where(
+                                                                              (doc) {
+                                                                    final data =
+                                                                        doc.data();
+                                                                    final endDate =
+                                                                        _readAnimationDate(
+                                                                      data,
+                                                                      'end_date',
+                                                                    );
+                                                                    if (endDate ==
+                                                                        null) {
+                                                                      return false;
+                                                                    }
+                                                                    return !endDate
+                                                                            .isAfter(
+                                                                                now) &&
+                                                                        endDate.isAfter(
+                                                                            thirtyDaysAgo);
+                                                                  }).toList()
+                                                                        ..sort((a,
+                                                                            b) {
+                                                                          final aDate = _readAnimationDate(
+                                                                                a.data(),
+                                                                                'end_date',
+                                                                              ) ??
+                                                                              DateTime.fromMillisecondsSinceEpoch(0);
+                                                                          final bDate = _readAnimationDate(
+                                                                                b.data(),
+                                                                                'end_date',
+                                                                              ) ??
+                                                                              DateTime.fromMillisecondsSinceEpoch(0);
+                                                                          return bDate.compareTo(
+                                                                              aDate);
+                                                                        });
+
+                                                                  if (recentlyEndedGames
+                                                                          .isEmpty &&
+                                                                      recentEndedAnimations
+                                                                          .isEmpty) {
+                                                                    return const ListEmptyComponentWidget(
+                                                                      title:
+                                                                          'Aucun jeu terminÈ',
+                                                                      description:
+                                                                          ' ',
+                                                                    );
+                                                                  }
+
+                                                                  return SizedBox(
+                                                                    width: double
+                                                                        .infinity,
+                                                                    height: AppStyles
+                                                                        .finishedGameListHeight,
+                                                                    child: ListView
+                                                                        .separated(
+                                                                      padding:
+                                                                          EdgeInsets.zero,
+                                                                      primary:
+                                                                          false,
+                                                                      scrollDirection:
+                                                                          Axis.horizontal,
+                                                                      itemCount:
+                                                                          recentlyEndedGames.length +
+                                                                              recentEndedAnimations.length,
+                                                                      separatorBuilder: (_, __) =>
+                                                                          const SizedBox(width: 10.0),
+                                                                      itemBuilder:
                                                                           (context,
-                                                                              enseigneSnapshot) {
-                                                                        final enseigne =
-                                                                            enseigneSnapshot.data;
-                                                                        final hasVisibleMainPrize =
-                                                                            _hasVisibleMainPrizeForPlayer(
-                                                                                game);
-                                                                        final finishedBadgeText =
-                                                                            !hasVisibleMainPrize
-                                                                                ? 'Lots attribu√©s'
-                                                                                : null;
-                                                                        final finishedInfoText =
-                                                                            !hasVisibleMainPrize
-                                                                                ? 'Lots secondaires attribu√©s'
-                                                                                : 'Jeu termin√©';
-                                                                        if (game.mainPrizeWinner ==
-                                                                            null) {
-                                                                          return _buildHomeGameCard(
-                                                                            game: game,
-                                                                            enseigne: enseigne,
-                                                                            prizeText: game.prizeValue == 0 ? 'Gains instantan√©s' : _formatEuroAmount(game.prizeValue),
-                                                                            endDateText: game.endDate != null ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}" : "Jusqu'au : -",
-                                                                            badgeText: finishedBadgeText,
-                                                                            isFinished: true,
-                                                                            fitContent: true,
-                                                                            finishedInfoText: finishedInfoText,
-                                                                            imageHeight: AppStyles.finishedGameImageHeight,
-                                                                            onTap: () async {
-                                                                              await _openGameDetails(game);
+                                                                              idx) {
+                                                                        if (idx <
+                                                                            recentlyEndedGames.length) {
+                                                                          final game =
+                                                                              recentlyEndedGames[idx];
+                                                                          return FutureBuilder<
+                                                                              EnseignesRecord>(
+                                                                            future: _getCachedEnseigneFuture(
+                                                                                game.enseigneId!),
+                                                                            builder: (context,
+                                                                                enseigneSnapshot) {
+                                                                              final enseigne =
+                                                                                  enseigneSnapshot.data;
+                                                                              final hasVisibleMainPrize =
+                                                                                  _hasVisibleMainPrizeForPlayer(
+                                                                                      game);
+                                                                              final finishedBadgeText =
+                                                                                  !hasVisibleMainPrize
+                                                                                      ? 'Lots attribuÈs'
+                                                                                      : null;
+                                                                              final finishedInfoText =
+                                                                                  !hasVisibleMainPrize
+                                                                                      ? 'Lots secondaires attribuÈs'
+                                                                                      : 'Jeu terminÈ';
+                                                                              if (game.mainPrizeWinner ==
+                                                                                  null) {
+                                                                                return _buildHomeGameCard(
+                                                                                  game: game,
+                                                                                  enseigne: enseigne,
+                                                                                  prizeText: game.prizeValue == 0 ? 'Gains instantanÈs' : _formatEuroAmount(game.prizeValue),
+                                                                                  endDateText: game.endDate != null ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}" : "Jusqu'au : -",
+                                                                                  badgeText: finishedBadgeText,
+                                                                                  isFinished: true,
+                                                                                  fitContent: true,
+                                                                                  finishedInfoText: finishedInfoText,
+                                                                                  imageHeight: AppStyles.finishedGameImageHeight,
+                                                                                  onTap: () async {
+                                                                                    await _openGameDetails(game);
+                                                                                  },
+                                                                                );
+                                                                              }
+                                                                              return FutureBuilder<
+                                                                                  UsersRecord>(
+                                                                                future: UsersRecord.getDocumentOnce(game.mainPrizeWinner!),
+                                                                                builder: (context, winnerSnapshot) {
+                                                                                  final winner =
+                                                                                      winnerSnapshot.data;
+                                                                                  final winnerLabel = buildWinnerLabelFromSources(
+                                                                                    gameData: game.snapshotData,
+                                                                                    user: winner,
+                                                                                    fallback: 'Gagnant annoncÈ',
+                                                                                  );
+                                                                                  return _buildHomeGameCard(
+                                                                                    game: game,
+                                                                                    enseigne: enseigne,
+                                                                                    prizeText: game.prizeValue == 0 ? 'Gains instantanÈs' : _formatEuroAmount(game.prizeValue),
+                                                                                    endDateText: game.endDate != null ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}" : "Jusqu'au : -",
+                                                                                    badgeText: finishedBadgeText,
+                                                                                    winnerText: winnerLabel,
+                                                                                    winnerMaxLines: 1,
+                                                                                    isFinished: true,
+                                                                                    fitContent: true,
+                                                                                    finishedInfoText: finishedInfoText,
+                                                                                    imageHeight: AppStyles.finishedGameImageHeight,
+                                                                                    onTap: () async {
+                                                                                      await _openGameDetails(game);
+                                                                                    },
+                                                                                  );
+                                                                                },
+                                                                              );
                                                                             },
                                                                           );
                                                                         }
-                                                                        return FutureBuilder<
-                                                                            UsersRecord>(
-                                                                          future:
-                                                                              UsersRecord.getDocumentOnce(game.mainPrizeWinner!),
-                                                                          builder:
-                                                                              (context, winnerSnapshot) {
-                                                                            final winner =
-                                                                                winnerSnapshot.data;
-                                                                            final winnerLabel = buildWinnerLabelFromSources(
-                                                                              gameData: game.snapshotData,
-                                                                              user: winner,
-                                                                              fallback: 'Gagnant annonc\u00E9',
-                                                                            );
-                                                                            return _buildHomeGameCard(
-                                                                              game: game,
-                                                                              enseigne: enseigne,
-                                                                              prizeText: game.prizeValue == 0 ? 'Gains instantan√©s' : _formatEuroAmount(game.prizeValue),
-                                                                              endDateText: game.endDate != null ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}" : "Jusqu'au : -",
-                                                                              badgeText: finishedBadgeText,
-                                                                              winnerText: winnerLabel,
-                                                                              winnerMaxLines: 1,
-                                                                              isFinished: true,
-                                                                              fitContent: true,
-                                                                              finishedInfoText: finishedInfoText,
-                                                                              imageHeight: AppStyles.finishedGameImageHeight,
-                                                                              onTap: () async {
-                                                                                await _openGameDetails(game);
-                                                                              },
-                                                                            );
-                                                                          },
+
+                                                                        final animation = recentEndedAnimations[
+                                                                            idx -
+                                                                                recentlyEndedGames.length];
+                                                                        final animationData =
+                                                                            animation.data();
+                                                                        return _buildFinishedAnimationHomeCard(
+                                                                          context,
+                                                                          animationId:
+                                                                              animation.id,
+                                                                          name: _readAnimationText(animationData, 'name').isNotEmpty
+                                                                              ? _readAnimationText(animationData, 'name')
+                                                                              : 'Animation',
+                                                                          coverImage:
+                                                                              _readAnimationText(animationData, 'cover_image'),
+                                                                          endDate:
+                                                                              _readAnimationDate(animationData, 'end_date'),
                                                                         );
                                                                       },
-                                                                    );
-                                                                  },
-                                                                ),
+                                                                    ),
+                                                                  );
+                                                                },
                                                               );
                                                             },
                                                           ),
@@ -4294,3 +4535,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     );
   }
 }
+
+
+
