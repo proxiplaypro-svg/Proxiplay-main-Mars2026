@@ -252,7 +252,7 @@ class _GameCardState extends State<GameCard> {
         decoration: BoxDecoration(
           borderRadius: cardRadius,
           border: Border.all(
-            color: _isPressed ? Colors.red : Colors.transparent,
+            color: _isPressed ? const Color(0xFFA0134D) : Colors.transparent,
             width: 2.0,
           ),
           boxShadow: [
@@ -470,39 +470,39 @@ class _GameCardState extends State<GameCard> {
   String _formatPriceText(String value) {
     final normalized = _normalizeText(value).trim();
     final match =
-        RegExp(r'^(\d+)(?:[.,](\d{1,2}))?\s*€?$').firstMatch(normalized);
+        RegExp(r'^(\d+)(?:[.,](\d{1,2}))?\s*â‚¬?$').firstMatch(normalized);
     if (match == null) {
       return normalized;
     }
     final euros = match.group(1)!;
     final decimals = match.group(2);
     if (decimals == null || int.tryParse(decimals) == 0) {
-      return '$euros €';
+      return '$euros â‚¬';
     }
     final trimmedDecimals = decimals.replaceFirst(RegExp(r'0+$'), '');
-    return '$euros,$trimmedDecimals €';
+    return '$euros,$trimmedDecimals â‚¬';
   }
 
   String _normalizeText(String value) {
     return value
-        .replaceAll('â‚¬', '\u20AC')
-        .replaceAll('Ã©', '\u00E9')
-        .replaceAll('Ã¨', '\u00E8')
-        .replaceAll('Ãª', '\u00EA')
-        .replaceAll('Ã«', '\u00EB')
-        .replaceAll('Ã ', '\u00E0')
-        .replaceAll('Ã¢', '\u00E2')
-        .replaceAll('Ã¹', '\u00F9')
-        .replaceAll('Ã»', '\u00FB')
-        .replaceAll('Ã´', '\u00F4')
-        .replaceAll('Ã®', '\u00EE')
-        .replaceAll('Ã¯', '\u00EF')
-        .replaceAll('Ã‡', '\u00C7')
-        .replaceAll('Ã§', '\u00E7')
-        .replaceAll('Ã€', '\u00C0')
-        .replaceAll('Ã‰', '\u00C9')
-        .replaceAll('Ã”', '\u00D4')
-        .replaceAll('â€™', '\'')
+        .replaceAll('Ã¢â€šÂ¬', '\u20AC')
+        .replaceAll('ÃƒÂ©', '\u00E9')
+        .replaceAll('ÃƒÂ¨', '\u00E8')
+        .replaceAll('ÃƒÂª', '\u00EA')
+        .replaceAll('ÃƒÂ«', '\u00EB')
+        .replaceAll('ÃƒÂ ', '\u00E0')
+        .replaceAll('ÃƒÂ¢', '\u00E2')
+        .replaceAll('ÃƒÂ¹', '\u00F9')
+        .replaceAll('ÃƒÂ»', '\u00FB')
+        .replaceAll('ÃƒÂ´', '\u00F4')
+        .replaceAll('ÃƒÂ®', '\u00EE')
+        .replaceAll('ÃƒÂ¯', '\u00EF')
+        .replaceAll('Ãƒâ€¡', '\u00C7')
+        .replaceAll('ÃƒÂ§', '\u00E7')
+        .replaceAll('Ãƒâ‚¬', '\u00C0')
+        .replaceAll('Ãƒâ€°', '\u00C9')
+        .replaceAll('Ãƒâ€', '\u00D4')
+        .replaceAll('Ã¢â‚¬â„¢', '\'')
         .replaceAll('\uFFFD', '');
   }
 }

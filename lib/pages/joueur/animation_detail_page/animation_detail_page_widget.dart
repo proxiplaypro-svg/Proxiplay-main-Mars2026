@@ -93,7 +93,7 @@ class _AnimationDetailPageState extends State<AnimationDetailPage> {
       return prizeDescription;
     }
 
-    return 'Lot à découvrir en boutique';
+    return 'Lot \u00E0 d\u00E9couvrir en boutique';
   }
 
   String _presentationGameDescription(GamesRecord game) {
@@ -307,17 +307,21 @@ class _AnimationDetailPageState extends State<AnimationDetailPage> {
         final animation = animationSnapshot.data!;
         final hasMainPrizeSection = animation.prizeImage.trim().isNotEmpty ||
             animation.prizeDescription.trim().isNotEmpty;
+        final isAnimationFinished = animation.endDate != null &&
+            !animation.endDate!.isAfter(getCurrentTimestamp);
 
         return _AnimationDetailScaffold(
-          bottomNavigationBar: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 16.0),
-              child: _ScanQrButton(
-                onPressed: () => _openQrScanner(context),
-              ),
-            ),
-          ),
+          bottomNavigationBar: isAnimationFinished
+              ? null
+              : SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 16.0),
+                    child: _ScanQrButton(
+                      onPressed: () => _openQrScanner(context),
+                    ),
+                  ),
+                ),
           body: StreamBuilder<_AnimationProgressData>(
             stream: _progressStream(),
             builder: (context, progressSnapshot) {
@@ -385,7 +389,7 @@ class _AnimationDetailPageState extends State<AnimationDetailPage> {
                               const _SectionHeader(
                                 icon: Icons.card_giftcard_rounded,
                                 title:
-                                    'Commerces participants & lots immédiats',
+                                    'Commerces participants & lots imm\u00E9diats',
                               ),
                               const SizedBox(height: 12.0),
                               if (hasGamesError)
@@ -566,7 +570,7 @@ class _ProgressCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '$visitedCount/$safeThreshold commerces visités',
+                '$visitedCount/$safeThreshold commerces visit\u00E9s',
                 style: FlutterFlowTheme.of(context).bodyMedium.override(
                       font: GoogleFonts.inter(
                         fontWeight: FontWeight.w700,
@@ -613,7 +617,7 @@ class _ProgressCard extends StatelessWidget {
           const SizedBox(height: 16.0),
           Text(
             progress.thresholdReached
-                ? 'Tu es qualifié pour le tirage final !'
+                ? 'Tu es qualifi\u00E9 pour le tirage final !'
                 : 'Visite encore $remaining commerces en scannant le QR code en boutique pour participer au tirage final.',
             style: FlutterFlowTheme.of(context).bodyMedium.override(
                   font: GoogleFonts.inter(
@@ -727,7 +731,7 @@ class _MainPrizeShortcutCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Gros lot à gagner',
+                        'Gros lot \u00E0 gagner',
                         style: FlutterFlowTheme.of(context).bodySmall.override(
                               font: GoogleFonts.inter(
                                 fontWeight: FontWeight.w500,
@@ -1068,7 +1072,7 @@ class _MerchantStatusBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            isVisited ? 'Visité' : 'En boutique',
+            isVisited ? 'Visit\u00E9' : 'En boutique',
             style: FlutterFlowTheme.of(context).bodySmall.override(
                   font: GoogleFonts.inter(
                     fontWeight: FontWeight.w700,
@@ -1151,7 +1155,7 @@ class _ScanQrButton extends StatelessWidget {
                         ),
                   ),
                   Text(
-                    'chez un commerçant',
+                    'chez un commer\u00E7ant',
                     style: FlutterFlowTheme.of(context).bodySmall.override(
                           font: GoogleFonts.inter(
                             fontWeight: FontWeight.w500,
