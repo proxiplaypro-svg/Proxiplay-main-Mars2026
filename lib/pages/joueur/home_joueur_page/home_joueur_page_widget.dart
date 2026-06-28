@@ -1847,9 +1847,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 GamesRecord
                                                                     .collection
                                                                     .where(
-                                                                      'prize_value',
-                                                                      isGreaterThan:
-                                                                          0,
+                                                                      'hasWinner',
+                                                                      isEqualTo:
+                                                                          false,
                                                                     )
                                                                     .orderBy(
                                                                         'prize_value',
@@ -2058,6 +2058,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .setListViewController4(
                                                                 GamesRecord
                                                                     .collection
+                                                                    .where(
+                                                                      'hasWinner',
+                                                                      isEqualTo:
+                                                                          false,
+                                                                    )
+                                                                    .where(
+                                                                      'end_date',
+                                                                      isGreaterThan:
+                                                                          getCurrentTimestamp,
+                                                                    )
                                                                     .orderBy(
                                                                         'end_date'),
                                                               );
@@ -2297,8 +2307,13 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .setListViewController3(
                                                                 GamesRecord
                                                                     .collection
+                                                                    .where(
+                                                                      'hasWinner',
+                                                                      isEqualTo:
+                                                                          false,
+                                                                    )
                                                                     .orderBy(
-                                                                        'start_date',
+                                                                        'created_time',
                                                                         descending:
                                                                             true),
                                                               );
@@ -2810,9 +2825,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               GamesRecord
                                                                   .collection
                                                                   .where(
-                                                                    'prize_value',
-                                                                    isGreaterThan:
-                                                                        0,
+                                                                    'hasWinner',
+                                                                    isEqualTo:
+                                                                        false,
+                                                                  )
+                                                                  .where(
+                                                                    'prohibited_for_minors',
+                                                                    isEqualTo:
+                                                                        false,
                                                                   )
                                                                   .orderBy(
                                                                       'prize_value',
@@ -2997,8 +3017,18 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .setListViewController6(
                                                                 GamesRecord
                                                                     .collection
+                                                                    .where(
+                                                                      'hasWinner',
+                                                                      isEqualTo:
+                                                                          false,
+                                                                    )
+                                                                    .where(
+                                                                      'prohibited_for_minors',
+                                                                      isEqualTo:
+                                                                          false,
+                                                                    )
                                                                     .orderBy(
-                                                                        'start_date',
+                                                                        'created_time',
                                                                         descending:
                                                                             true),
                                                               );
@@ -3051,8 +3081,18 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 .setListViewController6(
                                                               GamesRecord
                                                                   .collection
+                                                                  .where(
+                                                                    'hasWinner',
+                                                                    isEqualTo:
+                                                                        false,
+                                                                  )
+                                                                  .where(
+                                                                    'prohibited_for_minors',
+                                                                    isEqualTo:
+                                                                        false,
+                                                                  )
                                                                   .orderBy(
-                                                                      'start_date',
+                                                                      'created_time',
                                                                       descending:
                                                                           true),
                                                             ),
@@ -3173,6 +3213,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .setListViewController7(
                                                                 GamesRecord
                                                                     .collection
+                                                                    .where(
+                                                                      'hasWinner',
+                                                                      isEqualTo:
+                                                                          false,
+                                                                    )
+                                                                    .where(
+                                                                      'prohibited_for_minors',
+                                                                      isEqualTo:
+                                                                          false,
+                                                                    )
                                                                     .orderBy(
                                                                         'end_date'),
                                                               );
@@ -3315,6 +3365,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 .setListViewController7(
                                                               GamesRecord
                                                                   .collection
+                                                                  .where(
+                                                                    'hasWinner',
+                                                                    isEqualTo:
+                                                                        false,
+                                                                  )
+                                                                  .where(
+                                                                    'prohibited_for_minors',
+                                                                    isEqualTo:
+                                                                        false,
+                                                                  )
                                                                   .orderBy(
                                                                       'end_date'),
                                                             ),
@@ -3495,6 +3555,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 .setListViewController8(
                                                           GamesRecord.collection
                                                               .where(
+                                                                'hasWinner',
+                                                                isEqualTo:
+                                                                    false,
+                                                              )
+                                                              .where(
                                                                 'prize_value',
                                                                 isGreaterThan:
                                                                     0,
@@ -3552,6 +3617,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         pagingController: _model
                                                             .setListViewController8(
                                                           GamesRecord.collection
+                                                              .where(
+                                                                'hasWinner',
+                                                                isEqualTo:
+                                                                    false,
+                                                              )
                                                               .where(
                                                                 'prize_value',
                                                                 isGreaterThan:
@@ -3743,8 +3813,13 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               _model
                                                                   .setListViewController9(
                                                             GamesRecord.collection
+                                                                .where(
+                                                                  'hasWinner',
+                                                                  isEqualTo:
+                                                                      false,
+                                                                )
                                                                 .orderBy(
-                                                                    'start_date',
+                                                                    'created_time',
                                                                     descending:
                                                                         true),
                                                           );
@@ -3794,8 +3869,13 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         pagingController: _model
                                                             .setListViewController9(
                                                           GamesRecord.collection
+                                                              .where(
+                                                                'hasWinner',
+                                                                isEqualTo:
+                                                                    false,
+                                                              )
                                                               .orderBy(
-                                                                  'start_date',
+                                                                  'created_time',
                                                                   descending:
                                                                       true),
                                                         ),
@@ -3919,6 +3999,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         _model
                                                             .setListViewController10(
                                                       GamesRecord.collection
+                                                          .where(
+                                                            'hasWinner',
+                                                            isEqualTo: false,
+                                                          )
                                                           .orderBy(
                                                               'end_date'),
                                                     );
@@ -4060,6 +4144,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         pagingController: _model
                                                             .setListViewController10(
                                                           GamesRecord.collection
+                                                              .where(
+                                                                'hasWinner',
+                                                                isEqualTo:
+                                                                    false,
+                                                              )
                                                               .orderBy(
                                                                   'end_date'),
                                                         ),
