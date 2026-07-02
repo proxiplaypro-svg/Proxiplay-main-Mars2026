@@ -1,9 +1,9 @@
-const functions = require("firebase-functions");
+﻿const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
-const participateInGameTransaction = require("./participate_in_game_transaction.js");
 admin.initializeApp();
+const participateInGameTransaction = require("./participate_in_game_transaction.js");
 
 const kFcmTokensCollection = "fcm_tokens";
 const kPushNotificationsCollection = "ff_push_notifications";
@@ -550,7 +550,7 @@ async function queueFavoriteMerchantNewGameNotifications(gameDoc, gameData) {
         title: "Nouveau jeu disponible",
         body: enseigneName
           ? `${enseigneName} vient de publier ${gameName}.`
-          : `Un commerçant favori vient de publier ${gameName}.`,
+          : `Un commer\u00E7ant favori vient de publier ${gameName}.`,
         userUid,
         createdBy: `system/favorite_merchant_new_game/${gameDoc.id}`,
       });
@@ -585,7 +585,7 @@ async function queueFollowedGameEndingSoonNotifications(gameDoc, config) {
     return;
   }
 
-  // Récupérer city du commerce si filtrage activé
+  // RÃ©cupÃ©rer city du commerce si filtrage activÃ©
   let enseigneCity = null;
   if (useCityFilter) {
     const enseigneRef = toDocRef(gameData.enseigne_id);
@@ -597,7 +597,7 @@ async function queueFollowedGameEndingSoonNotifications(gameDoc, config) {
     }
   }
 
-  // Requête: tous les joueurs éligibles (pas seulement followers)
+  // RequÃªte: tous les joueurs Ã©ligibles (pas seulement followers)
   let usersQuery = firestore
     .collection("users")
     .where("user_role", "==", "joueur")
@@ -628,13 +628,13 @@ async function queueFollowedGameEndingSoonNotifications(gameDoc, config) {
       const userUid = userData.uid || userSnap.id;
       const userCity = userData.city || "";
 
-      // Vérifier les préférences push
+      // VÃ©rifier les prÃ©fÃ©rences push
       if (!isUserPushPreferenceEnabled(userData, "followedGameEndingSoon")) {
         skippedPrefs += 1;
         return;
       }
 
-      // Vérifier au moins 1 FCM token
+      // VÃ©rifier au moins 1 FCM token
       const tokensSnap = await firestore
         .doc(`users/${userUid}`)
         .collection(kFcmTokensCollection)
@@ -660,28 +660,28 @@ async function queueFollowedGameEndingSoonNotifications(gameDoc, config) {
         return;
       }
 
-      // ===== CRÉER NOTIFICATION via FF_PUSH_NOTIFICATIONS =====
+      // ===== CRÃ‰ER NOTIFICATION via FF_PUSH_NOTIFICATIONS =====
       const notificationBody = useCityFilter && enseigneCity
         ? `${gameName} chez ${enseigneName} se termine dans ${daysBefore} jours.`
         : `${gameName} se termine dans ${daysBefore} jours.`;
 
       const queuedNow = await queueUserScopedPushNotification({
         docId: `game_ending_${gameId}_${userUid}_${Date.now()}`,
-        title: "Tic tac ⏳",
+        title: "Tic tac â³",
         body: notificationBody,
         userUid,
         createdBy: `system/game_ending/${gameId}`,
       });
 
       if (queuedNow) {
-        // ===== CRÉER LOG ANTI-DOUBLON =====
+        // ===== CRÃ‰ER LOG ANTI-DOUBLON =====
         await antiDuplicateRef.set({
           type: "game_ending_soon",
           game_id: gameId,
           game_name: gameName,
           enseigne_id: gameData.enseigne_id ? gameData.enseigne_id.path : "",
           enseigne_name: enseigneName,
-          notification_title: "Tic tac ⏳",
+          notification_title: "Tic tac â³",
           notification_text: notificationBody,
           player_status: userData.player_status_cached || "unknown",
           city_filtered: useCityFilter,
@@ -1332,7 +1332,7 @@ function buildMerchantName(ownerData) {
   const fromDisplayName =
     getTrimmedString(ownerData && ownerData.display_name) ||
     getTrimmedString(ownerData && ownerData.pseudo);
-  return fromDisplayName || "Commerçant";
+  return fromDisplayName || "Commer\u00E7ant";
 }
 
 function getSmtpSettings() {
@@ -1482,16 +1482,16 @@ function getPrizeReminderDefaultConfig() {
     prizeReminderEnabled: false,
     prizeReminderPushEnabled: true,
     prizeReminderEmailEnabled: true,
-    prizeReminderPushTitle: "Votre lot vous attend 🎁",
+    prizeReminderPushTitle: "Votre lot vous attend \u{1F381}",
     prizeReminderPushMessage:
-      "Vous avez gagné un lot sur Proxiplay. Pensez à le retirer ou à l’utiliser avant qu’il n’expire.",
-    prizeReminderEmailSubject: "Votre lot Proxiplay vous attend 🎁",
+      "Vous avez gagn\u00E9 un lot sur Proxiplay. Pensez \u00E0 le retirer ou \u00E0 l\u2019utiliser avant qu\u2019il n\u2019expire.",
+    prizeReminderEmailSubject: "Votre lot Proxiplay vous attend \u{1F381}",
     prizeReminderEmailBody: [
       "<p>Bonjour,</p>",
-      "<p>Vous avez gagné un lot sur Proxiplay.</p>",
+      "<p>Vous avez gagn\u00E9 un lot sur Proxiplay.</p>",
       "<p>Jeu : {{game_name}}<br>Code : {{claim_code}}</p>",
-      "<p>Pensez à le retirer ou à l’utiliser avant qu’il n’expire.</p>",
-      "<p>À bientôt,<br>L’équipe Proxiplay</p>",
+      "<p>Pensez \u00E0 le retirer ou \u00E0 l\u2019utiliser avant qu\u2019il n\u2019expire.</p>",
+      "<p>\u00C0 bient\u00F4t,<br>L\u2019\u00E9quipe Proxiplay</p>",
     ].join(""),
     prizeReminderDelaysDays: [...kDefaultPrizeReminderDelaysDays],
     prizeReminderLastRunAt: null,
@@ -1768,7 +1768,7 @@ async function inspectPrizeReminderTarget(prizeRef, delaysDays, nowMs = Date.now
     return {
       ok: false,
       reason: "claimed_or_final_status",
-      message: `Lot non éligible: status=${prizeStatus || "claimed"}.`,
+      message: `Lot non Ã©ligible: status=${prizeStatus || "claimed"}.`,
       prizeSnap,
       prizeData,
     };
@@ -1804,7 +1804,7 @@ async function inspectPrizeReminderTarget(prizeRef, delaysDays, nowMs = Date.now
     return {
       ok: false,
       reason: "already_reminded",
-      message: `Le rappel ${matchedDelay}d existe déjà pour ce lot.`,
+      message: `Le rappel ${matchedDelay}d existe d\u00E9j\u00E0 pour ce lot.`,
       prizeSnap,
       prizeData,
       matchedDelay,
@@ -2714,7 +2714,7 @@ const adminSendPrizeReminderPushTestCallable = functions
     if (tokensSnap.empty) {
       return {
         ok: false,
-        message: "Aucun token FCM valide trouvé pour cet admin.",
+        message: "Aucun token FCM valide trouvÃ© pour cet admin.",
       };
     }
     await queuePrizePushNotification({
@@ -2754,7 +2754,7 @@ const adminSendPrizeReminderEmailTestCallable = functions
     if (!email) {
       return {
         ok: false,
-        message: "Aucune adresse email valide trouvée pour cet admin.",
+        message: "Aucune adresse email valide trouvÃ©e pour cet admin.",
       };
     }
     const mailer = createSmtpMailer();
@@ -3679,11 +3679,11 @@ exports.notifyFavoriteMerchantNewGame = functions
   });
 
 /**
- * Notification "Nouveau jeu disponible" - Étape 4
- * - Déclenché quand visible_public passe de false → true
- * - Cible joueurs éligibles: statut actif/a_relancer, optionnellement par ville
- * - Anti-doublon: vérification dans users/{uid}/notifications/by_game/{gameId} AVANT envoi
- * - Réutilise ff_push_notifications + sendPushNotificationsTrigger
+ * Notification "Nouveau jeu disponible" - Ã‰tape 4
+ * - DÃ©clenchÃ© quand visible_public passe de false â†’ true
+ * - Cible joueurs Ã©ligibles: statut actif/a_relancer, optionnellement par ville
+ * - Anti-doublon: vÃ©rification dans users/{uid}/notifications/by_game/{gameId} AVANT envoi
+ * - RÃ©utilise ff_push_notifications + sendPushNotificationsTrigger
  */
 exports.notifyNewGameAvailableToAllEligible = functions
   .runWith(kPushNotificationRuntimeOpts)
@@ -3694,10 +3694,10 @@ exports.notifyNewGameAvailableToAllEligible = functions
     const afterExists = change.after.exists;
 
     if (!afterExists) {
-      return null; // Jeu supprimé
+      return null; // Jeu supprimÃ©
     }
 
-    // Vérifier la TRANSITION: false → true (pas l'état seul)
+    // VÃ©rifier la TRANSITION: false â†’ true (pas l'Ã©tat seul)
     const beforeData = beforeExists ? change.before.data() || {} : {};
     const afterData = change.after.data() || {};
     const wasPublished = beforeExists ? isPublishedGame(beforeData) : false;
@@ -3733,7 +3733,7 @@ exports.notifyNewGameAvailableToAllEligible = functions
         return null;
       }
 
-      // Récupérer infos du jeu et du commerce
+      // RÃ©cupÃ©rer infos du jeu et du commerce
       const gameData = afterData;
       const gameName = getTrimmedString(gameData.name) || "un nouveau jeu";
       const enseigneRef = toDocRef(gameData.enseigne_id);
@@ -3747,7 +3747,7 @@ exports.notifyNewGameAvailableToAllEligible = functions
         }
       }
 
-      // Requête joueurs éligibles
+      // RequÃªte joueurs Ã©ligibles
       let usersQuery = firestore
         .collection("users")
         .where("user_role", "==", "joueur")
@@ -3789,7 +3789,7 @@ exports.notifyNewGameAvailableToAllEligible = functions
             continue;
           }
 
-          // Vérifier qu'il a au moins un token FCM
+          // VÃ©rifier qu'il a au moins un token FCM
           const tokensSnap = await firestore
             .doc(`users/${uid}`)
             .collection(kFcmTokensCollection)
@@ -3800,10 +3800,10 @@ exports.notifyNewGameAvailableToAllEligible = functions
             continue;
           }
 
-          // ===== CRÉER NOTIFICATION via FF_PUSH_NOTIFICATIONS =====
+          // ===== CRÃ‰ER NOTIFICATION via FF_PUSH_NOTIFICATIONS =====
           const notificationBody = enseigneCity
-            ? `${enseigneName} a publié ${gameName} près de chez vous.`
-            : `${enseigneName} a publié ${gameName}.`;
+            ? `${enseigneName} a publi\u00E9 ${gameName} pr\u00E8s de chez vous.`
+            : `${enseigneName} a publi\u00E9 ${gameName}.`;
 
           const notificationRef = firestore
             .collection("ff_push_notifications")
@@ -3811,22 +3811,22 @@ exports.notifyNewGameAvailableToAllEligible = functions
 
           await notificationRef.set(
             buildPushNotificationRequestData({
-              title: "Nouveau jeu disponible 🎉",
+              title: "Nouveau jeu disponible \u{1F389}",
               body: notificationBody,
-              parameterData: "", // Pourrait être JSON avec deeplink au jeu
+              parameterData: "", // Pourrait Ãªtre JSON avec deeplink au jeu
               userRefs: `users/${uid}`,
               createdBy: "system/new_game_available",
             }),
           );
 
-          // ===== CRÉER LOG ANTI-DOUBLON =====
+          // ===== CRÃ‰ER LOG ANTI-DOUBLON =====
           await existingNotifRef.set({
             type: "new_game_available",
             game_id: gameId,
             game_name: gameName,
             enseigne_id: gameData.enseigne_id ? gameData.enseigne_id.path : "",
             enseigne_name: enseigneName,
-            notification_title: "Nouveau jeu disponible 🎉",
+            notification_title: "Nouveau jeu disponible \u{1F389}",
             notification_text: notificationBody,
             player_status: userData.player_status_cached || "unknown",
             city_filtered: useCityFilter,
@@ -4168,7 +4168,7 @@ exports.notifyPrizeWon = functions
     const winnerCity = getTrimmedString(winnerData.city) || "ville inconnue";
     const merchantName = buildMerchantName(ownerData);
     const gameName = getTrimmedString(gameData.name) || "Jeu ProxiPlay";
-    const prizeName = getTrimmedString(prizeData.name) || "Lot gagné";
+    const prizeName = getTrimmedString(prizeData.name) || "Lot gagn\u00E9";
     const claimCode = getTrimmedString(prizeData.claim_code) || "N/A";
     const shopName =
       getTrimmedString(prizeData.enseigne_name) ||
@@ -4179,25 +4179,25 @@ exports.notifyPrizeWon = functions
     const merchantEmailSubject = `Un gagnant pour votre jeu "${gameName}"`;
     const merchantEmailBody = [
       `Bonjour ${merchantName},`,
-      `${winnerFirstName} de ${winnerCity} a remporté ${prizeName} sur ProxiPlay :`,
-      `Code à vérifier : ${claimCode}`,
-      "Le gagnant devra présenter ce code en boutique pour validation.",
-      "Merci de participer à la dynamisation du commerce local !",
-      "L’équipe ProxiPlay",
+      `${winnerFirstName} de ${winnerCity} a remport\u00E9 ${prizeName} sur ProxiPlay :`,
+      `Code \u00E0 v\u00E9rifier : ${claimCode}`,
+      "Le gagnant devra pr\u00E9senter ce code en boutique pour validation.",
+      "Merci de participer \u00E0 la dynamisation du commerce local !",
+      "L\u2019\u00E9quipe ProxiPlay",
     ].join("\n");
 
-    const playerEmailSubject = `Bravo ${winnerFirstName}, vous avez gagné !`;
+    const playerEmailSubject = `Bravo ${winnerFirstName}, vous avez gagn\u00E9 !`;
     const playerEmailBody = [
       `Bonjour ${winnerFirstName},`,
-      `Félicitations, vous avez remporté ${prizeName} offert par ${shopName}`,
-      `Votre code à présenter en boutique : ${claimCode}`,
+      `F\u00E9licitations, vous avez remport\u00E9 ${prizeName} offert par ${shopName}`,
+      `Votre code \u00E0 pr\u00E9senter en boutique : ${claimCode}`,
       `Retrouvez la boutique ici : ${shopLink}`,
-      "Continuez à jouer chaque jour pour multiplier vos chances !",
-      "À très vite sur ProxiPlay",
+      "Continuez \u00E0 jouer chaque jour pour multiplier vos chances !",
+      "\u00C0 tr\u00E8s vite sur ProxiPlay",
     ].join("\n");
 
-    const playerPushTitle = "Vous avez gagné !";
-    const playerPushBody = `Vous avez gagné ${prizeName} chez ${shopName}\nCode : ${claimCode}`;
+    const playerPushTitle = "Vous avez gagn\u00E9 !";
+    const playerPushBody = `Vous avez gagn\u00E9 ${prizeName} chez ${shopName}\nCode : ${claimCode}`;
     const merchantPushTitle = "Nouveau gagnant";
     const merchantPushBody =
       `${winnerFullName} de (${winnerCity}) a gagné ${prizeName}\n` +
@@ -4503,7 +4503,7 @@ exports.notifyFollowedGamesEndingSoon = functions
         `[followedGameEndingSoon] windowStart=${start.toISOString()} windowEnd=${end.toISOString()}`
       );
 
-      // Chercher jeux qui finissent dans la fenêtre J+X
+      // Chercher jeux qui finissent dans la fenÃªtre J+X
       const gamesSnap = await firestore
         .collection("games")
         .where("end_date", ">=", startTimestamp)
@@ -4545,12 +4545,12 @@ exports.notifyFollowedGamesEndingSoon = functions
 
 /**
  * Relance des joueurs inactifs (V1 SIMPLE)
- * - Runs quotidiennement à 10h (Europe/Paris)
+ * - Runs quotidiennement Ã  10h (Europe/Paris)
  * - Lit config depuis app_config/notifications_auto
  * - Filtre users avec player_status_cached in [a_relancer, dormant, mort_probable]
  * - Anti-spam: max 1 relance par N jours (configurable)
- * - Crée notifications individuelles (hardcodées par status)
- * - Met à jour last_inactive_relaunch_at sur utilisateur
+ * - CrÃ©e notifications individuelles (hardcodÃ©es par status)
+ * - Met Ã  jour last_inactive_relaunch_at sur utilisateur
  */
 exports.relaunInactivePlayersByStatus = functions
   .runWith(kPushNotificationRuntimeOpts)
@@ -4579,7 +4579,7 @@ exports.relaunInactivePlayersByStatus = functions
         return null;
       }
 
-      // Requête: users avec statuts inactifs
+      // RequÃªte: users avec statuts inactifs
       const usersSnap = await firestore
         .collection("users")
         .where("user_role", "==", "joueur")
@@ -4601,7 +4601,7 @@ exports.relaunInactivePlayersByStatus = functions
         const uid = userData.uid || userDoc.id;
         const status = userData.player_status_cached || "statut_inconnu";
 
-        // Vérifier anti-spam
+        // VÃ©rifier anti-spam
         const lastRelaunchRaw = userData.last_inactive_relaunch_at;
         if (lastRelaunchRaw && lastRelaunchRaw > cutoffTimestamp) {
           skippedAntiSpam += 1;
@@ -4609,24 +4609,24 @@ exports.relaunInactivePlayersByStatus = functions
         }
 
         try {
-          // Message hardcodé par status
+          // Message hardcodÃ© par status
           let messageTitle = "Revenez jouer !";
-          let messageBody = "Nous vous avons beaucoup manqué !";
+          let messageBody = "Nous vous avons beaucoup manqu\u00E9 !";
 
           if (status === "mort_probable") {
             messageTitle = "Nous vous manquons ?";
             messageBody =
-              "Revenez jouer à ProxiPlay et tentez de remporter des superbes lots !";
+              "Revenez jouer \u00E0 ProxiPlay et tentez de remporter des superbes lots !";
           } else if (status === "dormant") {
-            messageTitle = "Ça fait longtemps !";
+            messageTitle = "\u00C7a fait longtemps !";
             messageBody =
-              "Retrouvez les jeux ProxiPlay et vos lots récompenses. Nouveau jeu disponible !";
+              "Retrouvez les jeux ProxiPlay et vos lots r\u00E9compenses. Nouveau jeu disponible !";
           } else if (status === "a_relancer") {
             messageTitle = "Revenez jouer !";
-            messageBody = "Continuez à jouer pour accumuler vos prochaines victoires !";
+            messageBody = "Continuez \u00E0 jouer pour accumuler vos prochaines victoires !";
           }
 
-          // Créer notification individuelle
+          // CrÃ©er notification individuelle
           const notificationRef = firestore
             .collection("ff_push_notifications")
             .doc(`relaunch_${uid}_${Date.now()}`);
@@ -4640,7 +4640,7 @@ exports.relaunInactivePlayersByStatus = functions
             }),
           );
 
-          // Mettre à jour le user avec dernier relance
+          // Mettre Ã  jour le user avec dernier relance
           await userDoc.ref.update({
             last_inactive_relaunch_at: admin.firestore.FieldValue.serverTimestamp(),
           });
@@ -4657,7 +4657,7 @@ exports.relaunInactivePlayersByStatus = functions
         }
       }
 
-      // Mettre à jour config avec stats
+      // Mettre Ã  jour config avec stats
       const elapsedMs = Date.now() - startTime;
       await configRef.set(
         {
@@ -4686,49 +4686,14 @@ exports.relaunInactivePlayersByStatus = functions
 // Runs hourly to avoid load; processes completed games and enforces
 // "no main prize => no main-prize winner" consistency.
 exports.pickMainPrizeWinners = functions.pubsub
-  .schedule("every 60 minutes")
+  .schedule("0 0 * * *")
+  .timeZone("Europe/Paris")
   .onRun(async () => {
-    const now = admin.firestore.Timestamp.now();
-    const [gamesSnap, gamesWithWinnerSnap] = await Promise.all([
-      firestore
-        .collection("games")
-        .where("hasWinner", "==", false)
-        .where("end_date", "<=", now)
-        .limit(20)
-        .get(),
-      firestore
-        .collection("games")
-        .where("hasWinner", "==", true)
-        .where("end_date", "<=", now)
-        .limit(20)
-        .get(),
-    ]);
-
-    const cleanupPromises = [];
-    for (const gameDoc of [...gamesSnap.docs, ...gamesWithWinnerSnap.docs]) {
-      const gameData = gameDoc.data();
-      const hasMainPrize = resolveHasMainPrize(gameData);
-      const hasMainPrizeField = hasHasMainPrizeField(gameData);
-      const hasInvalidWinnerState =
-        gameData.hasWinner === true || !!gameData.main_prize_winner;
-      const cleanupPatch = {};
-
-      if (!hasMainPrizeField) {
-        cleanupPatch.hasMainPrize = hasMainPrize;
-      }
-      if (!hasMainPrize && hasInvalidWinnerState) {
-        cleanupPatch.hasWinner = false;
-        cleanupPatch.main_prize_winner = null;
-      }
-
-      if (Object.keys(cleanupPatch).length > 0) {
-        cleanupPromises.push(gameDoc.ref.update(cleanupPatch));
-      }
-    }
-
-    if (cleanupPromises.length > 0) {
-      await Promise.all(cleanupPromises);
-    }
+    const gamesSnap = await firestore
+      .collection("games")
+      .where("hasWinner", "==", false)
+      .where("end_date", "<=", admin.firestore.Timestamp.now())
+      .get();
 
     if (gamesSnap.empty) {
       return null;
@@ -4737,9 +4702,33 @@ exports.pickMainPrizeWinners = functions.pubsub
     await Promise.all(
       gamesSnap.docs.map(async (gameDoc) => {
         const gameData = gameDoc.data();
+        const gameId = gameDoc.id;
         const hasMainPrize = resolveHasMainPrize(gameData);
+        const endDateValue = gameData.end_date || gameData.endDate || null;
+        const endDateLog =
+          endDateValue &&
+          typeof endDateValue.toDate === "function" &&
+          !Number.isNaN(endDateValue.toDate().getTime())
+            ? endDateValue.toDate().toISOString()
+            : endDateValue === null
+              ? "absent"
+              : String(endDateValue);
 
-        if (!hasMainPrize || gameData.main_prize_winner) {
+        console.log(
+          `[DRAW] Jeu trouvé : gameId=${gameId}, end_date=${endDateLog}, status=${gameData.status || "absent"}, main_prize=${hasMainPrize ? "present" : "absent"}`,
+        );
+
+        if (!hasMainPrize) {
+          console.log(
+            `[DRAW][SKIP] gameId=${gameId} — raison : main_prize absent ou mal formé`,
+          );
+          return null;
+        }
+
+        if (gameData.main_prize_winner) {
+          console.log(
+            `[DRAW][SKIP] gameId=${gameId} — raison : winner_uid déjà présent`,
+          );
           return null;
         }
 
@@ -4748,17 +4737,45 @@ exports.pickMainPrizeWinners = functions.pubsub
           .get();
 
         if (participantsSnap.empty) {
+          console.log(
+            `[DRAW][SKIP] gameId=${gameId} — raison : aucun participant`,
+          );
           return null;
         }
 
-        const participants = participantsSnap.docs;
+        const participants = participantsSnap.docs.filter((participantDoc) => {
+          const participantData = participantDoc.data() || {};
+          const participantUserRef = participantData.user_id;
+          if (participantUserRef) {
+            return true;
+          }
+
+          const participantUid =
+            participantData.uid ||
+            participantData.user_uid ||
+            participantData.userId ||
+            participantData.user_id_string ||
+            "absent";
+          console.log(
+            `[DRAW][SKIP] gameId=${gameId} — raison : participant sans user_id (uid=${participantUid})`,
+          );
+          return false;
+        });
+
+        if (participants.length === 0) {
+          console.log(
+            `[DRAW][SKIP] gameId=${gameId} — raison : aucun participant`,
+          );
+          return null;
+        }
+
         const winnerDoc =
           participants[Math.floor(Math.random() * participants.length)];
         const winnerRef = winnerDoc.data().user_id;
-
-        if (!winnerRef) {
-          return null;
-        }
+        const winnerUid =
+          winnerRef && typeof winnerRef.path === "string"
+            ? winnerRef.path.split("/").pop()
+            : "absent";
 
         const prizeRef = firestore.collection("prizes").doc();
         const claimCode = generateClaimCode();
@@ -4772,35 +4789,17 @@ exports.pickMainPrizeWinners = functions.pubsub
         await firestore.runTransaction(async (transaction) => {
           const freshGameDoc = await transaction.get(gameDoc.ref);
           if (!freshGameDoc.exists) {
+            console.log(
+              `[DRAW][SKIP] gameId=${gameId} — raison : document introuvable pendant la transaction`,
+            );
             return;
           }
           const freshGameData = freshGameDoc.data();
-          const freshHasMainPrize = resolveHasMainPrize(freshGameData);
-          const freshHasMainPrizeField = hasHasMainPrizeField(freshGameData);
-          const freshHasInvalidWinnerState =
-            freshGameData.hasWinner === true || !!freshGameData.main_prize_winner;
-          const freshPatch = {};
-
-          if (!freshHasMainPrizeField) {
-            freshPatch.hasMainPrize = freshHasMainPrize;
-          }
-
-          if (!freshHasMainPrize) {
-            if (freshHasInvalidWinnerState) {
-              freshPatch.hasWinner = false;
-              freshPatch.main_prize_winner = null;
-            }
-            if (Object.keys(freshPatch).length > 0) {
-              transaction.update(gameDoc.ref, freshPatch);
-            }
-            return;
-          }
-
-          if (Object.keys(freshPatch).length > 0) {
-            transaction.update(gameDoc.ref, freshPatch);
-          }
 
           if (freshGameData.hasWinner || freshGameData.main_prize_winner) {
+            console.log(
+              `[DRAW][SKIP] gameId=${gameId} — raison : winner_uid déjà présent`,
+            );
             return;
           }
 
@@ -4829,6 +4828,10 @@ exports.pickMainPrizeWinners = functions.pubsub
           transaction.set(userLotRef, {
             prize_id: prizeRef,
           });
+
+          console.log(
+            `[DRAW][OK] gameId=${gameId} — gagnant tiré : uid=${winnerUid}`,
+          );
         });
 
         return null;
@@ -5102,8 +5105,9 @@ try {
 try {
   const {
     drawAnimationWinners,
-  } = require("../custom_cloud_functions/draw_animation_winner");
+  } = require("./draw_animation_winner");
   exports.drawAnimationWinners = drawAnimationWinners;
 } catch (error) {
   console.log("drawAnimationWinners not loaded yet:", error.message);
 }
+
