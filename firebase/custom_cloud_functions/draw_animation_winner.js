@@ -162,24 +162,24 @@ async function drawWinnerForAnimation(animationRef, animationId, animationData) 
   try {
     const mailer = createSmtpMailer();
     if (winnerEmail) {
-      const subject = "Vous avez gagne le gros lot !";
+      const subject = "Vous avez gagné le gros lot !";
       const html = `
-        <p>Felicitations ${winnerFirstName || ""} !</p>
-        <p>Vous avez ete tire au sort et remportez : <strong>${prizeDescription}</strong></p>
-        <p>Votre code de reclamation : <strong>${claimCode}</strong></p>
-        <p>L'equipe Proxiplay vous contactera pour organiser la remise du lot.</p>
+        <p>Félicitations ${winnerFirstName || ""} !</p>
+        <p>Vous avez été tiré au sort et remportez : <strong>${prizeDescription}</strong></p>
+        <p>Votre code de réclamation : <strong>${claimCode}</strong></p>
+        <p>L'équipe Proxiplay vous contactera pour organiser la remise du lot.</p>
       `;
       const text = [
-        `Felicitations ${winnerFirstName || ""} !`,
-        `Vous avez ete tire au sort et remportez : ${prizeDescription}`,
-        `Votre code de reclamation : ${claimCode}`,
-        "L'equipe Proxiplay vous contactera pour organiser la remise du lot.",
+        `Félicitations ${winnerFirstName || ""} !`,
+        `Vous avez été tiré au sort et remportez : ${prizeDescription}`,
+        `Votre code de réclamation : ${claimCode}`,
+        "L'équipe Proxiplay vous contactera pour organiser la remise du lot.",
       ].join("\n");
       await sendEmailNotification(mailer, winnerEmail, subject, text, html);
     }
     await queuePushNotificationRequest(db, {
-      title: "Vous avez gagne le gros lot !",
-      body: `Felicitations ! Vous remportez : ${prizeDescription}`,
+      title: "Vous avez gagné le gros lot !",
+      body: `Félicitations ! Vous remportez : ${prizeDescription}`,
       userRefOrPath: userRef,
       createdBy: `system/draw_animation_winners/${animationId}`,
     });
@@ -216,23 +216,23 @@ async function drawWinnerForAnimation(animationRef, animationId, animationData) 
 
       const mailer = createSmtpMailer();
       if (merchantEmail) {
-        const subject = `Un gagnant a ete tire au sort pour l'animation : ${animationName}`;
+        const subject = `Un gagnant a été tiré au sort pour l'animation : ${animationName}`;
         const html = `
           <p>Bonjour ${enseigneName ? enseigneName : ""} !</p>
           <p>Le tirage au sort de l'animation <strong>${animationName}</strong> vient d'avoir lieu.</p>
-          <p>Le gagnant du gros lot (<em>${prizeDescription}</em>) sera contacte par l'equipe Proxiplay.</p>
+          <p>Le gagnant du gros lot (<em>${prizeDescription}</em>) sera contacté par l'équipe Proxiplay.</p>
         `;
         const text = [
           `Bonjour ${enseigneName ? enseigneName : ""} !`,
           `Le tirage au sort de l'animation "${animationName}" vient d'avoir lieu.`,
-          `Le gagnant du gros lot (${prizeDescription}) sera contacte par l'equipe Proxiplay.`,
+          `Le gagnant du gros lot (${prizeDescription}) sera contacté par l'équipe Proxiplay.`,
         ].join("\n");
         await sendEmailNotification(mailer, merchantEmail, subject, text, html);
       }
 
       await queuePushNotificationRequest(db, {
         title: `Tirage au sort : ${animationName}`,
-        body: `Un gagnant a ete designe pour le gros lot de l'animation.`,
+        body: `Un gagnant a été désigné pour le gros lot de l'animation.`,
         userRefOrPath: ownerRef,
         createdBy: `system/draw_animation_winners/${animationId}`,
       });
