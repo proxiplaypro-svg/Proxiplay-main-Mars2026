@@ -1,6 +1,42 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+String _normalizeTickerText(String value) {
+  return value
+      .replaceAllMapped(
+        RegExp(r'\\u([0-9A-Fa-f]{4})'),
+        (match) => String.fromCharCode(int.parse(match.group(1)!, radix: 16)),
+      )
+      .replaceAll('gagnÃƒÂ©', 'gagnÃ©')
+      .replaceAll('RÃƒÂ©', 'RÃ©')
+      .replaceAll('rÃƒÂ©', 'rÃ©')
+      .replaceAll('ÃƒÂ©', 'Ã©')
+      .replaceAll('ÃƒÂ¨', 'Ã¨')
+      .replaceAll('ÃƒÂª', 'Ãª')
+      .replaceAll('ÃƒÂ«', 'Ã«')
+      .replaceAll('Ãƒ ', 'Ã ')
+      .replaceAll('ÃƒÂ ', 'Ã ')
+      .replaceAll('ÃƒÂ¢', 'Ã¢')
+      .replaceAll('ÃƒÂ®', 'Ã®')
+      .replaceAll('ÃƒÂ´', 'Ã´')
+      .replaceAll('ÃƒÂ¹', 'Ã¹')
+      .replaceAll('ÃƒÂ»', 'Ã»')
+      .replaceAll('ÃƒÂ§', 'Ã§')
+      .replaceAll('Ã¢â‚¬â„¢', "'")
+      .replaceAll('Ã¢â‚¬Ëœ', "'")
+      .replaceAll('Ã¢â‚¬Å“', '"')
+      .replaceAll('Ã¢â‚¬Â', '"')
+      .replaceAll('Ã¢â‚¬Â¦', '...')
+      .replaceAll('Ã¢â‚¬â€œ', '-')
+      .replaceAll('Ã¢â‚¬â€', '-')
+      .replaceAll('Ã¢â€šÂ¬', 'â‚¬')
+      .replaceAllMapped(
+        RegExp(r'\\bdachat\\b', caseSensitive: false),
+        (match) => match.group(0)!.startsWith('D') ? "D'achat" : "d'achat",
+      )
+      .trim();
+}
+
 class GlobalTickerSnapshot {
   const GlobalTickerSnapshot({
     required this.totalPlayers,
@@ -25,7 +61,7 @@ class GlobalTickerSnapshot {
       totalMerchants: _toInt(data['totalMerchants']),
       messages: rawMessages is Iterable
           ? rawMessages
-              .map((item) => item?.toString().trim() ?? '')
+              .map((item) => _normalizeTickerText(item?.toString().trim() ?? ''))
               .where((item) => item.isNotEmpty)
               .toList()
           : const <String>[],
@@ -172,8 +208,8 @@ class GlobalTickerService {
         );
 
         final message = enseigneName.isNotEmpty
-            ? '${firstName.isNotEmpty ? firstName : 'Un joueur'} a gagne $prizeName chez $enseigneName'
-            : '${firstName.isNotEmpty ? firstName : 'Un joueur'} a gagne $prizeName';
+            ? _normalizeTickerText('${firstName.isNotEmpty ? firstName : 'Un joueur'} a gagnÃ© $prizeName chez $enseigneName')
+            : _normalizeTickerText('${firstName.isNotEmpty ? firstName : 'Un joueur'} a gagnÃ© $prizeName');
         messages.add(message);
       }
 
@@ -202,4 +238,9 @@ class GlobalTickerService {
     }
     return trimmed.split(RegExp(r'\s+')).first;
   }
+
 }
+
+
+
+
