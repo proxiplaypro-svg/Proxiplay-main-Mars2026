@@ -570,6 +570,423 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         return null;
     }
   }
+
+  bool _hasActiveReferralBonus() {
+    final accessUntil = currentUserDocument?.allGamesAccessUntil;
+    if (accessUntil == null) {
+      return false;
+    }
+    return accessUntil.isAfter(getCurrentTimestamp);
+  }
+
+  String _formatEuroAmount(double value) {
+    final hasDecimals = value != value.truncateToDouble();
+    if (!hasDecimals) {
+      return '${value.toStringAsFixed(0)} €';
+    }
+    return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
+  }
+
+  String _readAnimationText(Map<String, dynamic> data, String key) {
+    final value = data[key];
+    return value is String ? value.trim() : '';
+  }
+
+  DateTime? _readAnimationDate(Map<String, dynamic> data, String key) {
+    final value = data[key];
+    if (value is DateTime) {
+      return value;
+    }
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    return null;
+  }
+
+  Future<void> _openAnimationDetails(String animationId) async {
+    await context.pushNamed(
+      'AnimationDetailPage',
+      queryParameters: {
+        'animationId': serializeParam(
+          animationId,
+          ParamType.String,
+        ),
+      }.withoutNulls,
+      extra: <String, dynamic>{
+        'animationId': animationId,
+        kTransitionInfoKey: const TransitionInfo(
+          hasTransition: true,
+          transitionType: PageTransitionType.rightToLeft,
+        ),
+      },
+    );
+  }
+
+  Widget _buildAnimationCard(
+    BuildContext context, {
+    required String animationId,
+    required String name,
+    required String coverImage,
+    required DateTime? endDate,
+    bool isEnded = false,
+  }) {
+    return InkWell(
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      onTap: () async {
+        await _openAnimationDetails(animationId);
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18.0),
+        child: SizedBox(
+          width: 248.0,
+          height: 160.0,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              coverImage.isNotEmpty
+                  ? ProxiplayNetworkImage(
+                      imageUrl: coverImage,
+                      fit: BoxFit.cover,
+                    )
+                  : Container(
+                      color: FlutterFlowTheme.of(context).fieldBg,
+                    ),
+              if (isEnded)
+                Container(color: Colors.black.withValues(alpha: 0.45)),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.04),
+                      Colors.black.withValues(alpha: 0.72),
+                    ],
+                    stops: const [0.45, 1.0],
+                  ),
+                ),
+              ),
+              if (isEnded)
+                Positioned(
+                  top: 10.0,
+                  right: 10.0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0, vertical: 4.0),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFA0134D),
+                      borderRadius: BorderRadius.circular(20.0),
+                    ),
+                    child: const Text(
+                      'Terminé',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11.0,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                left: 14.0,
+                right: 14.0,
+                bottom: 12.0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: FlutterFlowTheme.of(context).titleMedium.override(
+                            font: GoogleFonts.interTight(
+                              fontWeight: FontWeight.w700,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .titleMedium
+                                  .fontStyle,
+                            ),
+                            color: Colors.white,
+                            letterSpacing: 0.0,
+                          ),
+                    ),
+                    const SizedBox(height: 4.0),
+                    Text(
+                      endDate != null
+                          ? isEnded
+                              ? "Terminée le ${dateTimeFormat('dd/MM', endDate, locale: FFLocalizations.of(context).languageCode)}"
+                              : "Jusqu'au ${dateTimeFormat('dd/MM', endDate, locale: FFLocalizations.of(context).languageCode)}"
+                          : isEnded
+                              ? 'Terminée'
+                              : "Jusqu'au -",
+                      style: FlutterFlowTheme.of(context).bodySmall.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FontWeight.w500,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodySmall
+                                  .fontStyle,
+                            ),
+                            color: Colors.white.withValues(alpha: 0.92),
+                            letterSpacing: 0.0,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFinishedAnimationHomeCard(
+    BuildContext context, {
+    required String animationId,
+    required String name,
+    required String coverImage,
+    required DateTime? endDate,
+    String? winnerText,
+  }) {
+    return SizedBox(
+      width: _computeHomeCardWidth(context),
+      child: GameCardWidget(
+        title: name,
+        imageUrl: coverImage,
+        storeName: 'Animation',
+        city: '',
+        prizeText: '​',
+        endDateText: endDate != null
+            ? "Terminée le ${dateTimeFormat('d/M/y', endDate, locale: FFLocalizations.of(context).languageCode)}"
+            : 'Terminée',
+        badgeText: 'Terminé',
+        winnerText: winnerText,
+        winnerMaxLines: 2,
+        isFinished: true,
+        fitContent: true,
+        finishedInfoText: 'Animation terminée',
+        imageHeight: AppStyles.finishedGameImageHeight,
+        width: _computeHomeCardWidth(context),
+        onTap: () async {
+          await _openAnimationDetails(animationId);
+        },
+      ),
+    );
+  }
+
+  Widget _buildFinishedAnimationInfoRow(
+    BuildContext context,
+    IconData icon,
+    String text, {
+    FontWeight? fontWeight,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1.0),
+          child: Icon(icon, size: 18.0, color: const Color(0xFF26235C)),
+        ),
+        const SizedBox(width: 8.0),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: FlutterFlowTheme.of(context).bodySmall.override(
+                  font: GoogleFonts.inter(
+                    fontWeight: fontWeight ??
+                        FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                  ),
+                  color: const Color(0xFF26235C),
+                  fontSize: AppStyles.gameCardBodySize,
+                  letterSpacing: 0.0,
+                ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActiveAnimationsSection(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('animations')
+          .where('status', isEqualTo: 'active')
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final now = getCurrentTimestamp;
+        final allDocs = snapshot.data!.docs;
+
+        final activeAnimations = allDocs.where((doc) {
+          final data = doc.data();
+          final endDate = _readAnimationDate(data, 'end_date');
+          final startDate = _readAnimationDate(data, 'start_date');
+          if (endDate != null && !endDate.isAfter(now)) return false;
+          if (startDate != null && startDate.isAfter(now)) return false;
+          return true;
+        }).toList()
+          ..sort((a, b) {
+            final aDate = _readAnimationDate(a.data(), 'end_date') ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            final bDate = _readAnimationDate(b.data(), 'end_date') ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            return aDate.compareTo(bDate);
+          });
+
+        if (activeAnimations.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 15.0),
+          child: Container(
+            width: double.infinity,
+            decoration: const BoxDecoration(),
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(
+                    start: _homeSectionTitleLeftInset,
+                    bottom: 16.0,
+                  ),
+                  child: Text(
+                    'ANIMATIONS EN COURS',
+                    style: FlutterFlowTheme.of(context).titleLarge.override(
+                          font: GoogleFonts.interTight(
+                            fontWeight: FlutterFlowTheme.of(context)
+                                .titleLarge
+                                .fontWeight,
+                            fontStyle: FlutterFlowTheme.of(context)
+                                .titleLarge
+                                .fontStyle,
+                          ),
+                          fontSize: 20.0,
+                          letterSpacing: 0.0,
+                          fontWeight: FlutterFlowTheme.of(context)
+                              .titleLarge
+                              .fontWeight,
+                          fontStyle: FlutterFlowTheme.of(context)
+                              .titleLarge
+                              .fontStyle,
+                        ),
+                  ),
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  height: 160.0,
+                  child: ListView.separated(
+                    padding: EdgeInsets.zero,
+                    primary: false,
+                    scrollDirection: Axis.horizontal,
+                    itemCount: activeAnimations.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10.0),
+                    itemBuilder: (context, index) {
+                      final doc = activeAnimations[index];
+                      final data = doc.data();
+                      return _buildAnimationCard(
+                        context,
+                        animationId: doc.id,
+                        name: _readAnimationText(data, 'name').isNotEmpty
+                            ? _readAnimationText(data, 'name')
+                            : 'Animation',
+                        coverImage: _readAnimationText(data, 'cover_image'),
+                        endDate: _readAnimationDate(data, 'end_date'),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTopDynamicZone(BuildContext context) {
+    return AuthUserStreamWidget(
+      builder: (context) {
+        final remainingPart =
+            valueOrDefault<int>(currentUserDocument?.remainingPart, 0);
+        final hasRemainingPart = remainingPart > 0;
+        final hasNoRemainingPart = remainingPart <= 0;
+
+        if (hasRemainingPart) {
+          return const SizedBox.shrink();
+        }
+
+        if (_hasActiveReferralBonus()) {
+          return const Padding(
+            padding: EdgeInsets.only(bottom: 16.0),
+            child: SharePromoBanner(
+              data: SharePromoData(
+                kind: SharePromoKind.specialCampaign,
+                title: 'Bonus parrainage actif',
+                subtitle: 'Tu peux jouer à tous les jeux jusqu\'à minuit.',
+                icon: Icons.auto_awesome_rounded,
+                primaryColor: Color(0xFFF5F6FB),
+                secondaryColor: Color(0xFF2C2F5B),
+                titleColor: Color(0xFF2C2F5B),
+                subtitleColor: Color(0xFF2C2F5B),
+                iconBackgroundColor: Color(0xFFEAEFFD),
+                iconColor: Color(0xFF2C2F5B),
+              ),
+            ),
+          );
+        }
+
+        if (hasNoRemainingPart) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: SharePromoBanner(
+              data: SharePromoData(
+                kind: SharePromoKind.lowRemainingPlaysInvite,
+                title: '',
+                subtitle:
+                    'Aide un ami à découvrir Proxiplay et joue à tous les jeux jusqu\'à minuit.',
+                ctaLabel: 'Inviter un ami',
+                icon: Icons.volunteer_activism_rounded,
+                primaryColor: const Color(0xFFF5F6FB),
+                secondaryColor: const Color(0xFFA0134D),
+                titleColor: const Color(0xFF2C2F5B),
+                subtitleColor: const Color(0xFF2C2F5B),
+                buttonColor: const Color(0xFF2C2F5B),
+                buttonTextColor: Colors.white,
+                iconBackgroundColor: const Color(0xFFF7E6EE),
+                iconColor: const Color(0xFFA0134D),
+                animateCta: true,
+              ),
+              onTap: () {
+                _showSharePromoSheet();
+              },
+            ),
+          );
+        }
+
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  Widget _buildRecentWinnersZone() {
+    context.watch<FFAppState>();
+    final messages = FFAppState().globalTickerMessages;
+    if (messages.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return RecentWinnersTicker(messages: messages);
+  }
+
   String _buildRandomShareMessage({
     required String shareLink,
     required String? referralCode,
