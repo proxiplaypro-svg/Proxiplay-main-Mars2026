@@ -1455,7 +1455,7 @@ const kNotificationsAutoConfigDocId = "notifications_auto";
 const kPrizeReminderRunsCollection = "prize_reminder_runs";
 const kPrizeReminderLogsSubcollection = "prize_reminder_logs";
 const kDefaultPrizeReminderDelaysDays = [7, 21, 35];
-const PRIZE_EMAILS_DISABLED = true;
+const PRIZE_EMAILS_DISABLED = false;
 const kPrizeEmailEmergencyDisabled = PRIZE_EMAILS_DISABLED;
 const kPrizeEmailEmergencyDisabledReason =
   "Emergency stop: prize-related emails temporarily disabled while investigating incorrect recipient attribution.";
