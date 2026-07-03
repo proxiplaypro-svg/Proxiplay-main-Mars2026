@@ -7,21 +7,21 @@ String _normalizeTickerText(String value) {
         RegExp(r'\\u([0-9A-Fa-f]{4})'),
         (match) => String.fromCharCode(int.parse(match.group(1)!, radix: 16)),
       )
-      .replaceAll('gagnÃƒÂ©', 'gagnÃ©')
-      .replaceAll('RÃƒÂ©', 'RÃ©')
-      .replaceAll('rÃƒÂ©', 'rÃ©')
-      .replaceAll('ÃƒÂ©', 'Ã©')
-      .replaceAll('ÃƒÂ¨', 'Ã¨')
-      .replaceAll('ÃƒÂª', 'Ãª')
-      .replaceAll('ÃƒÂ«', 'Ã«')
-      .replaceAll('Ãƒ ', 'Ã ')
-      .replaceAll('ÃƒÂ ', 'Ã ')
-      .replaceAll('ÃƒÂ¢', 'Ã¢')
-      .replaceAll('ÃƒÂ®', 'Ã®')
-      .replaceAll('ÃƒÂ´', 'Ã´')
-      .replaceAll('ÃƒÂ¹', 'Ã¹')
-      .replaceAll('ÃƒÂ»', 'Ã»')
-      .replaceAll('ÃƒÂ§', 'Ã§')
+      .replaceAll('gagnÃƒ©', 'gagné')
+      .replaceAll('RÃƒ©', 'Ré')
+      .replaceAll('rÃƒ©', 'ré')
+      .replaceAll('Ãƒ©', 'é')
+      .replaceAll('Ãƒ¨', 'è')
+      .replaceAll('Ãƒª', 'ê')
+      .replaceAll('Ãƒ«', 'ë')
+      .replaceAll('Ãƒ ', 'à')
+      .replaceAll('Ãƒ ', 'à')
+      .replaceAll('Ãƒ¢', 'â')
+      .replaceAll('Ãƒ®', 'î')
+      .replaceAll('Ãƒ´', 'ô')
+      .replaceAll('Ãƒ¹', 'ù')
+      .replaceAll('Ãƒ»', 'û')
+      .replaceAll('Ãƒ§', 'ç')
       .replaceAll('Ã¢â‚¬â„¢', "'")
       .replaceAll('Ã¢â‚¬Ëœ', "'")
       .replaceAll('Ã¢â‚¬Å“', '"')
@@ -29,7 +29,7 @@ String _normalizeTickerText(String value) {
       .replaceAll('Ã¢â‚¬Â¦', '...')
       .replaceAll('Ã¢â‚¬â€œ', '-')
       .replaceAll('Ã¢â‚¬â€', '-')
-      .replaceAll('Ã¢â€šÂ¬', 'â‚¬')
+      .replaceAll('Ã¢â€š¬', 'â‚¬')
       .replaceAllMapped(
         RegExp(r'\\bdachat\\b', caseSensitive: false),
         (match) => match.group(0)!.startsWith('D') ? "D'achat" : "d'achat",
@@ -208,8 +208,8 @@ class GlobalTickerService {
         );
 
         final message = enseigneName.isNotEmpty
-            ? _normalizeTickerText('${firstName.isNotEmpty ? firstName : 'Un joueur'} a gagnÃ© $prizeName chez $enseigneName')
-            : _normalizeTickerText('${firstName.isNotEmpty ? firstName : 'Un joueur'} a gagnÃ© $prizeName');
+            ? _normalizeTickerText('${firstName.isNotEmpty ? firstName : 'Un joueur'} a gagné $prizeName chez $enseigneName')
+            : _normalizeTickerText('${firstName.isNotEmpty ? firstName : 'Un joueur'} a gagné $prizeName');
         messages.add(message);
       }
 

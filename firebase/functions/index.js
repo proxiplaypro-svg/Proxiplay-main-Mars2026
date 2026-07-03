@@ -585,7 +585,7 @@ async function queueFollowedGameEndingSoonNotifications(gameDoc, config) {
     return;
   }
 
-  // RÃ©cupÃ©rer city du commerce si filtrage activÃ©
+  // Récupérer city du commerce si filtrage activé
   let enseigneCity = null;
   if (useCityFilter) {
     const enseigneRef = toDocRef(gameData.enseigne_id);
@@ -597,7 +597,7 @@ async function queueFollowedGameEndingSoonNotifications(gameDoc, config) {
     }
   }
 
-  // RequÃªte: tous les joueurs Ã©ligibles (pas seulement followers)
+  // Requête: tous les joueurs éligibles (pas seulement followers)
   let usersQuery = firestore
     .collection("users")
     .where("user_role", "==", "joueur")
@@ -628,13 +628,13 @@ async function queueFollowedGameEndingSoonNotifications(gameDoc, config) {
       const userUid = userData.uid || userSnap.id;
       const userCity = userData.city || "";
 
-      // VÃ©rifier les prÃ©fÃ©rences push
+      // Vérifier les préférences push
       if (!isUserPushPreferenceEnabled(userData, "followedGameEndingSoon")) {
         skippedPrefs += 1;
         return;
       }
 
-      // VÃ©rifier au moins 1 FCM token
+      // Vérifier au moins 1 FCM token
       const tokensSnap = await firestore
         .doc(`users/${userUid}`)
         .collection(kFcmTokensCollection)
@@ -660,28 +660,28 @@ async function queueFollowedGameEndingSoonNotifications(gameDoc, config) {
         return;
       }
 
-      // ===== CRÃ‰ER NOTIFICATION via FF_PUSH_NOTIFICATIONS =====
+      // ===== CRÉER NOTIFICATION via FF_PUSH_NOTIFICATIONS =====
       const notificationBody = useCityFilter && enseigneCity
         ? `${gameName} chez ${enseigneName} se termine dans ${daysBefore} jours.`
         : `${gameName} se termine dans ${daysBefore} jours.`;
 
       const queuedNow = await queueUserScopedPushNotification({
         docId: `game_ending_${gameId}_${userUid}_${Date.now()}`,
-        title: "Tic tac â³",
+        title: "Tic tac ⏳",
         body: notificationBody,
         userUid,
         createdBy: `system/game_ending/${gameId}`,
       });
 
       if (queuedNow) {
-        // ===== CRÃ‰ER LOG ANTI-DOUBLON =====
+        // ===== CRÉER LOG ANTI-DOUBLON =====
         await antiDuplicateRef.set({
           type: "game_ending_soon",
           game_id: gameId,
           game_name: gameName,
           enseigne_id: gameData.enseigne_id ? gameData.enseigne_id.path : "",
           enseigne_name: enseigneName,
-          notification_title: "Tic tac â³",
+          notification_title: "Tic tac ⏳",
           notification_text: notificationBody,
           player_status: userData.player_status_cached || "unknown",
           city_filtered: useCityFilter,
@@ -1768,7 +1768,7 @@ async function inspectPrizeReminderTarget(prizeRef, delaysDays, nowMs = Date.now
     return {
       ok: false,
       reason: "claimed_or_final_status",
-      message: `Lot non Ã©ligible: status=${prizeStatus || "claimed"}.`,
+      message: `Lot non éligible: status=${prizeStatus || "claimed"}.`,
       prizeSnap,
       prizeData,
     };
@@ -2714,7 +2714,7 @@ const adminSendPrizeReminderPushTestCallable = functions
     if (tokensSnap.empty) {
       return {
         ok: false,
-        message: "Aucun token FCM valide trouvÃ© pour cet admin.",
+        message: "Aucun token FCM valide trouvé pour cet admin.",
       };
     }
     await queuePrizePushNotification({
@@ -2754,7 +2754,7 @@ const adminSendPrizeReminderEmailTestCallable = functions
     if (!email) {
       return {
         ok: false,
-        message: "Aucune adresse email valide trouvÃ©e pour cet admin.",
+        message: "Aucune adresse email valide trouvée pour cet admin.",
       };
     }
     const mailer = createSmtpMailer();
@@ -3679,11 +3679,11 @@ exports.notifyFavoriteMerchantNewGame = functions
   });
 
 /**
- * Notification "Nouveau jeu disponible" - Ã‰tape 4
- * - DÃ©clenchÃ© quand visible_public passe de false â†’ true
- * - Cible joueurs Ã©ligibles: statut actif/a_relancer, optionnellement par ville
- * - Anti-doublon: vÃ©rification dans users/{uid}/notifications/by_game/{gameId} AVANT envoi
- * - RÃ©utilise ff_push_notifications + sendPushNotificationsTrigger
+ * Notification "Nouveau jeu disponible" - Étape 4
+ * - Déclenché quand visible_public passe de false â†’ true
+ * - Cible joueurs éligibles: statut actif/a_relancer, optionnellement par ville
+ * - Anti-doublon: vérification dans users/{uid}/notifications/by_game/{gameId} AVANT envoi
+ * - Réutilise ff_push_notifications + sendPushNotificationsTrigger
  */
 exports.notifyNewGameAvailableToAllEligible = functions
   .runWith(kPushNotificationRuntimeOpts)
@@ -3694,10 +3694,10 @@ exports.notifyNewGameAvailableToAllEligible = functions
     const afterExists = change.after.exists;
 
     if (!afterExists) {
-      return null; // Jeu supprimÃ©
+      return null; // Jeu supprimé
     }
 
-    // VÃ©rifier la TRANSITION: false â†’ true (pas l'Ã©tat seul)
+    // Vérifier la TRANSITION: false â†’ true (pas l'état seul)
     const beforeData = beforeExists ? change.before.data() || {} : {};
     const afterData = change.after.data() || {};
     const wasPublished = beforeExists ? isPublishedGame(beforeData) : false;
@@ -3733,7 +3733,7 @@ exports.notifyNewGameAvailableToAllEligible = functions
         return null;
       }
 
-      // RÃ©cupÃ©rer infos du jeu et du commerce
+      // Récupérer infos du jeu et du commerce
       const gameData = afterData;
       const gameName = getTrimmedString(gameData.name) || "un nouveau jeu";
       const enseigneRef = toDocRef(gameData.enseigne_id);
@@ -3747,7 +3747,7 @@ exports.notifyNewGameAvailableToAllEligible = functions
         }
       }
 
-      // RequÃªte joueurs Ã©ligibles
+      // Requête joueurs éligibles
       let usersQuery = firestore
         .collection("users")
         .where("user_role", "==", "joueur")
@@ -3789,7 +3789,7 @@ exports.notifyNewGameAvailableToAllEligible = functions
             continue;
           }
 
-          // VÃ©rifier qu'il a au moins un token FCM
+          // Vérifier qu'il a au moins un token FCM
           const tokensSnap = await firestore
             .doc(`users/${uid}`)
             .collection(kFcmTokensCollection)
@@ -3800,7 +3800,7 @@ exports.notifyNewGameAvailableToAllEligible = functions
             continue;
           }
 
-          // ===== CRÃ‰ER NOTIFICATION via FF_PUSH_NOTIFICATIONS =====
+          // ===== CRÉER NOTIFICATION via FF_PUSH_NOTIFICATIONS =====
           const notificationBody = enseigneCity
             ? `${enseigneName} a publi\u00E9 ${gameName} pr\u00E8s de chez vous.`
             : `${enseigneName} a publi\u00E9 ${gameName}.`;
@@ -3813,13 +3813,13 @@ exports.notifyNewGameAvailableToAllEligible = functions
             buildPushNotificationRequestData({
               title: "Nouveau jeu disponible \u{1F389}",
               body: notificationBody,
-              parameterData: "", // Pourrait Ãªtre JSON avec deeplink au jeu
+              parameterData: "", // Pourrait être JSON avec deeplink au jeu
               userRefs: `users/${uid}`,
               createdBy: "system/new_game_available",
             }),
           );
 
-          // ===== CRÃ‰ER LOG ANTI-DOUBLON =====
+          // ===== CRÉER LOG ANTI-DOUBLON =====
           await existingNotifRef.set({
             type: "new_game_available",
             game_id: gameId,
@@ -4503,7 +4503,7 @@ exports.notifyFollowedGamesEndingSoon = functions
         `[followedGameEndingSoon] windowStart=${start.toISOString()} windowEnd=${end.toISOString()}`
       );
 
-      // Chercher jeux qui finissent dans la fenÃªtre J+X
+      // Chercher jeux qui finissent dans la fenêtre J+X
       const gamesSnap = await firestore
         .collection("games")
         .where("end_date", ">=", startTimestamp)
@@ -4545,12 +4545,12 @@ exports.notifyFollowedGamesEndingSoon = functions
 
 /**
  * Relance des joueurs inactifs (V1 SIMPLE)
- * - Runs quotidiennement Ã  10h (Europe/Paris)
+ * - Runs quotidiennement à 10h (Europe/Paris)
  * - Lit config depuis app_config/notifications_auto
  * - Filtre users avec player_status_cached in [a_relancer, dormant, mort_probable]
  * - Anti-spam: max 1 relance par N jours (configurable)
- * - CrÃ©e notifications individuelles (hardcodÃ©es par status)
- * - Met Ã  jour last_inactive_relaunch_at sur utilisateur
+ * - Crée notifications individuelles (hardcodées par status)
+ * - Met à jour last_inactive_relaunch_at sur utilisateur
  */
 exports.relaunInactivePlayersByStatus = functions
   .runWith(kPushNotificationRuntimeOpts)
@@ -4579,7 +4579,7 @@ exports.relaunInactivePlayersByStatus = functions
         return null;
       }
 
-      // RequÃªte: users avec statuts inactifs
+      // Requête: users avec statuts inactifs
       const usersSnap = await firestore
         .collection("users")
         .where("user_role", "==", "joueur")
@@ -4601,7 +4601,7 @@ exports.relaunInactivePlayersByStatus = functions
         const uid = userData.uid || userDoc.id;
         const status = userData.player_status_cached || "statut_inconnu";
 
-        // VÃ©rifier anti-spam
+        // Vérifier anti-spam
         const lastRelaunchRaw = userData.last_inactive_relaunch_at;
         if (lastRelaunchRaw && lastRelaunchRaw > cutoffTimestamp) {
           skippedAntiSpam += 1;
@@ -4609,7 +4609,7 @@ exports.relaunInactivePlayersByStatus = functions
         }
 
         try {
-          // Message hardcodÃ© par status
+          // Message hardcodé par status
           let messageTitle = "Revenez jouer !";
           let messageBody = "Nous vous avons beaucoup manqu\u00E9 !";
 
@@ -4626,7 +4626,7 @@ exports.relaunInactivePlayersByStatus = functions
             messageBody = "Continuez \u00E0 jouer pour accumuler vos prochaines victoires !";
           }
 
-          // CrÃ©er notification individuelle
+          // Créer notification individuelle
           const notificationRef = firestore
             .collection("ff_push_notifications")
             .doc(`relaunch_${uid}_${Date.now()}`);
@@ -4640,7 +4640,7 @@ exports.relaunInactivePlayersByStatus = functions
             }),
           );
 
-          // Mettre Ã  jour le user avec dernier relance
+          // Mettre à jour le user avec dernier relance
           await userDoc.ref.update({
             last_inactive_relaunch_at: admin.firestore.FieldValue.serverTimestamp(),
           });
@@ -4657,7 +4657,7 @@ exports.relaunInactivePlayersByStatus = functions
         }
       }
 
-      // Mettre Ã  jour config avec stats
+      // Mettre à jour config avec stats
       const elapsedMs = Date.now() - startTime;
       await configRef.set(
         {

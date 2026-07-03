@@ -12,7 +12,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'delete_comm_admin_page_model.dart';
 export 'delete_comm_admin_page_model.dart';
 
-/// page pour admin gÃ©rer la suppression des profils commercant
+/// page pour admin gérer la suppression des profils commercant
 class DeleteCommAdminPageWidget extends StatefulWidget {
   const DeleteCommAdminPageWidget({super.key});
 

@@ -13,8 +13,8 @@ import 'package:webviewx_plus/webviewx_plus.dart';
 import 'lot_detail_joueur_page_model.dart';
 export 'lot_detail_joueur_page_model.dart';
 
-/// page avec detail du lot gagnÃ© avec code a montrer au commercant pour
-/// rÃ©cupÃ©rer le lot
+/// page avec detail du lot gagné avec code a montrer au commercant pour
+/// récupérer le lot
 class LotDetailJoueurPageWidget extends StatefulWidget {
   const LotDetailJoueurPageWidget({
     super.key,

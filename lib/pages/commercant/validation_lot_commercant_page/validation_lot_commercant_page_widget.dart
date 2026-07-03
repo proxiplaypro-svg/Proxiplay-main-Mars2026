@@ -8,9 +8,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'validation_lot_commercant_page_model.dart';
 export 'validation_lot_commercant_page_model.dart';
 
-/// page qui affiche le lot gagnÃ© d'un joueur et pour que le commercant puisse
-///  valider la rÃ©cupÃ©ration du lot gagnÃ© avec un bouton pour valider la
-/// rÃ©cupÃ©ration
+/// page qui affiche le lot gagné d'un joueur et pour que le commercant puisse
+///  valider la récupération du lot gagné avec un bouton pour valider la
+/// récupération
 class ValidationLotCommercantPageWidget extends StatefulWidget {
   const ValidationLotCommercantPageWidget({
     super.key,

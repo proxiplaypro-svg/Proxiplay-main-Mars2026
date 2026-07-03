@@ -247,19 +247,19 @@ exports.participateInGameTransaction = functions.https.onCall(
     if (!context.auth) {
       throw new functions.https.HttpsError(
         "unauthenticated",
-        "Vous devez ÃƒÂªtre connectÃƒÂ© pour participer."
+        "Vous devez être connecté pour participer."
       );
     }
 
     let gameRefPath = data.gameRef;
     const fromQr = data.from_qr === true;
-    console.log("gameRefPath reÃƒÂ§u:", gameRefPath);
+    console.log("gameRefPath reçu:", gameRefPath);
 
     if (!gameRefPath || typeof gameRefPath !== "string" || gameRefPath === "") {
       console.error("gameRefPath est invalide:", gameRefPath);
       throw new functions.https.HttpsError(
         "invalid-argument",
-        "RÃƒÂ©fÃƒÂ©rence du jeu invalide."
+        "Référence du jeu invalide."
       );
     }
 
@@ -313,7 +313,7 @@ exports.participateInGameTransaction = functions.https.onCall(
             transaction.get(uniquePlayerRef),
           ]);
 
-        // 1. RÃƒÂ©fÃƒÂ©rence ÃƒÂ  la sous-collection
+        // 1. Référence à la sous-collection
         const instantWinnersRef = gameRef.collection("instant_winners");
 
         // 2. Query tous les instants gagnants echus et encore ouverts.
@@ -325,7 +325,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           .where("date", "<=", now)
           .orderBy("date", "asc");
 
-        // 3. ExÃƒÂ©cuter la query dans la transaction
+        // 3. Exécuter la query dans la transaction
         const instantWinnerSnap = await transaction.get(instantWinnersQuery);
         let eligibleInstantWinnerDoc = null;
         let staleDueInstantWinnerDocs = [];
@@ -377,12 +377,12 @@ exports.participateInGameTransaction = functions.https.onCall(
           );
         }
 
-        // RÃƒÂ©cupÃƒÂ©rer l'enseigne avant toute ÃƒÂ©criture transactionnelle
+        // Récupérer l'enseigne avant toute écriture transactionnelle
         const enseigneDoc = await transaction.get(enseigneRef);
         if (!enseigneDoc.exists) {
           throw new functions.https.HttpsError(
             "not-found",
-            "L'enseigne associÃƒÂ©e au jeu n'existe pas."
+            "L'enseigne associée au jeu n'existe pas."
           );
         }
         const enseigneData = enseigneDoc.data();
@@ -398,7 +398,7 @@ exports.participateInGameTransaction = functions.https.onCall(
         const unlimitedAccessActive = hasUnlimitedAccess(userData, now);
         let uniquePlayerNew = false;
 
-        // DÃƒÂ©tection lot principal (sert uniquement ÃƒÂ  la cohÃƒÂ©rence des champs, pas au message de perte)
+        // Détection lot principal (sert uniquement à la cohérence des champs, pas au message de perte)
         const hasMainPrizeField = Object.prototype.hasOwnProperty.call(
           gameData || {},
           "hasMainPrize"
@@ -411,7 +411,7 @@ exports.participateInGameTransaction = functions.https.onCall(
               (gameData.prize_value !== null && typeof gameData.prize_value !== "undefined")
             );
 
-        // Patch cohÃƒÂ©rence: si pas de lot principal -> pas de winner / tirage au sort
+        // Patch cohérence: si pas de lot principal -> pas de winner / tirage au sort
         const gameConsistencyPatch = {};
         if (!hasMainPrizeField) {
           gameConsistencyPatch.hasMainPrize = hasMainPrize;
@@ -654,7 +654,7 @@ exports.participateInGameTransaction = functions.https.onCall(
 
         transaction.update(userRef, userUpdateData);
 
-        // Lots (gains immÃƒÂ©diats uniquement)
+        // Lots (gains immédiats uniquement)
         let transactionLotGagne = false;
         let transactionLotDetails = null;
         let prizeRef = null;
@@ -714,8 +714,8 @@ exports.participateInGameTransaction = functions.https.onCall(
         ];
 
         // Message principal renvoye a l'app :
-        // - Si gain immÃƒÂ©diat => lotDetails
-        // - Si perte => message alÃƒÂ©atoire (mÃƒÂªme si pas de lot principal)
+        // - Si gain immédiat => lotDetails
+        // - Si perte => message aléatoire (même si pas de lot principal)
         const message = transactionLotGagne
           ? transactionLotDetails
           : loseMessages[Math.floor(Math.random() * loseMessages.length)];
@@ -726,7 +726,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           isWin: transactionLotGagne,
           prize_id: prizeRef ? prizeRef.path : null,
           alreadyParticipatedToday: false,
-          // Optionnel: garde l'info cÃƒÂ´tÃƒÂ© app si besoin un jour
+          // Optionnel: garde l'info côté app si besoin un jour
           // hasMainPrize,
         };
         console.log(`participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=false uniquePlayerNew=${uniquePlayerNew}`);

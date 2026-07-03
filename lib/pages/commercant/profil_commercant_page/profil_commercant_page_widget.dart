@@ -13,7 +13,7 @@ import 'package:webviewx_plus/webviewx_plus.dart';
 import 'profil_commercant_page_model.dart';
 export 'profil_commercant_page_model.dart';
 
-/// ajout d'un bouton de dÃƒÂ©connexion et supression de compte
+/// ajout d'un bouton de déconnexion et supression de compte
 class ProfilCommercantPageWidget extends StatefulWidget {
   const ProfilCommercantPageWidget({super.key});
 

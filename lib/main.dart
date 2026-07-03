@@ -199,7 +199,7 @@ class MyAppState extends State<MyApp> {
       _capturePendingReferralCodeFromRouter(source: 'cold_start');
     });
 
-    // VÃ©rification au dÃ©marrage (Fonctionne sur Web et Mobile)
+    // Vérification au démarrage (Fonctionne sur Web et Mobile)
     _checkRemoteConfig();
 
     // Request notification permission on Android 13+ at startup.
@@ -213,7 +213,7 @@ class MyAppState extends State<MyApp> {
     });
 
     // --- CORRECTION WEB ---
-    // On n'active l'Ã©couteur temps rÃ©el QUE si nous ne sommes PAS sur le Web.
+    // On n'active l'écouteur temps réel QUE si nous ne sommes PAS sur le Web.
     if (!kIsWeb) {
       FirebaseRemoteConfig.instance.onConfigUpdated.listen((event) async {
         await FirebaseRemoteConfig.instance.activate();
@@ -353,7 +353,7 @@ class MyAppState extends State<MyApp> {
       );
     }
 
-    // 3. Blocage Mise Ã  jour requise
+    // 3. Blocage Mise à jour requise
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'ProxiPlay',
