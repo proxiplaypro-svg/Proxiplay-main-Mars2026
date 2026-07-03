@@ -60,6 +60,76 @@ function getTrimmedString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+// Windows-1252 byte -> Unicode codepoint mapping for 0x80-0x9F (the range
+// where it differs from plain Latin-1). Used to undo "UTF-8 saved as
+// windows-1252" mojibake in Firestore-sourced text (names, enseigne/game
+// titles, etc.) before it lands in outgoing emails.
+const kCp1252HighBytes = {
+  0x80: 0x20ac, 0x82: 0x201a, 0x83: 0x0192, 0x84: 0x201e, 0x85: 0x2026,
+  0x86: 0x2020, 0x87: 0x2021, 0x88: 0x02c6, 0x89: 0x2030, 0x8a: 0x0160,
+  0x8b: 0x2039, 0x8c: 0x0152, 0x8e: 0x017d, 0x91: 0x2018, 0x92: 0x2019,
+  0x93: 0x201c, 0x94: 0x201d, 0x95: 0x2022, 0x96: 0x2013, 0x97: 0x2014,
+  0x98: 0x02dc, 0x99: 0x2122, 0x9a: 0x0161, 0x9b: 0x203a, 0x9c: 0x0153,
+  0x9e: 0x017e, 0x9f: 0x0178,
+};
+const kCp1252Reverse = new Map();
+for (const [byteHex, codepoint] of Object.entries(kCp1252HighBytes)) {
+  kCp1252Reverse.set(String.fromCodePoint(codepoint), Number(byteHex));
+}
+
+function mojibakeCharToByte(ch) {
+  const code = ch.codePointAt(0);
+  if (code <= 0x7f || (code >= 0xa0 && code <= 0xff)) return code;
+  if (kCp1252Reverse.has(ch)) return kCp1252Reverse.get(ch);
+  return -1;
+}
+
+// Undoes one layer of "this text was UTF-8, mis-decoded as windows-1252"
+// corruption. Returns null if the input isn't representable as raw bytes
+// this way, or if re-encoding the result doesn't reproduce those exact
+// bytes -- i.e. it wasn't actually mojibake, so the caller should leave it
+// untouched rather than risk corrupting already-correct text.
+function undoOneMojibakeLayer(s) {
+  const bytes = [];
+  for (const ch of s) {
+    const b = mojibakeCharToByte(ch);
+    if (b === -1) return null;
+    bytes.push(b);
+  }
+  const buf = Buffer.from(bytes);
+  const decoded = buf.toString("utf8");
+  if (!Buffer.from(decoded, "utf8").equals(buf)) return null;
+  return decoded;
+}
+
+const kMojibakeRun = new RegExp(
+  "[\\u0080-\\u00FF\\u0152\\u0153\\u0160\\u0161\\u0178\\u017D\\u017E" +
+    "\\u0192\\u02C6\\u02DC\\u2013\\u2014\\u2018\\u2019\\u201A\\u201C" +
+    "\\u201D\\u201E\\u2020-\\u2022\\u2026\\u2030\\u2039\\u203A\\u2122]+",
+  "g",
+);
+
+// Best-effort repair of mojibake-corrupted French text pulled from
+// Firestore (user/enseigne/game names) before it's used in an email.
+// Leaves already-correct text untouched; unwinds up to a few layers of
+// corruption for strings that went through the bad encode/decode cycle
+// more than once.
+function repairMojibakeText(value) {
+  const source = typeof value === "string" ? value : "";
+  if (!source) return source;
+  return source.replace(kMojibakeRun, (run) => {
+    let best = run;
+    let current = run;
+    for (let i = 0; i < 4; i += 1) {
+      const next = undoOneMojibakeLayer(current);
+      if (next === null || next === current) break;
+      current = next;
+      best = next;
+    }
+    return best;
+  });
+}
+
 function normalizeClaimCode(value) {
   return getTrimmedString(value)
     .toUpperCase()
@@ -1707,6 +1777,100 @@ async function validatePrizeEmailRecipient({
   return {
     ok: true,
     expectedWinnerId,
+  };
+}
+
+async function validatePrizeEmailMerchantRecipient({
+  prizeId = "",
+  ownerRef,
+  enseigneRef,
+  enseigneData = {},
+  gameRef,
+  gameData = {},
+  resolvedEmail = "",
+  resolvedUserId = "",
+  sourceFunction = "",
+}) {
+  const expectedOwnerId = getUserUidFromRef(ownerRef);
+  if (!expectedOwnerId) {
+    console.error("[PRIZE_EMAIL_BLOCKED_MISMATCH]", {
+      prizeId,
+      expectedOwnerId: null,
+      resolvedUserId: resolvedUserId || null,
+      email: resolvedEmail || "",
+      sourceFunction,
+    });
+    return {
+      ok: false,
+      reason: "missing_expected_owner_id",
+      expectedOwnerId: "",
+    };
+  }
+
+  if (resolvedUserId !== expectedOwnerId) {
+    console.error("[PRIZE_EMAIL_BLOCKED_MISMATCH]", {
+      prizeId,
+      expectedOwnerId,
+      resolvedUserId: resolvedUserId || null,
+      email: resolvedEmail || "",
+      sourceFunction,
+    });
+    return {
+      ok: false,
+      reason: "resolved_user_mismatch",
+      expectedOwnerId,
+    };
+  }
+
+  // The enseigne tied to this prize must be currently registered to the
+  // same owner we're about to email -- guards against a stale/fallback
+  // owner_id (prize.owner_id / game.create_by) pointing at someone who no
+  // longer owns (or never owned) that enseigne.
+  const enseigneOwnerId = getUserUidFromRef(toDocRef(enseigneData.owner));
+  if (enseigneRef && enseigneOwnerId && enseigneOwnerId !== expectedOwnerId) {
+    console.error("[PRIZE_EMAIL_BLOCKED_MISMATCH]", {
+      prizeId,
+      expectedOwnerId,
+      enseigneId: enseigneRef.id,
+      enseigneOwnerId,
+      sourceFunction,
+      reason: "enseigne_owner_mismatch",
+    });
+    return {
+      ok: false,
+      reason: "enseigne_owner_mismatch",
+      expectedOwnerId,
+    };
+  }
+
+  // If the prize's game names a specific enseigne, make sure it's the same
+  // one we validated ownership against above.
+  const gameEnseigneRef = toDocRef(gameData.enseigne_id);
+  if (gameRef && enseigneRef && gameEnseigneRef && gameEnseigneRef.path !== enseigneRef.path) {
+    console.error("[PRIZE_EMAIL_BLOCKED_MISMATCH]", {
+      prizeId,
+      expectedOwnerId,
+      enseigneId: enseigneRef.id,
+      gameEnseigneId: gameEnseigneRef.id,
+      sourceFunction,
+      reason: "game_enseigne_mismatch",
+    });
+    return {
+      ok: false,
+      reason: "game_enseigne_mismatch",
+      expectedOwnerId,
+    };
+  }
+
+  console.log("[PRIZE_EMAIL_READY_TO_SEND]", {
+    prizeId,
+    ownerId: expectedOwnerId,
+    email: resolvedEmail || "",
+    sourceFunction,
+  });
+  return {
+    ok: true,
+    expectedOwnerId,
   };
 }
 
@@ -4160,20 +4324,27 @@ exports.notifyPrizeWon = functions
     }
 
     const winnerName = buildUserNameParts(winnerData, "Joueur");
-    const winnerFirstName = winnerName.firstName || "Joueur";
-    const winnerLastName = winnerName.lastName || "";
+    const winnerFirstName = repairMojibakeText(winnerName.firstName || "Joueur");
+    const winnerLastName = repairMojibakeText(winnerName.lastName || "");
     const winnerFullName = [winnerFirstName, winnerLastName]
       .filter((v) => v)
       .join(" ");
-    const winnerCity = getTrimmedString(winnerData.city) || "ville inconnue";
-    const merchantName = buildMerchantName(ownerData);
-    const gameName = getTrimmedString(gameData.name) || "Jeu ProxiPlay";
-    const prizeName = getTrimmedString(prizeData.name) || "Lot gagn\u00E9";
+    const winnerCity = repairMojibakeText(
+      getTrimmedString(winnerData.city) || "ville inconnue",
+    );
+    const merchantName = repairMojibakeText(buildMerchantName(ownerData));
+    const gameName = repairMojibakeText(
+      getTrimmedString(gameData.name) || "Jeu ProxiPlay",
+    );
+    const prizeName = repairMojibakeText(
+      getTrimmedString(prizeData.name) || "Lot gagn\u00E9",
+    );
     const claimCode = getTrimmedString(prizeData.claim_code) || "N/A";
-    const shopName =
+    const shopName = repairMojibakeText(
       getTrimmedString(prizeData.enseigne_name) ||
-      getTrimmedString(enseigneData.name) ||
-      "votre enseigne";
+        getTrimmedString(enseigneData.name) ||
+        "votre enseigne",
+    );
     const shopLink = buildShopLink(enseigneData);
 
     const merchantEmailSubject = `Un gagnant pour votre jeu "${gameName}"`;
@@ -4306,9 +4477,24 @@ exports.notifyPrizeWon = functions
         resolvedUserId: getUserUidFromRef(ownerRef),
         sourceFunction: "notifyPrizeWon:resolveMerchantEmail",
       });
+      const merchantEmailRecipientCheck = await validatePrizeEmailMerchantRecipient({
+        prizeId,
+        ownerRef,
+        enseigneRef,
+        enseigneData,
+        gameRef,
+        gameData,
+        resolvedEmail: merchantEmail,
+        resolvedUserId: getUserUidFromRef(ownerRef),
+        sourceFunction: "notifyPrizeWon:merchantEmail",
+      });
       if (!merchantEmail) {
         updates.merchant_email_skipped = true;
         updates.merchant_email_skip_reason = "missing_merchant_email";
+      } else if (!merchantEmailRecipientCheck.ok) {
+        updates.merchant_email_skipped = true;
+        updates.merchant_email_skip_reason =
+          merchantEmailRecipientCheck.reason || "recipient_guard_blocked";
       } else if (kPrizeEmailEmergencyDisabled === true) {
         console.log("[PRIZE_EMAIL_CONTENT_CHECK]", {
           prizeId,
