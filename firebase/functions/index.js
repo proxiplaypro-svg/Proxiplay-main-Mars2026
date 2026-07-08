@@ -1,4 +1,4 @@
-﻿const functions = require("firebase-functions");
+const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
@@ -3236,6 +3236,266 @@ function extractWinnerDisplayFromUserData(userData) {
   return { firstName, city };
 }
 
+function normalizeSecondaryPrizeBackfillVariant(value) {
+  return repairMojibakeText(getTrimmedString(value));
+}
+
+function extractSecondaryPrizeVariantsFromGame(gameData = {}) {
+  if (!Array.isArray(gameData.secondary_prizes)) {
+    return [];
+  }
+
+  const variants = [];
+  gameData.secondary_prizes.forEach((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return;
+    }
+    const name = normalizeSecondaryPrizeBackfillVariant(entry.name);
+    const presentation = normalizeSecondaryPrizeBackfillVariant(
+      entry.presentation || entry.description,
+    );
+    if (!name && !presentation) {
+      return;
+    }
+    variants.push({name, presentation});
+  });
+
+  return variants;
+}
+
+function pickSingleSecondaryPrizeBackfillVariant(variants) {
+  const normalizedVariants = [];
+  const seen = new Set();
+
+  (Array.isArray(variants) ? variants : []).forEach((variant) => {
+    const normalized = {
+      name: normalizeSecondaryPrizeBackfillVariant(variant && variant.name),
+      presentation: normalizeSecondaryPrizeBackfillVariant(
+        variant && variant.presentation,
+      ),
+    };
+    if (!normalized.name && !normalized.presentation) {
+      return;
+    }
+    const key = JSON.stringify(normalized);
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    normalizedVariants.push(normalized);
+  });
+
+  if (normalizedVariants.length !== 1) {
+    return {
+      ok: false,
+      variants: normalizedVariants,
+      reason:
+        normalizedVariants.length === 0
+          ? "missing_secondary_prize_source"
+          : "multiple_secondary_prize_variants",
+    };
+  }
+
+  return {
+    ok: true,
+    name: normalizedVariants[0].name || "Lot secondaire",
+    presentation: normalizedVariants[0].presentation || "",
+  };
+}
+
+function shouldBackfillWonSecondaryPrizeForGame({
+  prizeData,
+  expectedName,
+  expectedPresentation,
+}) {
+  const currentName = normalizeSecondaryPrizeBackfillVariant(prizeData && prizeData.name);
+  const currentDescription = normalizeSecondaryPrizeBackfillVariant(
+    prizeData && prizeData.description,
+  );
+
+  if (
+    currentName === expectedName &&
+    currentDescription === expectedPresentation
+  ) {
+    return {
+      shouldUpdate: false,
+      reason: "already_up_to_date",
+      patch: {},
+    };
+  }
+
+  const nameLooksWrong =
+    !currentName ||
+    currentName === currentDescription ||
+    (!!expectedPresentation && currentName === expectedPresentation);
+
+  if (!nameLooksWrong) {
+    return {
+      shouldUpdate: false,
+      reason: "ambiguous_existing_name",
+      patch: {},
+    };
+  }
+
+  const patch = {};
+  if (expectedName && currentName !== expectedName) {
+    patch.name = expectedName;
+  }
+  if (!currentDescription && expectedPresentation) {
+    patch.description = expectedPresentation;
+  }
+
+  return {
+    shouldUpdate: Object.keys(patch).length > 0,
+    reason: Object.keys(patch).length > 0 ? "fallback_name_detected" : "no_patch_needed",
+    patch,
+  };
+}
+
+const adminBackfillWonSecondaryPrizesForGameCallable = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 540, memory: "512MB"})
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Unauthenticated calls are not allowed.",
+      );
+    }
+    await assertIsAdmin(context.auth.uid);
+
+    const gameId = getTrimmedString(data && data.gameId);
+    const dryRun = toBoolean(data && data.dryRun, true);
+
+    if (!gameId || gameId.includes("/")) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "A valid gameId is required.",
+      );
+    }
+
+    const gameRef = firestore.collection("games").doc(gameId);
+    const [gameSnap, prizesSnap, instantWinnersSnap] = await Promise.all([
+      gameRef.get(),
+      firestore.collection("prizes").where("game_id", "==", gameRef).get(),
+      gameRef.collection("instant_winners").get(),
+    ]);
+
+    if (!gameSnap.exists) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "Game not found.",
+      );
+    }
+
+    const gameData = gameSnap.data() || {};
+    const variants = [
+      ...instantWinnersSnap.docs.map((doc) => {
+        const instantWinnerData = doc.data() || {};
+        return {
+          name: instantWinnerData.secondary_prize_name,
+          presentation: instantWinnerData.secondary_prize_presentation,
+        };
+      }),
+      ...extractSecondaryPrizeVariantsFromGame(gameData),
+    ];
+    const source = pickSingleSecondaryPrizeBackfillVariant(variants);
+
+    if (!source.ok) {
+      return {
+        ok: false,
+        dryRun,
+        gameId,
+        reason: source.reason,
+        variants: source.variants || [],
+        message:
+          source.reason === "multiple_secondary_prize_variants"
+            ? "Multiple secondary prize variants found for this game; aborting to avoid incorrect rewrites."
+            : "No reliable secondary prize source found for this game.",
+      };
+    }
+
+    const summary = {
+      ok: true,
+      dryRun,
+      gameId,
+      expectedName: source.name,
+      expectedPresentation: source.presentation,
+      scannedPrizes: prizesSnap.size,
+      scannedSecondaryPrizes: 0,
+      updatablePrizes: 0,
+      updatedPrizes: 0,
+      skippedAlreadyUpToDate: 0,
+      skippedAmbiguous: 0,
+      skippedOtherPrizeTypes: 0,
+      updatedPrizeIds: [],
+      ambiguousPrizeIds: [],
+    };
+
+    let batch = firestore.batch();
+    let batchOps = 0;
+    const commitBatchIfNeeded = async (force = false) => {
+      if (batchOps === 0) {
+        return;
+      }
+      if (!force && batchOps < 400) {
+        return;
+      }
+      await batch.commit();
+      batch = firestore.batch();
+      batchOps = 0;
+    };
+
+    for (const prizeDoc of prizesSnap.docs) {
+      const prizeData = prizeDoc.data() || {};
+      if (getTrimmedString(prizeData.prize_type).toLowerCase() !== "secondaire") {
+        summary.skippedOtherPrizeTypes += 1;
+        continue;
+      }
+
+      summary.scannedSecondaryPrizes += 1;
+      const decision = shouldBackfillWonSecondaryPrizeForGame({
+        prizeData,
+        expectedName: source.name,
+        expectedPresentation: source.presentation,
+      });
+
+      if (!decision.shouldUpdate) {
+        if (decision.reason === "already_up_to_date") {
+          summary.skippedAlreadyUpToDate += 1;
+        } else if (decision.reason === "ambiguous_existing_name") {
+          summary.skippedAmbiguous += 1;
+          if (summary.ambiguousPrizeIds.length < 25) {
+            summary.ambiguousPrizeIds.push(prizeDoc.id);
+          }
+        }
+        continue;
+      }
+
+      summary.updatablePrizes += 1;
+      if (summary.updatedPrizeIds.length < 50) {
+        summary.updatedPrizeIds.push(prizeDoc.id);
+      }
+
+      if (!dryRun) {
+        batch.update(prizeDoc.ref, decision.patch);
+        batchOps += 1;
+        summary.updatedPrizes += 1;
+        await commitBatchIfNeeded(false);
+      }
+    }
+
+    if (!dryRun) {
+      await commitBatchIfNeeded(true);
+    }
+
+    console.log(
+      "[adminBackfillWonSecondaryPrizesForGame]",
+      JSON.stringify(summary),
+    );
+
+    return summary;
+  });
 exports.backfillWinnerDisplayFields = functions
   .runWith({ timeoutSeconds: 540, memory: "1GB" })
   .https.onCall(async (data, context) => {
@@ -5233,6 +5493,8 @@ exports.adminSendPrizeReminderEmailTest = adminSendPrizeReminderEmailTestCallabl
 exports.adminRunPrizeReminderDryRun = adminRunPrizeReminderDryRunCallable;
 exports.adminRunPrizeReminderForPrizeTest =
   adminRunPrizeReminderForPrizeTestCallable;
+exports.adminBackfillWonSecondaryPrizesForGame =
+  adminBackfillWonSecondaryPrizesForGameCallable;
 exports.runPrizeRemindersDaily = runPrizeRemindersDailyScheduled;
 
 try {

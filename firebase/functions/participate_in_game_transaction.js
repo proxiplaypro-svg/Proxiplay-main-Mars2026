@@ -1,4 +1,4 @@
-﻿const functions = require("firebase-functions");
+const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
@@ -667,7 +667,7 @@ exports.participateInGameTransaction = functions.https.onCall(
             typeof instantWinnerData.secondary_prize_name === "string" &&
             instantWinnerData.secondary_prize_name.trim().length > 0
               ? instantWinnerData.secondary_prize_name.trim()
-              : (gameData.secondary_prize_description || "");
+              : "Lot secondaire";
           const selectedSecondaryPrizePresentation =
             typeof instantWinnerData.secondary_prize_presentation === "string"
               ? instantWinnerData.secondary_prize_presentation.trim()
