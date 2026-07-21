@@ -11,6 +11,7 @@ import '/flutter_flow/upload_data.dart';
 import '/custom_code/actions/index.dart' as actions;
 import '/index.dart';
 import '/utils/share_links.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -865,12 +866,11 @@ class _AddGameCommercantPageWidgetState
       ),
     }, gamesRecordReference);
     if (totalSecondaryCount > 0) {
-      await actions.addInstantWinnersToGame(
-        _model.gameResult!.reference,
-        _model.gameResult!.startDate!,
-        _model.endDateTransformCopy!,
-        secondaryPrizes,
-      );
+      await FirebaseFunctions.instance
+          .httpsCallable('generateInstantWinnersForGame')
+          .call({
+        'gameId': _model.gameResult!.reference.id,
+      });
     }
     safeSetState(() {
       _model.isDataUploading_uploadGameData5ir = false;

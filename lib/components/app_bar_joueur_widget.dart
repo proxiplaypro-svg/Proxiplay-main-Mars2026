@@ -1,4 +1,5 @@
 import '/auth/firebase_auth/auth_util.dart';
+import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'package:flutter/material.dart';
@@ -60,7 +61,11 @@ class _AppBarJoueurWidgetState extends State<AppBarJoueurWidget> {
                 return AuthUserStreamWidget(
                   builder: (context) {
                     final remainingPart =
-                        valueOrDefault<int>(currentUserDocument?.remainingPart, 0);
+                        getSafeRemainingPart(
+                      currentUserDocument,
+                      triggerRepair: true,
+                      source: 'app_bar_joueur',
+                    );
                     return Container(
                       decoration: BoxDecoration(
                         color: remainingPart <= 1

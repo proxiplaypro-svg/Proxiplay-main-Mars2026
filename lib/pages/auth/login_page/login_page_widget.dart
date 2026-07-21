@@ -1,4 +1,5 @@
 import '/auth/firebase_auth/auth_util.dart';
+import '/auth/firebase_auth/account_routing.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/resend_email_verification_widget.dart';
@@ -116,6 +117,100 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
     return true;
   }
 
+  void _showAccountRoutingIssueMessage(AuthenticatedHomeResolution resolution) {
+    final rawRoleLabel =
+        resolution.rawRole.isEmpty ? 'absent' : resolution.rawRole;
+    final message = switch (resolution.reason) {
+      'merchant_role_conflicts_with_player_signals' =>
+        'Le compte semble incoherent: role "$rawRoleLabel" avec donnees joueur. Merci de recharger ou de contacter le support.',
+      'role_missing' =>
+        'Le type de compte est absent. Une verification du profil est necessaire.',
+      'role_invalid' =>
+        'Le type de compte "$rawRoleLabel" est invalide. Une verification du profil est necessaire.',
+      'user_document_missing' =>
+        'Le profil utilisateur est introuvable. Merci de reessayer dans un instant.',
+      _ => 'Le type de compte n\'a pas pu etre determine de maniere fiable.',
+    };
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> _navigateFromResolution(
+    AuthenticatedHomeResolution resolution,
+  ) async {
+    if (!mounted) {
+      return;
+    }
+
+    switch (resolution.target) {
+      case AuthenticatedHomeTarget.pendingInfo:
+        context.goNamedAuth(
+          InscriptionInformationsPageWidget.routeName,
+          mounted,
+          ignoreRedirect: true,
+        );
+        return;
+      case AuthenticatedHomeTarget.waitingValidation:
+        context.goNamedAuth(
+          WaitingValidationPageWidget.routeName,
+          mounted,
+          ignoreRedirect: true,
+        );
+        return;
+      case AuthenticatedHomeTarget.rejected:
+        context.goNamedAuth(
+          RejetInscriptionPageWidget.routeName,
+          mounted,
+          ignoreRedirect: true,
+        );
+        return;
+      case AuthenticatedHomeTarget.adminHome:
+        context.goNamedAuth(
+          HomeAdminPageWidget.routeName,
+          mounted,
+          ignoreRedirect: true,
+        );
+        return;
+      case AuthenticatedHomeTarget.commercantHome:
+        context.goNamedAuth(
+          HomeCommercantPageWidget.routeName,
+          mounted,
+          ignoreRedirect: true,
+        );
+        return;
+      case AuthenticatedHomeTarget.joueurHome:
+        if (currentUserDocument?.birthday != null) {
+          _model.isMineur2 = await actions.isMineur(
+            currentUserDocument!.birthday!,
+          );
+          FFAppState().isMineur = _model.isMineur2 ?? false;
+        } else {
+          FFAppState().isMineur = false;
+        }
+
+        if (!mounted) {
+          return;
+        }
+        if (_tryConsumePendingRedirect()) {
+          return;
+        }
+        context.goNamedAuth(
+          HomeJoueurPageWidget.routeName,
+          mounted,
+          ignoreRedirect: true,
+        );
+        return;
+      case AuthenticatedHomeTarget.routingIssue:
+        _showAccountRoutingIssueMessage(resolution);
+        return;
+      case AuthenticatedHomeTarget.login:
+        return;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -162,57 +257,23 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
           if (!mounted) {
             return;
           }
-          // If the document never loaded (e.g. anonymous user with no
-          // Firestore doc), fall through to the joueur home as a default.
           if (currentUserDocument == null) {
-            if (await _resumePendingDeepLinkIfAny()) {
-              return;
-            }
-            if (!mounted) {
-              return;
-            }
-            if (_tryConsumePendingRedirect()) {
-              return;
-            }
-            context.goNamed(HomeJoueurPageWidget.routeName);
+            final resolution = await resolveAuthenticatedHome(
+              source: 'login_init_missing_doc',
+              preferServer: true,
+            );
+            await _navigateFromResolution(resolution);
             return;
           }
         }
-        if (currentUserDocument?.userRole == Roles.joueur) {
-          if (currentUserDocument?.accountStatus == AccountStatus.pendingInfo) {
-            if (Navigator.of(context).canPop()) {
-              context.pop();
-            }
-            context.pushNamed(InscriptionInformationsPageWidget.routeName);
-          } else {
-            if (currentUserDocument?.birthday != null) {
-              _model.isMineur = await actions.isMineur(
-                currentUserDocument!.birthday!,
-              );
-              FFAppState().isMineur = _model.isMineur ?? false;
-            } else {
-              FFAppState().isMineur = false;
-            }
-            if (!mounted) {
-              return;
-            }
-
-            if (await _resumePendingDeepLinkIfAny()) {
-              return;
-            }
-            if (!mounted) {
-              return;
-            }
-            if (_tryConsumePendingRedirect()) {
-              return;
-            }
-            context.goNamed(HomeJoueurPageWidget.routeName);
-          }
-        } else if (currentUserDocument?.userRole == Roles.admin) {
-          context.goNamed(HomeAdminPageWidget.routeName);
-        } else {
-          context.goNamed(HomeCommercantPageWidget.routeName);
+        if (await _resumePendingDeepLinkIfAny()) {
+          return;
         }
+        final resolution = await resolveAuthenticatedHome(
+          source: 'login_init',
+          preferServer: true,
+        );
+        await _navigateFromResolution(resolution);
 
         return;
       }
@@ -284,14 +345,15 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
   Future<void> _routeAfterAuthenticatedLogin({
     required bool shouldCheckEmailVerification,
   }) async {
-    var shouldSetState = false;
-
-    debugPrint('[LOGIN_SUCCESS] userId=$currentUserUid');
     debugPrint(
       '[LOGIN_PENDING_DEEPLINK_STATE] pendingGameId=${FFAppState().pendingDeepLinkGameId}',
     );
 
     if (await _resumePendingDeepLinkIfAny()) {
+      return;
+    }
+
+    if (!mounted) {
       return;
     }
 
@@ -325,103 +387,11 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
         return;
       }
     }
-
-    if (currentUserDocument?.accountStatus == AccountStatus.pendingInfo) {
-      context.goNamedAuth(
-        InscriptionInformationsPageWidget.routeName,
-        context.mounted,
-        ignoreRedirect: true,
-      );
-      return;
-    } else if (currentUserDocument?.accountStatus ==
-        AccountStatus.pendingIdentityCard) {
-      context.goNamedAuth(
-        WaitingValidationPageWidget.routeName,
-        context.mounted,
-        ignoreRedirect: true,
-      );
-      return;
-    } else if (currentUserDocument?.accountStatus ==
-        AccountStatus.pendingIdentityPhoto) {
-      context.goNamedAuth(
-        WaitingValidationPageWidget.routeName,
-        context.mounted,
-        ignoreRedirect: true,
-      );
-      return;
-    } else if (currentUserDocument?.accountStatus ==
-        AccountStatus.pendingValidation) {
-      context.goNamedAuth(
-        WaitingValidationPageWidget.routeName,
-        context.mounted,
-        ignoreRedirect: true,
-      );
-      return;
-    } else if (currentUserDocument?.accountStatus == AccountStatus.rejected) {
-      context.goNamedAuth(
-        RejetInscriptionPageWidget.routeName,
-        context.mounted,
-        ignoreRedirect: true,
-      );
-      return;
-    } else {
-      if (currentUserDocument?.userRole == Roles.joueur) {
-        if (currentUserDocument?.birthday != null) {
-          _model.isMineur2 = await actions.isMineur(
-            currentUserDocument!.birthday!,
-          );
-          shouldSetState = true;
-          FFAppState().isMineur = _model.isMineur2 ?? false;
-        } else {
-          FFAppState().isMineur = false;
-        }
-        if (!mounted) {
-          return;
-        }
-
-        if (!mounted) {
-          return;
-        }
-        if (_tryConsumePendingRedirect()) {
-          if (shouldSetState) {
-            safeSetState(() {});
-          }
-          return;
-        }
-        debugPrint('[LOGIN_DEFAULT_NAVIGATION] target=${HomeJoueurPageWidget.routeName}');
-        context.goNamedAuth(
-          HomeJoueurPageWidget.routeName,
-          mounted,
-          ignoreRedirect: true,
-        );
-      } else if (currentUserDocument?.userRole == Roles.admin) {
-        if (!context.mounted) {
-          return;
-        }
-        debugPrint('[LOGIN_DEFAULT_NAVIGATION] target=${HomeAdminPageWidget.routeName}');
-        context.goNamedAuth(
-          HomeAdminPageWidget.routeName,
-          context.mounted,
-          ignoreRedirect: true,
-        );
-      } else {
-        if (!context.mounted) {
-          return;
-        }
-        debugPrint(
-            '[LOGIN_DEFAULT_NAVIGATION] target=${HomeCommercantPageWidget.routeName}');
-        context.goNamedAuth(
-          HomeCommercantPageWidget.routeName,
-          context.mounted,
-          ignoreRedirect: true,
-        );
-      }
-
-      if (shouldSetState) {
-        safeSetState(() {});
-      }
-      return;
-    }
+    final resolution = await resolveAuthenticatedHome(
+      source: 'login_submit',
+      preferServer: true,
+    );
+    await _navigateFromResolution(resolution);
   }
 
   @override

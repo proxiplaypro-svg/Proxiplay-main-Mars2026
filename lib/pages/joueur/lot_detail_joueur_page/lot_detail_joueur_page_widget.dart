@@ -723,12 +723,20 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                                                                   FocusScope.of(context).unfocus();
                                                                                   FocusManager.instance.primaryFocus?.unfocus();
                                                                                 },
-                                                                                child: Padding(
-                                                                                  padding: MediaQuery.viewInsetsOf(context),
-                                                                                  child: SizedBox(
-                                                                                    height: MediaQuery.sizeOf(context).height * 0.7,
-                                                                                    child: UpdateHoraireCardWidget(
-                                                                                      day: addHoraireCommercantPageVarItem,
+                                                                                child: SafeArea(
+                                                                                  top: false,
+                                                                                  child: Padding(
+                                                                                    padding: MediaQuery.viewInsetsOf(context),
+                                                                                    child: FractionallySizedBox(
+                                                                                      heightFactor: 0.7,
+                                                                                      child: Padding(
+                                                                                        padding: EdgeInsets.only(
+                                                                                          bottom: MediaQuery.viewPaddingOf(context).bottom,
+                                                                                        ),
+                                                                                        child: UpdateHoraireCardWidget(
+                                                                                          day: addHoraireCommercantPageVarItem,
+                                                                                        ),
+                                                                                      ),
                                                                                     ),
                                                                                   ),
                                                                                 ),

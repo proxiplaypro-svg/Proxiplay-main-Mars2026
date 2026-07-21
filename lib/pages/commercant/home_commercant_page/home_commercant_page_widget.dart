@@ -7,6 +7,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/utils/game_metrics.dart';
+import '/utils/proxiplay_layout.dart';
 import '/widgets/proxiplay_loading_logo.dart';
 import '/index.dart';
 import 'dart:async';
@@ -388,8 +389,12 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                   alignment: const AlignmentDirectional(0.0, 1.0),
                   children: [
                     Padding(
-                      padding:
-                          const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 100.0),
+                      padding: EdgeInsetsDirectional.fromSTEB(
+                        0.0,
+                        0.0,
+                        0.0,
+                        ProxiPlayLayout.bottomNavHeight(context) + 20.0,
+                      ),
                       child: Container(
                         height: double.infinity,
                         decoration: const BoxDecoration(),

@@ -2,6 +2,10 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+const {
+  pickDueInstantWinner,
+  toMillis,
+} = require("./lib/instant_winners_core");
 
 const {
   queuePushNotificationRequest,
@@ -11,6 +15,25 @@ const db = admin.firestore();
 
 function getTrimmedString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeRemainingPartValue(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+  const trimmed = getTrimmedString(value);
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function describeRemainingPartState(value) {
+  if (value === null || typeof value === "undefined") {
+    return "absent";
+  }
+  return normalizeRemainingPartValue(value) === null ? "invalid" : "valid";
 }
 
 function normalizeClaimCode(value) {
@@ -328,19 +351,16 @@ exports.participateInGameTransaction = functions.https.onCall(
         // 3. Exécuter la query dans la transaction
         const instantWinnerSnap = await transaction.get(instantWinnersQuery);
         let eligibleInstantWinnerDoc = null;
-        let staleDueInstantWinnerDocs = [];
+        let remainingDueInstantWinnerDocs = [];
         if (!instantWinnerSnap.empty) {
           const dueInstantWinnerDocs = instantWinnerSnap.docs;
-          eligibleInstantWinnerDoc =
-            dueInstantWinnerDocs[dueInstantWinnerDocs.length - 1];
-          staleDueInstantWinnerDocs = dueInstantWinnerDocs.slice(
-            0,
-            Math.max(0, dueInstantWinnerDocs.length - 1)
-          );
+          const selection = pickDueInstantWinner(dueInstantWinnerDocs);
+          eligibleInstantWinnerDoc = selection.selected;
+          remainingDueInstantWinnerDocs = selection.remaining;
 
-          if (staleDueInstantWinnerDocs.length > 0) {
+          if (remainingDueInstantWinnerDocs.length > 0) {
             console.log(
-              `participateInGameTransaction: gameId=${gameRef.id} expiredStaleInstantWinners=${staleDueInstantWinnerDocs.length} eligibleInstantWinnerId=${eligibleInstantWinnerDoc.id}`
+              `participateInGameTransaction: gameId=${gameRef.id} dueInstantWinners=${dueInstantWinnerDocs.length} selectedInstantWinnerId=${eligibleInstantWinnerDoc.id}`
             );
           }
         }
@@ -360,6 +380,25 @@ exports.participateInGameTransaction = functions.https.onCall(
           );
         }
         const userData = userDoc.data();
+        const gameStartDateMs = toMillis(gameData.start_date);
+        const gameEndDateMs = toMillis(gameData.end_date);
+        const nowMs = now.toMillis();
+        if (
+          !Number.isFinite(gameStartDateMs) ||
+          !Number.isFinite(gameEndDateMs) ||
+          gameStartDateMs > gameEndDateMs
+        ) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "Les dates du jeu sont invalides."
+          );
+        }
+        if (nowMs < gameStartDateMs || nowMs > gameEndDateMs) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "Ce jeu n'est pas disponible actuellement."
+          );
+        }
         userEmail = getTrimmedString(userData.email);
         ownerRef = gameData.create_by?.path
           ? db.doc(gameData.create_by.path)
@@ -393,10 +432,21 @@ exports.participateInGameTransaction = functions.https.onCall(
 
         const currentParticipation = gameData.participations || 0;
         const newPosition = currentParticipation + 1;
-        const remainingPart = userData.remaining_part || 0;
+        const remainingPartState = describeRemainingPartState(
+          userData.remaining_part
+        );
+        const normalizedRemainingPart = normalizeRemainingPartValue(
+          userData.remaining_part
+        );
+        const remainingPart =
+          normalizedRemainingPart === null ? 3 : normalizedRemainingPart;
         const alreadyParticipatedToday = participantTodayDoc.exists;
         const unlimitedAccessActive = hasUnlimitedAccess(userData, now);
         let uniquePlayerNew = false;
+
+        console.log(
+          `[participateInGameTransaction] uid=${uid} gameId=${gameId} remaining_part_state=${remainingPartState} remaining_part_value=${remainingPart} unlimitedAccess=${unlimitedAccessActive}`
+        );
 
         // Détection lot principal (sert uniquement à la cohérence des champs, pas au message de perte)
         const hasMainPrizeField = Object.prototype.hasOwnProperty.call(
@@ -574,15 +624,6 @@ exports.participateInGameTransaction = functions.https.onCall(
         }
 
         // Enregistrer participation
-        staleDueInstantWinnerDocs.forEach((staleDoc) => {
-          transaction.update(staleDoc.ref, {
-            hasWinner: true,
-            expired_without_winner: true,
-            expired_at: now,
-            expired_reason: "superseded_by_next_instant",
-          });
-        });
-
         if (Object.keys(gameConsistencyPatch).length > 0) {
           transaction.update(gameRef, gameConsistencyPatch);
         }
@@ -637,8 +678,11 @@ exports.participateInGameTransaction = functions.https.onCall(
           games_played_count: admin.firestore.FieldValue.increment(1),
         };
 
-        if (remainingPartDelta !== 0) {
+        if (remainingPartDelta !== 0 || normalizedRemainingPart === null) {
           userUpdateData.remaining_part = remainingPart + remainingPartDelta;
+          if (!userData.part_last_update) {
+            userUpdateData.part_last_update = admin.firestore.FieldValue.serverTimestamp();
+          }
         }
 
         // Calculer le nouveau statut du joueur basé sur son activité

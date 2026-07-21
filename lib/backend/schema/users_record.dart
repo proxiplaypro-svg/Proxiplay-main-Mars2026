@@ -143,7 +143,7 @@ class UsersRecord extends FirestoreRecord {
         : deserializeEnum<Roles>(snapshotData['user_role']);
     _displayName = snapshotData['display_name'] as String?;
     _photoUrl = snapshotData['photo_url'] as String?;
-    _remainingPart = castToType<int>(snapshotData['remaining_part']);
+    _remainingPart = _readFlexibleInt(snapshotData['remaining_part']);
     _city = snapshotData['city'] as String?;
     _cityInseeCode = snapshotData['city_insee_code'] as String?;
     _partLastUpdate = snapshotData['part_last_update'] as DateTime?;
@@ -187,6 +187,23 @@ class UsersRecord extends FirestoreRecord {
   bool operator ==(other) =>
       other is UsersRecord &&
       reference.path.hashCode == other.reference.path.hashCode;
+}
+
+int? _readFlexibleInt(dynamic value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    return int.tryParse(trimmed);
+  }
+  return null;
 }
 
 Map<String, dynamic> createUsersRecordData({

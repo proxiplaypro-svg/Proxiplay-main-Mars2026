@@ -5,6 +5,7 @@ import '/auth/firebase_auth/auth_util.dart';
 import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/utils/proxiplay_layout.dart';
 
 class AdminPushNotificationsHistoryPageWidget extends StatelessWidget {
   const AdminPushNotificationsHistoryPageWidget({super.key});
@@ -88,27 +89,36 @@ class AdminPushNotificationsHistoryPageWidget extends StatelessWidget {
                   onTap: () {
                     showModalBottomSheet(
                       context: context,
+                      isScrollControlled: true,
                       showDragHandle: true,
-                      builder: (_) => Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title.isNotEmpty ? title : '(No title)',
-                              style: FlutterFlowTheme.of(context).titleMedium,
+                      builder: (sheetContext) => SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0).copyWith(
+                            bottom: ProxiPlayLayout.bottomContentInset(
+                              sheetContext,
                             ),
-                            const SizedBox(height: 8),
-                            Text(body.isNotEmpty ? body : '(No message)'),
-                            const SizedBox(height: 12),
-                            if (createdAtText.isNotEmpty)
-                              Text('Sent: $createdAtText'),
-                            if (target.isNotEmpty) Text('Target: $target'),
-                            if (status.isNotEmpty) Text('Status: $status'),
-                            if (numSent.isNotEmpty) Text('Sent count: $numSent'),
-                            if (error.isNotEmpty) Text('Error: $error'),
-                          ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title.isNotEmpty ? title : '(No title)',
+                                style: FlutterFlowTheme.of(context).titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(body.isNotEmpty ? body : '(No message)'),
+                              const SizedBox(height: 12),
+                              if (createdAtText.isNotEmpty)
+                                Text('Sent: $createdAtText'),
+                              if (target.isNotEmpty) Text('Target: $target'),
+                              if (status.isNotEmpty) Text('Status: $status'),
+                              if (numSent.isNotEmpty)
+                                Text('Sent count: $numSent'),
+                              if (error.isNotEmpty) Text('Error: $error'),
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -122,4 +132,3 @@ class AdminPushNotificationsHistoryPageWidget extends StatelessWidget {
     );
   }
 }
-

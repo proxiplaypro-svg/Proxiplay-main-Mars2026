@@ -82,7 +82,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     if (animationId.trim().isNotEmpty) {
       return false;
     }
-    return valueOrDefault(user?.remainingPart, 0) <= 0 &&
+    return getSafeRemainingPart(
+              user,
+              triggerRepair: true,
+              source: 'jeu_detail_joueur',
+            ) <=
+            0 &&
         !_hasUnlimitedAccess(user, now);
   }
 

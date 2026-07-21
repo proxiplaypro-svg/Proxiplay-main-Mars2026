@@ -2,9 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../auth/firebase_auth/auth_util.dart';
+import '../utils/paged_stream_merge.dart';
 
 import '../flutter_flow/flutter_flow_util.dart';
 import 'schema/util/firestore_util.dart';
+import 'schema/enums/enums.dart';
 
 import 'schema/users_record.dart';
 import 'schema/favorite_games_record.dart';
@@ -352,23 +354,27 @@ Future<FFFirestorePage<GamesRecord>> queryGamesRecordPage({
       if (isStream) {
         final streamSubscription =
             (page.dataStream)?.listen((List<GamesRecord> data) {
-          for (var item in data) {
-            final itemIndexes = controller.itemList!
-                .asMap()
-                .map((k, v) => MapEntry(v.reference.id, k));
-            final index = itemIndexes[item.reference.id];
-            final items = controller.itemList!;
-            if (index != null) {
-              items.replaceRange(index, index + 1, [item]);
-              controller.itemList = {
-                for (var item in items) item.reference: item
-              }.values.toList();
-            }
+          final currentItems = controller.itemList ?? const <GamesRecord>[];
+          controller.itemList = mergePagedStreamItems<GamesRecord>(
+            currentItems: currentItems,
+            incomingItems: data,
+            getId: (item) => item.reference.id,
+          );
+        }, onError: (Object error, StackTrace stackTrace) {
+          controller.error = error;
+          if (kDebugMode) {
+            debugPrint('Firestore live page update error: $error');
           }
         });
         streamSubscriptions?.add(streamSubscription);
       }
       return page;
+    }).catchError((Object error, StackTrace stackTrace) {
+      controller.error = error;
+      if (kDebugMode) {
+        debugPrint('Firestore paged query error: $error');
+      }
+      throw error;
     });
 
 /// Functions to query AnimationsRecords (as a Stream and as a Future).
@@ -1626,11 +1632,7 @@ Stream<List<T>> queryCollection<T>(
   if (limit > 0 || singleRecord) {
     query = query.limit(singleRecord ? 1 : limit);
   }
-  return query.snapshots().handleError((err) {
-    if (kDebugMode) {
-      debugPrint('Firestore query error');
-    }
-  }).map((s) => s.docs
+  return query.snapshots().map((s) => s.docs
       .map(
         (d) => safeGet(
           () => recordBuilder(d),
@@ -1750,35 +1752,199 @@ Future<FFFirestorePage<T>> queryCollectionPage<T>(
   return FFFirestorePage(data, dataStream, nextPageToken);
 }
 
-// Creates a Firestore document representing the logged in user if it doesn't yet exist
-Future maybeCreateUser(User user) async {
+const int kDefaultRemainingPart = 3;
+
+String _trimOrEmpty(String? value) => value?.trim() ?? '';
+
+bool _isMissingTextValue(dynamic value) {
+  if (value == null) {
+    return true;
+  }
+  if (value is String) {
+    return value.trim().isEmpty;
+  }
+  return false;
+}
+
+int? normalizeFirestoreInt(dynamic value) {
+  if (value == null) {
+    return null;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    return int.tryParse(trimmed);
+  }
+  return null;
+}
+
+bool hasValidRemainingPartValue(dynamic value) =>
+    normalizeFirestoreInt(value) != null;
+
+String describeRemainingPartState(dynamic value) {
+  if (value == null) {
+    return 'absent';
+  }
+  return hasValidRemainingPartValue(value) ? 'valid' : 'invalid';
+}
+
+bool shouldFallbackRemainingPart(UsersRecord? user) =>
+    user != null &&
+    user.userRole == Roles.joueur &&
+    !user.hasRemainingPart();
+
+int getSafeRemainingPart(
+  UsersRecord? user, {
+  int fallback = kDefaultRemainingPart,
+  bool triggerRepair = false,
+  String source = 'ui',
+}) {
+  if (user == null) {
+    return 0;
+  }
+  if (user.hasRemainingPart()) {
+    return user.remainingPart;
+  }
+  if (shouldFallbackRemainingPart(user)) {
+    if (triggerRepair) {
+      unawaited(
+        repairCurrentUserRemainingPartIfNeeded(source: source),
+      );
+    }
+    return fallback;
+  }
+  return user.remainingPart;
+}
+
+Roles? _roleFromRaw(dynamic value) {
+  if (value is Roles) {
+    return value;
+  }
+  return deserializeEnum<Roles>(value);
+}
+
+Future<UsersRecord?> ensureUserDocumentInitialized(
+  User user, {
+  Roles? roleHint,
+  String authProvider = 'UNKNOWN',
+  String source = 'auth',
+}) async {
   if (user.isAnonymous) {
-    // Guest mode: keep Firebase Auth session but do not persist a users doc.
     currentUserDocument = null;
-    return;
+    return null;
   }
 
   final userRecord = UsersRecord.collection.doc(user.uid);
-  final userExists = await userRecord.get().then((u) => u.exists);
-  if (userExists) {
-    currentUserDocument = await UsersRecord.getDocumentOnce(userRecord);
-    return;
+  final email =
+      _trimOrEmpty(user.email ?? FirebaseAuth.instance.currentUser?.email);
+  final displayName = _trimOrEmpty(
+    user.displayName ?? FirebaseAuth.instance.currentUser?.displayName,
+  );
+  final photoUrl = _trimOrEmpty(user.photoURL);
+  final phoneNumber = _trimOrEmpty(user.phoneNumber);
+  final providerId = user.providerData.isNotEmpty
+      ? _trimOrEmpty(user.providerData.first.providerId)
+      : '';
+
+  await FirebaseFirestore.instance.runTransaction((transaction) async {
+    final snapshot = await transaction.get(userRecord);
+    final rawData = snapshot.data();
+    final data = rawData is Map<String, dynamic> ? rawData : <String, dynamic>{};
+    final docExists = snapshot.exists;
+    final existingRole = _roleFromRaw(data['user_role']);
+    final effectiveRole = existingRole ?? roleHint;
+    final remainingState = describeRemainingPartState(data['remaining_part']);
+    final patch = <String, dynamic>{};
+
+    if (_isMissingTextValue(data['uid'])) {
+      patch['uid'] = user.uid;
+    }
+    if (!docExists || data['created_time'] == null) {
+      patch['created_time'] = FieldValue.serverTimestamp();
+    }
+    if (_isMissingTextValue(data['email']) && email.isNotEmpty) {
+      patch['email'] = email;
+    }
+    if (_isMissingTextValue(data['display_name']) && displayName.isNotEmpty) {
+      patch['display_name'] = displayName;
+    }
+    if (_isMissingTextValue(data['photo_url']) && photoUrl.isNotEmpty) {
+      patch['photo_url'] = photoUrl;
+    }
+    if (_isMissingTextValue(data['phone_number']) && phoneNumber.isNotEmpty) {
+      patch['phone_number'] = phoneNumber;
+    }
+    if (existingRole == null && roleHint != null) {
+      patch['user_role'] = roleHint.serialize();
+    }
+    if (effectiveRole == Roles.joueur &&
+        !hasValidRemainingPartValue(data['remaining_part'])) {
+      patch['remaining_part'] = kDefaultRemainingPart;
+      if (data['part_last_update'] == null) {
+        patch['part_last_update'] = FieldValue.serverTimestamp();
+      }
+    }
+
+    if (kDebugMode) {
+      debugPrint(
+        '[UserInit][$source] method=$authProvider '
+        'providerId=${providerId.isEmpty ? '<unknown>' : providerId} '
+        'docExists=$docExists '
+        'remainingPart=$remainingState action=${patch.isEmpty ? 'noop' : 'merge'}',
+      );
+    }
+
+    if (patch.isNotEmpty) {
+      transaction.set(userRecord, patch, SetOptions(merge: true));
+    }
+  });
+
+  currentUserDocument = await UsersRecord.getDocumentOnce(userRecord);
+  return currentUserDocument;
+}
+
+Future<UsersRecord?> repairCurrentUserRemainingPartIfNeeded({
+  String source = 'ui',
+}) async {
+  final user = FirebaseAuth.instance.currentUser;
+  final doc = currentUserDocument;
+  if (user == null || doc == null || doc.userRole != Roles.joueur) {
+    return doc;
+  }
+  if (doc.hasRemainingPart()) {
+    return doc;
   }
 
-  final userData = createUsersRecordData(
-    email: user.email ??
-        FirebaseAuth.instance.currentUser?.email ??
-        user.providerData.firstOrNull?.email,
-    displayName:
-        user.displayName ?? FirebaseAuth.instance.currentUser?.displayName,
-    photoUrl: user.photoURL,
-    uid: user.uid,
-    phoneNumber: user.phoneNumber,
-    createdTime: getCurrentTimestamp,
+  return ensureUserDocumentInitialized(
+    user,
+    roleHint: Roles.joueur,
+    authProvider: 'RECOVERY',
+    source: source,
   );
+}
 
-  await userRecord.set(userData);
-  currentUserDocument = UsersRecord.getDocumentFromData(userData, userRecord);
+// Creates a Firestore document representing the logged in user if it doesn't yet exist
+Future<UsersRecord?> maybeCreateUser(
+  User user, {
+  Roles? roleHint,
+  String authProvider = 'UNKNOWN',
+  String source = 'auth',
+}) async {
+  if (user.isAnonymous) {
+    currentUserDocument = null;
+    return null;
+  }
+  return ensureUserDocumentInitialized(
+    user,
+    roleHint: roleHint,
+    authProvider: authProvider,
+    source: source,
+  );
 }
 
 Future updateUserDocument({String? email}) async {

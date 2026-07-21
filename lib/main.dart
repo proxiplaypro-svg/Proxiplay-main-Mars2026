@@ -24,6 +24,8 @@ import 'flutter_flow/permissions_util.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'utils/perf_trace.dart';
 import 'utils/share_links.dart';
+import 'widgets/debug_layout_overlay.dart';
+import 'widgets/startup_config_flow.dart';
 
 import 'services/remote_config_service.dart';
 import 'services/global_ticker_service.dart';
@@ -150,8 +152,10 @@ class MyAppState extends State<MyApp> {
   late AppStateNotifier _appStateNotifier;
   late GoRouter _router;
 
-  bool _isLoadingConfig = false;
+  bool _isLoadingConfig = true;
   bool _isMaintenance = false;
+  bool _hasBlockingConfigError = false;
+  Object? _lastConfigError;
 
   StreamSubscription<BaseAuthUser>? _userStreamSub;
   StreamSubscription<dynamic>? _authUserSub;
@@ -183,7 +187,12 @@ class MyAppState extends State<MyApp> {
     if (!widget.bootstrapResult.firebaseInitialized) {
       return;
     }
-    _authUserSub = authenticatedUserStream.listen((_) {});
+    _authUserSub = authenticatedUserStream.listen((_) {
+      if (!mounted) {
+        return;
+      }
+      _appStateNotifier.refreshRouting();
+    });
     _fcmTokenSub = fcmTokenUserStream.listen((_) {});
     _routerReferralListener = () {
       _capturePendingReferralCodeFromRouter(source: 'warm_start');
@@ -220,7 +229,7 @@ class MyAppState extends State<MyApp> {
 
         if (mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _checkRemoteConfig();
+            _checkRemoteConfig(showBlockingLoader: false);
           });
         }
       });
@@ -247,25 +256,55 @@ class MyAppState extends State<MyApp> {
     });
   }
 
-  Future<void> _checkRemoteConfig() async {
+  Future<void> _checkRemoteConfig({bool showBlockingLoader = true}) async {
     final remoteService = RemoteConfigService();
-    var maintenance = false;
+    final previousMaintenance = _isMaintenance;
 
-    try {
-      // Prevent startup lock if Remote Config/network stalls.
-      await remoteService
-          .initialize()
-          .timeout(const Duration(seconds: 8));
-
-      maintenance = remoteService.isMaintenanceMode;
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isMaintenance = maintenance;
-          _isLoadingConfig = false;
-        });
-      }
+    if (showBlockingLoader && mounted) {
+      setState(() {
+        _isLoadingConfig = true;
+        _hasBlockingConfigError = false;
+      });
     }
+
+    final resolvedState = await resolveStartupConfigState(
+      loader: () async {
+        final initResult = await remoteService.initialize();
+        return StartupConfigResult(
+          maintenanceMode: remoteService.isMaintenanceMode,
+          usedFallback: !initResult.loadedFromRemote,
+          error: initResult.error,
+          stackTrace: initResult.stackTrace,
+        );
+      },
+      timeout: const Duration(seconds: 8),
+      allowFallbackOnFailure: true,
+    );
+
+    final shouldPreserveCurrentConfig =
+        !showBlockingLoader && resolvedState.result.usedFallback;
+    final maintenance = shouldPreserveCurrentConfig
+        ? previousMaintenance
+        : resolvedState.result.maintenanceMode;
+
+    if (resolvedState.result.error != null) {
+      debugPrint(
+        '[APP_BOOTSTRAP] remote_config_fallback '
+        'timeout=${resolvedState.result.fromTimeout} '
+        'error=${resolvedState.result.error}',
+      );
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isMaintenance = maintenance;
+      _isLoadingConfig = false;
+      _hasBlockingConfigError = resolvedState.hasError;
+      _lastConfigError = resolvedState.result.error;
+    });
   }
 
   void _capturePendingReferralCodeFromRouter({required String source}) {
@@ -333,9 +372,24 @@ class MyAppState extends State<MyApp> {
         navigatorKey: _fallbackNavigatorKey,
         home: AppUpdateGate(
           navigatorKey: _fallbackNavigatorKey,
-          child: const Scaffold(
-            backgroundColor: Colors.white,
-            body: SizedBox.shrink(),
+          child: const StartupConfigLoadingScreen(),
+        ),
+      );
+    }
+
+    if (_hasBlockingConfigError) {
+      debugPrint(
+        '[APP_BOOTSTRAP] startup_config_blocking_error error=$_lastConfigError',
+      );
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        navigatorKey: _fallbackNavigatorKey,
+        home: AppUpdateGate(
+          navigatorKey: _fallbackNavigatorKey,
+          child: StartupConfigRetryScreen(
+            onRetry: () {
+              unawaited(_checkRemoteConfig());
+            },
           ),
         ),
       );
@@ -384,6 +438,8 @@ class MyAppState extends State<MyApp> {
       },
       theme: ThemeData(
         brightness: Brightness.light,
+        scaffoldBackgroundColor: Colors.white,
+        useMaterial3: false,
         progressIndicatorTheme: const ProgressIndicatorThemeData(
           color: Colors.transparent,
           circularTrackColor: Colors.transparent,
@@ -394,7 +450,9 @@ class MyAppState extends State<MyApp> {
       themeMode: _themeMode,
       builder: (context, child) => AppUpdateGate(
         navigatorKey: _router.routerDelegate.navigatorKey,
-        child: child ?? const SizedBox.shrink(),
+        child: DebugLayoutOverlay(
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
       routerConfig: _router,
     );

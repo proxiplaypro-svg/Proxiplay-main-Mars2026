@@ -7,6 +7,7 @@ import '../auth_manager.dart';
 import '../../app_state.dart';
 
 import '/backend/backend.dart';
+import '/backend/schema/enums/enums.dart';
 import 'anonymous_auth.dart';
 import 'apple_auth.dart';
 import 'email_auth.dart';
@@ -204,11 +205,21 @@ class FirebaseAuthManager extends AuthManager
 
   @override
   Future<BaseAuthUser?> signInWithApple(BuildContext context) =>
-      _signInOrCreateAccount(context, appleSignIn, 'APPLE');
+      _signInOrCreateAccount(
+        context,
+        appleSignIn,
+        'APPLE',
+        roleHint: Roles.joueur,
+      );
 
   @override
   Future<BaseAuthUser?> signInWithGoogle(BuildContext context) =>
-      _signInOrCreateAccount(context, googleSignInFunc, 'GOOGLE');
+      _signInOrCreateAccount(
+        context,
+        googleSignInFunc,
+        'GOOGLE',
+        roleHint: Roles.joueur,
+      );
 
   @override
   Future<BaseAuthUser?> signInWithGithub(BuildContext context) =>
@@ -329,12 +340,17 @@ class FirebaseAuthManager extends AuthManager
     BuildContext context,
     Future<UserCredential?> Function() signInFunc,
     String authProvider,
+    {Roles? roleHint}
   ) async {
     try {
       FFAppState().isGuest = false;
       final userCredential = await signInFunc();
       if (userCredential?.user != null) {
-        await maybeCreateUser(userCredential!.user!);
+        await maybeCreateUser(
+          userCredential!.user!,
+          roleHint: roleHint,
+          authProvider: authProvider,
+        );
       }
       if (userCredential == null || userCredential.user == null) {
         return null;

@@ -4,6 +4,11 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 admin.initializeApp();
 const participateInGameTransaction = require("./participate_in_game_transaction.js");
+const {
+  expandSecondaryPrizes,
+  planInstantWinnerReconciliation,
+  toMillis,
+} = require("./lib/instant_winners_core");
 
 const kFcmTokensCollection = "fcm_tokens";
 const kPushNotificationsCollection = "ff_push_notifications";
@@ -31,6 +36,169 @@ const kPushNotificationRuntimeOpts = {
 
 exports.participateInGameTransaction =
   participateInGameTransaction.participateInGameTransaction;
+
+const generateInstantWinnersForGameCallable = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 120, memory: "256MB"})
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Unauthenticated calls are not allowed.",
+      );
+    }
+
+    const gameId = getTrimmedString(data && data.gameId);
+    if (!gameId || gameId.includes("/")) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "A valid gameId is required.",
+      );
+    }
+
+    const gameRef = firestore.collection("games").doc(gameId);
+    const gameSnap = await gameRef.get();
+    if (!gameSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "Game not found.");
+    }
+
+    const gameData = gameSnap.data() || {};
+    const callerRef = firestore.collection("users").doc(context.auth.uid);
+    const isCallerAdmin = (await callerRef.get()).data()?.user_role === "admin";
+    const createByRef = toDocRef(gameData.create_by);
+    const ownerRef = createByRef || toDocRef(gameData.owner_id);
+
+    if (
+      !isCallerAdmin &&
+      (!ownerRef || ownerRef.path !== callerRef.path)
+    ) {
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only the game owner can generate instant winners.",
+      );
+    }
+
+    const startDateMs = toMillis(gameData.start_date);
+    const endDateMs = toMillis(gameData.end_date);
+    const expandedSecondaryPrizes = expandSecondaryPrizes(gameData.secondary_prizes);
+
+    if (expandedSecondaryPrizes.length === 0) {
+      return {
+        ok: true,
+        gameId,
+        status: "skip_no_secondary_prizes",
+        createdCount: 0,
+        desiredCount: 0,
+      };
+    }
+
+    const instantWinnersRef = gameRef.collection("instant_winners");
+    try {
+      planInstantWinnerReconciliation({
+        gameId,
+        startDateMs,
+        endDateMs,
+        secondaryPrizes: gameData.secondary_prizes,
+        existingEntries: [],
+      });
+    } catch (error) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        error.message || "Unable to generate instant winners.",
+      );
+    }
+
+    const gameAlreadyStarted = nowMs >= startDateMs;
+    const transactionResult = await firestore.runTransaction(async (transaction) => {
+      const [freshGameSnap, existingSnap] = await Promise.all([
+        transaction.get(gameRef),
+        transaction.get(instantWinnersRef),
+      ]);
+
+      if (!freshGameSnap.exists) {
+        throw new functions.https.HttpsError("not-found", "Game not found.");
+      }
+
+      const freshGameData = freshGameSnap.data() || {};
+      const freshPlan = planInstantWinnerReconciliation({
+        gameId,
+        startDateMs: toMillis(freshGameData.start_date),
+        endDateMs: toMillis(freshGameData.end_date),
+        secondaryPrizes: freshGameData.secondary_prizes,
+        existingEntries: existingSnap.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })),
+      });
+      const hasAssignedInstantWinner = existingSnap.docs.some((doc) => {
+        const data = doc.data() || {};
+        return data.hasWinner === true || !!data.player_id;
+      });
+      const freshStartDateMs = toMillis(freshGameData.start_date);
+      const freshGameAlreadyStarted =
+        Number.isFinite(freshStartDateMs) && Date.now() >= freshStartDateMs;
+
+      if (freshGameAlreadyStarted && freshPlan.missingPayloads.length > 0) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Instant winners cannot be completed after the game start.",
+        );
+      }
+
+      if (hasAssignedInstantWinner && freshPlan.missingPayloads.length > 0) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Instant winners cannot be changed after a secondary prize has been assigned.",
+        );
+      }
+
+      freshPlan.missingPayloads.forEach(({docId, payload}) => {
+        transaction.create(instantWinnersRef.doc(docId), {
+          date: admin.firestore.Timestamp.fromMillis(payload.dateMs),
+          hasWinner: false,
+          claimed: false,
+          secondary_prize_index: payload.secondary_prize_index,
+          secondary_prize_occurrence_index:
+            payload.secondary_prize_occurrence_index,
+          secondary_prize_name: payload.secondary_prize_name,
+          ...(payload.secondary_prize_presentation
+            ? {
+                secondary_prize_presentation:
+                  payload.secondary_prize_presentation,
+              }
+            : {}),
+        });
+      });
+
+      return {
+        desiredCount: freshPlan.desiredCount,
+        existingCount: freshPlan.existingCount,
+        createdCount: freshPlan.missingPayloads.length,
+        duplicateExistingKeys: freshPlan.duplicateExistingKeys,
+        unexpectedExistingCount: freshPlan.unexpectedExistingEntries.length,
+        hasAssignedInstantWinner,
+      };
+    });
+
+    return {
+      ok: true,
+      gameId,
+      status:
+        transactionResult.createdCount > 0
+          ? transactionResult.existingCount > 0
+            ? "completed_missing_occurrences"
+            : "created"
+          : "already_complete",
+      createdCount: transactionResult.createdCount,
+      desiredCount: transactionResult.desiredCount,
+      existingCount: transactionResult.existingCount,
+      duplicateExistingKeys: transactionResult.duplicateExistingKeys,
+      unexpectedExistingCount: transactionResult.unexpectedExistingCount,
+      hasAssignedInstantWinner: transactionResult.hasAssignedInstantWinner,
+      idStrategy:
+        "instant_{gameId}_spi_{secondary_prize_index}_occ_{secondary_prize_occurrence_index}",
+    };
+  });
 
 function inferLegacyHasMainPrize(gameData) {
   return (
@@ -248,6 +416,17 @@ function normalizeInteger(value) {
   }
   const parsed = Number.parseInt(getTrimmedString(value), 10);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeRemainingPartValue(value) {
+  return normalizeInteger(value);
+}
+
+function describeRemainingPartState(value) {
+  if (value === null || typeof value === "undefined") {
+    return "absent";
+  }
+  return normalizeRemainingPartValue(value) === null ? "invalid" : "valid";
 }
 
 function normalizePrizeValueCents(value) {
@@ -987,10 +1166,15 @@ exports.resetDailyRemainingParts = functions.pubsub
 async function initializePlayerRemainingPartsIfNeeded(userRef, uid, userData, source) {
   const safeUserData = userData || {};
   const userRole = getTrimmedString(safeUserData.user_role);
-  const currentRemainingPart = safeUserData.remaining_part;
+  const currentRemainingPart = normalizeRemainingPartValue(
+    safeUserData.remaining_part,
+  );
+  const currentRemainingPartState = describeRemainingPartState(
+    safeUserData.remaining_part,
+  );
 
   console.log(
-    `[initializePlayerRemainingPartsIfNeeded] source=${source} uid=${uid} role=${userRole || "unknown"} remaining_part=${currentRemainingPart}`,
+    `[initializePlayerRemainingPartsIfNeeded] source=${source} uid=${uid} role=${userRole || "unknown"} remaining_part_state=${currentRemainingPartState} remaining_part=${currentRemainingPart}`,
   );
 
   if (userRole !== "joueur") {
@@ -1000,7 +1184,7 @@ async function initializePlayerRemainingPartsIfNeeded(userRef, uid, userData, so
     return false;
   }
 
-  if (currentRemainingPart !== null && typeof currentRemainingPart !== "undefined") {
+  if (currentRemainingPart !== null) {
     console.log(
       `[initializePlayerRemainingPartsIfNeeded] ignored uid=${uid} reason=remaining_part_exists value=${currentRemainingPart}`,
     );
@@ -1118,10 +1302,15 @@ exports.initializePlayerRemainingPartsOnRoleAssignment = functions.firestore
       const afterData = change.after.data() || {};
       const beforeRole = getTrimmedString(beforeData.user_role);
       const afterRole = getTrimmedString(afterData.user_role);
-      const currentRemainingPart = afterData.remaining_part;
+      const currentRemainingPart = normalizeRemainingPartValue(
+        afterData.remaining_part,
+      );
+      const currentRemainingPartState = describeRemainingPartState(
+        afterData.remaining_part,
+      );
 
       console.log(
-        `[initializePlayerRemainingPartsOnRoleAssignment] uid=${uid} before_role=${beforeRole || "unknown"} after_role=${afterRole || "unknown"} remaining_part=${currentRemainingPart}`,
+        `[initializePlayerRemainingPartsOnRoleAssignment] uid=${uid} before_role=${beforeRole || "unknown"} after_role=${afterRole || "unknown"} remaining_part_state=${currentRemainingPartState} remaining_part=${currentRemainingPart}`,
       );
 
       if (afterRole !== "joueur") {
@@ -1131,7 +1320,7 @@ exports.initializePlayerRemainingPartsOnRoleAssignment = functions.firestore
         return null;
       }
 
-      if (currentRemainingPart !== null && typeof currentRemainingPart !== "undefined") {
+      if (currentRemainingPart !== null) {
         console.log(
           `[initializePlayerRemainingPartsOnRoleAssignment] ignored uid=${uid} reason=remaining_part_exists value=${currentRemainingPart}`,
         );
@@ -5496,6 +5685,7 @@ exports.adminRunPrizeReminderForPrizeTest =
 exports.adminBackfillWonSecondaryPrizesForGame =
   adminBackfillWonSecondaryPrizesForGameCallable;
 exports.runPrizeRemindersDaily = runPrizeRemindersDailyScheduled;
+exports.generateInstantWinnersForGame = generateInstantWinnersForGameCallable;
 
 try {
   const {

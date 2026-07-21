@@ -9,6 +9,8 @@ import '/backend/schema/enums/enums.dart';
 import '/backend/push_notifications/push_notifications_handler.dart'
     show PushNotificationsHandler;
 import '/auth/firebase_auth/auth_util.dart';
+import '/auth/firebase_auth/account_routing.dart';
+import '/auth/firebase_auth/account_routing_logic.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 
@@ -135,6 +137,10 @@ class AppStateNotifier extends ChangeNotifier {
     updateNotifyOnAuthChange(true);
   }
 
+  void refreshRouting() {
+    notifyListeners();
+  }
+
   void stopShowingSplashImage() {
     showSplashImage = false;
     notifyListeners();
@@ -223,24 +229,28 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: HomeCommercantPageWidget.routeName,
               path: HomeCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) => const HomeCommercantPageWidget(),
             ),
             FFRoute(
               name: JeuxCommercantPageWidget.routeName,
               path: JeuxCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) => const JeuxCommercantPageWidget(),
             ),
             FFRoute(
               name: StatCommercantPageWidget.routeName,
               path: StatCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) => const StatCommercantPageWidget(),
             ),
             FFRoute(
               name: ProfilCommercantPageWidget.routeName,
               path: ProfilCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) => const ProfilCommercantPageWidget(),
             ),
             FFRoute(
@@ -334,6 +344,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: JeuDetailCommercantPageWidget.routeName,
               path: JeuDetailCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               asyncParams: {
                 'gameDoc': getDoc(['games'], GamesRecord.fromSnapshot),
                 'enseigneDoc':
@@ -354,6 +365,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: MesEnseignesCommercantPageWidget.routeName,
               path: MesEnseignesCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) =>
                   const MesEnseignesCommercantPageWidget(),
             ),
@@ -378,6 +390,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: EditCommercantPageWidget.routeName,
               path: EditCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) => const EditCommercantPageWidget(),
             ),
             FFRoute(
@@ -390,6 +403,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: AddEnseigneCommercantPageWidget.routeName,
               path: AddEnseigneCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) =>
                   const AddEnseigneCommercantPageWidget(),
             ),
@@ -397,6 +411,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: AddHoraireCommercantPageWidget.routeName,
               path: AddHoraireCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) => AddHoraireCommercantPageWidget(
                 enseigneRef: params.getParam(
                   'enseigneRef',
@@ -414,6 +429,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: UpdateEnseigneCommercantPageWidget.routeName,
               path: UpdateEnseigneCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               asyncParams: {
                 'enseigneDocument':
                     getDoc(['enseignes'], EnseignesRecord.fromSnapshot),
@@ -429,6 +445,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: PhotoEnseigneCommercantPageWidget.routeName,
               path: PhotoEnseigneCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) => PhotoEnseigneCommercantPageWidget(
                 enseigneRef: params.getParam(
                   'enseigneRef',
@@ -442,6 +459,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: AddGameCommercantPageWidget.routeName,
               path: AddGameCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) => AddGameCommercantPageWidget(
                 enseigneRef: params.getParam(
                   'enseigneRef',
@@ -463,6 +481,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: JeuShareCommercantPageWidget.routeName,
               path: JeuShareCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) => JeuShareCommercantPageWidget(
                 gameId: params.getParam(
                   'gameId',
@@ -478,6 +497,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: SelectedEnseignesForAddGameCommercantPageWidget.routeName,
               path: SelectedEnseignesForAddGameCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) =>
                   const SelectedEnseignesForAddGameCommercantPageWidget(),
             ),
@@ -555,6 +575,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: ValidationLotCommercantPageWidget.routeName,
               path: ValidationLotCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               asyncParams: {
                 'prize': getDoc(['prizes'], PrizesRecord.fromSnapshot),
               },
@@ -642,6 +663,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: AboCommercantPageWidget.routeName,
               path: AboCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) => const AboCommercantPageWidget(),
             ),
             FFRoute(
@@ -650,6 +672,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               path:
                   SelectedAutoEnseignesForAddGameCommercantPageWidget.routePath,
               requireAuth: true,
+              requireMerchant: true,
               builder: (context, params) =>
                   const SelectedAutoEnseignesForAddGameCommercantPageWidget(),
             ),
@@ -663,6 +686,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               name: DeleteCommAdminPageWidget.routeName,
               path: DeleteCommAdminPageWidget.routePath,
               requireAuth: true,
+              requireAdmin: true,
               builder: (context, params) => const DeleteCommAdminPageWidget(),
             ),
             FFRoute(
@@ -825,6 +849,7 @@ class FFRoute {
     required this.builder,
     this.requireAuth = false,
     this.requireAdmin = false,
+    this.requireMerchant = false,
     this.asyncParams = const {},
     this.routes = const [],
   });
@@ -833,6 +858,7 @@ class FFRoute {
   final String path;
   final bool requireAuth;
   final bool requireAdmin;
+  final bool requireMerchant;
   final Map<String, Future<dynamic> Function(String)> asyncParams;
   final Widget Function(BuildContext, FFParameters) builder;
   final List<GoRoute> routes;
@@ -866,41 +892,30 @@ class FFRoute {
             return null;
           }
 
-          // Global auth guard: after logout, always send the user to login
-          // (except for the public auth/legal pages).
-          if (!appStateNotifier.loggedIn) {
-            final p = state.uri.path;
-            const publicPaths = <String>{
-              '/',
-              '/loginPage',
-              '/inscriptionPage',
-              '/resetPassword',
-              '/legalPage',
-            };
-            if (!publicPaths.contains(p) && !isDeepLinkRoute) {
-              return '/loginPage';
-            }
-          }
-
           if (appStateNotifier.shouldRedirect) {
             final redirectLocation = appStateNotifier.getRedirectLocation();
             appStateNotifier.clearRedirectLocation();
             return redirectLocation;
           }
 
-          if (requireAuth && !appStateNotifier.loggedIn) {
-            appStateNotifier.setRedirectLocationIfUnset(state.uri.toString());
-            return '/loginPage';
-          }
-          if (requireAdmin) {
-            // If the user doc hasn't loaded yet, don't redirect; wait for data.
-            if (appStateNotifier.loggedIn && currentUserDocument == null) {
-              return null;
+          final protectedRedirectPath = resolveProtectedRouteGuardRedirectPath(
+            hasResolvedAuthState: appStateNotifier.hasResolvedAuthState,
+            loggedIn: appStateNotifier.loggedIn,
+            requireAuth: requireAuth,
+            requireAdmin: requireAdmin,
+            requireMerchant: requireMerchant,
+            hasUserDocument: currentUserDocument != null,
+            role: currentUserDocument?.userRole,
+            hasMerchantConflict:
+                hasCachedMerchantRoutingConflict(currentUserDocument),
+            isDeepLinkRoute: isDeepLinkRoute,
+            currentPath: state.uri.path,
+          );
+          if (protectedRedirectPath != null) {
+            if (protectedRedirectPath == loginRoutePath && requireAuth) {
+              appStateNotifier.setRedirectLocationIfUnset(state.uri.toString());
             }
-            if (currentUserDocument?.userRole != Roles.admin) {
-              // If user isn't an admin, keep them out of admin-only pages.
-              return '/loginPage';
-            }
+            return protectedRedirectPath;
           }
           return null;
         },

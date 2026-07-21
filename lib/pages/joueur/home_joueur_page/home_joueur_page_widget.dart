@@ -17,8 +17,10 @@ import '/widgets/proxiplay_network_image.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import '/utils/perf_trace.dart';
+import '/utils/proxiplay_layout.dart';
 import '/utils/share_links.dart';
 import '/utils/winner_identity.dart';
+import 'home_games_logic.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -129,21 +131,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   }
 
   bool _isGameVisibleForPlayer(GamesRecord game) {
-    final animationId = game.animationId.trim();
-    if (animationId.isNotEmpty) {
-      return false;
-    }
-
-    final now = getCurrentTimestamp;
-    final endDate = game.endDate;
-    if (endDate == null || !endDate.isAfter(now)) {
-      return false;
-    }
-    final startDate = game.startDate;
-    if (startDate != null && now.isBefore(startDate)) {
-      return false;
-    }
-    return true;
+    return isPlayerHomeGameVisible(
+      now: getCurrentTimestamp,
+      animationId: game.animationId,
+      startDate: game.startDate,
+      endDate: game.endDate,
+    );
   }
 
   bool _hasVisibleMainPrizeForPlayer(GamesRecord game) {
@@ -431,6 +424,78 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           },
         );
       },
+    );
+  }
+
+  String _describeHomeGamesError(Object? error) {
+    if (error is FirebaseException) {
+      switch (error.code) {
+        case 'permission-denied':
+          return 'La lecture des jeux a été refusée. Réessayez dans un instant.';
+        case 'failed-precondition':
+          return 'La configuration des jeux est incomplète. Réessayez bientôt.';
+        case 'unavailable':
+          return 'Le service est temporairement indisponible. Vérifiez votre connexion.';
+        default:
+          return 'Impossible de charger les jeux pour le moment.';
+      }
+    }
+    return 'Impossible de charger les jeux pour le moment.';
+  }
+
+  Widget _buildHomeCarouselLoading({
+    String message = 'Chargement des jeux...',
+  }) {
+    return SizedBox(
+      height: AppStyles.gameCardHeight,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 26.0,
+              height: 26.0,
+              child: CircularProgressIndicator(strokeWidth: 2.4),
+            ),
+            const SizedBox(height: 12.0),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: FlutterFlowTheme.of(context).bodyMedium,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeCarouselError({
+    required Object? error,
+    required VoidCallback onRetry,
+  }) {
+    return SizedBox(
+      height: AppStyles.gameCardHeight,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _describeHomeGamesError(error),
+                textAlign: TextAlign.center,
+                style: FlutterFlowTheme.of(context).bodyMedium,
+              ),
+              const SizedBox(height: 12.0),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded, size: 18.0),
+                label: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -818,8 +883,23 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           .where('status', isEqualTo: 'active')
           .snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 15.0),
+            child: _buildHomeCarouselError(
+              error: snapshot.error,
+              onRetry: () => setState(() {}),
+            ),
+          );
+        }
+
         if (!snapshot.hasData) {
-          return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 15.0),
+            child: _buildHomeCarouselLoading(
+              message: 'Chargement des animations...',
+            ),
+          );
         }
 
         final now = getCurrentTimestamp;
@@ -917,7 +997,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     return AuthUserStreamWidget(
       builder: (context) {
         final remainingPart =
-            valueOrDefault<int>(currentUserDocument?.remainingPart, 0);
+            getSafeRemainingPart(
+          currentUserDocument,
+          triggerRepair: true,
+          source: 'home_joueur',
+        );
         final hasRemainingPart = remainingPart > 0;
         final hasNoRemainingPart = remainingPart <= 0;
 
@@ -1243,7 +1327,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
   Widget _buildHomeSkeletonLoader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(20.0, 30.0, 20.0, 100.0),
+      padding: EdgeInsetsDirectional.fromSTEB(
+        20.0,
+        30.0,
+        20.0,
+        ProxiPlayLayout.bottomNavHeight(context) + 20.0,
+      ),
       child: ListView.separated(
         physics: const NeverScrollableScrollPhysics(),
         itemCount: 7,
@@ -2011,11 +2100,28 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         // Customize what your widget looks like when it's loading the first page.
                                                                         firstPageProgressIndicatorBuilder:
                                                                             (_) =>
-                                                                                const SizedBox.shrink(),
+                                                                                _buildHomeCarouselLoading(),
                                                                         // Customize what your widget looks like when it's loading another page.
                                                                         newPageProgressIndicatorBuilder:
                                                                             (_) =>
-                                                                                const SizedBox.shrink(),
+                                                                                _buildHomeCarouselLoading(
+                                                                          message:
+                                                                              'Chargement...',
+                                                                        ),
+                                                                        firstPageErrorIndicatorBuilder:
+                                                                            (_) => _buildHomeCarouselError(
+                                                                          error:
+                                                                              featuredController.error,
+                                                                          onRetry:
+                                                                              featuredController.refresh,
+                                                                        ),
+                                                                        newPageErrorIndicatorBuilder:
+                                                                            (_) => _buildHomeCarouselError(
+                                                                          error:
+                                                                              featuredController.error,
+                                                                          onRetry:
+                                                                              featuredController.refresh,
+                                                                        ),
                                                                         noItemsFoundIndicatorBuilder:
                                                                             (_) =>
                                                                                 const SizedBox(
@@ -2264,11 +2370,28 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         // Customize what your widget looks like when it's loading the first page.
                                                                         firstPageProgressIndicatorBuilder:
                                                                             (_) =>
-                                                                                const SizedBox.shrink(),
+                                                                                _buildHomeCarouselLoading(),
                                                                         // Customize what your widget looks like when it's loading another page.
                                                                         newPageProgressIndicatorBuilder:
                                                                             (_) =>
-                                                                                const SizedBox.shrink(),
+                                                                                _buildHomeCarouselLoading(
+                                                                          message:
+                                                                              'Chargement...',
+                                                                        ),
+                                                                        firstPageErrorIndicatorBuilder:
+                                                                            (_) => _buildHomeCarouselError(
+                                                                          error:
+                                                                              endingSoonController.error,
+                                                                          onRetry:
+                                                                              endingSoonController.refresh,
+                                                                        ),
+                                                                        newPageErrorIndicatorBuilder:
+                                                                            (_) => _buildHomeCarouselError(
+                                                                          error:
+                                                                              endingSoonController.error,
+                                                                          onRetry:
+                                                                              endingSoonController.refresh,
+                                                                        ),
                                                                         noItemsFoundIndicatorBuilder:
                                                                             (_) =>
                                                                                 const ListEmptyComponentWidget(
@@ -2534,11 +2657,28 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         // Customize what your widget looks like when it's loading the first page.
                                                                         firstPageProgressIndicatorBuilder:
                                                                             (_) =>
-                                                                                const SizedBox.shrink(),
+                                                                                _buildHomeCarouselLoading(),
                                                                         // Customize what your widget looks like when it's loading another page.
                                                                         newPageProgressIndicatorBuilder:
                                                                             (_) =>
-                                                                                const SizedBox.shrink(),
+                                                                                _buildHomeCarouselLoading(
+                                                                          message:
+                                                                              'Chargement...',
+                                                                        ),
+                                                                        firstPageErrorIndicatorBuilder:
+                                                                            (_) => _buildHomeCarouselError(
+                                                                          error:
+                                                                              newGamesController.error,
+                                                                          onRetry:
+                                                                              newGamesController.refresh,
+                                                                        ),
+                                                                        newPageErrorIndicatorBuilder:
+                                                                            (_) => _buildHomeCarouselError(
+                                                                          error:
+                                                                              newGamesController.error,
+                                                                          onRetry:
+                                                                              newGamesController.refresh,
+                                                                        ),
                                                                         noItemsFoundIndicatorBuilder:
                                                                             (_) =>
                                                                                 const ListEmptyComponentWidget(
@@ -2639,10 +2779,19 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             ),
                                                             builder: (context,
                                                                 snapshot) {
+                                                              if (snapshot
+                                                                  .hasError) {
+                                                                return _buildHomeCarouselError(
+                                                                  error: snapshot
+                                                                      .error,
+                                                                  onRetry: () =>
+                                                                      safeSetState(
+                                                                          () {}),
+                                                                );
+                                                              }
                                                               if (!snapshot
                                                                   .hasData) {
-                                                                return const SizedBox
-                                                                    .shrink();
+                                                                return _buildHomeCarouselLoading();
                                                               }
                                                               _markHomeDataReady(
                                                                 itemCount: snapshot
@@ -2687,10 +2836,22 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     .snapshots(),
                                                                 builder: (context,
                                                                     animationsSnapshot) {
+                                                                  if (animationsSnapshot
+                                                                      .hasError) {
+                                                                    return _buildHomeCarouselError(
+                                                                      error:
+                                                                          animationsSnapshot.error,
+                                                                      onRetry: () =>
+                                                                          safeSetState(
+                                                                              () {}),
+                                                                    );
+                                                                  }
                                                                   if (!animationsSnapshot
                                                                       .hasData) {
-                                                                    return const SizedBox
-                                                                        .shrink();
+                                                                    return _buildHomeCarouselLoading(
+                                                                      message:
+                                                                          'Chargement...',
+                                                                    );
                                                                   }
 
                                                                   final thirtyDaysAgo = now
@@ -3035,12 +3196,31 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     GamesRecord>(
                                                               // Customize what your widget looks like when it's loading the first page.
                                                               firstPageProgressIndicatorBuilder: (_) =>
-                                                                  const SizedBox
-                                                                      .shrink(),
+                                                                  _buildHomeCarouselLoading(),
                                                               // Customize what your widget looks like when it's loading another page.
                                                               newPageProgressIndicatorBuilder: (_) =>
-                                                                  const SizedBox
-                                                                      .shrink(),
+                                                                  _buildHomeCarouselLoading(
+                                                                message:
+                                                                    'Chargement...',
+                                                              ),
+                                                              firstPageErrorIndicatorBuilder:
+                                                                  (_) => _buildHomeCarouselError(
+                                                                error: _model
+                                                                    .listViewPagingController5
+                                                                    ?.error,
+                                                                onRetry: () => _model
+                                                                    .listViewPagingController5
+                                                                    ?.refresh(),
+                                                              ),
+                                                              newPageErrorIndicatorBuilder:
+                                                                  (_) => _buildHomeCarouselError(
+                                                                error: _model
+                                                                    .listViewPagingController5
+                                                                    ?.error,
+                                                                onRetry: () => _model
+                                                                    .listViewPagingController5
+                                                                    ?.refresh(),
+                                                              ),
                                                               noItemsFoundIndicatorBuilder:
                                                                   (_) =>
                                                                       const SizedBox(
@@ -3292,12 +3472,31 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     GamesRecord>(
                                                               // Customize what your widget looks like when it's loading the first page.
                                                               firstPageProgressIndicatorBuilder: (_) =>
-                                                                  const SizedBox
-                                                                      .shrink(),
+                                                                  _buildHomeCarouselLoading(),
                                                               // Customize what your widget looks like when it's loading another page.
                                                               newPageProgressIndicatorBuilder: (_) =>
-                                                                  const SizedBox
-                                                                      .shrink(),
+                                                                  _buildHomeCarouselLoading(
+                                                                message:
+                                                                    'Chargement...',
+                                                              ),
+                                                              firstPageErrorIndicatorBuilder:
+                                                                  (_) => _buildHomeCarouselError(
+                                                                error: _model
+                                                                    .listViewPagingController6
+                                                                    ?.error,
+                                                                onRetry: () => _model
+                                                                    .listViewPagingController6
+                                                                    ?.refresh(),
+                                                              ),
+                                                              newPageErrorIndicatorBuilder:
+                                                                  (_) => _buildHomeCarouselError(
+                                                                error: _model
+                                                                    .listViewPagingController6
+                                                                    ?.error,
+                                                                onRetry: () => _model
+                                                                    .listViewPagingController6
+                                                                    ?.refresh(),
+                                                              ),
                                                               noItemsFoundIndicatorBuilder:
                                                                   (_) =>
                                                                       const ListEmptyComponentWidget(
@@ -3574,12 +3773,31 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     GamesRecord>(
                                                               // Customize what your widget looks like when it's loading the first page.
                                                               firstPageProgressIndicatorBuilder: (_) =>
-                                                                  const SizedBox
-                                                                      .shrink(),
+                                                                  _buildHomeCarouselLoading(),
                                                               // Customize what your widget looks like when it's loading another page.
                                                               newPageProgressIndicatorBuilder: (_) =>
-                                                                  const SizedBox
-                                                                      .shrink(),
+                                                                  _buildHomeCarouselLoading(
+                                                                message:
+                                                                    'Chargement...',
+                                                              ),
+                                                              firstPageErrorIndicatorBuilder:
+                                                                  (_) => _buildHomeCarouselError(
+                                                                error: _model
+                                                                    .listViewPagingController7
+                                                                    ?.error,
+                                                                onRetry: () => _model
+                                                                    .listViewPagingController7
+                                                                    ?.refresh(),
+                                                              ),
+                                                              newPageErrorIndicatorBuilder:
+                                                                  (_) => _buildHomeCarouselError(
+                                                                error: _model
+                                                                    .listViewPagingController7
+                                                                    ?.error,
+                                                                onRetry: () => _model
+                                                                    .listViewPagingController7
+                                                                    ?.refresh(),
+                                                              ),
                                                               noItemsFoundIndicatorBuilder:
                                                                   (_) =>
                                                                       const ListEmptyComponentWidget(
@@ -3830,13 +4048,28 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           // Customize what your widget looks like when it's loading the first page.
                                                           firstPageProgressIndicatorBuilder:
                                                               (_) =>
-                                                                  const SizedBox
-                                                                      .shrink(),
+                                                                  _buildHomeCarouselLoading(),
                                                           // Customize what your widget looks like when it's loading another page.
                                                           newPageProgressIndicatorBuilder:
                                                               (_) =>
-                                                                  const SizedBox
-                                                                      .shrink(),
+                                                                  _buildHomeCarouselLoading(
+                                                                message:
+                                                                    'Chargement...',
+                                                              ),
+                                                          firstPageErrorIndicatorBuilder:
+                                                              (_) => _buildHomeCarouselError(
+                                                            error:
+                                                                _model.listViewPagingController8?.error,
+                                                            onRetry:
+                                                                () => _model.listViewPagingController8?.refresh(),
+                                                          ),
+                                                          newPageErrorIndicatorBuilder:
+                                                              (_) => _buildHomeCarouselError(
+                                                            error:
+                                                                _model.listViewPagingController8?.error,
+                                                            onRetry:
+                                                                () => _model.listViewPagingController8?.refresh(),
+                                                          ),
                                                           noItemsFoundIndicatorBuilder:
                                                               (_) =>
                                                                   const SizedBox(
@@ -4077,13 +4310,28 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           // Customize what your widget looks like when it's loading the first page.
                                                           firstPageProgressIndicatorBuilder:
                                                               (_) =>
-                                                                  const SizedBox
-                                                                      .shrink(),
+                                                                  _buildHomeCarouselLoading(),
                                                           // Customize what your widget looks like when it's loading another page.
                                                           newPageProgressIndicatorBuilder:
                                                               (_) =>
-                                                                  const SizedBox
-                                                                      .shrink(),
+                                                                  _buildHomeCarouselLoading(
+                                                                message:
+                                                                    'Chargement...',
+                                                              ),
+                                                          firstPageErrorIndicatorBuilder:
+                                                              (_) => _buildHomeCarouselError(
+                                                            error:
+                                                                _model.listViewPagingController9?.error,
+                                                            onRetry:
+                                                                () => _model.listViewPagingController9?.refresh(),
+                                                          ),
+                                                          newPageErrorIndicatorBuilder:
+                                                              (_) => _buildHomeCarouselError(
+                                                            error:
+                                                                _model.listViewPagingController9?.error,
+                                                            onRetry:
+                                                                () => _model.listViewPagingController9?.refresh(),
+                                                          ),
                                                           noItemsFoundIndicatorBuilder:
                                                               (_) =>
                                                                   const ListEmptyComponentWidget(
@@ -4350,13 +4598,28 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           // Customize what your widget looks like when it's loading the first page.
                                                           firstPageProgressIndicatorBuilder:
                                                               (_) =>
-                                                                  const SizedBox
-                                                                      .shrink(),
+                                                                  _buildHomeCarouselLoading(),
                                                           // Customize what your widget looks like when it's loading another page.
                                                           newPageProgressIndicatorBuilder:
                                                               (_) =>
-                                                                  const SizedBox
-                                                                      .shrink(),
+                                                                  _buildHomeCarouselLoading(
+                                                                message:
+                                                                    'Chargement...',
+                                                              ),
+                                                          firstPageErrorIndicatorBuilder:
+                                                              (_) => _buildHomeCarouselError(
+                                                            error:
+                                                                _model.listViewPagingController10?.error,
+                                                            onRetry:
+                                                                () => _model.listViewPagingController10?.refresh(),
+                                                          ),
+                                                          newPageErrorIndicatorBuilder:
+                                                              (_) => _buildHomeCarouselError(
+                                                            error:
+                                                                _model.listViewPagingController10?.error,
+                                                            onRetry:
+                                                                () => _model.listViewPagingController10?.refresh(),
+                                                          ),
                                                           noItemsFoundIndicatorBuilder:
                                                               (_) =>
                                                                   const ListEmptyComponentWidget(

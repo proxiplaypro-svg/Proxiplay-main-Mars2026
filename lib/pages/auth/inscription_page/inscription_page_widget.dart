@@ -1,4 +1,5 @@
 import '/auth/firebase_auth/auth_util.dart';
+import '/auth/firebase_auth/account_routing.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
@@ -180,7 +181,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       return null;
     }
 
-    _logGoogleSignup('profileBootstrapStart uid=${firebaseUser.uid}');
+    _logGoogleSignup('profileBootstrapStart');
     final userDoc = await refreshCurrentUserDocument();
     final isExistingUserDoc = userDoc != null;
 
@@ -202,10 +203,16 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       SetOptions(merge: true),
     );
 
+    await ensureUserDocumentInitialized(
+      firebaseUser,
+      roleHint: Roles.joueur,
+      authProvider: 'GOOGLE',
+      source: 'google_signup_bootstrap',
+    );
+
     final refreshedUserDoc = await refreshCurrentUserDocument();
     _logGoogleSignup(
       'profileBootstrapCompleted '
-      'uid=${firebaseUser.uid} '
       'docExists=${refreshedUserDoc != null} '
       'role=${refreshedUserDoc?.userRole?.serialize()} '
       'status=${refreshedUserDoc?.accountStatus?.serialize()}',
@@ -234,7 +241,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     final firebaseUser = FirebaseAuth.instance.currentUser;
     _logGoogleSignup(
       'firebaseUserAfterGoogleSignIn '
-      'uid=${firebaseUser?.uid} email=${firebaseUser?.email}',
+      'userPresent=${firebaseUser != null}',
     );
     if (firebaseUser == null) {
       _logGoogleSignup('googleSignupStoppedBecauseFirebaseUserIsNull');
@@ -275,8 +282,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
         !refreshedUserDoc.hasPhoneNumber() ||
         !refreshedUserDoc.hasBirthday();
 
-    if (refreshedUserDoc?.accountStatus == AccountStatus.pendingInfo ||
-        needsAdditionalInfo) {
+    if (needsAdditionalInfo) {
       _logGoogleSignup('navigationAfterGoogleSignup destination=pendingInfo');
       context.goNamedAuth(
         InscriptionInformationsPageWidget.routeName,
@@ -286,16 +292,51 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       return;
     }
 
+    final resolution = await resolveAuthenticatedHome(
+      source: 'google_signup',
+      preferServer: true,
+    );
     _logGoogleSignup(
       'navigationAfterGoogleSignup '
-      'destination=homeJoueur '
+      'target=${resolution.target.name} '
+      'reason=${resolution.reason} '
       'firebaseUserStillPresent=${FirebaseAuth.instance.currentUser != null}',
     );
-    context.goNamedAuth(
-      HomeJoueurPageWidget.routeName,
-      mounted,
-      ignoreRedirect: true,
-    );
+
+    if (!mounted) {
+      return;
+    }
+
+    switch (resolution.target) {
+      case AuthenticatedHomeTarget.pendingInfo:
+        context.goNamedAuth(
+          InscriptionInformationsPageWidget.routeName,
+          mounted,
+          ignoreRedirect: true,
+        );
+        return;
+      case AuthenticatedHomeTarget.joueurHome:
+        context.goNamedAuth(
+          HomeJoueurPageWidget.routeName,
+          mounted,
+          ignoreRedirect: true,
+        );
+        return;
+      case AuthenticatedHomeTarget.routingIssue:
+        _showGoogleSignupFailedMessage();
+        return;
+      case AuthenticatedHomeTarget.commercantHome:
+      case AuthenticatedHomeTarget.adminHome:
+      case AuthenticatedHomeTarget.waitingValidation:
+      case AuthenticatedHomeTarget.rejected:
+      case AuthenticatedHomeTarget.login:
+        context.goNamedAuth(
+          resolution.routeName,
+          mounted,
+          ignoreRedirect: true,
+        );
+        return;
+    }
   }
 
   void _showTermsRequiredMessage() {
@@ -1898,10 +1939,12 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     null) {
                                                                   return;
                                                                 }
-                                                                debugPrint(
-                                                                  '[ReferralDebug][Signup] afterCreateAccount '
-                                                                  'role=joueur uid=${user.uid}',
-                                                                );
+                                                                assert(() {
+                                                                  debugPrint(
+                                                                    '[ReferralDebug][Signup] afterCreateAccount role=joueur',
+                                                                  );
+                                                                  return true;
+                                                                }());
 
                                                                 await UsersRecord
                                                                     .collection
@@ -1915,6 +1958,18 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                         SetOptions(
                                                                             merge:
                                                                                 true));
+
+                                                                await ensureUserDocumentInitialized(
+                                                                  FirebaseAuth
+                                                                      .instance
+                                                                      .currentUser!,
+                                                                  roleHint: _model
+                                                                      .userType,
+                                                                  authProvider:
+                                                                      'EMAIL',
+                                                                  source:
+                                                                      'email_signup_player',
+                                                                );
 
                                                                 final referralApplied =
                                                                     await _applyPendingReferralCodeIfNeeded();
@@ -3223,10 +3278,12 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                             if (user == null) {
                                                               return;
                                                             }
-                                                            debugPrint(
-                                                              '[ReferralDebug][Signup] afterCreateAccount '
-                                                              'role=commercant uid=${user.uid}',
-                                                            );
+                                                            assert(() {
+                                                              debugPrint(
+                                                                '[ReferralDebug][Signup] afterCreateAccount role=commercant',
+                                                              );
+                                                              return true;
+                                                            }());
 
                                                             await UsersRecord
                                                                 .collection
@@ -3243,6 +3300,18 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     SetOptions(
                                                                         merge:
                                                                             true));
+
+                                                            await ensureUserDocumentInitialized(
+                                                              FirebaseAuth
+                                                                  .instance
+                                                                  .currentUser!,
+                                                              roleHint: _model
+                                                                  .userType,
+                                                              authProvider:
+                                                                  'EMAIL',
+                                                              source:
+                                                                  'email_signup_merchant',
+                                                            );
 
                                                             final referralApplied =
                                                                 await _applyPendingReferralCodeIfNeeded();

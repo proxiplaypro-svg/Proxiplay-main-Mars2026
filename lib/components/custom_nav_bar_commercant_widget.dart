@@ -1,5 +1,6 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/utils/proxiplay_layout.dart';
 import 'dart:async';
 import '/index.dart';
 import 'package:flutter/material.dart';
@@ -61,22 +62,26 @@ class _CustomNavBarCommercantWidgetState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final hideForKeyboard = isWeb
+        ? MediaQuery.viewInsetsOf(context).bottom > 0
+        : _isKeyboardVisible;
+    final bottomInset = ProxiPlayLayout.safeBottomInset(context);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
       width: double.infinity,
-      height: 100.0,
-      decoration: const BoxDecoration(),
-      child: Column(
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          if (!(isWeb
-              ? MediaQuery.viewInsetsOf(context).bottom > 0
-              : _isKeyboardVisible))
-            Container(
-              width: double.infinity,
-              height: 80.0,
-              decoration: BoxDecoration(
-                color: FlutterFlowTheme.of(context).primary,
-              ),
+      height: hideForKeyboard
+          ? 0.0
+          : ProxiPlayLayout.bottomNavHeight(context),
+      decoration: BoxDecoration(
+        color: FlutterFlowTheme.of(context).primary,
+      ),
+      padding: EdgeInsets.only(bottom: hideForKeyboard ? 0.0 : bottomInset),
+      child: hideForKeyboard
+          ? const SizedBox.shrink()
+          : SizedBox(
+              height: ProxiPlayLayout.bottomNavContentHeight,
               child: Row(
                 mainAxisSize: MainAxisSize.max,
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -265,15 +270,6 @@ class _CustomNavBarCommercantWidgetState
                 ],
               ),
             ),
-          Container(
-            width: double.infinity,
-            height: 20.0,
-            decoration: BoxDecoration(
-              color: FlutterFlowTheme.of(context).primary,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

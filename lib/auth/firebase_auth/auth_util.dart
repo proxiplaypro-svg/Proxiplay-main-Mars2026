@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../flutter_flow/flutter_flow_util.dart';
 
 import '/backend/backend.dart';
@@ -55,11 +56,15 @@ final authenticatedUserStream = FirebaseAuth.instance
     .switchMap(
       (uid) => uid.isEmpty
           ? Stream.value(null)
-          : UsersRecord.getDocument(UsersRecord.collection.doc(uid))
-              .handleError((_) {}),
+          : UsersRecord.getDocument(UsersRecord.collection.doc(uid)),
     )
     .map((user) {
   currentUserDocument = user;
+  if (shouldFallbackRemainingPart(user)) {
+    unawaited(
+      repairCurrentUserRemainingPartIfNeeded(source: 'auth_stream'),
+    );
+  }
 
   return currentUserDocument;
 }).asBroadcastStream();

@@ -169,3 +169,9 @@ firebase-key.json
 # Toutes variantes possibles (sécurité)
 *-firebase-adminsdk*.json
 *service-account*.json
+ 
+# Artefacts locaux temporaires
+.tmp*
+.codex_tmp*
+analyze*.txt
+tree.txt

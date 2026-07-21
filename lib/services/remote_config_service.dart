@@ -2,6 +2,18 @@ import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/foundation.dart'; // Pour debugPrint
 
+class RemoteConfigInitializeResult {
+  const RemoteConfigInitializeResult({
+    required this.loadedFromRemote,
+    this.error,
+    this.stackTrace,
+  });
+
+  final bool loadedFromRemote;
+  final Object? error;
+  final StackTrace? stackTrace;
+}
+
 class RemoteConfigService {
   static final RemoteConfigService _instance = RemoteConfigService._internal();
   factory RemoteConfigService() => _instance;
@@ -10,7 +22,7 @@ class RemoteConfigService {
   final FirebaseRemoteConfig _remoteConfig = FirebaseRemoteConfig.instance;
   late PackageInfo _packageInfo;
 
-  Future<void> initialize() async {
+  Future<RemoteConfigInitializeResult> initialize() async {
     try {
       _packageInfo = await PackageInfo.fromPlatform();
 
@@ -32,9 +44,16 @@ class RemoteConfigService {
       debugPrint("Version Firebase requise: ${_remoteConfig.getString('min_required_version')}");
       debugPrint("Mode Maintenance: ${_remoteConfig.getBool('maintenance_mode')}");
       debugPrint("-------------------------");
-      
+
+      return const RemoteConfigInitializeResult(
+        loadedFromRemote: true,
+      );
     } catch (e) {
       debugPrint('Erreur Remote Config: $e');
+      return RemoteConfigInitializeResult(
+        loadedFromRemote: false,
+        error: e,
+      );
     }
   }
 

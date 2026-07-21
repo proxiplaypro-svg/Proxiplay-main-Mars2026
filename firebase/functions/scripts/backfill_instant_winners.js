@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 
 const admin = require("firebase-admin");
+const {
+  expandSecondaryPrizes,
+  planInstantWinnerReconciliation,
+  toMillis,
+} = require("../lib/instant_winners_core");
 
 function parseArgs(argv) {
   const args = {
@@ -75,57 +80,6 @@ function ensureFirebase(projectId) {
   return admin.firestore();
 }
 
-function getTrimmedString(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function normalizeInteger(value) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return Math.trunc(value);
-  }
-  const parsed = Number.parseInt(getTrimmedString(value), 10);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function toMillis(value) {
-  if (!value) return null;
-  if (typeof value.toMillis === "function") return value.toMillis();
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  return null;
-}
-
-function expandSecondaryPrizes(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  const expanded = [];
-  value.forEach((entry, index) => {
-    if (!entry || typeof entry !== "object") {
-      return;
-    }
-
-    const name = getTrimmedString(entry.name);
-    const presentation = getTrimmedString(entry.presentation);
-    const count = normalizeInteger(entry.count) || 0;
-    if (count <= 0) {
-      return;
-    }
-
-    for (let occurrence = 0; occurrence < count; occurrence += 1) {
-      expanded.push({
-        sourceIndex: index,
-        occurrenceIndex: occurrence,
-        name,
-        presentation,
-      });
-    }
-  });
-
-  return expanded;
-}
-
 async function createInstantWinnersIfMissing(gameDoc, dryRun) {
   const gameData = gameDoc.data() || {};
   const expandedSecondaryPrizes = expandSecondaryPrizes(gameData.secondary_prizes);
@@ -145,43 +99,55 @@ async function createInstantWinnersIfMissing(gameDoc, dryRun) {
 
   const instantWinnersRef = gameDoc.ref.collection("instant_winners");
   const instantWinnersSnap = await instantWinnersRef.get();
-  if (instantWinnersSnap.size > 0) {
+  const plan = planInstantWinnerReconciliation({
+    gameId: gameDoc.id,
+    startDateMs,
+    endDateMs,
+    secondaryPrizes: gameData.secondary_prizes,
+    existingEntries: instantWinnersSnap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })),
+  });
+
+  if (plan.missingPayloads.length === 0) {
     return {
-      status:
-        instantWinnersSnap.size === desiredCount
-          ? "skip_already_present"
-          : "skip_existing_non_empty",
+      status: "skip_already_complete",
       desiredCount,
       existingCount: instantWinnersSnap.size,
+      duplicateExistingKeys: plan.duplicateExistingKeys,
+      unexpectedExistingCount: plan.unexpectedExistingEntries.length,
     };
   }
 
   if (dryRun) {
     return {
-      status: "would_create",
+      status:
+        instantWinnersSnap.size > 0
+          ? "would_complete_missing_occurrences"
+          : "would_create",
       desiredCount,
-      existingCount: 0,
+      existingCount: instantWinnersSnap.size,
+      missingCount: plan.missingPayloads.length,
+      duplicateExistingKeys: plan.duplicateExistingKeys,
+      unexpectedExistingCount: plan.unexpectedExistingEntries.length,
     };
   }
 
   const batch = gameDoc.ref.firestore.batch();
-  const totalRangeMs = endDateMs - startDateMs;
-  expandedSecondaryPrizes.forEach((prizePayload, index) => {
-    const ratio = (index + 0.5) / desiredCount;
-    const candidateMs = startDateMs + Math.round(totalRangeMs * ratio);
-    const boundedMs = Math.min(endDateMs, Math.max(startDateMs, candidateMs));
-    const winnerRef = instantWinnersRef.doc();
-
-    batch.set(winnerRef, {
-      date: admin.firestore.Timestamp.fromMillis(boundedMs),
+  plan.missingPayloads.forEach(({docId, payload}) => {
+    batch.set(instantWinnersRef.doc(docId), {
+      date: admin.firestore.Timestamp.fromMillis(payload.dateMs),
       hasWinner: false,
       claimed: false,
-      secondary_prize_index: prizePayload.sourceIndex,
-      secondary_prize_occurrence_index: prizePayload.occurrenceIndex,
-      secondary_prize_name: prizePayload.name,
-      ...(prizePayload.presentation
+      secondary_prize_index: payload.secondary_prize_index,
+      secondary_prize_occurrence_index:
+        payload.secondary_prize_occurrence_index,
+      secondary_prize_name: payload.secondary_prize_name,
+      ...(payload.secondary_prize_presentation
         ? {
-            secondary_prize_presentation: prizePayload.presentation,
+            secondary_prize_presentation:
+              payload.secondary_prize_presentation,
           }
         : {}),
     });
@@ -189,9 +155,15 @@ async function createInstantWinnersIfMissing(gameDoc, dryRun) {
 
   await batch.commit();
   return {
-    status: "created",
+    status:
+      instantWinnersSnap.size > 0
+        ? "completed_missing_occurrences"
+        : "created",
     desiredCount,
-    existingCount: 0,
+    existingCount: instantWinnersSnap.size,
+    missingCount: plan.missingPayloads.length,
+    duplicateExistingKeys: plan.duplicateExistingKeys,
+    unexpectedExistingCount: plan.unexpectedExistingEntries.length,
   };
 }
 
@@ -199,16 +171,22 @@ async function processGameDoc(gameDoc, args, stats) {
   const result = await createInstantWinnersIfMissing(gameDoc, args.dryRun);
   stats.scanned += 1;
 
-  if (result.status === "would_create") {
+  if (
+    result.status === "would_create" ||
+    result.status === "would_complete_missing_occurrences"
+  ) {
     stats.wouldCreate += 1;
-  } else if (result.status === "created") {
+  } else if (
+    result.status === "created" ||
+    result.status === "completed_missing_occurrences"
+  ) {
     stats.created += 1;
   } else if (result.status.startsWith("skip_")) {
     stats.skipped += 1;
   }
 
   console.log(
-    `[backfill_instant_winners] game=${gameDoc.id} status=${result.status} desired=${result.desiredCount} existing=${result.existingCount}`,
+    `[backfill_instant_winners] game=${gameDoc.id} status=${result.status} desired=${result.desiredCount} existing=${result.existingCount} missing=${result.missingCount || 0} duplicates=${(result.duplicateExistingKeys || []).length} unexpected=${result.unexpectedExistingCount || 0}`,
   );
 }
 
