@@ -22,6 +22,7 @@ import '/utils/share_links.dart';
 import '/utils/winner_identity.dart';
 import 'home_games_logic.dart';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -138,6 +139,44 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       endDate: game.endDate,
     );
   }
+
+  void _logHomeGamesSection(
+    String sectionName,
+    List<GamesRecord> rawGames,
+    List<GamesRecord> visibleGames,
+  ) {}
+
+  void _logHomeSectionSummary({
+    required String sectionName,
+    required int rawCount,
+    required int filteredCount,
+    required int sortedCount,
+    required int widgetInputCount,
+    required int renderItemCount,
+  }) {}
+
+  void _logHomeRenderItem({
+    required String sectionName,
+    required int index,
+    required GamesRecord game,
+  }) {}
+
+  void _logHomeUserContext({
+    required String branchName,
+    required bool isMinor,
+  }) {}
+
+  void _logHomeQueryBranch({
+    required String sectionName,
+    required String branchName,
+    required List<String> clauses,
+  }) {}
+
+
+
+  Future<void> _runHomeBranchDiagnostics({
+    required String branchName,
+  }) async {}
 
   bool _hasVisibleMainPrizeForPlayer(GamesRecord game) {
     return game.hasMainPrize == true && game.prizeValue > 0;
@@ -337,6 +376,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   Widget _buildFeaturedGamesCarousel(
     BuildContext context,
     List<GamesRecord> featuredGames,
+    String sectionName,
   ) {
     if (featuredGames.isEmpty) {
       return const SizedBox(
@@ -353,6 +393,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       builder: (context, enseignesSnapshot) {
         final enseignesByPath =
             enseignesSnapshot.data ?? const <String, EnseignesRecord>{};
+        _logHomeSectionSummary(
+          sectionName: sectionName,
+          rawCount: featuredGames.length,
+          filteredCount: featuredGames.length,
+          sortedCount: featuredGames.length,
+          widgetInputCount: featuredGames.length,
+          renderItemCount: featuredGames.length,
+        );
 
         return ListView.separated(
           padding: EdgeInsets.zero,
@@ -363,6 +411,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
               const SizedBox(width: _homeHorizontalCardGap),
           itemBuilder: (context, index) {
             final game = featuredGames[index];
+            _logHomeRenderItem(
+              sectionName: sectionName,
+              index: index,
+              game: game,
+            );
             final enseigne = game.enseigneId != null
                 ? enseignesByPath[game.enseigneId!.path]
                 : null;
@@ -389,6 +442,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   Widget _buildHomeGamesCarousel(
     BuildContext context,
     List<GamesRecord> games, {
+    required String sectionName,
     required String emptyTitle,
     required String emptyDescription,
   }) {
@@ -402,6 +456,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       );
     }
 
+    _logHomeSectionSummary(
+      sectionName: sectionName,
+      rawCount: games.length,
+      filteredCount: games.length,
+      sortedCount: games.length,
+      widgetInputCount: games.length,
+      renderItemCount: games.length,
+    );
+
     return ListView.separated(
       padding: EdgeInsets.zero,
       primary: false,
@@ -411,6 +474,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           const SizedBox(width: _homeHorizontalCardGap),
       itemBuilder: (context, index) {
         final game = games[index];
+        _logHomeRenderItem(
+          sectionName: sectionName,
+          index: index,
+          game: game,
+        );
         return _buildHomeGameCard(
           game: game,
           prizeText: game.prizeValue == 0
@@ -1927,6 +1995,13 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                   functions.isAdult(
                                                       currentUserDocument!
                                                           .birthday!))) {
+                                            _logHomeUserContext(
+                                              branchName: 'adult_standard',
+                                              isMinor: false,
+                                            );
+                                            _runHomeBranchDiagnostics(
+                                              branchName: 'adult_standard',
+                                            );
                                             return RefreshIndicator(
                                               key: const Key(
                                                   'RefreshIndicator_967r95af'),
@@ -1988,6 +2063,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           ),
                                                           Builder(
                                                             builder: (context) {
+                                                              _logHomeQueryBranch(
+                                                                sectionName:
+                                                                    'featured',
+                                                                branchName:
+                                                                    'adult_standard',
+                                                                clauses: const [
+                                                                  'hasWinner == false',
+                                                                  'orderBy prize_value desc',
+                                                                ],
+                                                              );
                                                               final featuredController =
                                                                   _model
                                                                       .setListViewController2(
@@ -2030,6 +2115,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       _buildFeaturedGamesCarousel(
                                                                     context,
                                                                     featuredGames,
+                                                                    'À la une',
                                                                   ),
                                                                 );
                                                               }
@@ -2217,6 +2303,17 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           ),
                                                           Builder(
                                                             builder: (context) {
+                                                              _logHomeQueryBranch(
+                                                                sectionName:
+                                                                    'endingSoon',
+                                                                branchName:
+                                                                    'adult_standard',
+                                                                clauses: [
+                                                                  'hasWinner == false',
+                                                                  'end_date > ${getCurrentTimestamp.toIso8601String()}',
+                                                                  'orderBy end_date asc',
+                                                                ],
+                                                              );
                                                               final endingSoonController =
                                                                   _model
                                                                       .setListViewController4(
@@ -2247,6 +2344,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .where(
                                                                           _isGameVisibleForPlayer)
                                                                       .toList();
+                                                              _logHomeGamesSection(
+                                                                'bientôt finis',
+                                                                endingSoonController.itemList ??
+                                                                    const <GamesRecord>[],
+                                                                endingSoonGames,
+                                                              );
                                                               if (endingSoonController
                                                                       .itemList !=
                                                                   null) {
@@ -2486,6 +2589,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           ),
                                                           Builder(
                                                             builder: (context) {
+                                                              _logHomeQueryBranch(
+                                                                sectionName:
+                                                                    'new',
+                                                                branchName:
+                                                                    'adult_standard',
+                                                                clauses: const [
+                                                                  'hasWinner == false',
+                                                                  'orderBy created_time desc',
+                                                                ],
+                                                              );
                                                               final newGamesController =
                                                                   _model
                                                                       .setListViewController3(
@@ -2513,6 +2626,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .where(
                                                                           _isGameVisibleForPlayer)
                                                                       .toList();
+                                                              _logHomeGamesSection(
+                                                                'nouveautés',
+                                                                newGamesController.itemList ??
+                                                                    const <GamesRecord>[],
+                                                                newGames,
+                                                              );
 
                                                               if (newGamesController
                                                                       .itemList !=
@@ -3065,6 +3184,13 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                               ),
                                             );
                                           } else {
+                                            _logHomeUserContext(
+                                              branchName: 'minor_filtered',
+                                              isMinor: true,
+                                            );
+                                            _runHomeBranchDiagnostics(
+                                              branchName: 'minor_filtered',
+                                            );
                                             return SingleChildScrollView(
                                               child: Column(
                                                 mainAxisSize: MainAxisSize.max,
@@ -3134,6 +3260,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               DocumentSnapshot<
                                                                   Object?>?,
                                                               GamesRecord>.separated(
+                                                            // Branch réelle mineur: Firestore exclut les jeux
+                                                            // `prohibited_for_minors != false` et les champs absents.
                                                             pagingController: _model
                                                                 .setListViewController5(
                                                               GamesRecord
@@ -3345,6 +3473,17 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           ),
                                                           child: Builder(
                                                             builder: (context) {
+                                                              _logHomeQueryBranch(
+                                                                sectionName:
+                                                                    'new',
+                                                                branchName:
+                                                                    'minor_filtered',
+                                                                clauses: const [
+                                                                  'hasWinner == false',
+                                                                  'prohibited_for_minors == false',
+                                                                  'orderBy created_time desc',
+                                                                ],
+                                                              );
                                                               final newController =
                                                                   _model
                                                                       .setListViewController6(
@@ -3372,6 +3511,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .where(
                                                                           _isGameVisibleForPlayer)
                                                                       .toList();
+                                                              _logHomeGamesSection(
+                                                                'nouveautés',
+                                                                newController.itemList ??
+                                                                    const <GamesRecord>[],
+                                                                visibleGames,
+                                                              );
 
                                                               if (newController
                                                                       .itemList !=
@@ -3379,6 +3524,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 return _buildHomeGamesCarousel(
                                                                   context,
                                                                   visibleGames,
+                                                                  sectionName:
+                                                                      'Nouveautés',
                                                                   emptyTitle:
                                                                       'Aucune nouveaut\u00E9',
                                                                   emptyDescription:
@@ -3558,11 +3705,23 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         Container(
                                                           decoration:
                                                               const BoxDecoration(),
-                                                          child: Builder(
-                                                            builder: (context) {
-                                                              final endingController =
-                                                                  _model
-                                                                      .setListViewController7(
+                                                        child: Builder(
+                                                          builder: (context) {
+                                                            _logHomeQueryBranch(
+                                                              sectionName:
+                                                                  'endingSoon',
+                                                              branchName:
+                                                                  'minor_filtered',
+                                                              clauses: [
+                                                                'hasWinner == false',
+                                                                'prohibited_for_minors == false',
+                                                                'end_date > ${getCurrentTimestamp.toIso8601String()}',
+                                                                'orderBy end_date asc',
+                                                              ],
+                                                            );
+                                                            final endingController =
+                                                                _model
+                                                                    .setListViewController7(
                                                                 GamesRecord
                                                                     .collection
                                                                     .where(
@@ -3570,10 +3729,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       isEqualTo:
                                                                           false,
                                                                     )
-                                                                    .where(
+                                                                .where(
                                                                       'prohibited_for_minors',
                                                                       isEqualTo:
                                                                           false,
+                                                                    )
+                                                                    .where(
+                                                                      'end_date',
+                                                                      isGreaterThan:
+                                                                          getCurrentTimestamp,
                                                                     )
                                                                     .orderBy(
                                                                         'end_date'),
@@ -3629,6 +3793,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                           _buildHomeGamesCarousel(
                                                                         context,
                                                                         visibleGames,
+                                                                        sectionName:
+                                                                            'Bientôt finis',
                                                                         emptyTitle:
                                                                             'Aucun jeux',
                                                                         emptyDescription:
@@ -3722,10 +3888,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     isEqualTo:
                                                                         false,
                                                                   )
-                                                                  .where(
+                                                              .where(
                                                                     'prohibited_for_minors',
                                                                     isEqualTo:
                                                                         false,
+                                                                  )
+                                                                  .where(
+                                                                    'end_date',
+                                                                    isGreaterThan:
+                                                                        getCurrentTimestamp,
                                                                   )
                                                                   .orderBy(
                                                                       'end_date'),
@@ -3864,6 +4035,13 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                         },
                                       );
                                     } else {
+                                      _logHomeUserContext(
+                                        branchName: 'prize_value_filtered',
+                                        isMinor: false,
+                                      );
+                                      _runHomeBranchDiagnostics(
+                                        branchName: 'prize_value_filtered',
+                                      );
                                       return RefreshIndicator(
                                         key: const Key(
                                             'RefreshIndicator_jug9m9tx'),
@@ -3921,6 +4099,17 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                     ),
                                                     Builder(
                                                       builder: (context) {
+                                                        _logHomeQueryBranch(
+                                                          sectionName:
+                                                              'featured',
+                                                          branchName:
+                                                              'prize_value_filtered',
+                                                          clauses: const [
+                                                            'hasWinner == false',
+                                                            'prize_value > 0',
+                                                            'orderBy prize_value desc',
+                                                          ],
+                                                        );
                                                         final featuredController =
                                                             _model
                                                                 .setListViewController8(
@@ -3962,6 +4151,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 _buildFeaturedGamesCarousel(
                                                               context,
                                                               featuredGames,
+                                                              'À la une',
                                                             ),
                                                           );
                                                         }
@@ -4216,6 +4406,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                   .where(
                                                                       _isGameVisibleForPlayer)
                                                                   .toList();
+                                                          _logHomeGamesSection(
+                                                            'nouveautés',
+                                                            newController.itemList ??
+                                                                const <GamesRecord>[],
+                                                            visibleGames,
+                                                          );
 
                                                           if (newController
                                                                   .itemList !=
@@ -4223,6 +4419,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             return _buildHomeGamesCarousel(
                                                               context,
                                                               visibleGames,
+                                                              sectionName:
+                                                                  'Nouveautés',
                                                               emptyTitle:
                                                                   'Aucune nouveaut\u00E9',
                                                               emptyDescription:
@@ -4414,6 +4612,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             .where(
                                                                 _isGameVisibleForPlayer)
                                                             .toList();
+                                                    _logHomeGamesSection(
+                                                      'bientôt finis',
+                                                      endingController.itemList ??
+                                                          const <GamesRecord>[],
+                                                      visibleGames,
+                                                    );
 
                                                     if (endingController
                                                             .itemList !=
@@ -4468,6 +4672,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                 _buildHomeGamesCarousel(
                                                               context,
                                                               visibleGames,
+                                                              sectionName:
+                                                                  'Bientôt finis',
                                                               emptyTitle:
                                                                   'Aucun jeux',
                                                               emptyDescription:

@@ -9,6 +9,27 @@ const {
 
 const db = admin.firestore();
 
+function logHasWinnerWrite({
+  gameId,
+  previousValue,
+  newValue,
+  sourceFunction,
+  winnerType,
+  hasMainPrize,
+  endDate,
+}) {
+  console.log("[HAS_WINNER WRITE]", {
+    gameId,
+    previousValue,
+    newValue,
+    sourceFunction,
+    winnerType,
+    hasMainPrize,
+    endDate,
+    now: new Date().toISOString(),
+  });
+}
+
 function getTrimmedString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -462,7 +483,7 @@ exports.participateInGameTransaction = functions.https.onCall(
         let uniquePlayerNew = false;
 
         console.log(
-          `[participateInGameTransaction] uid=${uid} gameId=${gameId} remaining_part_state=${remainingPartState} remaining_part_value=${remainingPart} unlimitedAccess=${unlimitedAccessActive}`
+          `[participateInGameTransaction] uid=${uid} gameId=${gameRef.id} remaining_part_state=${remainingPartState} remaining_part_value=${remainingPart} unlimitedAccess=${unlimitedAccessActive}`
         );
 
         // Détection lot principal (sert uniquement à la cohérence des champs, pas au message de perte)
@@ -487,6 +508,18 @@ exports.participateInGameTransaction = functions.https.onCall(
           !hasMainPrize &&
           (gameData.hasWinner === true || !!gameData.main_prize_winner)
         ) {
+          logHasWinnerWrite({
+            gameId: gameRef.id,
+            previousValue: gameData.hasWinner === true,
+            newValue: false,
+            sourceFunction: "participateInGameTransaction(custom)",
+            winnerType: "correction-coherence",
+            hasMainPrize,
+            endDate:
+              gameData.end_date?.toDate?.()?.toISOString?.() ||
+              gameData.end_date ||
+              null,
+          });
           gameConsistencyPatch.hasWinner = false;
           gameConsistencyPatch.main_prize_winner = null;
         }
@@ -738,6 +771,18 @@ exports.participateInGameTransaction = functions.https.onCall(
               ? instantWinnerData.secondary_prize_presentation.trim()
               : "";
 
+          logHasWinnerWrite({
+            gameId: gameRef.id,
+            previousValue: instantWinnerData.hasWinner === true,
+            newValue: true,
+            sourceFunction: "participateInGameTransaction(custom)",
+            winnerType: "gain-instantane",
+            hasMainPrize,
+            endDate:
+              gameData.end_date?.toDate?.()?.toISOString?.() ||
+              gameData.end_date ||
+              null,
+          });
           transaction.update(eligibleInstantWinnerDoc.ref, {
             hasWinner: true,
             player_id: userRef,

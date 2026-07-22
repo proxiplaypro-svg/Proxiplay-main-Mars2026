@@ -136,6 +136,22 @@ async function createInstantWinnersIfMissing(gameDoc, dryRun) {
 
   const batch = gameDoc.ref.firestore.batch();
   plan.missingPayloads.forEach(({docId, payload}) => {
+    console.log("[HAS_WINNER WRITE]", {
+      gameId: gameDoc.id,
+      previousValue: null,
+      newValue: false,
+      sourceFunction: "backfill_instant_winners",
+      winnerType: "gain-instantane",
+      hasMainPrize:
+        Object.prototype.hasOwnProperty.call(gameData || {}, "hasMainPrize")
+          ? gameData.hasMainPrize === true
+          : null,
+      endDate:
+        gameData.end_date?.toDate?.()?.toISOString?.() ||
+        gameData.end_date ||
+        null,
+      now: new Date().toISOString(),
+    });
     batch.set(instantWinnersRef.doc(docId), {
       date: admin.firestore.Timestamp.fromMillis(payload.dateMs),
       hasWinner: false,

@@ -789,6 +789,7 @@ class _AddGameCommercantPageWidgetState
 
     var gamesRecordReference = GamesRecord.collection.doc();
     final qrLink = buildGameQrLink(gamesRecordReference.id);
+    debugPrint('[HAS_WINNER WRITE] {gameId: ${gamesRecordReference.id}, previousValue: null, newValue: false, sourceFunction: addGameCommercantPage, winnerType: creation-jeu, hasMainPrize: $shouldPersistMainPrize, endDate: ${_model.endDateTransformCopy?.toIso8601String()}, now: ${DateTime.now().toIso8601String()}}');
     await gamesRecordReference.set({
       ...createGamesRecordData(
         name: gameName,

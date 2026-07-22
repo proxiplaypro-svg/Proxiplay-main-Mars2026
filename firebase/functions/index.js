@@ -34,6 +34,27 @@ const kPushNotificationRuntimeOpts = {
   memory: "2GB",
 };
 
+function logHasWinnerWrite({
+  gameId,
+  previousValue,
+  newValue,
+  sourceFunction,
+  winnerType,
+  hasMainPrize,
+  endDate,
+}) {
+  console.log("[HAS_WINNER WRITE]", {
+    gameId,
+    previousValue,
+    newValue,
+    sourceFunction,
+    winnerType,
+    hasMainPrize,
+    endDate,
+    now: new Date().toISOString(),
+  });
+}
+
 exports.participateInGameTransaction =
   participateInGameTransaction.participateInGameTransaction;
 
@@ -153,6 +174,18 @@ const generateInstantWinnersForGameCallable = functions
       }
 
       freshPlan.missingPayloads.forEach(({docId, payload}) => {
+        logHasWinnerWrite({
+          gameId,
+          previousValue: null,
+          newValue: false,
+          sourceFunction: "generateInstantWinnersForGame",
+          winnerType: "gain-instantane",
+          hasMainPrize: resolveHasMainPrize(freshGameData),
+          endDate:
+            freshGameData.end_date?.toDate?.()?.toISOString?.() ||
+            freshGameData.end_date ||
+            null,
+        });
         transaction.create(instantWinnersRef.doc(docId), {
           date: admin.firestore.Timestamp.fromMillis(payload.dateMs),
           hasWinner: false,
@@ -5438,6 +5471,18 @@ exports.pickMainPrizeWinners = functions.pubsub
             return;
           }
 
+          logHasWinnerWrite({
+            gameId,
+            previousValue: freshGameData.hasWinner === true,
+            newValue: true,
+            sourceFunction: "pickMainPrizeWinners",
+            winnerType: "gagnant-principal",
+            hasMainPrize: resolveHasMainPrize(freshGameData),
+            endDate:
+              freshGameData.end_date?.toDate?.()?.toISOString?.() ||
+              freshGameData.end_date ||
+              null,
+          });
           transaction.update(gameDoc.ref, {
             hasWinner: true,
             main_prize_winner: winnerRef,
@@ -5531,6 +5576,18 @@ exports.backfillGamesHasMainPrize = functions.pubsub
         patch.hasMainPrize = hasMainPrize;
       }
       if (hasInvalidWinnerState) {
+        logHasWinnerWrite({
+          gameId: gameDoc.id,
+          previousValue: gameData.hasWinner === true,
+          newValue: false,
+          sourceFunction: "backfillGamesHasMainPrize",
+          winnerType: "correction-coherence",
+          hasMainPrize,
+          endDate:
+            gameData.end_date?.toDate?.()?.toISOString?.() ||
+            gameData.end_date ||
+            null,
+        });
         patch.hasWinner = false;
         patch.main_prize_winner = null;
       }
