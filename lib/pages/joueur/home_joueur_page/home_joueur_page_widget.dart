@@ -22,7 +22,6 @@ import '/utils/share_links.dart';
 import '/utils/winner_identity.dart';
 import 'home_games_logic.dart';
 import 'dart:math';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -144,7 +143,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     String sectionName,
     List<GamesRecord> rawGames,
     List<GamesRecord> visibleGames,
-  ) {}
+  ) {
+    debugPrint(
+      '[DIAG] section=$sectionName rawIds=${rawGames.map((g) => g.reference.id).toList()} visibleIds=${visibleGames.map((g) => g.reference.id).toList()}',
+    );
+  }
 
   void _logHomeSectionSummary({
     required String sectionName,
@@ -153,24 +156,38 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     required int sortedCount,
     required int widgetInputCount,
     required int renderItemCount,
-  }) {}
+  }) {
+    debugPrint(
+      '[DIAG] summary section=$sectionName raw=$rawCount filtered=$filteredCount sorted=$sortedCount widgetInput=$widgetInputCount renderItem=$renderItemCount',
+    );
+  }
 
   void _logHomeRenderItem({
     required String sectionName,
     required int index,
     required GamesRecord game,
-  }) {}
+  }) {
+    debugPrint(
+      '[DIAG] render section=$sectionName index=$index id=${game.reference.id} name=${game.name}',
+    );
+  }
 
   void _logHomeUserContext({
     required String branchName,
     required bool isMinor,
-  }) {}
+  }) {
+    debugPrint('[DIAG] userContext branch=$branchName isMinor=$isMinor');
+  }
 
   void _logHomeQueryBranch({
     required String sectionName,
     required String branchName,
     required List<String> clauses,
-  }) {}
+  }) {
+    debugPrint(
+      '[DIAG] query section=$sectionName branch=$branchName clauses=$clauses',
+    );
+  }
 
 
 
@@ -1559,6 +1576,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
             preferredSize: const Size.fromHeight(100.0),
             child: AppBar(
               backgroundColor: Colors.transparent,
+              elevation: 0.0,
+              scrolledUnderElevation: 0.0,
+              shadowColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
               automaticallyImplyLeading: false,
               actions: const [],
               flexibleSpace: FlexibleSpaceBar(
@@ -1570,14 +1591,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                     child: const AppBarJoueurWidget(),
                   ),
                 ),
-                background: ClipRRect(
-                  borderRadius: BorderRadius.circular(8.0),
-                  child: Image.asset(
-                    'assets/images/Background.png',
-                    fit: BoxFit.cover,
-                    alignment: const Alignment(1.0, -1.0),
-                  ),
-                ),
+                background: const SizedBox.shrink(),
                 centerTitle: true,
                 expandedTitleScale: 1.0,
                 titlePadding:

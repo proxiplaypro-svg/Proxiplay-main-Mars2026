@@ -51,8 +51,11 @@ AuthenticatedHomeTarget resolveTargetFromResolvedRole({
 bool hasMerchantPlayerSignalConflict({
   required Roles? role,
   required List<String> playerSignals,
+  List<String> merchantSignals = const <String>[],
 }) =>
-    role == Roles.commercant && playerSignals.isNotEmpty;
+    role == Roles.commercant &&
+    playerSignals.isNotEmpty &&
+    merchantSignals.isEmpty;
 
 String? resolveCachedRoleGuardRedirectPathForRole({
   required bool requireAdmin,

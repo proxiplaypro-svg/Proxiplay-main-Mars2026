@@ -158,9 +158,21 @@ bool hasCachedMerchantRoutingConflict(UsersRecord? user) {
   if (user.hasAllGamesAccessUntil()) {
     playerSignals.add('allGamesAccessUntil');
   }
+  final merchantSignals = <String>[];
+  if (user.hasProfessionalCategory()) {
+    merchantSignals.add('professional_category');
+  }
+  if (user.accountStatus == AccountStatus.pendingValidation ||
+      user.accountStatus == AccountStatus.pendingIdentityCard ||
+      user.accountStatus == AccountStatus.pendingIdentityPhoto ||
+      user.accountStatus == AccountStatus.pendingInfo ||
+      user.accountStatus == AccountStatus.rejected) {
+    merchantSignals.add('account_status');
+  }
   return hasMerchantPlayerSignalConflict(
     role: user.userRole,
     playerSignals: playerSignals,
+    merchantSignals: merchantSignals,
   );
 }
 
@@ -258,6 +270,36 @@ Future<UsersRecord?> _repairMissingPlayerRoleIfSafe({
   );
 }
 
+Future<bool> _repairMerchantLegacyPlayerSignalsIfSafe({
+  required Roles? role,
+  required List<String> playerSignals,
+  required List<String> merchantSignals,
+  required String source,
+}) async {
+  if (role != Roles.commercant ||
+      playerSignals.isEmpty ||
+      merchantSignals.isEmpty ||
+      currentUserReference == null) {
+    return false;
+  }
+
+  if (kDebugMode) {
+    debugPrint(
+      '[AccountRouting][$source] repairing_merchant_legacy_player_signals '
+      'playerSignals=${playerSignals.join(",")} '
+      'merchantSignals=${merchantSignals.join(",")}',
+    );
+  }
+
+  await currentUserReference!.update(<String, dynamic>{
+    'remaining_part': FieldValue.delete(),
+    'part_last_update': FieldValue.delete(),
+    'allGamesAccessUntil': FieldValue.delete(),
+  });
+  await refreshCurrentUserDocument();
+  return true;
+}
+
 Future<AuthenticatedHomeResolution> resolveAuthenticatedHome({
   String source = 'unknown',
   bool preferServer = false,
@@ -344,6 +386,17 @@ Future<AuthenticatedHomeResolution> resolveAuthenticatedHome({
       effectiveRole = repairedDoc.userRole;
       await refreshCurrentUserDocument();
     }
+  }
+
+  if (allowRepair &&
+      await _repairMerchantLegacyPlayerSignalsIfSafe(
+        role: effectiveRole,
+        playerSignals: playerSignals,
+        merchantSignals: merchantSignals,
+        source: source,
+      )) {
+    usedRepair = true;
+    playerSignals.clear();
   }
 
   late final AuthenticatedHomeResolution resolution;

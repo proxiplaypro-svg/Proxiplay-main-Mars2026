@@ -24,7 +24,6 @@ import 'flutter_flow/permissions_util.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'utils/perf_trace.dart';
 import 'utils/share_links.dart';
-import 'widgets/debug_layout_overlay.dart';
 import 'widgets/startup_config_flow.dart';
 
 import 'services/remote_config_service.dart';
@@ -450,9 +449,7 @@ class MyAppState extends State<MyApp> {
       themeMode: _themeMode,
       builder: (context, child) => AppUpdateGate(
         navigatorKey: _router.routerDelegate.navigatorKey,
-        child: DebugLayoutOverlay(
-          child: child ?? const SizedBox.shrink(),
-        ),
+        child: child ?? const SizedBox.shrink(),
       ),
       routerConfig: _router,
     );

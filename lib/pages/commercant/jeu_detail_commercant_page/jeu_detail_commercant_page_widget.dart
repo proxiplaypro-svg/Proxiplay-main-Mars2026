@@ -914,6 +914,7 @@ class _JeuDetailCommercantPageWidgetState
         backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
         appBar: AppBar(
           automaticallyImplyLeading: false,
+          backgroundColor: Colors.transparent,
           toolbarHeight: 108.0,
           actions: const [],
           flexibleSpace: FlexibleSpaceBar(
@@ -1022,6 +1023,7 @@ class _JeuDetailCommercantPageWidgetState
           ),
           elevation: 0.0,
           shadowColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
           scrolledUnderElevation: 0.0,
         ),
         body: SafeArea(
