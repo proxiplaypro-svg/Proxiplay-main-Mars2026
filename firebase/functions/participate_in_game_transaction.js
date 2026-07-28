@@ -163,6 +163,35 @@ function getParisDayKey(date = new Date()) {
   return `${year}${month}${day}`;
 }
 
+// Reads back the outcome of the player's most recent play of this game
+// (win/lose message, bonus, prize) from participants_details/{uid}.last_result,
+// written right after a successful participation (see below). Used so that a
+// player who retries after already having played today gets their real
+// result back instead of a dead-end "you already played" message — notably
+// covers the case where the first participation committed server-side but
+// the game screen never rendered (crash, closed app, lost navigation).
+// Returns null for docs written before this field existed, or if the shape
+// looks off, so the caller can fall back to the previous generic message.
+function resolveCachedLastResult(detailData) {
+  const cached = detailData && detailData.last_result;
+  if (!cached || typeof cached !== "object") {
+    return null;
+  }
+  const message = getTrimmedString(cached.message);
+  if (!message) {
+    return null;
+  }
+  return {
+    message,
+    messageBonus: getTrimmedString(cached.messageBonus),
+    isWin: cached.isWin === true,
+    prize_id:
+      typeof cached.prize_id === "string" && cached.prize_id
+        ? cached.prize_id
+        : null,
+  };
+}
+
 function sanitizeDisplayText(value) {
   if (typeof value !== "string") return "";
   let output = value;
@@ -593,11 +622,16 @@ exports.participateInGameTransaction = functions.https.onCall(
           console.log(
             `participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=true uniquePlayerNew=${uniquePlayerNew}`
           );
+          const cachedResult = resolveCachedLastResult(
+            participantDetailDoc.exists ? participantDetailDoc.data() : null
+          );
           responseData = {
-            message: "Vous avez déjà participé aujourd'hui.",
-            messageBonus: "",
-            isWin: false,
-            prize_id: null,
+            ...(cachedResult || {
+              message: "Vous avez déjà participé aujourd'hui.",
+              messageBonus: "",
+              isWin: false,
+              prize_id: null,
+            }),
             alreadyParticipatedToday: true,
           };
           return;
@@ -615,11 +649,14 @@ exports.participateInGameTransaction = functions.https.onCall(
             console.log(
               `participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=true(unique-last-play) uniquePlayerNew=${uniquePlayerNew}`
             );
+            const cachedResult = resolveCachedLastResult(detailData);
             responseData = {
-              message: "Vous avez déjà participé aujourd'hui.",
-              messageBonus: "",
-              isWin: false,
-              prize_id: null,
+              ...(cachedResult || {
+                message: "Vous avez déjà participé aujourd'hui.",
+                messageBonus: "",
+                isWin: false,
+                prize_id: null,
+              }),
               alreadyParticipatedToday: true,
             };
             return;
@@ -629,11 +666,14 @@ exports.participateInGameTransaction = functions.https.onCall(
             console.log(
               `participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=true(bonus) uniquePlayerNew=${uniquePlayerNew}`
             );
+            const cachedResult = resolveCachedLastResult(detailData);
             responseData = {
-              message: "Vous avez déjà participé aujourd'hui.",
-              messageBonus: "",
-              isWin: false,
-              prize_id: null,
+              ...(cachedResult || {
+                message: "Vous avez déjà participé aujourd'hui.",
+                messageBonus: "",
+                isWin: false,
+                prize_id: null,
+              }),
               alreadyParticipatedToday: true,
             };
             return;
@@ -781,6 +821,9 @@ exports.participateInGameTransaction = functions.https.onCall(
             claim_code: normalizeClaimCode(generatedClaimCode),
             claimed: false,
             win_date: now,
+            ...(gameData.prize_usage_deadline
+              ? { usage_deadline: gameData.prize_usage_deadline }
+              : {}),
           });
 
           const userLotRef = userRef.collection("my_lots").doc(prizeRef.id);
@@ -818,6 +861,26 @@ exports.participateInGameTransaction = functions.https.onCall(
           // Optionnel: garde l'info côté app si besoin un jour
           // hasMainPrize,
         };
+
+        // Cache this outcome on participants_details/{uid} so a later retry
+        // that lands on an "already played" branch above can hand the real
+        // result back instead of a dead-end message (see
+        // resolveCachedLastResult). Purely additive: does not affect
+        // remaining_part or any existing field.
+        transaction.set(
+          participantDetailRef,
+          {
+            last_result: {
+              message,
+              messageBonus,
+              isWin: transactionLotGagne,
+              prize_id: prizeRef ? prizeRef.path : null,
+              recorded_at: now,
+            },
+          },
+          { merge: true }
+        );
+
         console.log(`participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=false uniquePlayerNew=${uniquePlayerNew}`);
       });
 
