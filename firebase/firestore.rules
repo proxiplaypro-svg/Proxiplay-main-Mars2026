@@ -100,7 +100,7 @@ service cloud.firestore {
 
     match /users/{document} {
       allow create: if isAdmin() || isAllowedSelfUserCreate(document);
-      allow get: if request.auth != null;
+      allow get: if isSelf(document) || isAdmin();
       allow list: if isAdmin();
       allow update: if isAdmin() || (isSelf(document) && isSafeSelfUserUpdate());
       allow delete: if isSelf(document) || isAdmin();
