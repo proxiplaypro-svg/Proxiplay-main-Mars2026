@@ -42,11 +42,20 @@ class PlayJoueurPageWidget extends StatefulWidget {
     required this.game,
     required this.resultParticipation,
     this.source,
+    this.onGameScreenMounted,
   });
 
   final GamesRecord? game;
   final ResultParticipationGameStruct? resultParticipation;
   final String? source;
+
+  /// Called once, after this screen has rendered its first frame. Used by
+  /// launch callers (see `GameLaunchCoordinator`) as the closest available
+  /// proxy for "the player actually saw the game" — it does NOT gate the
+  /// server-side participation, which is already committed by the time this
+  /// widget is even constructed, but it lets callers log/detect the cases
+  /// where the screen never made it to the player.
+  final VoidCallback? onGameScreenMounted;
 
   static String routeName = 'playJoueurPage';
   static String routePath = 'playJoueurPage';
@@ -407,7 +416,16 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     );
 
     _primeScratchSound();
-    WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {});
+      debugPrint(
+        '[GAME_FLOW_DEBUG] play_page_first_frame_rendered '
+        'gameId=${widget.game?.reference.id ?? 'unknown'} '
+        'source=${widget.source ?? 'unknown'}',
+      );
+      widget.onGameScreenMounted?.call();
+    });
   }
 
   @override

@@ -1,4 +1,6 @@
-﻿import '/auth/firebase_auth/auth_util.dart';
+﻿import 'dart:async';
+
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/animation_utils.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
@@ -8,6 +10,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/utils/create_account_to_play_dialog.dart';
+import '/utils/game_launch_coordinator.dart';
 import '/utils/share_links.dart';
 import '/utils/game_view_tracker.dart';
 import '/utils/winner_identity.dart';
@@ -53,6 +56,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
   bool _hasTrackedView = false;
   bool _isLaunchingGame = false;
+  final GameLaunchCoordinator _launchCoordinator =
+      GameLaunchCoordinator(screenName: 'JeuDetailJoueurPage');
 
   Future<void> _trackViewOnce() async {
     if (_hasTrackedView) {
@@ -437,43 +442,129 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     );
   }
 
+  /// Launches a game through [GameLaunchCoordinator]: single-flight lock,
+  /// timeout, and explicit logging are handled centrally there. This method
+  /// only wires the page-specific participate/navigate/error behavior.
+  ///
+  /// IMPORTANT: the server-side participation (remaining_part decrement +
+  /// participants doc) is already committed by the time [participate]
+  /// returns a successful outcome — see the audit notes on
+  /// [GameParticipationOutcome]. Nothing here can undo that; this method's
+  /// job is to never *compound* that risk (no premature "already played"
+  /// local state, no duplicate calls, no stuck loading lock) and to log
+  /// precisely enough to tell a real incident from a normal play.
   Future<void> _launchGame({
     required Future<ParticipateInGameTransactionCloudFunctionCallResponse>
         Function() participate,
   }) async {
-    if (_isLaunchingGame) {
-      return;
+    final gameId = widget.gameDoc?.reference.id ?? 'unknown';
+
+    await _launchCoordinator.launch(
+      gameId: gameId,
+      onLaunchingChanged: _setLaunchingGame,
+      participate: () async {
+        final response = await participate();
+        return GameParticipationOutcome(
+          succeeded: response.succeeded == true,
+          alreadyParticipatedToday: response.jsonBody is Map &&
+              (response.jsonBody as Map)['alreadyParticipatedToday'] == true,
+          errorCode: response.errorCode,
+          errorMessage: response.data?.message,
+          raw: response,
+        );
+      },
+      navigate: _navigateToGameScreen,
+      onAlreadyPlayed: _showLaunchErrorDialog,
+      onParticipationError: _showLaunchErrorDialog,
+      onNavigationFailed: _showNavigationFailureDialog,
+      onMountTimedOut: () {
+        // Diagnostic only for now (see audit): we deliberately do not
+        // trigger any compensation here, only observability. A decision on
+        // server-side compensation requires production data first.
+      },
+    );
+
+    if (mounted) {
+      safeSetState(() {});
+    }
+  }
+
+  /// Pushes [PlayJoueurPageWidget] and waits (bounded) for its mount
+  /// confirmation. Any refresh of *this* page's own state (which is what
+  /// surfaces "Vous avez deja joue" locally) is deferred to
+  /// [awaitReturn] below, i.e. it only happens once the player has actually
+  /// come back from a screen that did mount — never before.
+  Future<GameNavigationResult> _navigateToGameScreen(
+    GameParticipationOutcome outcome,
+  ) async {
+    final response =
+        outcome.raw as ParticipateInGameTransactionCloudFunctionCallResponse;
+
+    var newlyQualified = false;
+    if (widget.gameDoc != null &&
+        currentUserUid.isNotEmpty &&
+        widget.gameDoc!.animationId.trim().isNotEmpty) {
+      try {
+        newlyQualified =
+            await updateAnimationProgress(currentUserUid, widget.gameDoc!);
+      } catch (error) {
+        debugPrint(
+          '[ANIMATION_PROGRESS] update skipped gameId=${widget.gameDoc?.reference.id} '
+          'animationId=${widget.gameDoc?.animationId} error=$error',
+        );
+      }
+    }
+    if (!mounted) {
+      return GameNavigationResult.navigationFailed;
     }
 
-    _setLaunchingGame(true);
-
-    try {
-      final response = await participate();
+    if (newlyQualified) {
+      await showDialog(
+        context: context,
+        builder: (dialogContext) {
+          return WebViewAware(
+            child: AlertDialog(
+              title: const Text(
+                'Felicitations, tu es qualifie pour le tirage final !',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
       if (!mounted) {
-        return;
+        return GameNavigationResult.navigationFailed;
       }
+    }
 
-      final alreadyParticipatedToday =
-          response.jsonBody is Map &&
-              (response.jsonBody as Map)['alreadyParticipatedToday'] == true;
-      final participationEnregistree =
-          response.succeeded == true && !alreadyParticipatedToday;
-      if (participationEnregistree) {
-        var newlyQualified = false;
-        if (widget.gameDoc != null &&
-            currentUserUid.isNotEmpty &&
-            widget.gameDoc!.animationId.trim().isNotEmpty &&
-            participationEnregistree == true) {
-          try {
-            newlyQualified =
-                await updateAnimationProgress(currentUserUid, widget.gameDoc!);
-          } catch (error) {
-            debugPrint(
-              '[ANIMATION_PROGRESS] update skipped gameId=${widget.gameDoc?.reference.id} '
-              'animationId=${widget.gameDoc?.animationId} error=$error',
-            );
-          }
-        }
+    final mountedBy = Completer<void>();
+
+    return GameLaunchCoordinator.runNavigation(
+      mountedBy: mountedBy,
+      mountTimeout: _launchCoordinator.mountTimeout,
+      push: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => PlayJoueurPageWidget(
+            game: widget.gameDoc,
+            resultParticipation: ResultParticipationGameStruct.maybeFromMap(
+              response.jsonBody,
+            ),
+            source: widget.source,
+            onGameScreenMounted: () {
+              if (!mountedBy.isCompleted) {
+                mountedBy.complete();
+              }
+            },
+          ),
+        ),
+      ),
+      awaitReturn: (pushFuture) async {
+        await pushFuture;
         if (!mounted) {
           return;
         }
@@ -485,77 +576,67 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             'gameId=${widget.gameDoc?.reference.id} error=$error',
           );
         }
-        if (!mounted) {
-          return;
+        if (mounted) {
+          safeSetState(() {});
         }
-        safeSetState(() {});
-        if (newlyQualified) {
-          await showDialog(
-            context: context,
-            builder: (dialogContext) {
-              return WebViewAware(
-                child: AlertDialog(
-                  title: const Text(
-                    'Felicitations, tu es qualifie pour le tirage final !',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      child: const Text('OK'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-          if (!mounted) {
-            return;
-          }
-        }
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => PlayJoueurPageWidget(
-              game: widget.gameDoc,
-              resultParticipation:
-                  ResultParticipationGameStruct.maybeFromMap(
-                response.jsonBody,
-              ),
-              source: widget.source,
+      },
+    );
+  }
+
+  Future<void> _showLaunchErrorDialog(GameParticipationOutcome outcome) async {
+    if (!mounted) {
+      return;
+    }
+    final response = outcome.raw
+        as ParticipateInGameTransactionCloudFunctionCallResponse?;
+    await showDialog(
+      context: context,
+      builder: (alertDialogContext) {
+        return WebViewAware(
+          child: AlertDialog(
+            title: Text(
+              response?.data?.message.isNotEmpty == true
+                  ? response!.data!.message
+                  : (outcome.errorMessage?.isNotEmpty == true
+                      ? outcome.errorMessage!
+                      : "Une erreur est survenue (${outcome.errorCode ?? 'inconnue'})."),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(alertDialogContext),
+                child: const Text('Ok'),
+              ),
+            ],
           ),
         );
-      } else {
-        _setLaunchingGame(false);
-        if (!mounted) {
-          return;
-        }
-        await showDialog(
-          context: context,
-          builder: (alertDialogContext) {
-            return WebViewAware(
-              child: AlertDialog(
-                title: Text(
-                  response.data?.message.isNotEmpty == true
-                      ? response.data!.message
-                      : "Une erreur est survenue (${response.errorCode ?? 'inconnue'}).",
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(alertDialogContext),
-                    child: const Text('Ok'),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      }
-    } finally {
-      _setLaunchingGame(false);
-      if (mounted) {
-        safeSetState(() {});
-      }
+      },
+    );
+  }
+
+  Future<void> _showNavigationFailureDialog() async {
+    if (!mounted) {
+      return;
     }
+    await showDialog(
+      context: context,
+      builder: (alertDialogContext) {
+        return WebViewAware(
+          child: AlertDialog(
+            title: const Text(
+              "Le jeu n'a pas pu s'afficher. Si le probleme persiste, "
+              "contactez le support : votre partie a peut-etre ete "
+              "comptabilisee sans avoir pu s'afficher.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(alertDialogContext),
+                child: const Text('Ok'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildLaunchingOverlay(BuildContext context) {

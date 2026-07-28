@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/animation_utils.dart';
@@ -9,6 +11,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/utils/create_account_to_play_dialog.dart';
+import '/utils/game_launch_coordinator.dart';
 import '/utils/share_links.dart';
 import '/utils/game_view_tracker.dart';
 import '/widgets/proxiplay_network_image.dart';
@@ -47,6 +50,210 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
   bool _hasTrackedView = false;
+  bool _isLaunchingGame = false;
+  final GameLaunchCoordinator _launchCoordinator =
+      GameLaunchCoordinator(screenName: 'ShareJeuPage');
+
+  void _setLaunchingGame(bool value) {
+    if (!mounted || _isLaunchingGame == value) {
+      return;
+    }
+    safeSetState(() {
+      _isLaunchingGame = value;
+    });
+  }
+
+  /// Launches a game through [GameLaunchCoordinator] — same single-flight
+  /// lock, timeout and logging semantics as
+  /// `jeu_detail_joueur_page_widget.dart`. See the audit notes on
+  /// [GameParticipationOutcome]: the server-side participation is already
+  /// committed by the time [participate] returns success, so this method
+  /// focuses on never compounding that (no duplicate calls, no stuck lock,
+  /// no premature local "already played" state).
+  Future<void> _launchGame({
+    required Future<ParticipateInGameTransactionCloudFunctionCallResponse>
+        Function() participate,
+  }) async {
+    final gameId = widget.gameDoc?.reference.id ?? 'unknown';
+
+    await _launchCoordinator.launch(
+      gameId: gameId,
+      onLaunchingChanged: _setLaunchingGame,
+      participate: () async {
+        final response = await participate();
+        return GameParticipationOutcome(
+          succeeded: response.succeeded == true,
+          alreadyParticipatedToday: response.jsonBody is Map &&
+              (response.jsonBody as Map)['alreadyParticipatedToday'] == true,
+          errorCode: response.errorCode,
+          errorMessage: response.data?.message,
+          raw: response,
+        );
+      },
+      navigate: _navigateToGameScreen,
+      onAlreadyPlayed: _showLaunchErrorDialog,
+      onParticipationError: _showLaunchErrorDialog,
+      onNavigationFailed: _showNavigationFailureDialog,
+      onMountTimedOut: () {
+        // Diagnostic only for now — see audit. No compensation triggered
+        // client-side without a validated server-side design.
+      },
+    );
+
+    if (mounted) {
+      safeSetState(() {});
+    }
+  }
+
+  /// Pushes [PlayJoueurPageWidget] imperatively (rather than through the
+  /// named/GoRouter route) so we can wire [PlayJoueurPageWidget.onGameScreenMounted]
+  /// — the generated named route rebuilds the widget from serializable
+  /// params only and cannot carry a callback. Any refresh of this page's
+  /// own state is deferred until the player has actually returned.
+  Future<GameNavigationResult> _navigateToGameScreen(
+    GameParticipationOutcome outcome,
+  ) async {
+    final response =
+        outcome.raw as ParticipateInGameTransactionCloudFunctionCallResponse;
+
+    var newlyQualified = false;
+    if (widget.gameDoc != null &&
+        currentUserUid.isNotEmpty &&
+        widget.gameDoc!.animationId.trim().isNotEmpty) {
+      try {
+        newlyQualified =
+            await updateAnimationProgress(currentUserUid, widget.gameDoc!);
+      } catch (error) {
+        debugPrint(
+          '[ANIMATION_PROGRESS] update skipped gameId=${widget.gameDoc?.reference.id} '
+          'animationId=${widget.gameDoc?.animationId} error=$error',
+        );
+      }
+    }
+    if (!mounted) {
+      return GameNavigationResult.navigationFailed;
+    }
+
+    if (newlyQualified) {
+      await showDialog(
+        context: context,
+        builder: (dialogContext) {
+          return WebViewAware(
+            child: AlertDialog(
+              title: const Text(
+                'Felicitations, tu es qualifie pour le tirage final !',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      if (!mounted) {
+        return GameNavigationResult.navigationFailed;
+      }
+    }
+
+    final mountedBy = Completer<void>();
+
+    return GameLaunchCoordinator.runNavigation(
+      mountedBy: mountedBy,
+      mountTimeout: _launchCoordinator.mountTimeout,
+      push: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => PlayJoueurPageWidget(
+            game: widget.gameDoc,
+            resultParticipation: ResultParticipationGameStruct.maybeFromMap(
+              response.jsonBody,
+            ),
+            source: widget.source,
+            onGameScreenMounted: () {
+              if (!mountedBy.isCompleted) {
+                mountedBy.complete();
+              }
+            },
+          ),
+        ),
+      ),
+      awaitReturn: (pushFuture) async {
+        await pushFuture;
+        if (!mounted) {
+          return;
+        }
+        try {
+          await refreshCurrentUserDocument();
+        } catch (error) {
+          debugPrint(
+            '[ANIMATION_PROGRESS] refreshCurrentUserDocument failed '
+            'gameId=${widget.gameDoc?.reference.id} error=$error',
+          );
+        }
+        if (mounted) {
+          safeSetState(() {});
+        }
+      },
+    );
+  }
+
+  Future<void> _showLaunchErrorDialog(GameParticipationOutcome outcome) async {
+    if (!mounted) {
+      return;
+    }
+    final response = outcome.raw
+        as ParticipateInGameTransactionCloudFunctionCallResponse?;
+    await showDialog(
+      context: context,
+      builder: (alertDialogContext) {
+        return WebViewAware(
+          child: AlertDialog(
+            title: Text(
+              response?.data?.message.isNotEmpty == true
+                  ? response!.data!.message
+                  : (outcome.errorMessage?.isNotEmpty == true
+                      ? outcome.errorMessage!
+                      : "Une erreur est survenue (${outcome.errorCode ?? 'inconnue'})."),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(alertDialogContext),
+                child: const Text('Ok'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showNavigationFailureDialog() async {
+    if (!mounted) {
+      return;
+    }
+    await showDialog(
+      context: context,
+      builder: (alertDialogContext) {
+        return WebViewAware(
+          child: AlertDialog(
+            title: const Text(
+              "Le jeu n'a pas pu s'afficher. Si le probleme persiste, "
+              "contactez le support : votre partie a peut-etre ete "
+              "comptabilisee sans avoir pu s'afficher.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(alertDialogContext),
+                child: const Text('Ok'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   Future<void> _trackViewOnce() async {
     if (_hasTrackedView) {
@@ -321,9 +528,13 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                         null) &&
                                                                     (shareJeuPageParticipantsDetailsRecord
                                                                             .lastPlay! >=
-                                                                        getCurrentTimestamp)))
+                                                                        getCurrentTimestamp)) ||
+                                                                _isLaunchingGame)
                                                             ? null
                                                             : () async {
+                                                                if (_isLaunchingGame) {
+                                                                  return;
+                                                                }
                                                                 if (isGuestOrAnonymous) {
                                                                   await showCreateAccountToPlayDialog(
                                                                       context);
@@ -332,178 +543,53 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                 debugPrint(
                                                                   '[GAME_FLOW_DEBUG] participate_start screen=ShareJeuPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
                                                                 );
-                                                                try {
-                                                                  final result = await FirebaseFunctions
-                                                                      .instance
-                                                                      .httpsCallable(
-                                                                          'participateInGameTransaction')
-                                                                      .call({
-                                                                    "gameRef": widget
-                                                                        .gameDoc!
-                                                                        .reference
-                                                                        .id,
-                                                                  });
-                                                                  _model.cloudFunction3sn =
-                                                                      ParticipateInGameTransactionCloudFunctionCallResponse(
-                                                                    data: ResultParticipationGameStruct
-                                                                        .fromMap(
-                                                                            result.data),
-                                                                    succeeded:
-                                                                        true,
-                                                                    resultAsString:
-                                                                        result
-                                                                            .data
-                                                                            .toString(),
-                                                                    jsonBody:
-                                                                        result
-                                                                            .data,
-                                                                  );
-                                                                } on FirebaseFunctionsException catch (error) {
-                                                                  _model.cloudFunction3sn =
-                                                                      ParticipateInGameTransactionCloudFunctionCallResponse(
-                                                                    data:
-                                                                        createResultParticipationGameStruct(
-                                                                      message: error
-                                                                              .message ??
-                                                                          "Erreur (${error.code})",
-                                                                    ),
-                                                                    errorCode:
-                                                                        error
-                                                                            .code,
-                                                                    succeeded:
-                                                                        false,
-                                                                  );
-                                                                }
-
-                                                                if (!context
-                                                                    .mounted) {
-                                                                  return;
-                                                                }
-                                                                final alreadyParticipatedToday =
-                                                                    _model.cloudFunction3sn!
-                                                                                .jsonBody
-                                                                            is Map &&
-                                                                        (_model.cloudFunction3sn!.jsonBody
-                                                                                as Map)[
-                                                                            'alreadyParticipatedToday'] ==
-                                                                            true;
-                                                                final participationEnregistree =
-                                                                    _model.cloudFunction3sn!
-                                                                                .succeeded ==
-                                                                            true &&
-                                                                        !alreadyParticipatedToday;
-                                                                if (participationEnregistree) {
-                                                                  final newlyQualified = widget.gameDoc !=
-                                                                              null &&
-                                                                          currentUserUid
-                                                                              .isNotEmpty &&
-                                                                          widget
-                                                                              .gameDoc!
-                                                                              .animationId
-                                                                              .trim()
-                                                                              .isNotEmpty &&
-                                                                          participationEnregistree ==
-                                                                              true
-                                                                      ? await updateAnimationProgress(
-                                                                          currentUserUid,
-                                                                          widget.gameDoc!,
-                                                                        )
-                                                                      : false;
-                                                                  if (!context
-                                                                      .mounted) {
-                                                                    return;
-                                                                  }
-                                                                  await refreshCurrentUserDocument();
-                                                                  if (context
-                                                                      .mounted) {
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  }
-                                                                  if (newlyQualified) {
-                                                                    await showDialog(
-                                                                      context:
-                                                                          context,
-                                                                      builder:
-                                                                          (dialogContext) {
-                                                                        return WebViewAware(
-                                                                          child:
-                                                                              AlertDialog(
-                                                                            title:
-                                                                                const Text(
-                                                                              'Felicitations, tu es qualifie pour le tirage final !',
-                                                                            ),
-                                                                            actions: [
-                                                                              TextButton(
-                                                                                onPressed: () => Navigator.pop(dialogContext),
-                                                                                child: const Text('OK'),
-                                                                              ),
-                                                                            ],
-                                                                          ),
-                                                                        );
-                                                                      },
-                                                                    );
-                                                                    if (!context
-                                                                        .mounted) {
-                                                                      return;
-                                                                    }
-                                                                  }
-                                                                  context
-                                                                      .pushNamed(
-                                                                    PlayJoueurPageWidget
-                                                                        .routeName,
-                                                                    queryParameters:
-                                                                        {
-                                                                      'game':
-                                                                          serializeParam(
-                                                                        widget
-                                                                            .gameDoc,
-                                                                        ParamType
-                                                                            .Document,
-                                                                      ),
-                                                                      'resultParticipation':
-                                                                          serializeParam(
-                                                                        ResultParticipationGameStruct.maybeFromMap(_model
-                                                                            .cloudFunction3sn
-                                                                            ?.jsonBody),
-                                                                        ParamType
-                                                                            .DataStruct,
-                                                                      ),
-                                                                    }.withoutNulls,
-                                                                    extra: <String,
-                                                                        dynamic>{
-                                                                      'game': widget
-                                                                          .gameDoc,
-                                                                    },
-                                                                  );
-                                                                } else {
-                                                                  await showDialog(
-                                                                    context:
-                                                                        context,
-                                                                    builder:
-                                                                        (alertDialogContext) {
-                                                                      return WebViewAware(
-                                                                        child:
-                                                                            AlertDialog(
-                                                                          title:
-                                                                              Text(
-                                                                            _model.cloudFunction3sn?.data?.message.isNotEmpty == true
-                                                                                ? _model.cloudFunction3sn!.data!.message
-                                                                                : "Une erreur est survenue (${_model.cloudFunction3sn?.errorCode ?? 'inconnue'}).",
-                                                                          ),
-                                                                          actions: [
-                                                                            TextButton(
-                                                                              onPressed: () => Navigator.pop(alertDialogContext),
-                                                                              child: const Text('Ok'),
-                                                                            ),
-                                                                          ],
-                                                                        ),
+                                                                await _launchGame(
+                                                                  participate:
+                                                                      () async {
+                                                                    try {
+                                                                      final result = await FirebaseFunctions
+                                                                          .instance
+                                                                          .httpsCallable(
+                                                                              'participateInGameTransaction')
+                                                                          .call({
+                                                                        "gameRef":
+                                                                            widget.gameDoc!.reference.id,
+                                                                      });
+                                                                      _model.cloudFunction3sn =
+                                                                          ParticipateInGameTransactionCloudFunctionCallResponse(
+                                                                        data: ResultParticipationGameStruct
+                                                                            .fromMap(
+                                                                                result.data),
+                                                                        succeeded:
+                                                                            true,
+                                                                        resultAsString:
+                                                                            result
+                                                                                .data
+                                                                                .toString(),
+                                                                        jsonBody:
+                                                                            result
+                                                                                .data,
                                                                       );
-                                                                    },
-                                                                  );
-                                                                }
-
-                                                                safeSetState(
-                                                                    () {});
+                                                                    } on FirebaseFunctionsException catch (error) {
+                                                                      _model.cloudFunction3sn =
+                                                                          ParticipateInGameTransactionCloudFunctionCallResponse(
+                                                                        data:
+                                                                            createResultParticipationGameStruct(
+                                                                          message: error
+                                                                                  .message ??
+                                                                              "Erreur (${error.code})",
+                                                                        ),
+                                                                        errorCode:
+                                                                            error
+                                                                                .code,
+                                                                        succeeded:
+                                                                            false,
+                                                                      );
+                                                                    }
+                                                                    return _model
+                                                                        .cloudFunction3sn!;
+                                                                  },
+                                                                );
                                                               },
                                                         text: () {
                                                           if (widget.gameDoc!
@@ -516,6 +602,8 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                       .lastPlay! >=
                                                                   getCurrentTimestamp)) {
                                                             return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
+                                                          } else if (_isLaunchingGame) {
+                                                            return 'Chargement du jeu\u2026';
                                                           } else if ((shareJeuPageParticipantsDetailsRecord !=
                                                                   null) &&
                                                               (shareJeuPageParticipantsDetailsRecord
