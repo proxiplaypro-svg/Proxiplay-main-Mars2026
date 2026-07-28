@@ -28,6 +28,30 @@ service cloud.firestore {
         userRef == /databases/$(database)/documents/users/$(request.auth.uid);
     }
 
+    function isApprovedMerchant() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.account_status == 'approved';
+    }
+
+    // Champs qu'un commerçant peut modifier lui-même sur son enseigne/jeu.
+    // Tout le reste (hasWinner, main_prize_winner, participations, owner,
+    // create_by, ...) doit rester réservé au serveur/admin : sans cette
+    // liste, un compte commerçant pourrait réécrire n'importe quel champ de
+    // son propre document, y compris fabriquer un statut "gagnant".
+    function isSafeMerchantEnseigneUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'name', 'address', 'city', 'area_code', 'phone_number',
+        'description', 'site_web_url', 'instagram_link', 'twitter_link',
+        'facebook_link', 'category'
+      ]);
+    }
+
+    function isSafeMerchantGameUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'hidden_from_merchant_stats', 'updated_time'
+      ]);
+    }
+
     function isMerchantOwnerOfEnseigne(enseigneRef) {
       return isSignedIn() &&
         enseigneRef != null &&
@@ -94,19 +118,26 @@ service cloud.firestore {
         (
           isSignedIn() &&
           ('owner' in request.resource.data) &&
-          isOwnerRef(request.resource.data.owner)
+          isOwnerRef(request.resource.data.owner) &&
+          isApprovedMerchant()
         );
       allow read: if true;
-      allow update: if isAdmin() || isOwnerRef(resource.data.owner);
+      allow update: if isAdmin() ||
+        (isOwnerRef(resource.data.owner) && isSafeMerchantEnseigneUpdate());
       allow delete: if isAdmin() || isOwnerRef(resource.data.owner);
     }
 
     match /games/{document} {
-      allow create: if request.auth != null &&
-        (request.resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid) || isAdmin());
+      allow create: if isAdmin() ||
+        (
+          request.auth != null &&
+          request.resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid) &&
+          isApprovedMerchant()
+        );
       allow read: if true;
       allow update: if isAdmin() ||
-        resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid);
+        (resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid) &&
+          isSafeMerchantGameUpdate());
       allow delete: if isAdmin() ||
         resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid);
     }
