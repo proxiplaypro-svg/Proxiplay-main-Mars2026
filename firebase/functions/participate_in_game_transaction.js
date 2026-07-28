@@ -809,6 +809,28 @@ exports.participateInGameTransaction = functions.https.onCall(
 
           prizeRef = db.collection("prizes").doc();
 
+          // userData est deja en memoire (charge plus haut dans la meme
+          // transaction) : denormaliser prenom/ville ici evite a l'app
+          // d'avoir a relire le profil du gagnant pour l'afficher ailleurs.
+          const secondaryWinnerFirstName = getTrimmedString(
+            userData.first_name || userData.firstName,
+          ).split(/\s+/)[0] || "";
+          const secondaryWinnerCity = getTrimmedString(userData.city);
+          const secondaryDenormalizedWinnerFields = {
+            ...(secondaryWinnerFirstName
+              ? {
+                  winnerFirstName: secondaryWinnerFirstName,
+                  winner_first_name: secondaryWinnerFirstName,
+                }
+              : {}),
+            ...(secondaryWinnerCity
+              ? {
+                  winnerCity: secondaryWinnerCity,
+                  winner_city: secondaryWinnerCity,
+                }
+              : {}),
+          };
+
           transaction.set(prizeRef, {
             prize_type: "secondaire",
             name: selectedSecondaryPrizeName,
@@ -824,6 +846,7 @@ exports.participateInGameTransaction = functions.https.onCall(
             ...(gameData.prize_usage_deadline
               ? { usage_deadline: gameData.prize_usage_deadline }
               : {}),
+            ...secondaryDenormalizedWinnerFields,
           });
 
           const userLotRef = userRef.collection("my_lots").doc(prizeRef.id);

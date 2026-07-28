@@ -133,6 +133,22 @@ async function drawWinnerForAnimation(animationRef, animationId, animationData) 
     { merge: true }
   );
 
+  // Denormalise prenom/ville sur le prize (userData deja en memoire) pour
+  // que l'app n'ait jamais besoin de relire le profil du gagnant.
+  const denormalizedWinnerFirstName = winnerFirstName.split(/\s+/)[0] || "";
+  const denormalizedWinnerCity = getTrimmedString(userData.city);
+  const denormalizedWinnerFields = {
+    ...(denormalizedWinnerFirstName
+      ? {
+          winnerFirstName: denormalizedWinnerFirstName,
+          winner_first_name: denormalizedWinnerFirstName,
+        }
+      : {}),
+    ...(denormalizedWinnerCity
+      ? { winnerCity: denormalizedWinnerCity, winner_city: denormalizedWinnerCity }
+      : {}),
+  };
+
   // Prize principal dans prizes/ — champs compatibles Flutter PrizesRecord
   const prizeRef = db.collection("prizes").doc();
   await prizeRef.set({
@@ -145,6 +161,7 @@ async function drawWinnerForAnimation(animationRef, animationId, animationData) 
     claim_code: claimCode,
     claimed: false,
     win_date: drawnAt,
+    ...denormalizedWinnerFields,
   });
 
   // my_lots : rend le lot visible dans "Mes lots" de l'app Flutter joueur

@@ -237,6 +237,89 @@ const generateInstantWinnersForGameCallable = functions
     };
   });
 
+// Renvoie nom/ville/email/telephone du gagnant d'un lot au commercant
+// proprietaire (ou a un admin) uniquement, verifie cote serveur. Permet aux
+// ecrans de validation de lot commercant de ne plus jamais lire directement
+// le document users/{winner_id} d'un autre utilisateur.
+const getPrizeWinnerContactForMerchantCallable = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 30, memory: "256MB"})
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Unauthenticated calls are not allowed.",
+      );
+    }
+
+    const prizeId = getTrimmedString(data && data.prizeId);
+    if (!prizeId || prizeId.includes("/")) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "A valid prizeId is required.",
+      );
+    }
+
+    const prizeRef = firestore.collection("prizes").doc(prizeId);
+    const prizeSnap = await prizeRef.get();
+    if (!prizeSnap.exists) {
+      throw new functions.https.HttpsError("not-found", "Prize not found.");
+    }
+    const prizeData = prizeSnap.data() || {};
+
+    const callerRef = firestore.collection("users").doc(context.auth.uid);
+    const isCallerAdmin =
+      (await callerRef.get()).data()?.user_role === "admin";
+
+    const enseigneRef = toDocRef(prizeData.enseigne_id);
+    const enseigneData = enseigneRef
+      ? (await getDocData(enseigneRef)) || {}
+      : {};
+    const enseigneOwnerRef = toDocRef(enseigneData.owner);
+    const prizeOwnerRef = toDocRef(prizeData.owner_id);
+
+    const isOwner =
+      (enseigneOwnerRef && enseigneOwnerRef.path === callerRef.path) ||
+      (prizeOwnerRef && prizeOwnerRef.path === callerRef.path);
+
+    if (!isCallerAdmin && !isOwner) {
+      console.error("[GET_PRIZE_WINNER_CONTACT_BLOCKED]", {
+        prizeId,
+        callerUid: context.auth.uid,
+      });
+      throw new functions.https.HttpsError(
+        "permission-denied",
+        "Only the merchant owning this prize can view the winner's contact info.",
+      );
+    }
+
+    const winnerRef = toDocRef(prizeData.winner_id);
+    if (!winnerRef) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "No winner recorded for this prize.",
+      );
+    }
+    const winnerData = (await getDocData(winnerRef)) || {};
+
+    console.log("[GET_PRIZE_WINNER_CONTACT_OK]", {
+      prizeId,
+      callerUid: context.auth.uid,
+    });
+
+    return {
+      firstName: getTrimmedString(
+        winnerData.first_name || winnerData.firstName,
+      ),
+      lastName: getTrimmedString(winnerData.last_name || winnerData.lastName),
+      city: getTrimmedString(winnerData.city),
+      email: getTrimmedString(winnerData.email),
+      phoneNumber: getTrimmedString(
+        winnerData.phone_number || winnerData.phoneNumber,
+      ),
+    };
+  });
+
 function inferLegacyHasMainPrize(gameData) {
   return (
     (typeof gameData.name === "string" && gameData.name.trim().length > 0) ||
@@ -5616,6 +5699,11 @@ exports.pickMainPrizeWinners = functions.pubsub
 
         await firestore.runTransaction(async (transaction) => {
           const freshGameDoc = await transaction.get(gameDoc.ref);
+          // Lu ici (avant toute ecriture, comme l'exige une transaction
+          // Firestore) pour denormaliser prenom/ville sur games et prizes :
+          // l'app n'a alors plus jamais besoin de lire le profil d'un autre
+          // utilisateur pour afficher "Gagne par <prenom> - <ville>".
+          const winnerUserDoc = await transaction.get(winnerRef);
           if (!freshGameDoc.exists) {
             console.log(
               `[DRAW][SKIP] gameId=${gameId} — raison : document introuvable pendant la transaction`,
@@ -5643,9 +5731,30 @@ exports.pickMainPrizeWinners = functions.pubsub
               freshGameData.end_date ||
               null,
           });
+
+          const winnerUserData = winnerUserDoc.exists
+            ? winnerUserDoc.data() || {}
+            : {};
+          const winnerFirstNameValue = getTrimmedString(
+            winnerUserData.first_name || winnerUserData.firstName,
+          ).split(/\s+/)[0] || "";
+          const winnerCityValue = getTrimmedString(winnerUserData.city);
+          const denormalizedWinnerFields = {
+            ...(winnerFirstNameValue
+              ? {
+                  winnerFirstName: winnerFirstNameValue,
+                  winner_first_name: winnerFirstNameValue,
+                }
+              : {}),
+            ...(winnerCityValue
+              ? { winnerCity: winnerCityValue, winner_city: winnerCityValue }
+              : {}),
+          };
+
           transaction.update(gameDoc.ref, {
             hasWinner: true,
             main_prize_winner: winnerRef,
+            ...denormalizedWinnerFields,
           });
 
           transaction.set(prizeRef, {
@@ -5663,6 +5772,7 @@ exports.pickMainPrizeWinners = functions.pubsub
             ...(gameData.prize_usage_deadline
               ? { usage_deadline: gameData.prize_usage_deadline }
               : {}),
+            ...denormalizedWinnerFields,
           });
 
           const userLotRef = winnerRef
@@ -5906,6 +6016,8 @@ exports.adminBackfillWonSecondaryPrizesForGame =
   adminBackfillWonSecondaryPrizesForGameCallable;
 exports.runPrizeRemindersDaily = runPrizeRemindersDailyScheduled;
 exports.generateInstantWinnersForGame = generateInstantWinnersForGameCallable;
+exports.getPrizeWinnerContactForMerchant =
+  getPrizeWinnerContactForMerchantCallable;
 
 try {
   const {
