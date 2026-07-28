@@ -1,4 +1,38 @@
+import 'package:flutter/foundation.dart';
+
 import '/backend/backend.dart';
+
+/// Fetches the winner's user document only if the game/prize data doesn't
+/// already carry a denormalized first name (written by the Cloud Functions
+/// that draw winners — see participate_in_game_transaction.js,
+/// pickMainPrizeWinners, drawWinnerForAnimation). This avoids an
+/// unconditional cross-user read of users/{winner_id}, which the Firestore
+/// rules restrict to the user themselves or an admin. Any read failure
+/// (permission-denied on old/un-backfilled data, network error, ...)
+/// degrades to no user data rather than throwing, so the caller falls back
+/// to whatever extractWinnerDisplayFromGameData can already show.
+Future<UsersRecord?> fetchWinnerUserIfNeeded({
+  required Map<String, dynamic> gameData,
+  required DocumentReference? winnerRef,
+}) async {
+  final alreadyDenormalized =
+      extractWinnerDisplayFromGameData(gameData)['firstName']
+              ?.trim()
+              .isNotEmpty ==
+          true;
+  if (alreadyDenormalized || winnerRef == null) {
+    return null;
+  }
+  try {
+    return await UsersRecord.getDocumentOnce(winnerRef);
+  } catch (error) {
+    debugPrint(
+      '[winner_identity] fetchWinnerUserIfNeeded failed '
+      'ref=${winnerRef.path} error=$error',
+    );
+    return null;
+  }
+}
 
 String _firstNonEmptyString(
   Map<String, dynamic> data,

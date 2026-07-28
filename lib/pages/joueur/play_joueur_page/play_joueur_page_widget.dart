@@ -775,9 +775,17 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                       winnerDisplayFromGame[
                                                               'city'] ??
                                                           '';
+                                                  // Le prenom (au minimum)
+                                                  // est deja denormalise sur
+                                                  // le doc game par la CF qui
+                                                  // a tire le gagnant : pas
+                                                  // besoin de lire le profil
+                                                  // d'un autre utilisateur.
+                                                  // La ville seule peut
+                                                  // manquer (champ optionnel
+                                                  // sur le profil).
                                                   if (gameFirstName
-                                                          .isNotEmpty &&
-                                                      gameCity.isNotEmpty) {
+                                                      .isNotEmpty) {
                                                     return winnerAnnouncement(
                                                       gameFirstName,
                                                       gameCity,
@@ -790,10 +798,16 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                   }
 
                                                   return FutureBuilder<
-                                                      UsersRecord>(
-                                                    future: UsersRecord
-                                                        .getDocumentOnce(
-                                                            winnerRef),
+                                                      UsersRecord?>(
+                                                    future: () async {
+                                                      try {
+                                                        return await UsersRecord
+                                                            .getDocumentOnce(
+                                                                winnerRef);
+                                                      } catch (_) {
+                                                        return null;
+                                                      }
+                                                    }(),
                                                     builder:
                                                         (context, snapshot) {
                                                       final userDisplay =

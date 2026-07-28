@@ -898,11 +898,16 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                     }
 
                                                     return FutureBuilder<
-                                                        UsersRecord>(
-                                                      future: UsersRecord
-                                                          .getDocumentOnce(
-                                                              containerGamesRecord
-                                                                  .mainPrizeWinner!),
+                                                        UsersRecord?>(
+                                                      future:
+                                                          fetchWinnerUserIfNeeded(
+                                                        gameData:
+                                                            containerGamesRecord
+                                                                .snapshotData,
+                                                        winnerRef:
+                                                            containerGamesRecord
+                                                                .mainPrizeWinner,
+                                                      ),
                                                       builder: (context,
                                                           winnerSnapshot) {
                                                         final winner =

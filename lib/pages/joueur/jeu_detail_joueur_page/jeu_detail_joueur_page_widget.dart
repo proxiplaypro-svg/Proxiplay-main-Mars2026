@@ -1985,27 +1985,22 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             padding: const EdgeInsetsDirectional
                                                 .fromSTEB(
                                                 16.0, 16.0, 16.0, 16.0),
-                                            child: FutureBuilder<UsersRecord>(
-                                              future:
-                                                  UsersRecord.getDocumentOnce(
-                                                      widget.gameDoc!
-                                                          .mainPrizeWinner!),
+                                            child: FutureBuilder<UsersRecord?>(
+                                              future: fetchWinnerUserIfNeeded(
+                                                gameData: widget.gameDoc!
+                                                    .snapshotData,
+                                                winnerRef: widget.gameDoc!
+                                                    .mainPrizeWinner,
+                                              ),
                                               builder: (context, snapshot) {
-                                                final winnerMessage = snapshot
-                                                        .hasData
-                                                    ? buildWinnerCongratulationsFromSources(
-                                                        gameData: widget.gameDoc!
-                                                            .snapshotData,
-                                                        user: snapshot.data,
-                                                        fallback:
-                                                            'F\u00E9licitations !',
-                                                      )
-                                                    : buildWinnerCongratulationsFromSources(
-                                                        gameData: widget.gameDoc!
-                                                            .snapshotData,
-                                                        fallback:
-                                                            'F\u00E9licitations !',
-                                                      );
+                                                final winnerMessage =
+                                                    buildWinnerCongratulationsFromSources(
+                                                  gameData: widget.gameDoc!
+                                                      .snapshotData,
+                                                  user: snapshot.data,
+                                                  fallback:
+                                                      'F\u00E9licitations !',
+                                                );
                                                 return Column(
                                                   mainAxisSize:
                                                       MainAxisSize.max,

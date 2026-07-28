@@ -183,29 +183,56 @@ class GlobalTickerService {
         final prizeData = prizeDoc.data();
         final prizeName = (prizeData['name'] ?? '').toString().trim();
         final enseigneName = (prizeData['enseigne_name'] ?? '').toString().trim();
-        final winnerRef = prizeData['winner_id'];
-        if (prizeName.isEmpty || winnerRef is! DocumentReference) {
+        if (prizeName.isEmpty) {
           continue;
         }
 
-        Map<String, dynamic>? winnerData = userCache[winnerRef.path];
-        if (!userCache.containsKey(winnerRef.path)) {
-          final winnerSnap = await winnerRef.get();
-          winnerData = winnerSnap.data() as Map<String, dynamic>?;
-          userCache[winnerRef.path] = winnerData;
-        }
+        // Prefere les champs denormalises ecrits par les Cloud Functions de
+        // tirage (voir participate_in_game_transaction.js /
+        // pickMainPrizeWinners / drawWinnerForAnimation) : evite une lecture
+        // du profil d'un autre utilisateur, desormais restreinte par les
+        // regles Firestore a l'utilisateur lui-meme ou un admin.
+        final denormalizedFirstName = (prizeData['winnerFirstName'] ??
+                prizeData['winner_first_name'] ??
+                '')
+            .toString()
+            .trim();
 
-        final firstName = _normalizeFirstName(
-          [
-            winnerData?['first_name'],
-            winnerData?['firstName'],
-            winnerData?['display_name'],
-            winnerData?['displayName'],
-            winnerData?['pseudo'],
-          ]
-              .map((value) => value?.toString().trim() ?? '')
-              .firstWhere((value) => value.isNotEmpty, orElse: () => ''),
-        );
+        var firstName = _normalizeFirstName(denormalizedFirstName);
+
+        final winnerRef = prizeData['winner_id'];
+        if (firstName.isEmpty && winnerRef is DocumentReference) {
+          Map<String, dynamic>? winnerData = userCache[winnerRef.path];
+          if (!userCache.containsKey(winnerRef.path)) {
+            try {
+              final winnerSnap = await winnerRef.get();
+              winnerData = winnerSnap.data() as Map<String, dynamic>?;
+            } catch (error) {
+              // Anciennes donnees non re-tirees depuis ce correctif : pas de
+              // champ denormalise ET lecture refusee. On degrade sur "Un
+              // joueur" pour cette seule entree plutot que de faire echouer
+              // tout le fallback.
+              debugPrint(
+                '[GlobalTicker] legacy fallback winner read denied '
+                'ref=${winnerRef.path} error=$error',
+              );
+              winnerData = null;
+            }
+            userCache[winnerRef.path] = winnerData;
+          }
+
+          firstName = _normalizeFirstName(
+            [
+              winnerData?['first_name'],
+              winnerData?['firstName'],
+              winnerData?['display_name'],
+              winnerData?['displayName'],
+              winnerData?['pseudo'],
+            ]
+                .map((value) => value?.toString().trim() ?? '')
+                .firstWhere((value) => value.isNotEmpty, orElse: () => ''),
+          );
+        }
 
         final message = enseigneName.isNotEmpty
             ? _normalizeTickerText('${firstName.isNotEmpty ? firstName : 'Un joueur'} a gagné $prizeName chez $enseigneName')

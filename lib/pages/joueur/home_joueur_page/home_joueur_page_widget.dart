@@ -3120,8 +3120,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                                 );
                                                                               }
                                                                               return FutureBuilder<
-                                                                                  UsersRecord>(
-                                                                                future: UsersRecord.getDocumentOnce(game.mainPrizeWinner!),
+                                                                                  UsersRecord?>(
+                                                                                future: fetchWinnerUserIfNeeded(
+                                                                                  gameData: game.snapshotData,
+                                                                                  winnerRef: game.mainPrizeWinner,
+                                                                                ),
                                                                                 builder: (context, winnerSnapshot) {
                                                                                   final winner =
                                                                                       winnerSnapshot.data;
