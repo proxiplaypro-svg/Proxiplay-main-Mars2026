@@ -36,6 +36,11 @@ class GamesRecord extends FirestoreRecord {
   DateTime? get endDate => _endDate;
   bool hasEndDate() => _endDate != null;
 
+  // "prize_usage_deadline" field.
+  DateTime? _prizeUsageDeadline;
+  DateTime? get prizeUsageDeadline => _prizeUsageDeadline;
+  bool hasPrizeUsageDeadline() => _prizeUsageDeadline != null;
+
   // "enseigne_id" field.
   DocumentReference? _enseigneId;
   DocumentReference? get enseigneId => _enseigneId;
@@ -162,6 +167,7 @@ class GamesRecord extends FirestoreRecord {
     _description = snapshotData['description'] as String?;
     _startDate = snapshotData['start_date'] as DateTime?;
     _endDate = snapshotData['end_date'] as DateTime?;
+    _prizeUsageDeadline = snapshotData['prize_usage_deadline'] as DateTime?;
     _enseigneId = snapshotData['enseigne_id'] as DocumentReference?;
     _createBy = snapshotData['create_by'] as DocumentReference?;
     _createdTime = snapshotData['created_time'] as DateTime?;
@@ -228,6 +234,7 @@ class GamesRecord extends FirestoreRecord {
           'description': _description,
           'start_date': _startDate,
           'end_date': _endDate,
+          'prize_usage_deadline': _prizeUsageDeadline,
           'enseigne_id': _enseigneId,
           'create_by': _createBy,
           'created_time': _createdTime,
@@ -273,6 +280,7 @@ Map<String, dynamic> createGamesRecordData({
   String? description,
   DateTime? startDate,
   DateTime? endDate,
+  DateTime? prizeUsageDeadline,
   DocumentReference? enseigneId,
   DocumentReference? createBy,
   DateTime? createdTime,
@@ -304,6 +312,7 @@ Map<String, dynamic> createGamesRecordData({
       'description': description,
       'start_date': startDate,
       'end_date': endDate,
+      'prize_usage_deadline': prizeUsageDeadline,
       'enseigne_id': enseigneId,
       'create_by': createBy,
       'created_time': createdTime,
@@ -343,6 +352,7 @@ class GamesRecordDocumentEquality implements Equality<GamesRecord> {
         e1?.description == e2?.description &&
         e1?.startDate == e2?.startDate &&
         e1?.endDate == e2?.endDate &&
+        e1?.prizeUsageDeadline == e2?.prizeUsageDeadline &&
         e1?.enseigneId == e2?.enseigneId &&
         e1?.createBy == e2?.createBy &&
         e1?.createdTime == e2?.createdTime &&
@@ -375,6 +385,7 @@ class GamesRecordDocumentEquality implements Equality<GamesRecord> {
         e?.description,
         e?.startDate,
         e?.endDate,
+        e?.prizeUsageDeadline,
         e?.enseigneId,
         e?.createBy,
         e?.createdTime,

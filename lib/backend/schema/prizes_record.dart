@@ -66,6 +66,11 @@ class PrizesRecord extends FirestoreRecord {
   DateTime? get winDate => _winDate;
   bool hasWinDate() => _winDate != null;
 
+  // "usage_deadline" field.
+  DateTime? _usageDeadline;
+  DateTime? get usageDeadline => _usageDeadline;
+  bool hasUsageDeadline() => _usageDeadline != null;
+
   // "enseigne_name" field.
   String? _enseigneName;
   String get enseigneName => _enseigneName ?? '';
@@ -84,6 +89,7 @@ class PrizesRecord extends FirestoreRecord {
     _claimCode = snapshotData['claim_code'] as String?;
     _claimed = snapshotData['claimed'] as bool?;
     _winDate = snapshotData['win_date'] as DateTime?;
+    _usageDeadline = snapshotData['usage_deadline'] as DateTime?;
     _enseigneName = snapshotData['enseigne_name'] as String?;
   }
 
@@ -131,6 +137,7 @@ Map<String, dynamic> createPrizesRecordData({
   String? claimCode,
   bool? claimed,
   DateTime? winDate,
+  DateTime? usageDeadline,
   String? enseigneName,
 }) {
   final firestoreData = mapToFirestore(
@@ -145,6 +152,7 @@ Map<String, dynamic> createPrizesRecordData({
       'claim_code': claimCode,
       'claimed': claimed,
       'win_date': winDate,
+      'usage_deadline': usageDeadline,
       'enseigne_name': enseigneName,
     }.withoutNulls,
   );
@@ -167,6 +175,7 @@ class PrizesRecordDocumentEquality implements Equality<PrizesRecord> {
         e1?.claimCode == e2?.claimCode &&
         e1?.claimed == e2?.claimed &&
         e1?.winDate == e2?.winDate &&
+        e1?.usageDeadline == e2?.usageDeadline &&
         e1?.enseigneName == e2?.enseigneName;
   }
 
@@ -182,6 +191,7 @@ class PrizesRecordDocumentEquality implements Equality<PrizesRecord> {
         e?.claimCode,
         e?.claimed,
         e?.winDate,
+        e?.usageDeadline,
         e?.enseigneName
       ]);
 
