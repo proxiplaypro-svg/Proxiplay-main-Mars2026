@@ -232,10 +232,16 @@ void main() {
     });
 
     test(
-        'deuxième tentative sur un jeu réellement déjà joué: no navigation, dialog callback fires',
+        'deuxième tentative sur un jeu réellement déjà joué: replays the cached result instead of blocking',
         () async {
+      // The server now caches the player's real outcome (win/lose message)
+      // on an already-played retry instead of returning a dead-end message
+      // (see resolveCachedLastResult in participate_in_game_transaction.js).
+      // The coordinator must therefore still navigate so the game screen —
+      // which already knows how to render an "already played" result — can
+      // show it, rather than leaving the player stuck behind a dialog.
       var navigateCalls = 0;
-      var alreadyPlayedCalls = 0;
+      var errorCalls = 0;
 
       await coordinator.launch(
         gameId: 'game-1',
@@ -243,19 +249,22 @@ void main() {
         participate: () async => alreadyPlayedOutcome(),
         navigate: (outcome) async {
           navigateCalls++;
+          expect(outcome.alreadyParticipatedToday, isTrue);
           return immediateMount(outcome);
         },
-        onAlreadyPlayed: (outcome) async => alreadyPlayedCalls++,
+        onParticipationError: (outcome) async => errorCalls++,
       );
 
-      expect(navigateCalls, 0,
-          reason: 'a genuinely already-played game must never navigate');
-      expect(alreadyPlayedCalls, 1);
+      expect(navigateCalls, 1,
+          reason: 'an already-played retry must still show the cached '
+              'result on the game screen');
+      expect(errorCalls, 0);
       expect(coordinator.isLaunching, isFalse);
       expect(
-        logs.any((l) => l.contains('event=lancement_refuse_deja_joue')),
+        logs.any((l) => l.contains('event=deja_joue_relecture_resultat')),
         isTrue,
       );
+      expect(logs.any((l) => l.contains('event=page_jeu_montee')), isTrue);
     });
 
     test('server error: lock is released and onParticipationError fires',

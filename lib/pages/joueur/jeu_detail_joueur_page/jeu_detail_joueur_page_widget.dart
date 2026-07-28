@@ -474,7 +474,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         );
       },
       navigate: _navigateToGameScreen,
-      onAlreadyPlayed: _showLaunchErrorDialog,
       onParticipationError: _showLaunchErrorDialog,
       onNavigationFailed: _showNavigationFailureDialog,
       onMountTimedOut: () {
@@ -501,7 +500,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         outcome.raw as ParticipateInGameTransactionCloudFunctionCallResponse;
 
     var newlyQualified = false;
-    if (widget.gameDoc != null &&
+    if (!outcome.alreadyParticipatedToday &&
+        widget.gameDoc != null &&
         currentUserUid.isNotEmpty &&
         widget.gameDoc!.animationId.trim().isNotEmpty) {
       try {

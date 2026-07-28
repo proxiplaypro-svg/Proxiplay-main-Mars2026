@@ -89,6 +89,14 @@ class GameLaunchCoordinator {
   /// Returns without throwing in every case; failures are reported through
   /// the optional callbacks so callers can show UI, while the lock is
   /// always released via `finally`.
+  ///
+  /// An `alreadyParticipatedToday` outcome is treated the same as a fresh
+  /// participation for navigation purposes: the Cloud Function now caches
+  /// the player's last real result (see `resolveCachedLastResult` server
+  /// side) and hands it back instead of a dead-end message, so [navigate]
+  /// is called either way and the game screen renders that real (or, for
+  /// pre-fix data, generic fallback) outcome rather than blocking the
+  /// player behind a dialog with nothing to show.
   Future<void> launch({
     required String gameId,
     required Future<GameParticipationOutcome> Function() participate,
@@ -96,7 +104,6 @@ class GameLaunchCoordinator {
       GameParticipationOutcome outcome,
     ) navigate,
     required void Function(bool isLaunching) onLaunchingChanged,
-    Future<void> Function(GameParticipationOutcome outcome)? onAlreadyPlayed,
     Future<void> Function(GameParticipationOutcome outcome)?
         onParticipationError,
     Future<void> Function()? onNavigationFailed,
@@ -114,12 +121,6 @@ class GameLaunchCoordinator {
     try {
       final outcome = await _participateWithTimeout(gameId, participate);
 
-      if (outcome.alreadyParticipatedToday) {
-        _logEvent(gameId, 'lancement_refuse_deja_joue');
-        await onAlreadyPlayed?.call(outcome);
-        return;
-      }
-
       if (!outcome.succeeded) {
         _logEvent(
           gameId,
@@ -130,7 +131,12 @@ class GameLaunchCoordinator {
         return;
       }
 
-      _logEvent(gameId, 'participation_confirmee_serveur');
+      _logEvent(
+        gameId,
+        outcome.alreadyParticipatedToday
+            ? 'deja_joue_relecture_resultat'
+            : 'participation_confirmee_serveur',
+      );
 
       final navigationResult = await navigate(outcome);
       switch (navigationResult) {
