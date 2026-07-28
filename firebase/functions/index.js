@@ -9,6 +9,10 @@ const {
   planInstantWinnerReconciliation,
   toMillis,
 } = require("./lib/instant_winners_core");
+const {sendTextEmail} = require("./lib/notifications/email_sender");
+const {
+  queuePushNotificationRequest,
+} = require("./push_notification_request.js");
 
 const kFcmTokensCollection = "fcm_tokens";
 const kPushNotificationsCollection = "ff_push_notifications";
@@ -1272,8 +1276,164 @@ async function initializeMerchantAccountStatusIfNeeded(userRef, uid, userData, s
   console.log(
     `[initializeMerchantAccountStatusIfNeeded] initialized uid=${uid} fields=account_status,updatedAt`,
   );
+
+  await notifyAdminsOfPendingMerchant(uid, safeUserData);
+
   return true;
 }
+
+async function notifyAdminsOfPendingMerchant(uid, userData) {
+  const merchantName = [
+    getTrimmedString(userData.first_name),
+    getTrimmedString(userData.last_name),
+  ]
+    .filter((part) => part)
+    .join(" ") || getTrimmedString(userData.email) || uid;
+
+  try {
+    await firestore.collection(kPushNotificationsCollection).add(
+      buildPushNotificationRequestData({
+        title: "Nouveau commerçant à valider",
+        body: `${merchantName} vient de créer un compte commerçant et attend une validation.`,
+        targetUserGroup: "Admins",
+        initialPageName: "ValidationCommercantsAdminPage",
+        createdBy: "system:initializeMerchantAccountStatusIfNeeded",
+      }),
+    );
+  } catch (error) {
+    console.error(
+      `[notifyAdminsOfPendingMerchant] push notification failed uid=${uid}`,
+      error,
+    );
+  }
+
+  try {
+    const adminsSnap = await firestore
+      .collection("users")
+      .where("user_role", "==", "admin")
+      .get();
+    const adminEmails = adminsSnap.docs
+      .map((doc) => getTrimmedString(doc.data().email))
+      .filter((email) => email);
+
+    if (adminEmails.length === 0) {
+      console.log(
+        `[notifyAdminsOfPendingMerchant] no admin email found, skipping email for uid=${uid}`,
+      );
+      return;
+    }
+
+    await Promise.all(
+      adminEmails.map((to) =>
+        sendTextEmail({
+          to,
+          subject: "Nouveau commerçant à valider",
+          text: `${merchantName} (${getTrimmedString(userData.email) || "email inconnu"}) vient de créer un compte commerçant sur ProxiPlay et attend une validation.\n\nRendez-vous sur l'espace admin pour valider ou rejeter ce compte.`,
+        }),
+      ),
+    );
+    console.log(
+      `[notifyAdminsOfPendingMerchant] email sent uid=${uid} recipients=${adminEmails.length}`,
+    );
+  } catch (error) {
+    console.error(
+      `[notifyAdminsOfPendingMerchant] email failed uid=${uid}`,
+      error,
+    );
+  }
+}
+
+async function notifyMerchantOfAccountStatus(uid, userData, status) {
+  const isApproved = status === "approved";
+  const title = isApproved ? "Compte validé !" : "Compte non validé";
+  const pushBody = isApproved
+    ? "Votre compte commerçant a été validé. Vous pouvez maintenant créer votre enseigne et vos jeux."
+    : "Votre compte commerçant n'a pas été validé. Contactez le support pour plus d'informations.";
+
+  try {
+    await queuePushNotificationRequest(firestore, {
+      title,
+      body: pushBody,
+      userRefOrPath: firestore.collection("users").doc(uid),
+      createdBy: "system:notifyMerchantOfAccountStatusChange",
+    });
+  } catch (error) {
+    console.error(
+      `[notifyMerchantOfAccountStatus] push notification failed uid=${uid}`,
+      error,
+    );
+  }
+
+  try {
+    const email = getTrimmedString(userData.email);
+    if (!email) {
+      console.log(
+        `[notifyMerchantOfAccountStatus] no email for uid=${uid}, skipping email`,
+      );
+      return;
+    }
+
+    await sendTextEmail({
+      to: email,
+      subject: title,
+      text: isApproved
+        ? "Bonne nouvelle : votre compte commerçant ProxiPlay a été validé. Vous pouvez maintenant créer votre enseigne et publier vos jeux."
+        : "Votre compte commerçant ProxiPlay n'a pas été validé par notre équipe. Pour en savoir plus, contactez-nous à contact@proxiplay.fr.",
+    });
+    console.log(
+      `[notifyMerchantOfAccountStatus] email sent uid=${uid} status=${status}`,
+    );
+  } catch (error) {
+    console.error(
+      `[notifyMerchantOfAccountStatus] email failed uid=${uid}`,
+      error,
+    );
+  }
+}
+
+// Callable plutôt que trigger Firestore : la base est en région multi
+// "eur3", qui ne supporte plus la création de nouveaux triggers Firestore
+// 1ère génération. Appelée directement par les écrans admin juste après
+// avoir mis à jour account_status (validation_commercants_admin_page,
+// commercant_admin_detail_page).
+exports.notifyMerchantAccountStatus = functions
+  .region(kFunctionsRegion)
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Vous devez être connecté.",
+      );
+    }
+    await assertIsAdmin(context.auth.uid);
+
+    const uid = (data.uid || "").toString().trim();
+    if (!uid) {
+      throw new functions.https.HttpsError("invalid-argument", "uid requis.");
+    }
+
+    const userSnap = await firestore.collection("users").doc(uid).get();
+    if (!userSnap.exists) {
+      throw new functions.https.HttpsError(
+        "not-found",
+        "Utilisateur introuvable.",
+      );
+    }
+
+    const userData = userSnap.data() || {};
+    const status = getTrimmedString(userData.account_status);
+
+    if (status !== "approved" && status !== "rejected") {
+      console.log(
+        `[notifyMerchantAccountStatus] ignored uid=${uid} status=${status || "<absent>"}`,
+      );
+      return {ok: false, reason: "status-not-final"};
+    }
+
+    console.log(`[notifyMerchantAccountStatus] uid=${uid} status=${status}`);
+    await notifyMerchantOfAccountStatus(uid, userData, status);
+    return {ok: true};
+  });
 
 exports.initializeNewPlayerRemainingParts = functions.firestore
   .document("users/{uid}")
@@ -5500,6 +5660,9 @@ exports.pickMainPrizeWinners = functions.pubsub
             claim_code: normalizeClaimCode(claimCode),
             claimed: false,
             win_date: admin.firestore.FieldValue.serverTimestamp(),
+            ...(gameData.prize_usage_deadline
+              ? { usage_deadline: gameData.prize_usage_deadline }
+              : {}),
           });
 
           const userLotRef = winnerRef
