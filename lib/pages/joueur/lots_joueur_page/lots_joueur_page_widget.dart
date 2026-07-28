@@ -477,6 +477,18 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                           ? const Color(0xFF2D9B64)
                           : const Color(0xFFD8874D),
                     ),
+                    if (prize.hasUsageDeadline())
+                      _buildBadge(
+                        context,
+                        icon: Icons.event_busy_rounded,
+                        label: 'À utiliser avant le ${dateTimeFormat(
+                          "d/M/y",
+                          prize.usageDeadline,
+                          locale: FFLocalizations.of(context).languageCode,
+                        )}',
+                        backgroundColor: const Color(0xFFFFF1E8),
+                        textColor: const Color(0xFFD8874D),
+                      ),
                   ],
                 ),
                 if (conditions != null) ...[

@@ -246,8 +246,21 @@ class _CommercantAdminDetailPageWidgetState
     );
   }
 
+  Future<void> _notifyMerchantAccountStatus(String uid) async {
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('notifyMerchantAccountStatus')
+          .call({'uid': uid});
+    } catch (e) {
+      // Le changement de statut est déjà enregistré ; un échec de
+      // notification ne doit pas bloquer l'action admin.
+      debugPrint('[CommercantAdminDetailPage] notify failed uid=$uid: $e');
+    }
+  }
+
   Future<void> _updateStatus(UsersRecord user, AccountStatus status) async {
     await user.reference.update(createUsersRecordData(accountStatus: status));
+    await _notifyMerchantAccountStatus(user.reference.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Statut mis à jour : ${_statusLabel(status)}')),
@@ -300,6 +313,7 @@ class _CommercantAdminDetailPageWidgetState
       await callable.call({
         'commercantUid': user.uid,
       });
+      await _notifyMerchantAccountStatus(user.reference.id);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

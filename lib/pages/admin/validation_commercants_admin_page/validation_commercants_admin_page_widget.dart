@@ -4,6 +4,7 @@ import '/backend/schema/enums/enums.dart';
 import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -12,6 +13,18 @@ class ValidationCommercantsAdminPageWidget extends StatelessWidget {
 
   static String routeName = 'ValidationCommercantsAdminPage';
   static String routePath = 'validationCommercantsAdminPage';
+
+  Future<void> _notifyMerchantAccountStatus(String uid) async {
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('notifyMerchantAccountStatus')
+          .call({'uid': uid});
+    } catch (e) {
+      // La validation/le rejet du compte est déjà enregistré ; un échec de
+      // notification ne doit pas bloquer l'action admin.
+      debugPrint('[ValidationCommercantsAdminPage] notify failed uid=$uid: $e');
+    }
+  }
 
   Widget _buildInfoLine(BuildContext context, String label, String value) {
     final displayValue = value.trim().isEmpty ? '-' : value.trim();
@@ -124,6 +137,7 @@ class ValidationCommercantsAdminPageWidget extends StatelessWidget {
                         await user.reference.update(createUsersRecordData(
                           accountStatus: AccountStatus.rejected,
                         ));
+                        await _notifyMerchantAccountStatus(user.reference.id);
                       },
                       text: 'Refuser',
                       options: FFButtonOptions(
@@ -152,6 +166,7 @@ class ValidationCommercantsAdminPageWidget extends StatelessWidget {
                         await user.reference.update(createUsersRecordData(
                           accountStatus: AccountStatus.approved,
                         ));
+                        await _notifyMerchantAccountStatus(user.reference.id);
                       },
                       text: 'Valider',
                       options: FFButtonOptions(

@@ -369,6 +369,25 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     );
   }
 
+  // Filet de sécurité pour toute erreur pendant l'inscription qui n'est pas
+  // une erreur réseau reconnue : sans ça, l'utilisateur ne voit aucun
+  // message alors que son compte Auth a peut-être déjà été créé, et un
+  // nouvel essai échoue avec "email déjà utilisé" sans explication.
+  void _showSignupFallbackErrorMessage() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Un problème est survenu pendant la création de votre compte. '
+          'Si un nouvel essai indique que l\'email est déjà utilisé, '
+          'essayez plutôt de vous connecter avec cet email : votre compte '
+          'a peut-être déjà été créé.',
+        ),
+        duration: Duration(seconds: 8),
+      ),
+    );
+  }
+
   bool _isFirestoreNetworkError(Object error) {
     final lowered = error.toString().toLowerCase();
     return lowered.contains('unable to resolve host') ||
@@ -1997,10 +2016,13 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                   'Player signup Firestore error: $error',
                                                                 );
                                                                 debugPrintStack();
-                                                                if (mounted &&
-                                                                    _isFirestoreNetworkError(
-                                                                        error)) {
-                                                                  _showFirestoreUnavailableMessage();
+                                                                if (mounted) {
+                                                                  if (_isFirestoreNetworkError(
+                                                                      error)) {
+                                                                    _showFirestoreUnavailableMessage();
+                                                                  } else {
+                                                                    _showSignupFallbackErrorMessage();
+                                                                  }
                                                                 }
                                                               } finally {
                                                                 if (mounted) {
@@ -3339,10 +3361,13 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                               'Merchant signup Firestore error: $error',
                                                             );
                                                             debugPrintStack();
-                                                            if (mounted &&
-                                                                _isFirestoreNetworkError(
-                                                                    error)) {
-                                                              _showFirestoreUnavailableMessage();
+                                                            if (mounted) {
+                                                              if (_isFirestoreNetworkError(
+                                                                  error)) {
+                                                                _showFirestoreUnavailableMessage();
+                                                              } else {
+                                                                _showSignupFallbackErrorMessage();
+                                                              }
                                                             }
                                                           } finally {
                                                             if (mounted) {
