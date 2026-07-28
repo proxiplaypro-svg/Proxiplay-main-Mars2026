@@ -8,6 +8,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/index.dart';
 import '/utils/game_metrics.dart';
+import '/utils/prize_winner_contact.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
@@ -478,8 +479,8 @@ class _JeuDetailCommercantPageWidgetState
           ),
           if (prize.hasWinnerId()) ...[
             const SizedBox(height: 12.0),
-            FutureBuilder<UsersRecord>(
-              future: UsersRecord.getDocumentOnce(prize.winnerId!),
+            FutureBuilder<PrizeWinnerContact?>(
+              future: fetchPrizeWinnerContactForMerchant(prize.reference.id),
               builder: (context, snapshot) {
                 final winner = snapshot.data;
                 return Container(

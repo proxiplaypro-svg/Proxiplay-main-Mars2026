@@ -3,6 +3,7 @@ import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/utils/prize_winner_contact.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'validation_lot_commercant_page_model.dart';
@@ -264,10 +265,12 @@ class _ValidationLotCommercantPageWidgetState
                                                 ),
                                           ),
                                           Expanded(
-                                            child: FutureBuilder<UsersRecord>(
+                                            child:
+                                                FutureBuilder<PrizeWinnerContact?>(
                                               future:
-                                                  UsersRecord.getDocumentOnce(
-                                                      widget.prize!.winnerId!),
+                                                  fetchPrizeWinnerContactForMerchant(
+                                                widget.prize!.reference.id,
+                                              ),
                                               builder: (context, snapshot) {
                                                 // Customize what your widget looks like when it's loading.
                                                 if (!snapshot.hasData) {
@@ -281,11 +284,18 @@ class _ValidationLotCommercantPageWidgetState
                                                   );
                                                 }
 
-                                                final textUsersRecord =
-                                                    snapshot.data!;
+                                                final contact = snapshot.data;
+                                                if (contact == null) {
+                                                  return Text(
+                                                    'Coordonnées indisponibles',
+                                                    style: FlutterFlowTheme.of(
+                                                            context)
+                                                        .bodyLarge,
+                                                  );
+                                                }
 
                                                 return Text(
-                                                  '${textUsersRecord.firstName} ${textUsersRecord.lastName}',
+                                                  contact.fullName,
                                                   style: FlutterFlowTheme.of(
                                                           context)
                                                       .bodyLarge
