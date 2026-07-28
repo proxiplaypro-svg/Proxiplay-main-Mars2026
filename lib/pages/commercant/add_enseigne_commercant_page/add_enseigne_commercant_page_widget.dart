@@ -41,6 +41,7 @@ class _AddEnseigneCommercantPageWidgetState
   late AddEnseigneCommercantPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isSubmittingEnseigneCreation = false;
 
   @override
   void initState() {
@@ -2012,7 +2013,20 @@ class _AddEnseigneCommercantPageWidgetState
                               ),
                               FFButtonWidget(
                                 onPressed: () async {
-                                  var shouldSetState = false;
+                                  if (_isSubmittingEnseigneCreation) {
+                                    return;
+                                  }
+                                  if (currentUserDocument?.accountStatus !=
+                                      AccountStatus.approved) {
+                                    ScaffoldMessenger.of(context)
+                                        .showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                            'Votre compte commerçant doit être validé par un administrateur avant de pouvoir créer une enseigne.'),
+                                      ),
+                                    );
+                                    return;
+                                  }
                                   if (_model.uploadedImagesList.length >= 5) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -2037,184 +2051,236 @@ class _AddEnseigneCommercantPageWidgetState
                                     return;
                                   }
 
-                                  var enseignesRecordReference =
-                                      EnseignesRecord.collection.doc();
-                                  await enseignesRecordReference.set({
-                                    ...createEnseignesRecordData(
-                                      owner: currentUserReference,
-                                      createdTime: getCurrentTimestamp,
-                                      name: _model
-                                          .textFieldNameTextController.text,
-                                      address: _model
-                                          .textFieldAdresseTextController.text,
-                                      city: _model
-                                          .textFieldCityTextController.text,
-                                      areaCode: _model
-                                          .textFieldCodeTextController.text,
-                                      phoneNumber: _model
-                                          .textFieldPhoneTextController.text,
-                                      description: _model
-                                          .textFieldDescriptionTextController
-                                          .text,
-                                      siteWebUrl: _model
-                                          .textFieldSiteWebTextController.text,
-                                      instagramLink: _model
-                                          .textFieldInstTextController.text,
-                                      twitterLink: _model
-                                          .textFieldTwitterTextController.text,
-                                      facebookLink: _model
-                                          .textFieldFacebookTextController.text,
-                                    ),
-                                    ...mapToFirestore(
-                                      {
-                                        'category': _model.choiceChipsValues,
-                                      },
-                                    ),
-                                  });
-                                  _model.enseigneResult =
-                                      EnseignesRecord.getDocumentFromData({
-                                    ...createEnseignesRecordData(
-                                      owner: currentUserReference,
-                                      createdTime: getCurrentTimestamp,
-                                      name: _model
-                                          .textFieldNameTextController.text,
-                                      address: _model
-                                          .textFieldAdresseTextController.text,
-                                      city: _model
-                                          .textFieldCityTextController.text,
-                                      areaCode: _model
-                                          .textFieldCodeTextController.text,
-                                      phoneNumber: _model
-                                          .textFieldPhoneTextController.text,
-                                      description: _model
-                                          .textFieldDescriptionTextController
-                                          .text,
-                                      siteWebUrl: _model
-                                          .textFieldSiteWebTextController.text,
-                                      instagramLink: _model
-                                          .textFieldInstTextController.text,
-                                      twitterLink: _model
-                                          .textFieldTwitterTextController.text,
-                                      facebookLink: _model
-                                          .textFieldFacebookTextController.text,
-                                    ),
-                                    ...mapToFirestore(
-                                      {
-                                        'category': _model.choiceChipsValues,
-                                      },
-                                    ),
-                                  }, enseignesRecordReference);
-                                  shouldSetState = true;
-                                  {
-                                    safeSetState(() => _model
-                                        .isDataUploading_uploadDataUnf = true);
-                                    var selectedUploadedFiles =
-                                        <FFUploadedFile>[];
-                                    var selectedMedia = <SelectedFile>[];
-                                    var downloadUrls = <String>[];
+                                  safeSetState(
+                                      () => _isSubmittingEnseigneCreation = true);
+                                  try {
+                                    var enseignesRecordReference =
+                                        EnseignesRecord.collection.doc();
+                                    await enseignesRecordReference.set({
+                                      ...createEnseignesRecordData(
+                                        owner: currentUserReference,
+                                        createdTime: getCurrentTimestamp,
+                                        name: _model
+                                            .textFieldNameTextController.text,
+                                        address: _model
+                                            .textFieldAdresseTextController
+                                            .text,
+                                        city: _model
+                                            .textFieldCityTextController.text,
+                                        areaCode: _model
+                                            .textFieldCodeTextController.text,
+                                        phoneNumber: _model
+                                            .textFieldPhoneTextController.text,
+                                        description: _model
+                                            .textFieldDescriptionTextController
+                                            .text,
+                                        siteWebUrl: _model
+                                            .textFieldSiteWebTextController
+                                            .text,
+                                        instagramLink: _model
+                                            .textFieldInstTextController.text,
+                                        twitterLink: _model
+                                            .textFieldTwitterTextController
+                                            .text,
+                                        facebookLink: _model
+                                            .textFieldFacebookTextController
+                                            .text,
+                                      ),
+                                      ...mapToFirestore(
+                                        {
+                                          'category':
+                                              _model.choiceChipsValues,
+                                        },
+                                      ),
+                                    });
+                                    _model.enseigneResult =
+                                        EnseignesRecord.getDocumentFromData({
+                                      ...createEnseignesRecordData(
+                                        owner: currentUserReference,
+                                        createdTime: getCurrentTimestamp,
+                                        name: _model
+                                            .textFieldNameTextController.text,
+                                        address: _model
+                                            .textFieldAdresseTextController
+                                            .text,
+                                        city: _model
+                                            .textFieldCityTextController.text,
+                                        areaCode: _model
+                                            .textFieldCodeTextController.text,
+                                        phoneNumber: _model
+                                            .textFieldPhoneTextController.text,
+                                        description: _model
+                                            .textFieldDescriptionTextController
+                                            .text,
+                                        siteWebUrl: _model
+                                            .textFieldSiteWebTextController
+                                            .text,
+                                        instagramLink: _model
+                                            .textFieldInstTextController.text,
+                                        twitterLink: _model
+                                            .textFieldTwitterTextController
+                                            .text,
+                                        facebookLink: _model
+                                            .textFieldFacebookTextController
+                                            .text,
+                                      ),
+                                      ...mapToFirestore(
+                                        {
+                                          'category':
+                                              _model.choiceChipsValues,
+                                        },
+                                      ),
+                                    }, enseignesRecordReference);
+
+                                    // L'enseigne existe déjà en base à partir
+                                    // d'ici (le .set() ci-dessus a réussi). Un
+                                    // échec des étapes suivantes (photos,
+                                    // horaires par défaut) ne doit jamais
+                                    // laisser croire au commerçant que rien
+                                    // n'a été créé — sinon il retape sur
+                                    // "Enregistrer" et se retrouve avec une
+                                    // enseigne en double.
+                                    var secondaryStepsFailed = false;
                                     try {
-                                      selectedUploadedFiles =
-                                          _model.uploadedImagesList;
-                                      selectedMedia =
-                                          selectedFilesFromUploadedFiles(
-                                        selectedUploadedFiles,
-                                        isMultiData: true,
+                                      if (_model
+                                          .uploadedImagesList.isNotEmpty) {
+                                        safeSetState(() => _model
+                                                .isDataUploading_uploadDataUnf =
+                                            true);
+                                        var selectedUploadedFiles =
+                                            <FFUploadedFile>[];
+                                        var selectedMedia = <SelectedFile>[];
+                                        var downloadUrls = <String>[];
+                                        try {
+                                          selectedUploadedFiles =
+                                              _model.uploadedImagesList;
+                                          selectedMedia =
+                                              selectedFilesFromUploadedFiles(
+                                            selectedUploadedFiles,
+                                            isMultiData: true,
+                                          );
+                                          downloadUrls = (await Future.wait(
+                                            selectedMedia.map(
+                                              (m) async => await uploadData(
+                                                  m.storagePath, m.bytes),
+                                            ),
+                                          ))
+                                              .where((u) => u != null)
+                                              .map((u) => u!)
+                                              .toList();
+                                        } finally {
+                                          _model.isDataUploading_uploadDataUnf =
+                                              false;
+                                        }
+                                        if (selectedUploadedFiles.length ==
+                                                selectedMedia.length &&
+                                            downloadUrls.length ==
+                                                selectedMedia.length) {
+                                          safeSetState(() {
+                                            _model.uploadedLocalFiles_uploadDataUnf =
+                                                selectedUploadedFiles;
+                                            _model.uploadedFileUrls_uploadDataUnf =
+                                                downloadUrls;
+                                          });
+                                          await actions.addImageUrlsToFirestore(
+                                            _model.enseigneResult!.reference,
+                                            _model.uploadedFileUrls_uploadDataUnf
+                                                .toList(),
+                                          );
+                                          safeSetState(() {
+                                            _model.isDataUploading_uploadDataPhoto5lq =
+                                                false;
+                                            _model.uploadedLocalFile_uploadDataPhoto5lq =
+                                                FFUploadedFile(
+                                                    bytes: Uint8List.fromList(
+                                                        []),
+                                                    originalFilename: '');
+                                            _model.isDataUploading_uploadDataUnf =
+                                                false;
+                                            _model.uploadedLocalFiles_uploadDataUnf =
+                                                [];
+                                            _model.uploadedFileUrls_uploadDataUnf =
+                                                [];
+                                          });
+                                        } else {
+                                          secondaryStepsFailed = true;
+                                        }
+                                      }
+
+                                      for (int loop1Index = 0;
+                                          loop1Index <
+                                              DayOfTheWeek.values
+                                                  .map((e) => e)
+                                                  .toList()
+                                                  .length;
+                                          loop1Index++) {
+                                        final currentLoop1Item =
+                                            DayOfTheWeek.values
+                                                .map((e) => e)
+                                                .toList()[loop1Index];
+
+                                        await HorairesRecord.createDoc(_model
+                                                .enseigneResult!.reference)
+                                            .set(createHorairesRecordData(
+                                          day: currentLoop1Item,
+                                          isOpen: false,
+                                          createdTime: getCurrentTimestamp,
+                                          order: loop1Index,
+                                          openingMorning:
+                                              functions.addDate(9),
+                                          closingMorning:
+                                              functions.addDate(12),
+                                          openingAfternoon:
+                                              functions.addDate(14),
+                                          closingAfternoon:
+                                              functions.addDate(18),
+                                          openingDay: functions.addDate(9),
+                                          closingDay: functions.addDate(18),
+                                          isFullDay: false,
+                                        ));
+                                      }
+                                    } catch (e, st) {
+                                      debugPrint(
+                                        'Enseigne secondary setup failed for ${_model.enseigneResult?.reference.path}: $e',
                                       );
-                                      downloadUrls = (await Future.wait(
-                                        selectedMedia.map(
-                                          (m) async => await uploadData(
-                                              m.storagePath, m.bytes),
+                                      debugPrintStack(stackTrace: st);
+                                      secondaryStepsFailed = true;
+                                    }
+
+                                    if (!context.mounted) return;
+
+                                    if (secondaryStepsFailed) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Votre enseigne a bien été créée, mais certaines étapes (photos ou horaires) n\'ont pas pu être finalisées. Vous pourrez les compléter depuis la fiche de votre enseigne — ne la recréez pas.',
+                                          ),
+                                          duration: Duration(seconds: 6),
                                         ),
-                                      ))
-                                          .where((u) => u != null)
-                                          .map((u) => u!)
-                                          .toList();
-                                    } finally {
-                                      _model.isDataUploading_uploadDataUnf =
-                                          false;
+                                      );
                                     }
-                                    if (selectedUploadedFiles.length ==
-                                            selectedMedia.length &&
-                                        downloadUrls.length ==
-                                            selectedMedia.length) {
-                                      safeSetState(() {
-                                        _model.uploadedLocalFiles_uploadDataUnf =
-                                            selectedUploadedFiles;
-                                        _model.uploadedFileUrls_uploadDataUnf =
-                                            downloadUrls;
-                                      });
-                                    } else {
-                                      safeSetState(() {});
-                                      return;
+
+                                    context.goNamed(
+                                      AddHoraireCommercantPageWidget.routeName,
+                                      queryParameters: {
+                                        'enseigneRef': serializeParam(
+                                          _model.enseigneResult?.reference,
+                                          ParamType.DocumentReference,
+                                        ),
+                                        'created': serializeParam(
+                                          true,
+                                          ParamType.bool,
+                                        ),
+                                      }.withoutNulls,
+                                    );
+                                  } finally {
+                                    if (mounted) {
+                                      safeSetState(() =>
+                                          _isSubmittingEnseigneCreation =
+                                              false);
                                     }
                                   }
-
-                                  await actions.addImageUrlsToFirestore(
-                                    _model.enseigneResult!.reference,
-                                    _model.uploadedFileUrls_uploadDataUnf
-                                        .toList(),
-                                  );
-                                  safeSetState(() {
-                                    _model.isDataUploading_uploadDataPhoto5lq =
-                                        false;
-                                    _model.uploadedLocalFile_uploadDataPhoto5lq =
-                                        FFUploadedFile(
-                                            bytes: Uint8List.fromList([]),
-                                            originalFilename: '');
-                                  });
-
-                                  safeSetState(() {
-                                    _model.isDataUploading_uploadDataUnf =
-                                        false;
-                                    _model.uploadedLocalFiles_uploadDataUnf =
-                                        [];
-                                    _model.uploadedFileUrls_uploadDataUnf = [];
-                                  });
-
-                                  for (int loop1Index = 0;
-                                      loop1Index <
-                                          DayOfTheWeek.values
-                                              .map((e) => e)
-                                              .toList()
-                                              .length;
-                                      loop1Index++) {
-                                    final currentLoop1Item = DayOfTheWeek.values
-                                        .map((e) => e)
-                                        .toList()[loop1Index];
-
-                                    await HorairesRecord.createDoc(
-                                            _model.enseigneResult!.reference)
-                                        .set(createHorairesRecordData(
-                                      day: currentLoop1Item,
-                                      isOpen: false,
-                                      createdTime: getCurrentTimestamp,
-                                      order: loop1Index,
-                                      openingMorning: functions.addDate(9),
-                                      closingMorning: functions.addDate(12),
-                                      openingAfternoon: functions.addDate(14),
-                                      closingAfternoon: functions.addDate(18),
-                                      openingDay: functions.addDate(9),
-                                      closingDay: functions.addDate(18),
-                                      isFullDay: false,
-                                    ));
-                                  }
-                                  if (!context.mounted) return;
-
-                                  context.goNamed(
-                                    AddHoraireCommercantPageWidget.routeName,
-                                    queryParameters: {
-                                      'enseigneRef': serializeParam(
-                                        _model.enseigneResult?.reference,
-                                        ParamType.DocumentReference,
-                                      ),
-                                      'created': serializeParam(
-                                        true,
-                                        ParamType.bool,
-                                      ),
-                                    }.withoutNulls,
-                                  );
-
-                                  if (shouldSetState) safeSetState(() {});
                                 },
                                 text: 'Enregistrer',
                                 options: FFButtonOptions(

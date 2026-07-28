@@ -63,6 +63,9 @@ class AddGameCommercantPageModel
   DateTime? datePicked;
   // State field(s) for Switch widget.
   bool? switchValue;
+  // Whether the merchant enabled an optional prize usage deadline.
+  bool prizeUsageDeadlineEnabled = false;
+  DateTime? prizeUsageDeadlinePicked;
   // Stores action output result for [Backend Call - Create Document] action in Button widget.
   GamesRecord? gameResult;
   // Stores action output result for [Custom Action - setEndOfDay] action in Button widget.

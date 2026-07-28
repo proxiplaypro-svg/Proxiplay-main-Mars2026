@@ -483,6 +483,65 @@ class _AddGameCommercantPageWidgetState
     }
   }
 
+  Future<void> _pickPrizeUsageDeadline() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    FocusScope.of(context).unfocus();
+    final initialDate = _model.prizeUsageDeadlinePicked ??
+        _model.datePicked ??
+        _model.startDatePicked ??
+        getCurrentTimestamp;
+    final firstDate = _model.datePicked ?? getCurrentTimestamp;
+    final datePickedDate = await showDatePicker(
+      context: context,
+      initialDate:
+          initialDate.isBefore(firstDate) ? firstDate : initialDate,
+      firstDate: firstDate,
+      lastDate: DateTime(2050),
+      builder: (context, child) {
+        return wrapInMaterialDatePickerTheme(
+          context,
+          child!,
+          headerBackgroundColor: FlutterFlowTheme.of(context).primary,
+          headerForegroundColor: FlutterFlowTheme.of(context).info,
+          headerTextStyle: FlutterFlowTheme.of(context).headlineLarge.override(
+                font: GoogleFonts.interTight(
+                  fontWeight: FontWeight.w600,
+                  fontStyle:
+                      FlutterFlowTheme.of(context).headlineLarge.fontStyle,
+                ),
+                fontSize: 32.0,
+                letterSpacing: 0.0,
+                fontWeight: FontWeight.w600,
+                fontStyle:
+                    FlutterFlowTheme.of(context).headlineLarge.fontStyle,
+              ),
+          pickerBackgroundColor:
+              FlutterFlowTheme.of(context).secondaryBackground,
+          pickerForegroundColor: FlutterFlowTheme.of(context).primaryText,
+          selectedDateTimeBackgroundColor:
+              FlutterFlowTheme.of(context).primary,
+          selectedDateTimeForegroundColor: FlutterFlowTheme.of(context).info,
+          actionButtonForegroundColor:
+              FlutterFlowTheme.of(context).primaryText,
+          iconSize: 24.0,
+        );
+      },
+    );
+
+    FocusManager.instance.primaryFocus?.unfocus();
+    FocusScope.of(context).unfocus();
+
+    if (datePickedDate != null) {
+      safeSetState(() {
+        _model.prizeUsageDeadlinePicked = DateTime(
+          datePickedDate.year,
+          datePickedDate.month,
+          datePickedDate.day,
+        );
+      });
+    }
+  }
+
   Widget _buildDateField(
     BuildContext context, {
     required String label,
@@ -663,6 +722,15 @@ class _AddGameCommercantPageWidgetState
   }
 
   Future<bool> _submitGameCreation() async {
+    if (currentUserDocument?.accountStatus != AccountStatus.approved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Votre compte commerçant doit être validé par un administrateur avant de pouvoir créer un jeu.'),
+        ),
+      );
+      return false;
+    }
     if (_model.formKey.currentState == null ||
         !_model.formKey.currentState!.validate()) {
       return false;
@@ -711,6 +779,16 @@ class _AddGameCommercantPageWidgetState
         const SnackBar(
           content:
               Text('La date de début doit être avant la date de fin.'),
+        ),
+      );
+      return false;
+    }
+    if (_model.prizeUsageDeadlineEnabled &&
+        _model.prizeUsageDeadlinePicked == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Choisissez une date limite d’utilisation du lot, ou désactivez l’option.'),
         ),
       );
       return false;
@@ -784,6 +862,10 @@ class _AddGameCommercantPageWidgetState
     _model.endDateTransformCopy = actions.setEndOfDay(
       _model.datePicked!,
     );
+    final prizeUsageDeadline =
+        _model.prizeUsageDeadlineEnabled && _model.prizeUsageDeadlinePicked != null
+            ? actions.setEndOfDay(_model.prizeUsageDeadlinePicked!)
+            : null;
 
     final createByRef = currentUserReference;
 
@@ -796,6 +878,7 @@ class _AddGameCommercantPageWidgetState
         description:
             mainPrizeDescription.isNotEmpty ? mainPrizeDescription : null,
         endDate: _model.endDateTransformCopy,
+        prizeUsageDeadline: prizeUsageDeadline,
         enseigneId: widget.enseigneRef,
         createBy: createByRef,
         visiblePublic: true,
@@ -834,6 +917,7 @@ class _AddGameCommercantPageWidgetState
         description:
             mainPrizeDescription.isNotEmpty ? mainPrizeDescription : null,
         endDate: _model.endDateTransformCopy,
+        prizeUsageDeadline: prizeUsageDeadline,
         enseigneId: widget.enseigneRef,
         createBy: createByRef,
         visiblePublic: true,
@@ -866,12 +950,25 @@ class _AddGameCommercantPageWidgetState
         },
       ),
     }, gamesRecordReference);
+    // Le jeu existe déjà en base à ce stade (gamesRecordReference.set a
+    // réussi ci-dessus). Un échec de la génération des lots secondaires ne
+    // doit jamais faire croire au commerçant que "rien ne s'est passé" :
+    // sinon il retape sur "Créer le jeu" et se retrouve avec un doublon.
+    var instantWinnersGenerationFailed = false;
     if (totalSecondaryCount > 0) {
-      await FirebaseFunctions.instance
-          .httpsCallable('generateInstantWinnersForGame')
-          .call({
-        'gameId': _model.gameResult!.reference.id,
-      });
+      try {
+        await FirebaseFunctions.instance
+            .httpsCallable('generateInstantWinnersForGame')
+            .call({
+          'gameId': _model.gameResult!.reference.id,
+        });
+      } catch (e, st) {
+        debugPrint(
+          'generateInstantWinnersForGame failed for gameId=${_model.gameResult!.reference.id}: $e',
+        );
+        debugPrintStack(stackTrace: st);
+        instantWinnersGenerationFailed = true;
+      }
     }
     safeSetState(() {
       _model.isDataUploading_uploadGameData5ir = false;
@@ -880,6 +977,16 @@ class _AddGameCommercantPageWidgetState
         originalFilename: '',
       );
     });
+    if (instantWinnersGenerationFailed && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Le jeu a bien été créé, mais la génération des lots secondaires a échoué. Contactez le support si le problème persiste — ne recréez pas le jeu.',
+          ),
+          duration: Duration(seconds: 6),
+        ),
+      );
+    }
     return true;
   }
 
@@ -1611,6 +1718,98 @@ class _AddGameCommercantPageWidgetState
                                 : '',
                             onTap: _pickEndDate,
                           ),
+                        ],
+                      ),
+                    ),
+                    _buildSectionCard(
+                      context,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionHeader(
+                            context,
+                            title: 'Date limite d’utilisation du lot',
+                            description:
+                                'Optionnel : informe le gagnant d’une date avant laquelle retirer ou utiliser son lot.',
+                          ),
+                          const SizedBox(height: 8.0),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12.0,
+                              vertical: 10.0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF6F7FB),
+                              borderRadius: BorderRadius.circular(14.0),
+                              border: Border.all(
+                                color: const Color(0x100E1220),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Ajouter une date limite d’utilisation',
+                                    style: FlutterFlowTheme.of(context)
+                                        .bodyLarge
+                                        .override(
+                                          font: GoogleFonts.inter(
+                                            fontWeight: FontWeight.w400,
+                                            fontStyle: FlutterFlowTheme.of(
+                                                    context)
+                                                .bodyLarge
+                                                .fontStyle,
+                                          ),
+                                          color: const Color(0xFF6A6884),
+                                          letterSpacing: 0.0,
+                                          fontSize: 14.0,
+                                          fontWeight: FontWeight.w400,
+                                          fontStyle: FlutterFlowTheme.of(
+                                                  context)
+                                              .bodyLarge
+                                              .fontStyle,
+                                        ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8.0),
+                                Switch(
+                                  value: _model.prizeUsageDeadlineEnabled,
+                                  onChanged: (newValue) async {
+                                    safeSetState(() {
+                                      _model.prizeUsageDeadlineEnabled =
+                                          newValue;
+                                    });
+                                  },
+                                  activeThumbColor: Colors.white,
+                                  activeTrackColor: const Color(0xFFA0134D),
+                                  inactiveTrackColor:
+                                      const Color(0xFFD7D9E2),
+                                  inactiveThumbColor: Colors.white,
+                                  trackOutlineColor: WidgetStateProperty.all(
+                                    Colors.transparent,
+                                  ),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_model.prizeUsageDeadlineEnabled) ...[
+                            const SizedBox(height: 8.0),
+                            _buildDateField(
+                              context,
+                              label: 'À utiliser avant le',
+                              value: _model.prizeUsageDeadlinePicked != null
+                                  ? dateTimeFormat(
+                                      'd/M/y',
+                                      _model.prizeUsageDeadlinePicked,
+                                      locale: FFLocalizations.of(context)
+                                          .languageCode,
+                                    )
+                                  : 'Choisir une date',
+                              onTap: _pickPrizeUsageDeadline,
+                            ),
+                          ],
                         ],
                       ),
                     ),
