@@ -535,13 +535,6 @@ exports.participateInGameTransaction = functions.https.onCall(
           gameConsistencyPatch.hasWinner = false;
           gameConsistencyPatch.main_prize_winner = null;
         }
-        if (remainingPart <= 0 && !unlimitedAccessActive) {
-          throw new functions.https.HttpsError(
-            "failed-precondition",
-            "Vous n'avez plus de parties disponibles."
-          );
-        }
-
         let animationEntryRef = null;
         let animationEntryDoc = null;
         let visitedMerchantIds = [];
@@ -694,6 +687,18 @@ exports.participateInGameTransaction = functions.https.onCall(
             game_bonus: 0,
             user_id: userRef,
           });
+        }
+
+        // Verifie APRES les trois retours anticipes "deja joue" ci-dessus :
+        // un joueur qui relit son resultat d'une partie deja jouee
+        // (remaining_part deja decremente sur cette meme partie) ne doit
+        // jamais tomber sur ce message a la place de son vrai resultat en
+        // cache. Ne s'applique qu'a une VRAIE nouvelle participation.
+        if (remainingPart <= 0 && !unlimitedAccessActive) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "Vous n'avez plus de parties disponibles."
+          );
         }
 
         // Enregistrer participation

@@ -1354,8 +1354,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       false,
                                                                   onPressed: ((widget.gameDoc!.endDate! <
                                                                               getCurrentTimestamp) ||
-                                                                          hasPlayedToday ||
-                                                                          noRemainingParts ||
+                                                                          (noRemainingParts &&
+                                                                              !hasPlayedToday) ||
                                                                           _isLaunchingGame)
                                                                       ? null
                                                                       : () async {
@@ -1543,8 +1543,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     false,
                                                                 onPressed: ((widget.gameDoc!.endDate! <
                                                                             getCurrentTimestamp) ||
-                                                                        hasPlayedToday ||
-                                                                        noRemainingPartsLive ||
+                                                                        (noRemainingPartsLive &&
+                                                                            !hasPlayedToday) ||
                                                                         _isLaunchingGame)
                                                                     ? null
                                                                     : () async {

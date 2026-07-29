@@ -48,7 +48,8 @@
     "backfill:winner-fields:dry": "node scripts/backfill_winner_denormalized_fields.js --project=proxi-play-odzp2e",
     "backfill:winner-fields": "node scripts/backfill_winner_denormalized_fields.js --project=proxi-play-odzp2e --apply --confirm",
     "test:firestore-rules": "firebase emulators:exec --only firestore \"node --test test/firestore_rules_users.test.js\"",
-    "test:prize-winner-contact": "firebase emulators:exec --only firestore \"node --test test/get_prize_winner_contact_for_merchant.test.js\""
+    "test:prize-winner-contact": "firebase emulators:exec --only firestore \"node --test test/get_prize_winner_contact_for_merchant.test.js\"",
+    "test:already-played-no-parts": "firebase emulators:exec --only firestore \"node --test test/participate_already_played_no_parts.test.js\""
   },
   "engines": {
     "node": "20"
