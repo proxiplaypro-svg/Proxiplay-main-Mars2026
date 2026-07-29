@@ -167,7 +167,9 @@ class UsersRecord extends FirestoreRecord {
 
   static UsersRecord fromSnapshot(DocumentSnapshot snapshot) => UsersRecord._(
         snapshot.reference,
-        mapFromFirestore(snapshot.data() as Map<String, dynamic>),
+        mapFromFirestore(
+          (snapshot.data() as Map<String, dynamic>?) ?? const {},
+        ),
       );
 
   static UsersRecord getDocumentFromData(

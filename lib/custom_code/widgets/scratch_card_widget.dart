@@ -63,6 +63,8 @@ class _ScratchCardWidgetState extends State<ScratchCardWidget> {
         image: Image.network(
           widget.rewardImageUrl,
           fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) =>
+              Container(color: const Color(0xFFEDEDED)),
         ),
         onThreshold: () {
           if (!_hasScratchStarted) {

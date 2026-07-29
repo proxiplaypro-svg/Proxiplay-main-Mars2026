@@ -114,7 +114,9 @@ class EnseignesRecord extends FirestoreRecord {
   static EnseignesRecord fromSnapshot(DocumentSnapshot snapshot) =>
       EnseignesRecord._(
         snapshot.reference,
-        mapFromFirestore(snapshot.data() as Map<String, dynamic>),
+        mapFromFirestore(
+          (snapshot.data() as Map<String, dynamic>?) ?? const {},
+        ),
       );
 
   static EnseignesRecord getDocumentFromData(

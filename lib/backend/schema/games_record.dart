@@ -213,7 +213,9 @@ class GamesRecord extends FirestoreRecord {
 
   static GamesRecord fromSnapshot(DocumentSnapshot snapshot) => GamesRecord._(
         snapshot.reference,
-        mapFromFirestore(snapshot.data() as Map<String, dynamic>),
+        mapFromFirestore(
+          (snapshot.data() as Map<String, dynamic>?) ?? const {},
+        ),
       );
 
   static GamesRecord getDocumentFromData(

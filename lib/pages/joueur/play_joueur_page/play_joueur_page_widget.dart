@@ -437,6 +437,38 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Garde-fou : widget.game est nullable dans sa signature meme si le
+    // flux normal ne le passe jamais null. Sans ce retour anticipe, tout
+    // acces synchrone `widget.game!.xxx` plus bas planterait sans jamais
+    // afficher la carte a gratter.
+    if (widget.game == null) {
+      debugPrint('[GAME_FLOW_DEBUG] play_page_missing_game_doc');
+      return Scaffold(
+        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Impossible d'afficher ce jeu pour le moment.",
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16.0),
+                  TextButton(
+                    onPressed: () => context.safePop(),
+                    child: const Text('Retour'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final rewardText = _resultMessage ?? '';
     final rewardTextBonus = _resultMessageBonus ?? '';
     final lowerBackendMessage =

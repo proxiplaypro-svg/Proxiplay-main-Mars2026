@@ -42,7 +42,9 @@ class ImagesRecord extends FirestoreRecord {
 
   static ImagesRecord fromSnapshot(DocumentSnapshot snapshot) => ImagesRecord._(
         snapshot.reference,
-        mapFromFirestore(snapshot.data() as Map<String, dynamic>),
+        mapFromFirestore(
+          (snapshot.data() as Map<String, dynamic>?) ?? const {},
+        ),
       );
 
   static ImagesRecord getDocumentFromData(

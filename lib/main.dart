@@ -2,7 +2,7 @@ import '/custom_code/actions/index.dart' as actions;
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 // --- AJOUT : Import pour savoir si on est sur le Web (kIsWeb) ---
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'dart:io' show Platform;
 // ----------------------------------------------------------------
 
@@ -54,6 +54,29 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   PerfTrace.log('APP_START');
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Filet de securite global : si un widget plante pendant sa construction
+  // (donnee malformee, reference vers un document supprime, etc.), on
+  // affiche ce message plutot que la boite rouge/grise par defaut de
+  // Flutter, qui peut laisser l'ecran ephemere de jeu (ScratchCardWidget)
+  // vide ou casse sans aucune explication pour le joueur.
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    debugPrint('[UI_BUILD_ERROR] ${details.exception}');
+    if (kDebugMode) {
+      return ErrorWidget(details.exception);
+    }
+    return Container(
+      color: Colors.white,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(24.0),
+      child: const Text(
+        'Un problème est survenu. Réessayez.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Color(0xFF4B5563), fontSize: 14.0),
+      ),
+    );
+  };
+
   GoRouter.optionURLReflectsImperativeAPIs = true;
   usePathUrlStrategy();
 
