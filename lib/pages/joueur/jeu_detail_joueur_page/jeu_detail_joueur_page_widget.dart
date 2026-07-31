@@ -59,16 +59,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
   final GameLaunchCoordinator _launchCoordinator =
       GameLaunchCoordinator(screenName: 'JeuDetailJoueurPage');
 
-  // Recuperation automatique : si le joueur revient sur cette fiche peu de
-  // temps apres avoir tente cette partie (echec d'affichage probable —
-  // navigation, plantage, app tuee), on relance tout seul l'appel qui
-  // affichera la carte a gratter avec le resultat deja fige, sans obliger
-  // le joueur a comprendre qu'il faut retaper sur le bouton. Un seul essai
-  // automatique par ouverture de cette page pour eviter une boucle si
-  // l'echec se reproduit.
-  static const _autoRecoveryWindow = Duration(minutes: 5);
-  bool _autoRecoveryAttempted = false;
-
   Future<void> _trackViewOnce() async {
     if (_hasTrackedView) {
       return;
@@ -467,13 +457,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     required Future<ParticipateInGameTransactionCloudFunctionCallResponse>
         Function() participate,
   }) async {
-    // Marque la recuperation automatique comme deja traitee des qu'un
-    // lancement demarre, manuel ou automatique : sans ca, revenir sur
-    // cette page juste apres une partie normale et reussie re-declencherait
-    // aussitot le meme jeu en boucle (hasPlayedToday devient vrai des le
-    // retour, dans la fenetre de quelques minutes de _autoRecoveryWindow).
-    _autoRecoveryAttempted = true;
-
     final gameId = widget.gameDoc?.reference.id ?? 'unknown';
 
     await _launchCoordinator.launch(
@@ -781,56 +764,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final hasPlayedBefore = lastPlay != null && !hasPlayedToday;
         final noRemainingParts = _hasNoRemainingParts(currentUserDocument, now);
 
-        // Recuperation automatique : la partie a ete tentee tres recemment
-        // (fenetre courte, pas "il y a des heures") et on n'a pas encore
-        // essaye cette session — tres probablement un echec d'affichage
-        // (pas un vrai retour volontaire du joueur sur une vieille partie).
-        // On planifie l'appel apres la frame en cours, jamais pendant
-        // build().
-        if (hasPlayedToday &&
-            lastPlay != null &&
-            !_autoRecoveryAttempted &&
-            !_isLaunchingGame &&
-            now.difference(lastPlay) < _autoRecoveryWindow) {
-          _autoRecoveryAttempted = true;
-          debugPrint(
-            '[GAME_FLOW_DEBUG] auto_recovery_scheduled '
-            'gameId=${widget.gameDoc?.reference.id ?? 'unknown'} '
-            'lastPlay=${lastPlay.toIso8601String()}',
-          );
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            _launchGame(
-              participate: () async {
-                try {
-                  final result = await FirebaseFunctions.instance
-                      .httpsCallable('participateInGameTransaction')
-                      .call({
-                    "gameRef": widget.gameDoc!.reference.id,
-                    "from_qr": widget.fromQr,
-                  });
-                  _model.cloudFunction3sn =
-                      ParticipateInGameTransactionCloudFunctionCallResponse(
-                    data: ResultParticipationGameStruct.fromMap(result.data),
-                    succeeded: true,
-                    resultAsString: result.data.toString(),
-                    jsonBody: result.data,
-                  );
-                } on FirebaseFunctionsException catch (error) {
-                  _model.cloudFunction3sn =
-                      ParticipateInGameTransactionCloudFunctionCallResponse(
-                    data: createResultParticipationGameStruct(
-                      message: error.message ?? "Erreur (${error.code})",
-                    ),
-                    errorCode: error.code,
-                    succeeded: false,
-                  );
-                }
-                return _model.cloudFunction3sn!;
-              },
-            );
-          });
-        }
         final endDate = widget.gameDoc?.endDate;
         final gameDoc = widget.gameDoc!;
         final effectiveEnseigneDoc = widget.enseigneDoc ??
