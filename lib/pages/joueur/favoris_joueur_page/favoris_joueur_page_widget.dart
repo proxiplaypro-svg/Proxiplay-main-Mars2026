@@ -231,22 +231,22 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
             preferredSize: const Size.fromHeight(100.0),
             child: AppBar(
               backgroundColor: Colors.transparent,
+              elevation: 0.0,
+              scrolledUnderElevation: 0.0,
+              shadowColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
               automaticallyImplyLeading: false,
               actions: const [],
               flexibleSpace: FlexibleSpaceBar(
-                title: wrapWithModel(
-                  model: _model.appBarJoueurModel,
-                  updateCallback: () => safeSetState(() {}),
-                  child: const AppBarJoueurWidget(),
-                ),
-                background: ClipRRect(
-                  borderRadius: BorderRadius.circular(8.0),
-                  child: Image.asset(
-                    'assets/images/Background.png',
-                    fit: BoxFit.cover,
-                    alignment: const Alignment(1.0, -1.0),
+                title: Align(
+                  alignment: const AlignmentDirectional(0.0, 1.0),
+                  child: wrapWithModel(
+                    model: _model.appBarJoueurModel,
+                    updateCallback: () => safeSetState(() {}),
+                    child: const AppBarJoueurWidget(),
                   ),
                 ),
+                background: const SizedBox.shrink(),
                 centerTitle: true,
                 expandedTitleScale: 1.0,
                 titlePadding:
@@ -255,7 +255,7 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
             ),
           ),
           body: SafeArea(
-            top: true,
+            top: false,
             child: Container(
               decoration: BoxDecoration(
                 image: DecorationImage(

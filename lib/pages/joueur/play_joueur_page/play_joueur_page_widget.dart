@@ -89,15 +89,11 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
   bool hasMainPrize(GamesRecord game) {
-    final hasMainPrizeRaw = game.snapshotData['hasMainPrize'];
-    if (hasMainPrizeRaw is bool) {
-      return hasMainPrizeRaw;
+    if (game.hasHasMainPrize()) {
+      return game.hasMainPrize;
     }
 
-    final name = game.name.trim();
-    final description = game.description.trim();
-    final hasPrizeValue = game.prizeValue > 0;
-    return name.isNotEmpty || description.isNotEmpty || hasPrizeValue;
+    return game.prizeValue > 0;
   }
 
   String _pickDisplayMessage(List<String> messages) {
