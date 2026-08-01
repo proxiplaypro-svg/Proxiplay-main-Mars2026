@@ -33,7 +33,6 @@ import 'services/remote_config_service.dart';
 import 'services/global_ticker_service.dart';
 import 'pages/status_screens/maintenance_screen.dart';
 import 'widgets/app_update_gate.dart';
-import 'widgets/global_message_gate.dart';
 
 class AppBootstrapResult {
   const AppBootstrapResult({
@@ -495,10 +494,7 @@ class MyAppState extends State<MyApp> {
       themeMode: _themeMode,
       builder: (context, child) => AppUpdateGate(
         navigatorKey: _router.routerDelegate.navigatorKey,
-        child: GlobalMessageGate(
-          navigatorKey: _router.routerDelegate.navigatorKey,
-          child: child ?? const SizedBox.shrink(),
-        ),
+        child: child ?? const SizedBox.shrink(),
       ),
       routerConfig: _router,
     );
