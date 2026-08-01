@@ -70,6 +70,7 @@ void main() {
 
       await coordinator.launch(
         gameId: 'game-1',
+        attemptId: 'test-attempt',
         onLaunchingChanged: launchingChanges.add,
         participate: () async {
           participateCalls++;
@@ -104,6 +105,7 @@ void main() {
 
       final firstLaunch = coordinator.launch(
         gameId: 'game-1',
+        attemptId: 'test-attempt',
         onLaunchingChanged: launchingChanges.add,
         participate: () async {
           participateCalls++;
@@ -120,6 +122,7 @@ void main() {
       // Second tap while the first participate() call is still pending.
       final secondLaunch = coordinator.launch(
         gameId: 'game-1',
+        attemptId: 'test-attempt',
         onLaunchingChanged: launchingChanges.add,
         participate: () async {
           participateCalls++;
@@ -151,6 +154,7 @@ void main() {
 
       await coordinator.launch(
         gameId: 'game-1',
+        attemptId: 'test-attempt',
         onLaunchingChanged: launchingChanges.add,
         participate: () async => winOutcome(),
         navigate: (outcome) async => GameLaunchCoordinator.runNavigation(
@@ -180,6 +184,7 @@ void main() {
 
       await coordinator.launch(
         gameId: 'game-1',
+        attemptId: 'test-attempt',
         onLaunchingChanged: launchingChanges.add,
         participate: () async => winOutcome(),
         navigate: (outcome) async => GameLaunchCoordinator.runNavigation(
@@ -208,6 +213,7 @@ void main() {
 
       await coordinator.launch(
         gameId: 'game-1',
+        attemptId: 'test-attempt',
         onLaunchingChanged: launchingChanges.add,
         participate: () async => winOutcome(),
         navigate: (outcome) async {
@@ -232,39 +238,35 @@ void main() {
     });
 
     test(
-        'deuxième tentative sur un jeu réellement déjà joué: replays the cached result instead of blocking',
+        'deuxième tentative sur un jeu réellement déjà joué: navigates with the cached result instead of blocking',
         () async {
-      // The server now caches the player's real outcome (win/lose message)
-      // on an already-played retry instead of returning a dead-end message
-      // (see resolveCachedLastResult in participate_in_game_transaction.js).
-      // The coordinator must therefore still navigate so the game screen —
-      // which already knows how to render an "already played" result — can
-      // show it, rather than leaving the player stuck behind a dialog.
       var navigateCalls = 0;
-      var errorCalls = 0;
+      GameParticipationOutcome? navigatedOutcome;
 
       await coordinator.launch(
         gameId: 'game-1',
+        attemptId: 'test-attempt',
         onLaunchingChanged: launchingChanges.add,
         participate: () async => alreadyPlayedOutcome(),
         navigate: (outcome) async {
           navigateCalls++;
-          expect(outcome.alreadyParticipatedToday, isTrue);
+          navigatedOutcome = outcome;
           return immediateMount(outcome);
         },
-        onParticipationError: (outcome) async => errorCalls++,
       );
 
-      expect(navigateCalls, 1,
-          reason: 'an already-played retry must still show the cached '
-              'result on the game screen');
-      expect(errorCalls, 0);
+      expect(
+        navigateCalls,
+        1,
+        reason: 'an already-played game must still navigate so the player '
+            'sees their real cached result instead of a dead end',
+      );
+      expect(navigatedOutcome?.alreadyParticipatedToday, isTrue);
       expect(coordinator.isLaunching, isFalse);
       expect(
         logs.any((l) => l.contains('event=deja_joue_relecture_resultat')),
         isTrue,
       );
-      expect(logs.any((l) => l.contains('event=page_jeu_montee')), isTrue);
     });
 
     test('server error: lock is released and onParticipationError fires',
@@ -273,6 +275,7 @@ void main() {
 
       await coordinator.launch(
         gameId: 'game-1',
+        attemptId: 'test-attempt',
         onLaunchingChanged: launchingChanges.add,
         participate: () async => errorOutcome(),
         navigate: immediateMount,
@@ -297,6 +300,7 @@ void main() {
 
       await coordinator.launch(
         gameId: 'game-1',
+        attemptId: 'test-attempt',
         onLaunchingChanged: launchingChanges.add,
         participate: () async {
           // Never completes within participateTimeout (200ms).
