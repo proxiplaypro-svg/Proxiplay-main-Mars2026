@@ -9,12 +9,15 @@ import 'dart:io' show Platform;
 import 'dart:async';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'auth/firebase_auth/firebase_user_provider.dart';
 import 'auth/firebase_auth/auth_util.dart';
+import 'auth/firebase_auth/account_routing.dart';
 import 'auth/firebase_auth/firebase_persistence.dart';
+import 'backend/schema/enums/enums.dart';
 
 import 'backend/push_notifications/push_notifications_util.dart';
 import 'backend/firebase/firebase_config.dart';
@@ -30,6 +33,7 @@ import 'services/remote_config_service.dart';
 import 'services/global_ticker_service.dart';
 import 'pages/status_screens/maintenance_screen.dart';
 import 'widgets/app_update_gate.dart';
+import 'widgets/global_message_gate.dart';
 
 class AppBootstrapResult {
   const AppBootstrapResult({
@@ -184,6 +188,7 @@ class MyAppState extends State<MyApp> {
   StreamSubscription<dynamic>? _fcmTokenSub;
   VoidCallback? _routerReferralListener;
   String? _lastReferralLocation;
+  _RoutingRefreshSnapshot? _lastRoutingRefreshSnapshot;
 
   String getRoute([RouteMatch? routeMatch]) {
     final RouteMatch lastMatch =
@@ -206,6 +211,7 @@ class MyAppState extends State<MyApp> {
 
     _appStateNotifier = AppStateNotifier.instance;
     _router = createRouter(_appStateNotifier);
+    _lastRoutingRefreshSnapshot = _captureRoutingRefreshSnapshot();
     if (!widget.bootstrapResult.firebaseInitialized) {
       return;
     }
@@ -213,6 +219,11 @@ class MyAppState extends State<MyApp> {
       if (!mounted) {
         return;
       }
+      final nextSnapshot = _captureRoutingRefreshSnapshot();
+      if (_lastRoutingRefreshSnapshot == nextSnapshot) {
+        return;
+      }
+      _lastRoutingRefreshSnapshot = nextSnapshot;
       _appStateNotifier.refreshRouting();
     });
     _fcmTokenSub = fcmTokenUserStream.listen((_) {});
@@ -356,6 +367,18 @@ class MyAppState extends State<MyApp> {
     });
   }
 
+  _RoutingRefreshSnapshot _captureRoutingRefreshSnapshot() {
+    return _RoutingRefreshSnapshot(
+      isAuthenticated:
+          FirebaseAuth.instance.currentUser != null || currentUserUid.isNotEmpty,
+      hasUserDocument: currentUserDocument != null,
+      userRole: currentUserDocument?.userRole,
+      accountStatus: currentUserDocument?.accountStatus,
+      merchantRoutingConflict:
+          hasCachedMerchantRoutingConflict(currentUserDocument),
+    );
+  }
+
   @override
   void dispose() {
     _authUserSub?.cancel();
@@ -472,11 +495,52 @@ class MyAppState extends State<MyApp> {
       themeMode: _themeMode,
       builder: (context, child) => AppUpdateGate(
         navigatorKey: _router.routerDelegate.navigatorKey,
-        child: child ?? const SizedBox.shrink(),
+        child: GlobalMessageGate(
+          navigatorKey: _router.routerDelegate.navigatorKey,
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
       routerConfig: _router,
     );
   }
+}
+
+class _RoutingRefreshSnapshot {
+  const _RoutingRefreshSnapshot({
+    required this.isAuthenticated,
+    required this.hasUserDocument,
+    required this.userRole,
+    required this.accountStatus,
+    required this.merchantRoutingConflict,
+  });
+
+  final bool isAuthenticated;
+  final bool hasUserDocument;
+  final Roles? userRole;
+  final AccountStatus? accountStatus;
+  final bool merchantRoutingConflict;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is _RoutingRefreshSnapshot &&
+        other.isAuthenticated == isAuthenticated &&
+        other.hasUserDocument == hasUserDocument &&
+        other.userRole == userRole &&
+        other.accountStatus == accountStatus &&
+        other.merchantRoutingConflict == merchantRoutingConflict;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        isAuthenticated,
+        hasUserDocument,
+        userRole,
+        accountStatus,
+        merchantRoutingConflict,
+      );
 }
 
 class _StartupFailureScreen extends StatelessWidget {

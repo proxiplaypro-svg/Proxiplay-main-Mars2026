@@ -190,11 +190,13 @@ class FirebaseAuthManager extends AuthManager
     BuildContext context,
     String email,
     String password,
+    {Roles? roleHint}
   ) =>
       _signInOrCreateAccount(
         context,
         () => emailCreateAccountFunc(email, password),
         'EMAIL',
+        roleHint: roleHint,
       );
 
   @override

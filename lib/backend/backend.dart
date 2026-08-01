@@ -1856,14 +1856,13 @@ Future<UsersRecord?> ensureUserDocumentInitialized(
     final data = rawData is Map<String, dynamic> ? rawData : <String, dynamic>{};
     final docExists = snapshot.exists;
     final existingRole = _roleFromRaw(data['user_role']);
-    final effectiveRole = existingRole ?? roleHint;
     final remainingState = describeRemainingPartState(data['remaining_part']);
     final patch = <String, dynamic>{};
 
     if (_isMissingTextValue(data['uid'])) {
       patch['uid'] = user.uid;
     }
-    if (!docExists || data['created_time'] == null) {
+    if (!docExists) {
       patch['created_time'] = FieldValue.serverTimestamp();
     }
     if (_isMissingTextValue(data['email']) && email.isNotEmpty) {
@@ -1881,13 +1880,15 @@ Future<UsersRecord?> ensureUserDocumentInitialized(
     if (existingRole == null && roleHint != null) {
       patch['user_role'] = roleHint.serialize();
     }
-    if (effectiveRole == Roles.joueur &&
-        !hasValidRemainingPartValue(data['remaining_part'])) {
-      patch['remaining_part'] = kDefaultRemainingPart;
-      if (data['part_last_update'] == null) {
-        patch['part_last_update'] = FieldValue.serverTimestamp();
-      }
-    }
+    // remaining_part n'est jamais écrit ici : les règles Firestore
+    // l'interdisent explicitement côté client (création comme mise à
+    // jour), justement pour empêcher un joueur de se donner des parties
+    // gratuites. Seule la Cloud Function initializeNewPlayerRemainingParts
+    // (déclenchée à la création du document) a le droit de le poser.
+    // Tenter de l'écrire ici faisait échouer toute la transaction merge
+    // (created_time/email/display_name/photo_url/phone_number inclus),
+    // laissant le profil du joueur vide en cas de deuxième appel sur un
+    // document déjà créé (ex: bootstrap Google, chemins de "repair").
 
     if (kDebugMode) {
       debugPrint(

@@ -1224,6 +1224,7 @@ exports.resetDailyRemainingParts = functions.pubsub
     while (true) {
       let query = firestore
         .collection("users")
+        .where("user_role", "==", "joueur")
         .orderBy(admin.firestore.FieldPath.documentId())
         .limit(kDailyPartsResetBatchSize);
 

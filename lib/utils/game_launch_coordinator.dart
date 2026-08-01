@@ -15,6 +15,7 @@ class GameParticipationOutcome {
   const GameParticipationOutcome({
     required this.succeeded,
     required this.alreadyParticipatedToday,
+    this.attemptId,
     this.errorMessage,
     this.errorCode,
     this.raw,
@@ -22,6 +23,7 @@ class GameParticipationOutcome {
 
   final bool succeeded;
   final bool alreadyParticipatedToday;
+  final String? attemptId;
   final String? errorMessage;
   final String? errorCode;
 
@@ -79,9 +81,18 @@ class GameLaunchCoordinator {
   bool _isLaunching = false;
   bool get isLaunching => _isLaunching;
 
-  void _logEvent(String gameId, String event, {String? detail}) {
+  void _logEvent(
+    String gameId,
+    String event, {
+    String? attemptId,
+    String? detail,
+  }) {
     final suffix = (detail != null && detail.isNotEmpty) ? ' detail=$detail' : '';
-    _log('[GAME_LAUNCH] screen=$screenName gameId=$gameId event=$event$suffix');
+    final attemptSuffix =
+        (attemptId != null && attemptId.isNotEmpty) ? ' attemptId=$attemptId' : '';
+    _log(
+      '[GAME_LAUNCH] screen=$screenName gameId=$gameId$attemptSuffix event=$event$suffix',
+    );
   }
 
   /// Attempts to launch a game for [gameId].
@@ -99,6 +110,7 @@ class GameLaunchCoordinator {
   /// player behind a dialog with nothing to show.
   Future<void> launch({
     required String gameId,
+    required String attemptId,
     required Future<GameParticipationOutcome> Function() participate,
     required Future<GameNavigationResult> Function(
       GameParticipationOutcome outcome,
@@ -110,21 +122,23 @@ class GameLaunchCoordinator {
     void Function()? onMountTimedOut,
   }) async {
     if (_isLaunching) {
-      _logEvent(gameId, 'lancement_ignore_deja_en_cours');
+      _logEvent(gameId, 'lancement_ignore_deja_en_cours', attemptId: attemptId);
       return;
     }
 
     _isLaunching = true;
     onLaunchingChanged(true);
-    _logEvent(gameId, 'lancement_demande');
+    _logEvent(gameId, 'lancement_demande', attemptId: attemptId);
 
     try {
       final outcome = await _participateWithTimeout(gameId, participate);
+      final effectiveAttemptId = outcome.attemptId ?? attemptId;
 
       if (!outcome.succeeded) {
         _logEvent(
           gameId,
           'lancement_echec_participation',
+          attemptId: effectiveAttemptId,
           detail: outcome.errorCode ?? outcome.errorMessage,
         );
         await onParticipationError?.call(outcome);
@@ -136,6 +150,7 @@ class GameLaunchCoordinator {
         outcome.alreadyParticipatedToday
             ? 'deja_joue_relecture_resultat'
             : 'participation_confirmee_serveur',
+        attemptId: effectiveAttemptId,
       );
 
       final navigationResult = await navigate(outcome);
@@ -144,18 +159,20 @@ class GameLaunchCoordinator {
           _logEvent(
             gameId,
             'lancement_erreur_navigation',
+            attemptId: effectiveAttemptId,
             detail: 'participation deja enregistree cote serveur, '
                 'ecran de jeu non affiche',
           );
           await onNavigationFailed?.call();
           break;
         case GameNavigationResult.mounted:
-          _logEvent(gameId, 'page_jeu_montee');
+          _logEvent(gameId, 'page_jeu_montee', attemptId: effectiveAttemptId);
           break;
         case GameNavigationResult.mountTimedOut:
           _logEvent(
             gameId,
             'lancement_timeout_montage_page_jeu',
+            attemptId: effectiveAttemptId,
             detail: 'aucune confirmation visuelle recue, participation '
                 'potentiellement invisible pour le joueur',
           );
@@ -165,7 +182,7 @@ class GameLaunchCoordinator {
     } finally {
       _isLaunching = false;
       onLaunchingChanged(false);
-      _logEvent(gameId, 'verrou_lancement_libere');
+      _logEvent(gameId, 'verrou_lancement_libere', attemptId: attemptId);
     }
   }
 
@@ -180,6 +197,7 @@ class GameLaunchCoordinator {
       return const GameParticipationOutcome(
         succeeded: false,
         alreadyParticipatedToday: false,
+        attemptId: null,
         errorCode: 'timeout-client',
         errorMessage: 'Le serveur met trop de temps a repondre. Reessayez.',
       );

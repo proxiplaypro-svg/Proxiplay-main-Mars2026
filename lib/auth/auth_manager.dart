@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'base_auth_user_provider.dart';
+import '/backend/schema/enums/enums.dart';
 
 abstract class AuthManager {
   Future signOut();
@@ -22,6 +23,7 @@ mixin EmailSignInManager on AuthManager {
     BuildContext context,
     String email,
     String password,
+    {Roles? roleHint}
   );
 }
 

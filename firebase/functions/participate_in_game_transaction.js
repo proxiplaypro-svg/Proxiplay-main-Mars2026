@@ -315,6 +315,49 @@ function calculatePlayerStatus(userData, now) {
   return 'statut_inconnu';
 }
 
+function formatParisTimestamp(date = new Date()) {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date).replace(" ", "T");
+}
+
+function traceSerializable(value) {
+  if (value === null || typeof value === "undefined") {
+    return value;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (value && typeof value.toDate === "function") {
+    return value.toDate().toISOString();
+  }
+  if (value && typeof value.path === "string") {
+    return value.path;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => traceSerializable(item));
+  }
+  if (typeof value === "object") {
+    const output = {};
+    for (const [key, entry] of Object.entries(value)) {
+      output[key] = traceSerializable(entry);
+    }
+    return output;
+  }
+  return value;
+}
+
+function logParticipationTrace(attemptId, stage, payload = {}) {
+  return;
+}
+
 exports.participateInGameTransaction = functions.https.onCall(
   async (data, context) => {
     if (!context.auth) {
@@ -326,6 +369,16 @@ exports.participateInGameTransaction = functions.https.onCall(
 
     let gameRefPath = data.gameRef;
     const fromQr = data.from_qr === true;
+    const attemptId =
+      typeof data.attemptId === "string" && data.attemptId.trim().length > 0
+        ? data.attemptId.trim()
+        : `missing_attempt_${Date.now()}`;
+    logParticipationTrace(attemptId, "cloud_function_enter", {
+      uid: context.auth.uid,
+      gameRefPath,
+      fromQr,
+      payload: data,
+    });
     console.log("gameRefPath reçu:", gameRefPath);
 
     if (!gameRefPath || typeof gameRefPath !== "string" || gameRefPath === "") {
@@ -340,6 +393,10 @@ exports.participateInGameTransaction = functions.https.onCall(
     console.log("gameRef Firestore path:", gameRef.path);
 
     let responseData = {};
+    let transactionDecision = "unknown";
+    let finalLastPlayIso = null;
+    let finalRemainingPartValue = null;
+    const modifiedDocs = [];
     let uid = "";
     let userEmail = "";
     let enseigneName = "";
@@ -368,6 +425,15 @@ exports.participateInGameTransaction = functions.https.onCall(
         const participantDetailRef = gameRef
           .collection("participants_details")
           .doc(uid);
+        const recordWrite = (op, ref, payload) => {
+          const entry = {
+            op,
+            path: ref.path,
+            fields: Object.keys(payload || {}),
+          };
+          modifiedDocs.push(entry);
+          logParticipationTrace(attemptId, "firestore_write_queued", entry);
+        };
 
         console.log("UserRef Firestore path:", userRef.path);
 
@@ -493,6 +559,24 @@ exports.participateInGameTransaction = functions.https.onCall(
         const alreadyParticipatedToday = participantTodayDoc.exists;
         const unlimitedAccessActive = hasUnlimitedAccess(userData, now);
         let uniquePlayerNew = false;
+        const participantDetailData = participantDetailDoc.exists
+          ? participantDetailDoc.data()
+          : null;
+        const participantDetailLastPlay =
+          participantDetailData?.last_play?.toDate?.() || null;
+
+        logParticipationTrace(attemptId, "transaction_state_loaded", {
+          uid,
+          gameId: gameRef.id,
+          dayKey,
+          remainingPart,
+          unlimitedAccessActive,
+          alreadyParticipatedToday,
+          participantTodayExists: participantTodayDoc.exists,
+          participantDetailExists: participantDetailDoc.exists,
+          participantDetailLastPlay,
+          fromQr,
+        });
 
         console.log(
           `[participateInGameTransaction] uid=${uid} gameId=${gameRef.id} remaining_part_state=${remainingPartState} remaining_part_value=${remainingPart} unlimitedAccess=${unlimitedAccessActive}`
@@ -612,6 +696,9 @@ exports.participateInGameTransaction = functions.https.onCall(
         }
 
         if (alreadyParticipatedToday) {
+          transactionDecision = "already_played_participant_today";
+          finalLastPlayIso = traceSerializable(participantDetailLastPlay);
+          finalRemainingPartValue = remainingPart;
           console.log(
             `participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=true uniquePlayerNew=${uniquePlayerNew}`
           );
@@ -627,6 +714,14 @@ exports.participateInGameTransaction = functions.https.onCall(
             }),
             alreadyParticipatedToday: true,
           };
+          logParticipationTrace(attemptId, "transaction_decision", {
+            uid,
+            gameId: gameRef.id,
+            decision: transactionDecision,
+            responseData,
+            finalLastPlayIso,
+            finalRemainingPartValue,
+          });
           return;
         }
 
@@ -639,6 +734,9 @@ exports.participateInGameTransaction = functions.https.onCall(
           const bonus = detailData.game_bonus || 0;
 
           if (hasPlayedToday && bonus <= 0) {
+            transactionDecision = "already_played_last_play_no_bonus";
+            finalLastPlayIso = traceSerializable(lastPlay);
+            finalRemainingPartValue = remainingPart;
             console.log(
               `participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=true(unique-last-play) uniquePlayerNew=${uniquePlayerNew}`
             );
@@ -652,10 +750,21 @@ exports.participateInGameTransaction = functions.https.onCall(
               }),
               alreadyParticipatedToday: true,
             };
+            logParticipationTrace(attemptId, "transaction_decision", {
+              uid,
+              gameId: gameRef.id,
+              decision: transactionDecision,
+              responseData,
+              finalLastPlayIso,
+              finalRemainingPartValue,
+            });
             return;
           }
 
           if (hasPlayedToday && bonus > 0) {
+            transactionDecision = "already_played_last_play_bonus";
+            finalLastPlayIso = traceSerializable(lastPlay);
+            finalRemainingPartValue = remainingPart;
             console.log(
               `participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=true(bonus) uniquePlayerNew=${uniquePlayerNew}`
             );
@@ -669,8 +778,21 @@ exports.participateInGameTransaction = functions.https.onCall(
               }),
               alreadyParticipatedToday: true,
             };
+            logParticipationTrace(attemptId, "transaction_decision", {
+              uid,
+              gameId: gameRef.id,
+              decision: transactionDecision,
+              responseData,
+              finalLastPlayIso,
+              finalRemainingPartValue,
+            });
             return;
           } else {
+            recordWrite("set", participantDetailRef, {
+              last_play: now,
+              game_bonus: bonus,
+              user_id: userRef,
+            });
             transaction.set(
               participantDetailRef,
               {
@@ -682,6 +804,11 @@ exports.participateInGameTransaction = functions.https.onCall(
             );
           }
         } else {
+          recordWrite("set", participantDetailRef, {
+            last_play: now,
+            game_bonus: 0,
+            user_id: userRef,
+          });
           transaction.set(participantDetailRef, {
             last_play: now,
             game_bonus: 0,
@@ -695,6 +822,16 @@ exports.participateInGameTransaction = functions.https.onCall(
         // jamais tomber sur ce message a la place de son vrai resultat en
         // cache. Ne s'applique qu'a une VRAIE nouvelle participation.
         if (remainingPart <= 0 && !unlimitedAccessActive) {
+          transactionDecision = "no_remaining_part";
+          finalLastPlayIso = traceSerializable(participantDetailLastPlay);
+          finalRemainingPartValue = remainingPart;
+          logParticipationTrace(attemptId, "transaction_decision", {
+            uid,
+            gameId: gameRef.id,
+            decision: transactionDecision,
+            finalLastPlayIso,
+            finalRemainingPartValue,
+          });
           throw new functions.https.HttpsError(
             "failed-precondition",
             "Vous n'avez plus de parties disponibles."
@@ -703,24 +840,42 @@ exports.participateInGameTransaction = functions.https.onCall(
 
         // Enregistrer participation
         if (Object.keys(gameConsistencyPatch).length > 0) {
+          recordWrite("update", gameRef, gameConsistencyPatch);
           transaction.update(gameRef, gameConsistencyPatch);
         }
 
         if (uniquePlayerNew) {
+          recordWrite("set", uniquePlayerRef, {
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
           transaction.set(uniquePlayerRef, {
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          recordWrite("update", gameRef, {
+            unique_players_count: admin.firestore.FieldValue.increment(1),
           });
           transaction.update(gameRef, {
             unique_players_count: admin.firestore.FieldValue.increment(1),
           });
         }
 
+        recordWrite("set", participantTodayRef, {
+          user_id: userRef,
+          participation_date: now,
+        });
         transaction.set(participantTodayRef, {
           user_id: userRef,
           participation_date: now,
         });
 
         if (shouldUpdateAnimationEntry && animationEntryRef) {
+          recordWrite("set", animationEntryRef, {
+            uid,
+            visited_merchant_ids: visitedMerchantIds,
+            visited_count: visitedMerchantIds.length,
+            threshold_reached: thresholdReached,
+            last_updated: now,
+          });
           transaction.set(
             animationEntryRef,
             {
@@ -734,6 +889,9 @@ exports.participateInGameTransaction = functions.https.onCall(
           );
         }
 
+        recordWrite("update", gameRef, {
+          participations: admin.firestore.FieldValue.increment(1),
+        });
         transaction.update(gameRef, {
           participations: admin.firestore.FieldValue.increment(1),
         });
@@ -774,6 +932,7 @@ exports.participateInGameTransaction = functions.https.onCall(
         };
         userUpdateData.player_status_cached = calculatePlayerStatus(projectedUserData, now);
 
+        recordWrite("update", userRef, userUpdateData);
         transaction.update(userRef, userUpdateData);
 
         // Lots (gains immédiats uniquement)
@@ -811,6 +970,10 @@ exports.participateInGameTransaction = functions.https.onCall(
             hasWinner: true,
             player_id: userRef,
           });
+          recordWrite("update", eligibleInstantWinnerDoc.ref, {
+            hasWinner: true,
+            player_id: userRef,
+          });
 
           prizeRef = db.collection("prizes").doc();
 
@@ -836,6 +999,19 @@ exports.participateInGameTransaction = functions.https.onCall(
               : {}),
           };
 
+          recordWrite("set", prizeRef, {
+            prize_type: "secondaire",
+            name: selectedSecondaryPrizeName,
+            description: selectedSecondaryPrizePresentation,
+            winner_id: userRef,
+            game_id: gameRef,
+            enseigne_id: enseigneRef,
+            enseigne_name: enseigneName,
+            owner_id: ownerRef,
+            claim_code: normalizeClaimCode(generatedClaimCode),
+            claimed: false,
+            win_date: now,
+          });
           transaction.set(prizeRef, {
             prize_type: "secondaire",
             name: selectedSecondaryPrizeName,
@@ -855,6 +1031,9 @@ exports.participateInGameTransaction = functions.https.onCall(
           });
 
           const userLotRef = userRef.collection("my_lots").doc(prizeRef.id);
+          recordWrite("set", userLotRef, {
+            prize_id: prizeRef,
+          });
           transaction.set(userLotRef, {
             prize_id: prizeRef,
           });
@@ -895,6 +1074,15 @@ exports.participateInGameTransaction = functions.https.onCall(
         // result back instead of a dead-end message (see
         // resolveCachedLastResult). Purely additive: does not affect
         // remaining_part or any existing field.
+        recordWrite("set", participantDetailRef, {
+          last_result: {
+            message,
+            messageBonus,
+            isWin: transactionLotGagne,
+            prize_id: prizeRef ? prizeRef.path : null,
+            recorded_at: now,
+          },
+        });
         transaction.set(
           participantDetailRef,
           {
@@ -909,6 +1097,22 @@ exports.participateInGameTransaction = functions.https.onCall(
           { merge: true }
         );
 
+        transactionDecision = "accepted";
+        finalLastPlayIso = now.toDate().toISOString();
+        finalRemainingPartValue =
+          remainingPartDelta !== 0 || normalizedRemainingPart === null
+            ? remainingPart + remainingPartDelta
+            : remainingPart;
+        logParticipationTrace(attemptId, "transaction_decision", {
+          uid,
+          gameId: gameRef.id,
+          decision: transactionDecision,
+          responseData,
+          finalLastPlayIso,
+          finalRemainingPartValue,
+          modifiedDocs,
+        });
+
         console.log(`participateInGameTransaction: uid=${uid} gameId=${gameRef.id} dayKey=${dayKey} alreadyParticipatedToday=false uniquePlayerNew=${uniquePlayerNew}`);
       });
 
@@ -918,6 +1122,15 @@ exports.participateInGameTransaction = functions.https.onCall(
         message: sanitizeDisplayText(responseData.message || ""),
         messageBonus: sanitizeDisplayText(responseData.messageBonus || ""),
       };
+      logParticipationTrace(attemptId, "cloud_function_return_success", {
+        uid,
+        gameRefPath,
+        decision: transactionDecision,
+        responseData,
+        modifiedDocs,
+        finalLastPlayIso,
+        finalRemainingPartValue,
+      });
 
       if (lotGagne === true) {
         try {
@@ -1017,6 +1230,16 @@ exports.participateInGameTransaction = functions.https.onCall(
 
       return responseData;
     } catch (error) {
+      logParticipationTrace(attemptId, "cloud_function_return_error", {
+        uid: uid || context.auth.uid,
+        gameRefPath,
+        decision: transactionDecision,
+        modifiedDocs,
+        finalLastPlayIso,
+        finalRemainingPartValue,
+        errorCode: error?.code || "internal",
+        errorMessage: error?.message || String(error),
+      });
       console.error("Erreur lors de la participation au jeu :", error);
       if (error instanceof functions.https.HttpsError) {
         throw error;
@@ -1028,4 +1251,3 @@ exports.participateInGameTransaction = functions.https.onCall(
     }
   }
 );
-

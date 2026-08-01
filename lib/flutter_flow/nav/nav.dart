@@ -23,6 +23,66 @@ const kTransitionInfoKey = '__transition_info__';
 
 GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
+String describeRouteForLog(Route<dynamic>? route) {
+  if (route == null) {
+    return 'null';
+  }
+  final settings = route.settings;
+  final name = settings.name;
+  final args = settings.arguments;
+  return 'name=${name ?? 'null'} runtimeType=${route.runtimeType} '
+      'isCurrent=${route.isCurrent} isActive=${route.isActive} '
+      'args=${args ?? 'null'}';
+}
+
+String describeContextRouteForLog(BuildContext context) {
+  final modalRoute = ModalRoute.of(context);
+  if (modalRoute == null) {
+    return 'null';
+  }
+  return describeRouteForLog(modalRoute);
+}
+
+void logGlobalNavigation({
+  required String action,
+  required BuildContext context,
+  required String destination,
+}) {}
+
+class GlobalNavObserver extends NavigatorObserver {
+  void _logEvent(
+    String event, {
+    Route<dynamic>? route,
+    Route<dynamic>? previousRoute,
+    Route<dynamic>? oldRoute,
+    Route<dynamic>? newRoute,
+  }) {}
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _logEvent('didPush', route: route, previousRoute: previousRoute);
+    super.didPush(route, previousRoute);
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _logEvent('didPop', route: route, previousRoute: previousRoute);
+    super.didPop(route, previousRoute);
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _logEvent('didRemove', route: route, previousRoute: previousRoute);
+    super.didRemove(route, previousRoute);
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    _logEvent('didReplace', newRoute: newRoute, oldRoute: oldRoute);
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+  }
+}
+
 String? _extractDeepLinkGameId(Uri uri) {
   final segments = uri.pathSegments;
   if (segments.length >= 2 &&
@@ -46,6 +106,8 @@ class AppStateNotifier extends ChangeNotifier {
   bool showSplashImage = true;
   String? _redirectLocation;
   bool _hasResolvedAuthState = false;
+  int _criticalImperativeNavigationDepth = 0;
+  bool _hasDeferredRouterRefresh = false;
   Timer? _authResolutionTimer;
   StreamSubscription<User?>? _authResolutionSub;
 
@@ -64,13 +126,57 @@ class AppStateNotifier extends ChangeNotifier {
   bool get shouldRedirect => loggedIn && _redirectLocation != null;
 
   String getRedirectLocation() => _redirectLocation!;
+  String? get debugRedirectLocation => _redirectLocation;
   bool hasRedirect() => _redirectLocation != null;
-  void setRedirectLocationIfUnset(String loc) => _redirectLocation ??= loc;
-  void clearRedirectLocation() => _redirectLocation = null;
+  void setRedirectLocationIfUnset(String loc) {
+    if (_redirectLocation == null) {
+      _redirectLocation = loc;
+    }
+  }
+
+  void clearRedirectLocation() {
+    _redirectLocation = null;
+  }
 
   /// Mark as not needing to notify on a sign in / out when we intend
   /// to perform subsequent actions (such as navigation) afterwards.
   void updateNotifyOnAuthChange(bool notify) => notifyOnAuthChange = notify;
+
+  void _notifyRouterListeners() {
+    if (_criticalImperativeNavigationDepth > 0) {
+      _hasDeferredRouterRefresh = true;
+      return;
+    }
+    notifyListeners();
+  }
+
+  void beginCriticalImperativeNavigation() {
+    _criticalImperativeNavigationDepth += 1;
+  }
+
+  void endCriticalImperativeNavigation() {
+    if (_criticalImperativeNavigationDepth <= 0) {
+      _criticalImperativeNavigationDepth = 0;
+      return;
+    }
+
+    _criticalImperativeNavigationDepth -= 1;
+    if (_criticalImperativeNavigationDepth == 0 && _hasDeferredRouterRefresh) {
+      _hasDeferredRouterRefresh = false;
+      notifyListeners();
+    }
+  }
+
+  Future<T> runWithCriticalImperativeNavigation<T>(
+    Future<T> Function() action,
+  ) async {
+    beginCriticalImperativeNavigation();
+    try {
+      return await action();
+    } finally {
+      endCriticalImperativeNavigation();
+    }
+  }
 
   void _cancelAuthResolutionWatch() {
     _authResolutionTimer?.cancel();
@@ -97,7 +203,7 @@ class AppStateNotifier extends ChangeNotifier {
       }
       _resolveAuthState();
       if (notifyOnAuthChange) {
-        notifyListeners();
+        _notifyRouterListeners();
       }
     });
 
@@ -108,7 +214,7 @@ class AppStateNotifier extends ChangeNotifier {
       }
       _resolveAuthState();
       if (notifyOnAuthChange) {
-        notifyListeners();
+        _notifyRouterListeners();
       }
     });
   }
@@ -130,7 +236,7 @@ class AppStateNotifier extends ChangeNotifier {
     // No need to update unless the user has changed.
     if (notifyOnAuthChange &&
         (shouldUpdate || previousResolvedState != _hasResolvedAuthState)) {
-      notifyListeners();
+      _notifyRouterListeners();
     }
     // Once again mark the notifier as needing to update on auth change
     // (in order to catch sign in / out events).
@@ -138,12 +244,12 @@ class AppStateNotifier extends ChangeNotifier {
   }
 
   void refreshRouting() {
-    notifyListeners();
+    _notifyRouterListeners();
   }
 
   void stopShowingSplashImage() {
     showSplashImage = false;
-    notifyListeners();
+    _notifyRouterListeners();
   }
 }
 
@@ -152,6 +258,9 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
       debugLogDiagnostics: false,
       refreshListenable: appStateNotifier,
       navigatorKey: appNavigatorKey,
+      observers: [
+        GlobalNavObserver(),
+      ],
       errorBuilder: (context, state) => appStateNotifier.loggedIn
           ? const LoginPageWidget()
           : const LoginPageWidget(),
@@ -867,7 +976,6 @@ class FFRoute {
         name: name,
         path: path,
         redirect: (context, state) {
-          debugPrint('[ROUTER_RAW_REDIRECT] uri=${state.uri.toString()}');
           final deepLinkGameId = _extractDeepLinkGameId(state.uri);
           final isDeepLinkRoute = deepLinkGameId != null;
           if (isDeepLinkRoute) {
@@ -946,6 +1054,7 @@ class FFRoute {
           return transitionInfo.hasTransition
               ? CustomTransitionPage(
                   key: state.pageKey,
+                  name: state.name,
                   child: child,
                   transitionDuration: transitionInfo.duration,
                   transitionsBuilder:
@@ -963,7 +1072,11 @@ class FFRoute {
                     child,
                   ),
                 )
-              : MaterialPage(key: state.pageKey, child: child);
+              : MaterialPage(
+                  key: state.pageKey,
+                  name: state.name,
+                  child: child,
+                );
         },
         routes: routes,
       );

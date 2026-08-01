@@ -6,6 +6,7 @@ import '/backend/animation_utils.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
+import '/flutter_flow/nav/nav.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
@@ -16,6 +17,7 @@ import '/utils/share_links.dart';
 import '/utils/game_view_tracker.dart';
 import '/widgets/proxiplay_network_image.dart';
 import '/index.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -53,6 +55,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
   bool _isLaunchingGame = false;
   final GameLaunchCoordinator _launchCoordinator =
       GameLaunchCoordinator(screenName: 'ShareJeuPage');
+  String? _currentAttemptId;
 
   void _setLaunchingGame(bool value) {
     if (!mounted || _isLaunchingGame == value) {
@@ -63,6 +66,67 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
     });
   }
 
+  String _newAttemptId() {
+    final id =
+        '${DateTime.now().toUtc().microsecondsSinceEpoch}_${widget.gameDoc?.reference.id ?? 'unknown'}';
+    _currentAttemptId = id;
+    return id;
+  }
+
+  DateTime? _coerceDateTime(dynamic value) {
+    if (value is DateTime) {
+      return value;
+    }
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    return null;
+  }
+
+  bool _computeHasPlayedToday(DateTime? lastPlay, DateTime now) {
+    return lastPlay != null &&
+        lastPlay.year == now.year &&
+        lastPlay.month == now.month &&
+        lastPlay.day == now.day;
+  }
+
+  void _logParticipationTrace({
+    required String stage,
+    required String attemptId,
+    required String gameId,
+    DateTime? lastPlay,
+    bool? hasPlayedToday,
+    String? detail,
+  }) {
+  }
+
+  Future<ParticipateInGameTransactionCloudFunctionCallResponse>
+      _callParticipateInGameTransaction({
+    required String attemptId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final gameId = widget.gameDoc?.reference.id ?? 'unknown';
+    try {
+      final result = await FirebaseFunctions.instance
+          .httpsCallable('participateInGameTransaction')
+          .call(payload);
+      return ParticipateInGameTransactionCloudFunctionCallResponse(
+        data: ResultParticipationGameStruct.fromMap(result.data),
+        succeeded: true,
+        resultAsString: result.data.toString(),
+        jsonBody: result.data,
+      );
+    } on FirebaseFunctionsException catch (error) {
+      return ParticipateInGameTransactionCloudFunctionCallResponse(
+        data: createResultParticipationGameStruct(
+          message: error.message ?? 'Erreur (${error.code})',
+        ),
+        errorCode: error.code,
+        succeeded: false,
+      );
+    }
+  }
+
   /// Launches a game through [GameLaunchCoordinator] — same single-flight
   /// lock, timeout and logging semantics as
   /// `jeu_detail_joueur_page_widget.dart`. See the audit notes on
@@ -71,12 +135,21 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
   /// focuses on never compounding that (no duplicate calls, no stuck lock,
   /// no premature local "already played" state).
   Future<void> _launchGame({
+    required String attemptId,
     required Future<ParticipateInGameTransactionCloudFunctionCallResponse>
         Function() participate,
   }) async {
     final gameId = widget.gameDoc?.reference.id ?? 'unknown';
+    _currentAttemptId = attemptId;
+    _logParticipationTrace(
+      stage: 'launchGame_enter',
+      attemptId: attemptId,
+      gameId: gameId,
+      detail: 'source=${widget.source ?? 'unknown'}',
+    );
 
     await _launchCoordinator.launch(
+      attemptId: attemptId,
       gameId: gameId,
       onLaunchingChanged: _setLaunchingGame,
       participate: () async {
@@ -88,6 +161,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
           errorCode: response.errorCode,
           errorMessage: response.data?.message,
           raw: response,
+          attemptId: attemptId,
         );
       },
       navigate: _navigateToGameScreen,
@@ -100,6 +174,11 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
     );
 
     if (mounted) {
+      _logParticipationTrace(
+        stage: 'launchGame_before_safeSetState',
+        attemptId: attemptId,
+        gameId: gameId,
+      );
       safeSetState(() {});
     }
   }
@@ -114,6 +193,8 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
   ) async {
     final response =
         outcome.raw as ParticipateInGameTransactionCloudFunctionCallResponse;
+    final attemptId = outcome.attemptId ?? 'none';
+    final gameId = widget.gameDoc?.reference.id ?? 'unknown';
 
     var newlyQualified = false;
     if (!outcome.alreadyParticipatedToday &&
@@ -131,6 +212,11 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
       }
     }
     if (!mounted) {
+      _logParticipationTrace(
+        stage: 'navigation_aborted_not_mounted',
+        attemptId: attemptId,
+        gameId: gameId,
+      );
       return GameNavigationResult.navigationFailed;
     }
 
@@ -163,36 +249,97 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
     return GameLaunchCoordinator.runNavigation(
       mountedBy: mountedBy,
       mountTimeout: _launchCoordinator.mountTimeout,
-      push: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => PlayJoueurPageWidget(
-            game: widget.gameDoc,
-            resultParticipation: ResultParticipationGameStruct.maybeFromMap(
-              response.jsonBody,
+      push: () {
+        _logParticipationTrace(
+          stage: 'before_push_play_page',
+          attemptId: attemptId,
+          gameId: gameId,
+          detail:
+              'alreadyParticipatedToday=${outcome.alreadyParticipatedToday}',
+        );
+        return AppStateNotifier.instance.runWithCriticalImperativeNavigation(
+          () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) {
+                _logParticipationTrace(
+                  stage: 'push_play_page_invoked',
+                  attemptId: attemptId,
+                  gameId: gameId,
+                  detail:
+                      'resultMessage=${response.data?.message ?? ''} resultMessageBonus=${response.data?.messageBonus ?? ''} isWin=${response.data?.isWin == true} prizeId=${response.data?.prizeId ?? ''}',
+                );
+                return PlayJoueurPageWidget(
+                  game: widget.gameDoc,
+                  resultParticipation:
+                      ResultParticipationGameStruct.maybeFromMap(
+                    response.jsonBody,
+                  ),
+                  source: widget.source,
+                  attemptId: attemptId,
+                  onGameScreenMounted: () {
+                    if (!mountedBy.isCompleted) {
+                      mountedBy.complete();
+                    }
+                  },
+                );
+              },
             ),
-            source: widget.source,
-            onGameScreenMounted: () {
-              if (!mountedBy.isCompleted) {
-                mountedBy.complete();
-              }
-            },
           ),
-        ),
-      ),
+        ).then((value) {
+          _logParticipationTrace(
+            stage: 'after_push_play_page',
+            attemptId: attemptId,
+            gameId: gameId,
+          );
+          return value;
+        });
+      },
       awaitReturn: (pushFuture) async {
         await pushFuture;
         if (!mounted) {
+          _logParticipationTrace(
+            stage: 'after_push_return_not_mounted',
+            attemptId: attemptId,
+            gameId: gameId,
+          );
           return;
         }
         try {
-          await refreshCurrentUserDocument();
-        } catch (error) {
-          debugPrint(
-            '[ANIMATION_PROGRESS] refreshCurrentUserDocument failed '
-            'gameId=${widget.gameDoc?.reference.id} error=$error',
+          _logParticipationTrace(
+            stage: 'before_refreshCurrentUserDocument',
+            attemptId: attemptId,
+            gameId: gameId,
           );
-        }
+          await refreshCurrentUserDocument();
+          DateTime? refreshedLastPlay;
+          bool? refreshedHasPlayedToday;
+          if (currentUserUid.isNotEmpty && widget.gameDoc != null) {
+            final participantDetailSnapshot = await widget.gameDoc!.reference
+                .collection('participants_details')
+                .doc(currentUserUid)
+                .get();
+            refreshedLastPlay =
+                _coerceDateTime(participantDetailSnapshot.data()?['last_play']);
+            refreshedHasPlayedToday = _computeHasPlayedToday(
+              refreshedLastPlay,
+              DateTime.now(),
+            );
+          }
+          _logParticipationTrace(
+            stage: 'after_refreshCurrentUserDocument',
+            attemptId: attemptId,
+            gameId: gameId,
+            lastPlay: refreshedLastPlay,
+            hasPlayedToday: refreshedHasPlayedToday,
+          );
+          } catch (error) {
+          }
         if (mounted) {
+          _logParticipationTrace(
+            stage: 'after_return_before_safeSetState',
+            attemptId: attemptId,
+            gameId: gameId,
+          );
           safeSetState(() {});
         }
       },
@@ -271,10 +418,6 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
   void initState() {
     super.initState();
     _model = createModel(context, () => ShareJeuPageModel());
-
-    debugPrint(
-      '[GAME_VIEW_PROD_CHECK] build_marker screen=ShareJeuPage marker=fiche_jeu_v2 gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
-    );
 
     logFirebaseEvent('screen_view',
         parameters: {'screen_name': 'ShareJeuPage'});
@@ -412,8 +555,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                           FlutterFlowIconButton(
                                         borderRadius: 12.0,
                                         buttonSize: 48.0,
-                                        fillColor: FlutterFlowTheme.of(context)
-                                            .primary,
+                                        fillColor: const Color(0xFFA0134D),
                                         icon: const Icon(
                                           Icons.share_sharp,
                                           color: Colors.white,
@@ -540,52 +682,51 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                       context);
                                                                   return;
                                                                 }
-                                                                debugPrint(
-                                                                  '[GAME_FLOW_DEBUG] participate_start screen=ShareJeuPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
+                                                                final attemptId =
+                                                                    _newAttemptId();
+                                                                final lastPlay =
+                                                                    _coerceDateTime(
+                                                                  shareJeuPageParticipantsDetailsRecord
+                                                                      ?.lastPlay,
+                                                                );
+                                                                final hasPlayedToday =
+                                                                    _computeHasPlayedToday(
+                                                                  lastPlay,
+                                                                  DateTime.now(),
+                                                                );
+                                                                _logParticipationTrace(
+                                                                  stage:
+                                                                      'before_click_play',
+                                                                  attemptId:
+                                                                      attemptId,
+                                                                  gameId: widget
+                                                                          .gameDoc
+                                                                          ?.reference
+                                                                          .id ??
+                                                                      'unknown',
+                                                                  lastPlay:
+                                                                      lastPlay,
+                                                                  hasPlayedToday:
+                                                                      hasPlayedToday,
+                                                                  detail:
+                                                                      'source=${widget.source ?? 'unknown'}',
                                                                 );
                                                                 await _launchGame(
+                                                                  attemptId:
+                                                                      attemptId,
                                                                   participate:
                                                                       () async {
-                                                                    try {
-                                                                      final result = await FirebaseFunctions
-                                                                          .instance
-                                                                          .httpsCallable(
-                                                                              'participateInGameTransaction')
-                                                                          .call({
+                                                                    _model.cloudFunction3sn =
+                                                                        await _callParticipateInGameTransaction(
+                                                                      attemptId:
+                                                                          attemptId,
+                                                                      payload: {
                                                                         "gameRef":
                                                                             widget.gameDoc!.reference.id,
-                                                                      });
-                                                                      _model.cloudFunction3sn =
-                                                                          ParticipateInGameTransactionCloudFunctionCallResponse(
-                                                                        data: ResultParticipationGameStruct
-                                                                            .fromMap(
-                                                                                result.data),
-                                                                        succeeded:
-                                                                            true,
-                                                                        resultAsString:
-                                                                            result
-                                                                                .data
-                                                                                .toString(),
-                                                                        jsonBody:
-                                                                            result
-                                                                                .data,
-                                                                      );
-                                                                    } on FirebaseFunctionsException catch (error) {
-                                                                      _model.cloudFunction3sn =
-                                                                          ParticipateInGameTransactionCloudFunctionCallResponse(
-                                                                        data:
-                                                                            createResultParticipationGameStruct(
-                                                                          message: error
-                                                                                  .message ??
-                                                                              "Erreur (${error.code})",
-                                                                        ),
-                                                                        errorCode:
-                                                                            error
-                                                                                .code,
-                                                                        succeeded:
-                                                                            false,
-                                                                      );
-                                                                    }
+                                                                        "attemptId":
+                                                                            attemptId,
+                                                                      },
+                                                                    );
                                                                     return _model
                                                                         .cloudFunction3sn!;
                                                                   },

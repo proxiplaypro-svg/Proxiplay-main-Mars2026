@@ -42,12 +42,14 @@ class PlayJoueurPageWidget extends StatefulWidget {
     required this.game,
     required this.resultParticipation,
     this.source,
+    this.attemptId,
     this.onGameScreenMounted,
   });
 
   final GamesRecord? game;
   final ResultParticipationGameStruct? resultParticipation;
   final String? source;
+  final String? attemptId;
 
   /// Called once, after this screen has rendered its first frame. Used by
   /// launch callers (see `GameLaunchCoordinator`) as the closest available
@@ -103,6 +105,11 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
       return '';
     }
     final randomIndex = Random().nextInt(messages.length);
+    _logPlayPageTrace(
+      'play_page_message_pool_pick',
+      detail:
+          'poolSize=${messages.length} randomIndex=$randomIndex picked=${messages[randomIndex]}',
+    );
     return messages[randomIndex];
   }
 
@@ -110,7 +117,17 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     final backendMessage = (widget.resultParticipation?.message ?? '').trim();
     final isWin = widget.resultParticipation?.isWin == true;
 
+    _logPlayPageTrace(
+      'play_page_resolve_display_message_enter',
+      detail:
+          'backendMessage=$backendMessage isWin=$isWin messageBonus=${widget.resultParticipation?.messageBonus ?? ''}',
+    );
+
     if (isWin && backendMessage.isNotEmpty) {
+      _logPlayPageTrace(
+        'play_page_resolve_display_message_return',
+        detail: 'reason=backend_win_message value=$backendMessage',
+      );
       return backendMessage;
     }
 
@@ -122,15 +139,32 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
         lowerBackendMessage.contains('plus de parties');
     if (isBackendStatusMessage) {
       if (isAlreadyPlayedStatusMessage) {
-        return 'Vous avez dï¿½jï¿½ participï¿½ ï¿½ ce jeu.';
+        const normalizedAlreadyPlayedMessage =
+            'Vous avez dï¿½jï¿½ participï¿½ ï¿½ ce jeu.';
+        _logPlayPageTrace(
+          'play_page_resolve_display_message_return',
+          detail:
+              'reason=normalized_already_played_message value=$normalizedAlreadyPlayedMessage',
+        );
+        return normalizedAlreadyPlayedMessage;
       }
+      _logPlayPageTrace(
+        'play_page_resolve_display_message_return',
+        detail: 'reason=backend_status_message value=$backendMessage',
+      );
       return backendMessage;
     }
 
     final game = widget.game;
     final mainPrize = game != null && hasMainPrize(game);
     final messages = mainPrize ? _messagesTirage : _messagesInstant;
-    return _pickDisplayMessage(messages);
+    final pickedMessage = _pickDisplayMessage(messages);
+    _logPlayPageTrace(
+      'play_page_resolve_display_message_return',
+      detail:
+          'reason=random_pool mainPrize=$mainPrize value=$pickedMessage',
+    );
+    return pickedMessage;
   }
 
   Future<void> _shareGame() async {
@@ -153,6 +187,12 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
         builder: (dialogContext) {
           return PopScope(
             canPop: false,
+            onPopInvoked: (didPop) {
+              _logPlayPageTrace(
+                'play_page_share_dialog_pop_scope_invoked',
+                detail: 'didPop=$didPop canPop=false',
+              );
+            },
             child: Dialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20.0),
@@ -196,7 +236,15 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
         },
       );
       _isShareDialogVisible = true;
+      _logPlayPageTrace(
+        'play_page_share_future_delayed_before',
+        detail: 'durationMs=16',
+      );
       await Future<void>.delayed(const Duration(milliseconds: 16));
+      _logPlayPageTrace(
+        'play_page_share_future_delayed_after',
+        detail: 'durationMs=16',
+      );
       if (!mounted) {
         return;
       }
@@ -206,6 +254,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
       );
     } finally {
       if (_isShareDialogVisible && navigator.mounted && navigator.canPop()) {
+        _logPlayPagePop('share_dialog_navigator.pop_finally');
         navigator.pop();
         _isShareDialogVisible = false;
       }
@@ -400,36 +449,51 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     return value[0].toUpperCase() + value.substring(1).toLowerCase();
   }
 
+  void _logPlayPageTrace(String stage, {String? detail}) {
+  }
+
+  void _logPlayPagePop(String reason) {
+  }
+
+  void _logPlayPageDispose() {
+  }
+
   @override
   void initState() {
     super.initState();
 
     _model = createModel(context, () => PlayJoueurPageModel());
-    debugPrint(
-      '[GAME_FLOW_DEBUG] play_page_open gameId=${widget.game?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'} hasResultParticipation=${widget.resultParticipation != null}',
+    _logPlayPageTrace(
+      'play_page_initState',
+      detail:
+          'hasResultParticipation=${widget.resultParticipation != null} backendMessage=${widget.resultParticipation?.message ?? ''} messageBonus=${widget.resultParticipation?.messageBonus ?? ''} isWin=${widget.resultParticipation?.isWin == true} prizeId=${widget.resultParticipation?.prizeId ?? ''}',
     );
     _resultMessage = _sanitizeRewardText(_resolveDisplayMessage());
     _resultMessageBonus =
         _sanitizeRewardText(widget.resultParticipation?.messageBonus ?? '');
+    _logPlayPageTrace(
+      'play_page_result_text_initialized',
+      detail:
+          'resultMessage=${_resultMessage ?? ''} resultMessageBonus=${_resultMessageBonus ?? ''}',
+    );
     _preparedShareText = buildAppShareText(
       title: '${widget.game?.name ?? 'ce jeu'} sur ProxiPlay',
     );
 
     _primeScratchSound();
+    _logPlayPageTrace('play_page_addPostFrameCallback_registered');
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _logPlayPageTrace('play_page_addPostFrameCallback_invoked');
       if (!mounted) return;
       setState(() {});
-      debugPrint(
-        '[GAME_FLOW_DEBUG] play_page_first_frame_rendered '
-        'gameId=${widget.game?.reference.id ?? 'unknown'} '
-        'source=${widget.source ?? 'unknown'}',
-      );
+      _logPlayPageTrace('play_page_first_frame_rendered');
       widget.onGameScreenMounted?.call();
     });
   }
 
   @override
   void dispose() {
+    _logPlayPageDispose();
     _model.dispose();
 
     super.dispose();
@@ -458,7 +522,12 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                   ),
                   const SizedBox(height: 16.0),
                   TextButton(
-                    onPressed: () => context.safePop(),
+                    onPressed: () {
+                      _logPlayPagePop(
+                        'missing_game_doc_return_button_context.safePop',
+                      );
+                      context.safePop();
+                    },
                     child: const Text('Retour'),
                   ),
                 ],
@@ -493,6 +562,16 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
         (winnerDisplayFromGame['firstName']?.isNotEmpty ?? false) ||
         (winnerDisplayFromGame['city']?.isNotEmpty ?? false);
     final shouldShowWinnerBlock = isGameEnded && hasWinnerSignal;
+    final playPageBranch = shouldShowWinnerBlock
+        ? 'winner_block'
+        : isGameEnded
+            ? 'game_ended_no_winner_block'
+            : 'scratch_card';
+    _logPlayPageTrace(
+      'play_page_build_branch',
+      detail:
+          'branch=$playPageBranch isAlreadyPlayedStatus=$isAlreadyPlayedStatus isGameEnded=$isGameEnded hasWinnerSignal=$hasWinnerSignal isWin=${widget.resultParticipation?.isWin == true} backendMessage=${widget.resultParticipation?.message ?? ''} rewardText=$rewardText rewardTextBonus=$rewardTextBonus',
+    );
 
     return GestureDetector(
       onTap: () {
@@ -501,79 +580,89 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
       },
       child: PopScope(
         canPop: false,
+        onPopInvoked: (didPop) {
+          _logPlayPageTrace(
+            'play_page_pop_scope_invoked',
+            detail: 'didPop=$didPop canPop=false',
+          );
+        },
         child: Scaffold(
           key: scaffoldKey,
           backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
           appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(92.0),
+            preferredSize: const Size.fromHeight(104.0),
             child: AppBar(
               backgroundColor: Colors.transparent,
               automaticallyImplyLeading: false,
               elevation: 0.0,
               titleSpacing: 16.0,
-              title: Row(
-                children: [
-                  Container(
-                    width: 48.0,
-                    height: 48.0,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                    child: TapFeedback(
-                      enabled: true,
-                      borderRadius: BorderRadius.circular(12.0),
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(
-                            width: 48.0, height: 48.0),
-                        icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
-                          size: 18.0,
-                        ),
-                        color: FlutterFlowTheme.of(context).primary,
-                        onPressed: () async {
-                          context.safePop();
-                        },
+              title: Padding(
+                padding: const EdgeInsets.only(top: 12.0),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48.0,
+                      height: 48.0,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12.0),
                       ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: Image.asset(
-                        'assets/images/logo_D_secondaire.png',
-                        height: 40.0,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: 48.0,
-                    height: 48.0,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                    child: TapFeedback(
-                      enabled: true,
-                      borderRadius: BorderRadius.circular(12.0),
-                      child: IconButton(
-                        style: IconButton.styleFrom(
-                          backgroundColor: FlutterFlowTheme.of(context).primary,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(48.0, 48.0),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12.0),
+                      child: TapFeedback(
+                        enabled: true,
+                        borderRadius: BorderRadius.circular(12.0),
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                              width: 48.0, height: 48.0),
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 18.0,
                           ),
+                          color: FlutterFlowTheme.of(context).primary,
+                          onPressed: () async {
+                            _logPlayPagePop('appbar_back_button_context.safePop');
+                            context.safePop();
+                          },
                         ),
-                        icon: const Icon(Icons.share_rounded, size: 22.0),
-                        onPressed: () async {
-                          await _shareGame();
-                        },
                       ),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: Center(
+                        child: Image.asset(
+                          'assets/images/logo_D_secondaire.png',
+                          height: 40.0,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 48.0,
+                      height: 48.0,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFA0134D),
+                        borderRadius: BorderRadius.circular(12.0),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 10.0,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: TapFeedback(
+                        enabled: true,
+                        borderRadius: BorderRadius.circular(12.0),
+                        child: IconButton(
+                          icon: const Icon(Icons.share_rounded, size: 22.0),
+                          color: Colors.white,
+                          onPressed: () async {
+                            await _shareGame();
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -895,16 +984,27 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                   rewardTextBonus:
                                                       rewardTextBonus,
                                                   onScratchStart: () {
+                                                    _logPlayPageTrace(
+                                                      'scratch_card_onScratchStart',
+                                                    );
                                                     _startScratchSound();
                                                     _model.isScratching = true;
                                                     safeSetState(() {});
                                                   },
                                                   onScratchEnd: () {
+                                                    _logPlayPageTrace(
+                                                      'scratch_card_onScratchEnd',
+                                                    );
                                                     _stopScratchSound();
                                                     _model.isScratching = false;
                                                     safeSetState(() {});
                                                   },
                                                   setCardRevealed: () async {
+                                                    _logPlayPageTrace(
+                                                      'scratch_card_setCardRevealed_enter',
+                                                      detail:
+                                                          'isWin=${widget.resultParticipation?.isWin == true}',
+                                                    );
                                                     _model.cardReveal = true;
                                                     if (widget
                                                             .resultParticipation
@@ -933,6 +1033,11 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                       _model.isWin = false;
                                                       safeSetState(() {});
                                                     }
+                                                    _logPlayPageTrace(
+                                                      'scratch_card_setCardRevealed_exit',
+                                                      detail:
+                                                          'isWin=${_model.isWin == true}',
+                                                    );
                                                   },
                                                 ),
                                               ),
@@ -1384,6 +1489,9 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                             ),
                                           FFButtonWidget(
                                             onPressed: () async {
+                                              debugPrint(
+                                                '[GLOBAL_NAV] action=context.goNamed from=${ModalRoute.of(context)?.settings.name} to=${HomeJoueurPageWidget.routeName}\n${StackTrace.current}',
+                                              );
                                               context.goNamed(
                                                   HomeJoueurPageWidget
                                                       .routeName);
