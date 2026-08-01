@@ -1953,6 +1953,8 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                   _model
                                                                       .passwordJoueurTextController
                                                                       .text,
+                                                                  roleHint: _model
+                                                                      .userType,
                                                                 );
                                                                 if (user ==
                                                                     null) {
@@ -3296,6 +3298,8 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                               _model
                                                                   .passwordCommercantTextController
                                                                   .text,
+                                                              roleHint: _model
+                                                                  .userType,
                                                             );
                                                             if (user == null) {
                                                               return;
