@@ -388,6 +388,28 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     );
   }
 
+  Future<bool> _recoverCompletedEmailSignupIfPossible() async {
+    final signedInUser = FirebaseAuth.instance.currentUser;
+    if (signedInUser == null) {
+      return false;
+    }
+
+    try {
+      await refreshCurrentUserDocument();
+    } catch (_) {}
+
+    if (!mounted) {
+      return true;
+    }
+
+    context.goNamedAuth(
+      InscriptionInformationsPageWidget.routeName,
+      mounted,
+      ignoreRedirect: true,
+    );
+    return true;
+  }
+
   bool _isFirestoreNetworkError(Object error) {
     final lowered = error.toString().toLowerCase();
     return lowered.contains('unable to resolve host') ||
@@ -1967,30 +1989,41 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                   return true;
                                                                 }());
 
-                                                                await UsersRecord
-                                                                    .collection
-                                                                    .doc(user.uid)
-                                                                    .set(
-                                                                        createUsersRecordData(
-                                                                      uid: user.uid,
-                                                                      userRole: _model
-                                                                          .userType,
-                                                                    ),
-                                                                        SetOptions(
-                                                                            merge:
-                                                                                true));
+                                                                try {
+                                                                  await UsersRecord
+                                                                      .collection
+                                                                      .doc(user.uid)
+                                                                      .set(
+                                                                          createUsersRecordData(
+                                                                        uid: user.uid,
+                                                                        userRole: _model
+                                                                            .userType,
+                                                                      ),
+                                                                          SetOptions(
+                                                                              merge:
+                                                                                  true));
+                                                                } catch (_) {}
 
-                                                                await ensureUserDocumentInitialized(
-                                                                  FirebaseAuth
-                                                                      .instance
-                                                                      .currentUser!,
-                                                                  roleHint: _model
-                                                                      .userType,
-                                                                  authProvider:
-                                                                      'EMAIL',
-                                                                  source:
-                                                                      'email_signup_player',
-                                                                );
+                                                                final currentFirebaseUser =
+                                                                    FirebaseAuth
+                                                                        .instance
+                                                                        .currentUser;
+                                                                if (currentFirebaseUser !=
+                                                                    null) {
+                                                                  try {
+                                                                    await ensureUserDocumentInitialized(
+                                                                      currentFirebaseUser,
+                                                                      roleHint: _model
+                                                                          .userType,
+                                                                      authProvider:
+                                                                          'EMAIL',
+                                                                      source:
+                                                                          'email_signup_player',
+                                                                    );
+                                                                  } catch (_) {}
+                                                                } else {
+                                                                  await refreshCurrentUserDocument();
+                                                                }
 
                                                                 final referralApplied =
                                                                     await _applyPendingReferralCodeIfNeeded();
@@ -2006,23 +2039,26 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                 if (!mounted) {
                                                                   return;
                                                                 }
-                                                                if (router.shouldRedirect(true)) {
-                                                                  return;
-                                                                }
-                                                                router.goNamed(
+                                                                context.goNamedAuth(
                                                                   InscriptionInformationsPageWidget
                                                                       .routeName,
+                                                                  mounted,
+                                                                  ignoreRedirect:
+                                                                      true,
                                                                 );
-                                                              } catch (error) {
-                                                                debugPrint(
-                                                                  'Player signup Firestore error: $error',
-                                                                );
-                                                                debugPrintStack();
-                                                                if (mounted) {
-                                                                  if (_isFirestoreNetworkError(
-                                                                      error)) {
-                                                                    _showFirestoreUnavailableMessage();
-                                                                  } else {
+                                                          } catch (error) {
+                                                            debugPrint(
+                                                              'Player signup Firestore error: $error',
+                                                            );
+                                                            debugPrintStack();
+                                                            if (await _recoverCompletedEmailSignupIfPossible()) {
+                                                              return;
+                                                            }
+                                                            if (mounted) {
+                                                              if (_isFirestoreNetworkError(
+                                                                  error)) {
+                                                                _showFirestoreUnavailableMessage();
+                                                              } else {
                                                                     _showSignupFallbackErrorMessage();
                                                                   }
                                                                 }
@@ -3311,33 +3347,44 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                               return true;
                                                             }());
 
-                                                            await UsersRecord
-                                                                .collection
-                                                                .doc(user.uid)
-                                                                .set(
-                                                                    createUsersRecordData(
-                                                                  uid: user.uid,
-                                                                  userRole: _model
-                                                                      .userType,
-                                                                  professionalCategory:
-                                                                      _model
-                                                                          .professionalCategoryValue,
-                                                                ),
-                                                                    SetOptions(
-                                                                        merge:
-                                                                            true));
+                                                            try {
+                                                              await UsersRecord
+                                                                  .collection
+                                                                  .doc(user.uid)
+                                                                  .set(
+                                                                      createUsersRecordData(
+                                                                    uid: user.uid,
+                                                                    userRole: _model
+                                                                        .userType,
+                                                                    professionalCategory:
+                                                                        _model
+                                                                            .professionalCategoryValue,
+                                                                  ),
+                                                                      SetOptions(
+                                                                          merge:
+                                                                              true));
+                                                            } catch (_) {}
 
-                                                            await ensureUserDocumentInitialized(
-                                                              FirebaseAuth
-                                                                  .instance
-                                                                  .currentUser!,
-                                                              roleHint: _model
-                                                                  .userType,
-                                                              authProvider:
-                                                                  'EMAIL',
-                                                              source:
-                                                                  'email_signup_merchant',
-                                                            );
+                                                            final currentFirebaseUser =
+                                                                FirebaseAuth
+                                                                    .instance
+                                                                    .currentUser;
+                                                            if (currentFirebaseUser !=
+                                                                null) {
+                                                              try {
+                                                                await ensureUserDocumentInitialized(
+                                                                  currentFirebaseUser,
+                                                                  roleHint: _model
+                                                                      .userType,
+                                                                  authProvider:
+                                                                      'EMAIL',
+                                                                  source:
+                                                                      'email_signup_merchant',
+                                                                );
+                                                              } catch (_) {}
+                                                            } else {
+                                                              await refreshCurrentUserDocument();
+                                                            }
 
                                                             final referralApplied =
                                                                 await _applyPendingReferralCodeIfNeeded();
@@ -3353,18 +3400,21 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                             if (!mounted) {
                                                               return;
                                                             }
-                                                            if (router.shouldRedirect(true)) {
-                                                              return;
-                                                            }
-                                                            router.goNamed(
+                                                            context.goNamedAuth(
                                                               InscriptionInformationsPageWidget
                                                                   .routeName,
+                                                              mounted,
+                                                              ignoreRedirect:
+                                                                  true,
                                                             );
                                                           } catch (error) {
                                                             debugPrint(
                                                               'Merchant signup Firestore error: $error',
                                                             );
                                                             debugPrintStack();
+                                                            if (await _recoverCompletedEmailSignupIfPossible()) {
+                                                              return;
+                                                            }
                                                             if (mounted) {
                                                               if (_isFirestoreNetworkError(
                                                                   error)) {
