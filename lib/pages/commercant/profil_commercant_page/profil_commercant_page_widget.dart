@@ -200,6 +200,10 @@ class _ProfilCommercantPageWidgetState
           backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
           appBar: AppBar(
             backgroundColor: Colors.transparent,
+            elevation: 0.0,
+            shadowColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            scrolledUnderElevation: 0.0,
             automaticallyImplyLeading: false,
             title: Container(
               width: double.infinity,
@@ -523,6 +527,9 @@ class _ProfilCommercantPageWidgetState
                                   GoRouter.of(context).clearRedirectLocation();
                                   FFAppState().update(
                                       () => FFAppState().isLoggingOut = true);
+                                  debugPrint(
+                                    '[GLOBAL_NAV] action=context.go from=${ModalRoute.of(context)?.settings.name} to=/loginPage\n${StackTrace.current}',
+                                  );
                                   context.go('/loginPage');
                                   await authManager.signOut();
                                   FFAppState().update(

@@ -310,6 +310,10 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
             preferredSize: const Size.fromHeight(60.0),
             child: AppBar(
               backgroundColor: Colors.transparent,
+              elevation: 0.0,
+              shadowColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              scrolledUnderElevation: 0.0,
               automaticallyImplyLeading: false,
               actions: const [],
               flexibleSpace: FlexibleSpaceBar(
