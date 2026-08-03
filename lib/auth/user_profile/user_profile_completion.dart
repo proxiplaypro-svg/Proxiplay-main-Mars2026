@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '/backend/schema/enums/enums.dart';
 import '/backend/schema/users_record.dart';
 
@@ -95,12 +93,17 @@ bool isUserProfileComplete(UsersRecord? user) {
   );
 }
 
+bool shouldOfferUserProfileCompletionPrompt({
+  required bool isProfileComplete,
+  required bool hasDismissedPrompt,
+}) =>
+    !isProfileComplete && !hasDismissedPrompt;
+
 bool isUserProfileCompleteFromData(
   Map<String, dynamic>? data, {
   required Roles? role,
 }) {
   final safeData = data ?? const <String, dynamic>{};
-  final birthday = safeData['birthday'];
 
   return isUserProfileCompleteForRole(
     role: role,
@@ -108,10 +111,19 @@ bool isUserProfileCompleteFromData(
     lastName: safeData['last_name'] as String?,
     phoneNumber: safeData['phone_number'] as String?,
     city: safeData['city'] as String?,
-    birthday: birthday is Timestamp
-        ? birthday.toDate()
-        : birthday is DateTime
-            ? birthday
-            : null,
+    birthday: _readUserProfileDate(safeData['birthday']),
   );
+}
+
+DateTime? _readUserProfileDate(dynamic value) {
+  if (value is DateTime) {
+    return value;
+  }
+
+  try {
+    final resolved = (value as dynamic)?.toDate();
+    return resolved is DateTime ? resolved : null;
+  } catch (_) {
+    return null;
+  }
 }

@@ -77,5 +77,29 @@ void main() {
       expect(prefill?.firstName, 'Melanie');
       expect(prefill?.lastName, 'Gaillard');
     });
+
+    test('incomplete profile prompt is offered only until dismissed', () {
+      expect(
+        shouldOfferUserProfileCompletionPrompt(
+          isProfileComplete: false,
+          hasDismissedPrompt: false,
+        ),
+        isTrue,
+      );
+      expect(
+        shouldOfferUserProfileCompletionPrompt(
+          isProfileComplete: false,
+          hasDismissedPrompt: true,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldOfferUserProfileCompletionPrompt(
+          isProfileComplete: true,
+          hasDismissedPrompt: false,
+        ),
+        isFalse,
+      );
+    });
   });
 }

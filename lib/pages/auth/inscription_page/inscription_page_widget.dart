@@ -281,7 +281,11 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     }
 
     final shouldOfferProfileCompletion = refreshedUserDoc != null &&
-        !isUserProfileComplete(refreshedUserDoc);
+        shouldOfferUserProfileCompletionPrompt(
+          isProfileComplete: isUserProfileComplete(refreshedUserDoc),
+          hasDismissedPrompt: FFAppState()
+              .hasDismissedProfileCompletionPromptForUid(firebaseUser.uid),
+        );
 
     final resolution = await resolveAuthenticatedHome(
       source: 'google_signup',
