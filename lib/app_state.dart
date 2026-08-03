@@ -30,18 +30,16 @@ class FFAppState extends ChangeNotifier {
       _dismissedProfileCompletionPromptUids =
           prefs.getStringList('ff_dismissedProfileCompletionPromptUids') ??
               _dismissedProfileCompletionPromptUids;
-      _globalTickerTotalPlayers =
-          prefs.getInt('ff_globalTickerTotalPlayers') ??
-              _globalTickerTotalPlayers;
+      _globalTickerTotalPlayers = prefs.getInt('ff_globalTickerTotalPlayers') ??
+          _globalTickerTotalPlayers;
       _globalTickerTotalGamesPlayed =
           prefs.getInt('ff_globalTickerTotalGamesPlayed') ??
               _globalTickerTotalGamesPlayed;
       _globalTickerTotalMerchants =
           prefs.getInt('ff_globalTickerTotalMerchants') ??
               _globalTickerTotalMerchants;
-      _globalTickerMessages =
-          prefs.getStringList('ff_globalTickerMessages') ??
-              _globalTickerMessages;
+      _globalTickerMessages = prefs.getStringList('ff_globalTickerMessages') ??
+          _globalTickerMessages;
       final updatedAtMillis = prefs.getInt('ff_globalTickerUpdatedAtMillis');
       _globalTickerUpdatedAt = updatedAtMillis != null
           ? DateTime.fromMillisecondsSinceEpoch(updatedAtMillis)
@@ -170,13 +168,15 @@ class FFAppState extends ChangeNotifier {
   }
 
   bool _offerProfileCompletionAfterLogin = false;
-  bool get offerProfileCompletionAfterLogin => _offerProfileCompletionAfterLogin;
+  bool get offerProfileCompletionAfterLogin =>
+      _offerProfileCompletionAfterLogin;
   set offerProfileCompletionAfterLogin(bool value) {
     _offerProfileCompletionAfterLogin = value;
   }
 
   String _profileCompletionReturnRouteName = '';
-  String get profileCompletionReturnRouteName => _profileCompletionReturnRouteName;
+  String get profileCompletionReturnRouteName =>
+      _profileCompletionReturnRouteName;
   set profileCompletionReturnRouteName(String value) {
     _profileCompletionReturnRouteName = value.trim();
   }
@@ -276,7 +276,8 @@ class FFAppState extends ChangeNotifier {
       if (value == null) {
         prefs.remove('ff_globalTickerUpdatedAtMillis');
       } else {
-        prefs.setInt('ff_globalTickerUpdatedAtMillis', value.millisecondsSinceEpoch);
+        prefs.setInt(
+            'ff_globalTickerUpdatedAtMillis', value.millisecondsSinceEpoch);
       }
     }
   }
@@ -298,7 +299,8 @@ class FFAppState extends ChangeNotifier {
       prefs.setInt('ff_globalTickerTotalPlayers', _globalTickerTotalPlayers);
       prefs.setInt(
           'ff_globalTickerTotalGamesPlayed', _globalTickerTotalGamesPlayed);
-      prefs.setInt('ff_globalTickerTotalMerchants', _globalTickerTotalMerchants);
+      prefs.setInt(
+          'ff_globalTickerTotalMerchants', _globalTickerTotalMerchants);
       prefs.setStringList('ff_globalTickerMessages', _globalTickerMessages);
       if (_globalTickerUpdatedAt == null) {
         prefs.remove('ff_globalTickerUpdatedAtMillis');

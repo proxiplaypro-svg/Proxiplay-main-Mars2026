@@ -188,11 +188,8 @@ class FirebaseAuthManager extends AuthManager
 
   @override
   Future<BaseAuthUser?> createAccountWithEmail(
-    BuildContext context,
-    String email,
-    String password,
-    {Roles? roleHint}
-  ) =>
+          BuildContext context, String email, String password,
+          {Roles? roleHint}) =>
       _signInOrCreateAccount(
         context,
         () => emailCreateAccountFunc(email, password),
@@ -276,8 +273,8 @@ class FirebaseAuthManager extends AuthManager
     // * Finally modify verificationCompleted below as instructed.
     await FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: phoneNumber,
-      timeout:
-          const Duration(seconds: 0), // Skips Android's default auto-verification
+      timeout: const Duration(
+          seconds: 0), // Skips Android's default auto-verification
       verificationCompleted: (phoneAuthCredential) async {
         await FirebaseAuth.instance.signInWithCredential(phoneAuthCredential);
         phoneAuthManager.update(() {
@@ -339,12 +336,9 @@ class FirebaseAuthManager extends AuthManager
 
   /// Tries to sign in or create an account using Firebase Auth.
   /// Returns the User object if sign in was successful.
-  Future<BaseAuthUser?> _signInOrCreateAccount(
-    BuildContext context,
-    Future<UserCredential?> Function() signInFunc,
-    String authProvider,
-    {Roles? roleHint}
-  ) async {
+  Future<BaseAuthUser?> _signInOrCreateAccount(BuildContext context,
+      Future<UserCredential?> Function() signInFunc, String authProvider,
+      {Roles? roleHint}) async {
     try {
       FFAppState().isGuest = false;
       final userCredential = await signInFunc();
