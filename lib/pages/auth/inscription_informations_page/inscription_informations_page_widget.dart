@@ -343,6 +343,29 @@ class _InscriptionInformationsPageWidgetState
     });
   }
 
+  bool get _isOptionalProfileCompletionFlow =>
+      FFAppState().offerProfileCompletionAfterLogin;
+
+  String _optionalProfileCompletionReturnRouteName(bool isMerchant) {
+    final configuredRoute = FFAppState().profileCompletionReturnRouteName.trim();
+    if (configuredRoute.isNotEmpty) {
+      return configuredRoute;
+    }
+    return isMerchant
+        ? WaitingValidationPageWidget.routeName
+        : HomeJoueurPageWidget.routeName;
+  }
+
+  void _skipOptionalProfileCompletion(GoRouter router, bool isMerchant) {
+    FFAppState().update(() {
+      FFAppState().clearProfileCompletionPromptState();
+    });
+    _navigateOnce(
+      router,
+      _optionalProfileCompletionReturnRouteName(isMerchant),
+    );
+  }
+
   bool get _shouldShowLegacyPseudoField => false;
 
   bool get _shouldHandleLegacyReconnectFallback => false;
@@ -358,7 +381,7 @@ class _InscriptionInformationsPageWidgetState
         FocusManager.instance.primaryFocus?.unfocus();
       },
       child: PopScope(
-        canPop: false,
+        canPop: _isOptionalProfileCompletionFlow,
         child: Scaffold(
           key: scaffoldKey,
           backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
@@ -386,6 +409,13 @@ class _InscriptionInformationsPageWidgetState
                       color: FlutterFlowTheme.of(context).primary,
                       onPressed: () async {
                         if (_isSubmitting || _hasNavigatedAway) {
+                          return;
+                        }
+                        if (_isOptionalProfileCompletionFlow) {
+                          _skipOptionalProfileCompletion(
+                            GoRouter.of(context),
+                            isMerchant,
+                          );
                           return;
                         }
                         if (Navigator.of(context).canPop()) {
@@ -456,6 +486,25 @@ class _InscriptionInformationsPageWidgetState
                             ).animateOnPageLoad(
                                 animationsMap['textOnPageLoadAnimation']!),
                           ),
+                          if (_isOptionalProfileCompletionFlow)
+                            Padding(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
+                                  20.0, 0.0, 20.0, 12.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    onPressed: _isSubmitting
+                                        ? null
+                                        : () => _skipOptionalProfileCompletion(
+                                              GoRouter.of(context),
+                                              isMerchant,
+                                            ),
+                                    child: const Text('Plus tard'),
+                                  ),
+                                ],
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -1311,13 +1360,23 @@ class _InscriptionInformationsPageWidgetState
                                           kCurrentUserProfileSchemaVersion,
                                     ),
                                         SetOptions(merge: true));
+                                    if (_isOptionalProfileCompletionFlow) {
+                                      FFAppState().update(() {
+                                        FFAppState()
+                                            .clearProfileCompletionPromptState();
+                                      });
+                                    }
                                     await refreshCurrentUserDocument();
                                     if (!mounted) {
                                       return;
                                     }
-                                    final destination = isMerchant
-                                        ? WaitingValidationPageWidget.routeName
-                                        : HomeJoueurPageWidget.routeName;
+                                    final destination = _isOptionalProfileCompletionFlow
+                                        ? _optionalProfileCompletionReturnRouteName(
+                                            isMerchant,
+                                          )
+                                        : (isMerchant
+                                            ? WaitingValidationPageWidget.routeName
+                                            : HomeJoueurPageWidget.routeName);
                                     _navigateOnce(router, destination);
                                   } catch (error) {
                                     debugPrint(

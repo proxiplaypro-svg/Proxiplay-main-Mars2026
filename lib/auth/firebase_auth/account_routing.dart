@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import 'auth_util.dart';
-import '../user_profile/user_profile_completion.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import 'account_routing_logic.dart';
@@ -402,16 +401,11 @@ Future<AuthenticatedHomeResolution> resolveAuthenticatedHome({
 
   late final AuthenticatedHomeResolution resolution;
   final documentExists = snapshot != null && snapshot.exists;
-  final requiresProfileCompletion = shouldRequireUserProfileCompletionFromData(
-    data,
-    role: effectiveRole,
-  );
   final target = resolveTargetFromResolvedRole(
     documentExists: documentExists,
     effectiveRole: effectiveRole,
     playerSignals: playerSignals,
     accountStatus: accountStatus,
-    requiresProfileCompletion: requiresProfileCompletion,
   );
 
   if (!documentExists) {
