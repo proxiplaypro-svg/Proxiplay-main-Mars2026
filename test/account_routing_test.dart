@@ -113,6 +113,39 @@ void main() {
 
       expect(target, AuthenticatedHomeTarget.waitingValidation);
     });
+
+    test('incomplete player profile metadata still routes to player home', () {
+      final target = resolveTargetFromResolvedRole(
+        documentExists: true,
+        effectiveRole: Roles.joueur,
+        playerSignals: const ['remaining_part'],
+        accountStatus: null,
+      );
+
+      expect(target, AuthenticatedHomeTarget.joueurHome);
+    });
+
+    test('approved merchant with incomplete profile still routes normally', () {
+      final target = resolveTargetFromResolvedRole(
+        documentExists: true,
+        effectiveRole: Roles.commercant,
+        playerSignals: const [],
+        accountStatus: AccountStatus.approved,
+      );
+
+      expect(target, AuthenticatedHomeTarget.commercantHome);
+    });
+
+    test('incomplete admin profile still routes normally', () {
+      final target = resolveTargetFromResolvedRole(
+        documentExists: true,
+        effectiveRole: Roles.admin,
+        playerSignals: const [],
+        accountStatus: null,
+      );
+
+      expect(target, AuthenticatedHomeTarget.adminHome);
+    });
   });
 
   group('resolveCachedRoleGuardRedirectPathForRole', () {

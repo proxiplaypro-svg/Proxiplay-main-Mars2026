@@ -59,6 +59,7 @@ class FirebaseAuthManager extends AuthManager
   @override
   Future signOut() {
     FFAppState().isGuest = false;
+    FFAppState().clearProfileCompletionPromptState();
     return FirebaseAuth.instance.signOut();
   }
 
