@@ -13,6 +13,7 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/utils/create_account_to_play_dialog.dart';
 import '/utils/game_launch_coordinator.dart';
+import '/utils/minor_restricted_game_access.dart';
 import '/utils/share_links.dart';
 import '/utils/game_view_tracker.dart';
 import '/widgets/proxiplay_network_image.dart';
@@ -90,6 +91,74 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
         lastPlay.day == now.day;
   }
 
+  bool get _showsParticipationEntry => true;
+
+  Future<bool> _ensureMinorRestrictedGameEligibility() async {
+    final accessStatus = resolveMinorRestrictedGameAccess(
+      prohibitedForMinors: widget.gameDoc?.prohibitedForMinors ?? false,
+      birthday: currentUserDocument?.birthday,
+    );
+
+    switch (accessStatus) {
+      case MinorRestrictedGameAccessStatus.allowed:
+        return true;
+      case MinorRestrictedGameAccessStatus.birthdayRequired:
+        final shouldOpenProfile = await showDialog<bool>(
+              context: context,
+              builder: (dialogContext) {
+                return WebViewAware(
+                  child: AlertDialog(
+                    title: const Text('Jeu reserve aux majeurs'),
+                    content: const Text(
+                      'Ce jeu est reserve aux personnes majeures.\nPour verifier votre age, merci de renseigner votre date de naissance.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        child: const Text('Plus tard'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        child: const Text(
+                          'Renseigner ma date de naissance',
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ) ??
+            false;
+        if (shouldOpenProfile && mounted) {
+          await context.pushNamed(
+            InscriptionInformationsPageWidget.routeName,
+          );
+        }
+        return false;
+      case MinorRestrictedGameAccessStatus.underage:
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) {
+            return WebViewAware(
+              child: AlertDialog(
+                title: const Text('Jeu reserve aux majeurs'),
+                content: const Text(
+                  'Ce jeu est reserve aux personnes majeures.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text('Fermer'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+        return false;
+    }
+  }
+
   void _logParticipationTrace({
     required String stage,
     required String attemptId,
@@ -97,8 +166,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
     DateTime? lastPlay,
     bool? hasPlayedToday,
     String? detail,
-  }) {
-  }
+  }) {}
 
   Future<ParticipateInGameTransactionCloudFunctionCallResponse>
       _callParticipateInGameTransaction({
@@ -137,7 +205,8 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
   Future<void> _launchGame({
     required String attemptId,
     required Future<ParticipateInGameTransactionCloudFunctionCallResponse>
-        Function() participate,
+            Function()
+        participate,
   }) async {
     final gameId = widget.gameDoc?.reference.id ?? 'unknown';
     _currentAttemptId = attemptId;
@@ -257,7 +326,8 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
           detail:
               'alreadyParticipatedToday=${outcome.alreadyParticipatedToday}',
         );
-        return AppStateNotifier.instance.runWithCriticalImperativeNavigation(
+        return AppStateNotifier.instance
+            .runWithCriticalImperativeNavigation(
           () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) {
@@ -285,7 +355,8 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
               },
             ),
           ),
-        ).then((value) {
+        )
+            .then((value) {
           _logParticipationTrace(
             stage: 'after_push_play_page',
             attemptId: attemptId,
@@ -332,8 +403,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
             lastPlay: refreshedLastPlay,
             hasPlayedToday: refreshedHasPlayedToday,
           );
-          } catch (error) {
-          }
+        } catch (error) {}
         if (mounted) {
           _logParticipationTrace(
             stage: 'after_return_before_safeSetState',
@@ -350,8 +420,8 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
     if (!mounted) {
       return;
     }
-    final response = outcome.raw
-        as ParticipateInGameTransactionCloudFunctionCallResponse?;
+    final response =
+        outcome.raw as ParticipateInGameTransactionCloudFunctionCallResponse?;
     await showDialog(
       context: context,
       builder: (alertDialogContext) {
@@ -645,13 +715,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                           if (currentUserUid != '') {
                                             return Builder(
                                               builder: (context) {
-                                                if (isGuestOrAnonymous ||
-                                                    ((currentUserDocument
-                                                                ?.birthday !=
-                                                            null) &&
-                                                        functions.isAdult(
-                                                            currentUserDocument!
-                                                                .birthday!))) {
+                                                if (_showsParticipationEntry) {
                                                   return Visibility(
                                                     visible: widget
                                                             .gameDoc!.endDate! >
@@ -682,6 +746,9 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                       context);
                                                                   return;
                                                                 }
+                                                                if (!await _ensureMinorRestrictedGameEligibility()) {
+                                                                  return;
+                                                                }
                                                                 final attemptId =
                                                                     _newAttemptId();
                                                                 final lastPlay =
@@ -692,7 +759,8 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                 final hasPlayedToday =
                                                                     _computeHasPlayedToday(
                                                                   lastPlay,
-                                                                  DateTime.now(),
+                                                                  DateTime
+                                                                      .now(),
                                                                 );
                                                                 _logParticipationTrace(
                                                                   stage:
@@ -721,8 +789,10 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                       attemptId:
                                                                           attemptId,
                                                                       payload: {
-                                                                        "gameRef":
-                                                                            widget.gameDoc!.reference.id,
+                                                                        "gameRef": widget
+                                                                            .gameDoc!
+                                                                            .reference
+                                                                            .id,
                                                                         "attemptId":
                                                                             attemptId,
                                                                       },
