@@ -149,6 +149,7 @@ firebase/functions/lib/*
 !firebase/functions/lib/share_promo/**
 !firebase/functions/lib/notifications/
 !firebase/functions/lib/notifications/**
+!firebase/functions/lib/instant_winners_core.js
 
 # Fichiers audio/temp si non voulus
 # assets/audios/
