@@ -207,6 +207,56 @@ function hasUnlimitedAccess(userData, now) {
   return accessUntil.toMillis() > now.toMillis();
 }
 
+function getParisDateParts(date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  return {
+    year: Number(parts.find((part) => part.type === "year")?.value || 0),
+    month: Number(parts.find((part) => part.type === "month")?.value || 0),
+    day: Number(parts.find((part) => part.type === "day")?.value || 0),
+  };
+}
+
+function readBirthdayDate(value) {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value.toDate === "function") {
+    const date = value.toDate();
+    return date instanceof Date && !Number.isNaN(date.getTime()) ? date : null;
+  }
+  if (typeof value === "string" || typeof value === "number") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  return null;
+}
+
+function isAdultFromBirthday(birthdayValue, now = new Date()) {
+  const birthday = readBirthdayDate(birthdayValue);
+  if (!birthday) {
+    return false;
+  }
+  const todayParts = getParisDateParts(now);
+  const birthdayParts = getParisDateParts(birthday);
+  let age = todayParts.year - birthdayParts.year;
+  if (
+    todayParts.month < birthdayParts.month ||
+    (todayParts.month === birthdayParts.month &&
+      todayParts.day < birthdayParts.day)
+  ) {
+    age -= 1;
+  }
+  return age >= 18;
+}
+
 function toMillis(value) {
   if (!value) {
     return null;
@@ -418,6 +468,20 @@ exports.participateInGameTransaction = functions.https.onCall(
           );
         }
         const userData = userDoc.data();
+        if (gameData.prohibited_for_minors === true) {
+          if (!readBirthdayDate(userData.birthday)) {
+            throw new functions.https.HttpsError(
+              "failed-precondition",
+              "Ce jeu est reserve aux personnes majeures. Merci de renseigner votre date de naissance."
+            );
+          }
+          if (!isAdultFromBirthday(userData.birthday, now.toDate())) {
+            throw new functions.https.HttpsError(
+              "failed-precondition",
+              "Ce jeu est reserve aux personnes majeures."
+            );
+          }
+        }
         const gameStartDateMs = toMillis(gameData.start_date);
         const gameEndDateMs = toMillis(gameData.end_date);
         const nowMs = now.toMillis();

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
@@ -12,6 +12,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/utils/create_account_to_play_dialog.dart';
 import '/utils/game_launch_coordinator.dart';
+import '/utils/minor_restricted_game_access.dart';
 import '/utils/share_links.dart';
 import '/utils/game_view_tracker.dart';
 import '/utils/winner_identity.dart';
@@ -76,8 +77,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     return id;
   }
 
-  void _logTrace(String stage, Map<String, Object?> details) {
-  }
+  void _logTrace(String stage, Map<String, Object?> details) {}
 
   Future<void> _trackViewOnce() async {
     if (_hasTrackedView) {
@@ -137,6 +137,72 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         lastPlay.day == now.day;
   }
 
+  Future<bool> _ensureMinorRestrictedGameEligibility() async {
+    final accessStatus = resolveMinorRestrictedGameAccess(
+      prohibitedForMinors: widget.gameDoc?.prohibitedForMinors ?? false,
+      birthday: currentUserDocument?.birthday,
+    );
+
+    switch (accessStatus) {
+      case MinorRestrictedGameAccessStatus.allowed:
+        return true;
+      case MinorRestrictedGameAccessStatus.birthdayRequired:
+        final shouldOpenProfile = await showDialog<bool>(
+              context: context,
+              builder: (dialogContext) {
+                return WebViewAware(
+                  child: AlertDialog(
+                    title: const Text('Jeu reserve aux majeurs'),
+                    content: const Text(
+                      'Ce jeu est reserve aux personnes majeures.\nPour verifier votre age, merci de renseigner votre date de naissance.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        child: const Text('Plus tard'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        child: const Text(
+                          'Renseigner ma date de naissance',
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ) ??
+            false;
+        if (shouldOpenProfile && mounted) {
+          await context.pushNamed(
+            InscriptionInformationsPageWidget.routeName,
+          );
+        }
+        return false;
+      case MinorRestrictedGameAccessStatus.underage:
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) {
+            return WebViewAware(
+              child: AlertDialog(
+                title: const Text('Jeu reserve aux majeurs'),
+                content: const Text(
+                  'Ce jeu est reserve aux personnes majeures.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text('Fermer'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+        return false;
+    }
+  }
+
   DateTime? _coerceDateTime(dynamic value) {
     if (value is DateTime) {
       return value;
@@ -161,7 +227,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
       triggerRepair: true,
       source: 'jeu_detail_trace',
     );
-    final suffix = (detail != null && detail.isNotEmpty) ? ' detail=$detail' : '';
+    final suffix =
+        (detail != null && detail.isNotEmpty) ? ' detail=$detail' : '';
     debugPrint(
       '[PARTICIPATION_TRACE] '
       'stage=$stage '
@@ -230,7 +297,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
   Future<EnseignesRecord?> _loadEnseigneForGame(GamesRecord game) async {
     if (game.enseigneId != null) {
       try {
-        final enseigne = await EnseignesRecord.getDocumentOnce(game.enseigneId!);
+        final enseigne =
+            await EnseignesRecord.getDocumentOnce(game.enseigneId!);
         if (enseigne.name.trim().isNotEmpty) {
           return enseigne;
         }
@@ -385,6 +453,13 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                     'lastPlay': 'n_a_qr_only_flow',
                     'hasPlayedToday': 'n_a_qr_only_flow',
                   });
+                  if (isGuestOrAnonymous) {
+                    await showCreateAccountToPlayDialog(context);
+                    return;
+                  }
+                  if (!await _ensureMinorRestrictedGameEligibility()) {
+                    return;
+                  }
                   await _launchGame(
                     attemptId: attemptId,
                     participate: () async {
@@ -396,13 +471,13 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                       try {
                         final result = await FirebaseFunctions.instance
                             .httpsCallable(
-                              'participateInGameTransaction',
-                            )
+                          'participateInGameTransaction',
+                        )
                             .call({
-                              "gameRef": widget.gameDoc!.reference.id,
-                              "from_qr": true,
-                              "attemptId": attemptId,
-                            });
+                          "gameRef": widget.gameDoc!.reference.id,
+                          "from_qr": true,
+                          "attemptId": attemptId,
+                        });
                         _logTrace('retour_cf', {
                           'succeeded': true,
                           'rawData': result.data,
@@ -425,8 +500,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                         _model.cloudFunction3sn =
                             ParticipateInGameTransactionCloudFunctionCallResponse(
                           data: createResultParticipationGameStruct(
-                            message:
-                                error.message ?? "Erreur (${error.code})",
+                            message: error.message ?? "Erreur (${error.code})",
                           ),
                           errorCode: error.code,
                           succeeded: false,
@@ -514,12 +588,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
 
                           if (scannedGameId ==
                               (widget.gameDoc?.reference.id ?? '')) {
+                            if (isGuestOrAnonymous) {
+                              await showCreateAccountToPlayDialog(context);
+                              return;
+                            }
+                            if (!await _ensureMinorRestrictedGameEligibility()) {
+                              return;
+                            }
                             final attemptId = _newAttemptId();
                             _logParticipationTrace(
                               stage: 'before_click_play',
                               attemptId: attemptId,
-                              gameId:
-                                  widget.gameDoc?.reference.id ?? 'unknown',
+                              gameId: widget.gameDoc?.reference.id ?? 'unknown',
                               detail:
                                   'source=qr_scanner fromQr=true scannedGameId=$scannedGameId',
                             );
@@ -569,7 +649,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
   Future<void> _launchGame({
     required String attemptId,
     required Future<ParticipateInGameTransactionCloudFunctionCallResponse>
-        Function() participate,
+            Function()
+        participate,
   }) async {
     final gameId = widget.gameDoc?.reference.id ?? 'unknown';
     _logParticipationTrace(
@@ -584,7 +665,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
       onLaunchingChanged: _setLaunchingGame,
       participate: () async {
         final response = await participate();
-          return GameParticipationOutcome(
+        return GameParticipationOutcome(
           succeeded: response.succeeded == true,
           alreadyParticipatedToday: response.jsonBody is Map &&
               (response.jsonBody as Map)['alreadyParticipatedToday'] == true,
@@ -753,8 +834,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             lastPlay: refreshedLastPlay,
             hasPlayedToday: refreshedHasPlayedToday,
           );
-          } catch (error) {
-          }
+        } catch (error) {}
         if (mounted) {
           _logParticipationTrace(
             stage: 'after_return_before_safeSetState',
@@ -771,8 +851,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     if (!mounted) {
       return;
     }
-    final response = outcome.raw
-        as ParticipateInGameTransactionCloudFunctionCallResponse?;
+    final response =
+        outcome.raw as ParticipateInGameTransactionCloudFunctionCallResponse?;
     await showDialog(
       context: context,
       builder: (alertDialogContext) {
@@ -923,8 +1003,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         }
         if (widget.gameDoc == null) {
           return Scaffold(
-            backgroundColor:
-                FlutterFlowTheme.of(context).primaryBackground,
+            backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
             body: const Center(child: SizedBox.shrink()),
           );
         }
@@ -957,10 +1036,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                 : null);
         final gameName = gameDoc.name;
         final gamePhoto = gameDoc.photo;
-        final enseigneDisplayName = effectiveEnseigneDoc?.name.trim().isNotEmpty ==
-                true
-            ? effectiveEnseigneDoc!.name.trim()
-            : gameDoc.enseigneName.trim();
+        final enseigneDisplayName =
+            effectiveEnseigneDoc?.name.trim().isNotEmpty == true
+                ? effectiveEnseigneDoc!.name.trim()
+                : gameDoc.enseigneName.trim();
         final hasWinnerAnnouncement = endDate != null &&
             getCurrentTimestamp.isAfter(endDate) &&
             gameDoc.hasWinner &&
@@ -1143,23 +1222,23 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                 ),
               ),
               Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10.0,
-                    vertical: 4.0,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2B285F),
-                    borderRadius: BorderRadius.circular(20.0),
-                  ),
-                  child: Text(
-                    'Gains imm\u00e9diats',
-                    style: GoogleFonts.inter(
-                      fontSize: 11.0,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10.0,
+                  vertical: 4.0,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2B285F),
+                  borderRadius: BorderRadius.circular(20.0),
+                ),
+                child: Text(
+                  'Gains imm\u00e9diats',
+                  style: GoogleFonts.inter(
+                    fontSize: 11.0,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
                   ),
                 ),
+              ),
             ],
           );
         }
@@ -1197,11 +1276,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
           final endDate = widget.gameDoc?.endDate;
           final isGameOpen =
               endDate != null ? endDate.isAfter(getCurrentTimestamp) : true;
-          final isMinorBlocked =
-              (widget.gameDoc?.prohibitedForMinors ?? false) &&
-                  (currentUserDocument?.birthday == null ||
-                      !functions.isAdult(currentUserDocument!.birthday!));
-          return isGameOpen || isMinorBlocked;
+          return isGameOpen;
         })();
         return GestureDetector(
           onTap: () {
@@ -1211,1078 +1286,1017 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
           child: Stack(
             children: [
               Scaffold(
-            key: scaffoldKey,
-            backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-            appBar: AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              leadingWidth: 60.0,
-              leading: Padding(
-                padding: const EdgeInsets.only(left: 16.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(12.0),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10.0,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(
-                        width: 48.0, height: 48.0),
-                    icon: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: FlutterFlowTheme.of(context).primaryText,
-                      size: 18.0,
-                    ),
-                    onPressed: () async {
-                      if (widget.source == 'qr_link') {
-                        final isLoggedIn =
-                            AppStateNotifier.instance.loggedIn ||
-                                FirebaseAuth.instance.currentUser != null;
-                        if (isLoggedIn) {
-                          context.goNamed(HomeJoueurPageWidget.routeName);
-                        } else {
-                          context.goNamed(LoginPageWidget.routeName);
-                        }
-                      } else if (context.canPop()) {
-                        context.pop();
-                      } else {
-                        context.goNamed(HomeJoueurPageWidget.routeName);
-                      }
-                    },
-                  ),
-                ),
-              ),
-              centerTitle: true,
-              title: Padding(
-                padding: const EdgeInsets.only(right: 20.0),
-                child: SizedBox(
-                  height: 40.0,
-                  child: Image.asset(
-                    'assets/images/logo_D_secondaire.png',
-                    height: 40.0,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-              actions: [
-                Builder(
-                  builder: (context) {
-                    if (currentUserUid != '') {
-                      return StreamBuilder<List<FavoriteGamesRecord>>(
-                        stream: queryFavoriteGamesRecord(
-                          parent: currentUserReference,
-                          queryBuilder: (favoriteGamesRecord) =>
-                              favoriteGamesRecord.where(
-                            'game_id',
-                            isEqualTo: widget.gameDoc?.reference,
+                key: scaffoldKey,
+                backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+                appBar: AppBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  leadingWidth: 60.0,
+                  leading: Padding(
+                    padding: const EdgeInsets.only(left: 16.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(12.0),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10.0,
+                            offset: const Offset(0, 2),
                           ),
-                          singleRecord: true,
+                        ],
+                      ),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                            width: 48.0, height: 48.0),
+                        icon: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: FlutterFlowTheme.of(context).primaryText,
+                          size: 18.0,
                         ),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8.0),
-                              child: Container(
-                                width: 48.0,
-                                height: 48.0,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.9),
-                                  borderRadius: BorderRadius.circular(12.0),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 10.0,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: const Center(
-                                  child: SizedBox(
-                                    width: 18.0,
-                                    height: 18.0,
-                                    child: SizedBox.shrink(),
-                                  ),
-                                ),
-                              ),
-                            );
+                        onPressed: () async {
+                          if (widget.source == 'qr_link') {
+                            final isLoggedIn =
+                                AppStateNotifier.instance.loggedIn ||
+                                    FirebaseAuth.instance.currentUser != null;
+                            if (isLoggedIn) {
+                              context.goNamed(HomeJoueurPageWidget.routeName);
+                            } else {
+                              context.goNamed(LoginPageWidget.routeName);
+                            }
+                          } else if (context.canPop()) {
+                            context.pop();
+                          } else {
+                            context.goNamed(HomeJoueurPageWidget.routeName);
                           }
-                          List<FavoriteGamesRecord> favoriteGamesList =
-                              snapshot.data!;
-                          final favoriteGame = favoriteGamesList.isNotEmpty
-                              ? favoriteGamesList.first
-                              : null;
-
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: Container(
-                              width: 48.0,
-                              height: 48.0,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(12.0),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 10.0,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: IconButton(
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints.tightFor(
-                                    width: 48.0, height: 48.0),
-                                icon: Icon(
-                                  favoriteGame != null
-                                      ? Icons.favorite_rounded
-                                      : Icons.favorite_border_rounded,
-                                  color: favoriteGame != null
-                                      ? const Color(0xFFA0134D)
-                                      : const Color(0xFFA0134D),
-                                  size: 20.0,
-                                ),
-                                onPressed: () async {
-                                  if (favoriteGame != null) {
-                                    await favoriteGame.reference.delete();
-                                  } else {
-                                    await FavoriteGamesRecord.createDoc(
-                                            currentUserReference!)
-                                        .set({
-                                      ...createFavoriteGamesRecordData(
-                                        gameId: widget.gameDoc?.reference,
-                                      ),
-                                      ...mapToFirestore({
-                                        'added_at':
-                                            FieldValue.serverTimestamp(),
-                                      }),
-                                    });
-
-                                    await widget.gameDoc!.reference.update({
-                                      ...mapToFirestore({
-                                        'favorites': FieldValue.increment(1),
-                                      }),
-                                    });
-                                    safeSetState(() => _model
-                                        .firestoreRequestCompleter = null);
-                                    await _model
-                                        .waitForFirestoreRequestCompleted();
-                                  }
-                                },
-                              ),
-                            ),
-                          );
                         },
-                      );
-                    } else {
-                      return const SizedBox.shrink();
-                    }
-                  },
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 16.0),
-                  child: Container(
-                    width: 48.0,
-                    height: 48.0,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFA0134D),
-                      borderRadius: BorderRadius.circular(12.0),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 10.0,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                          width: 48.0, height: 48.0),
-                      icon: const Icon(
-                        Icons.share_rounded,
-                        color: Colors.white,
-                        size: 22.0,
                       ),
-                      onPressed: () async {
-                        await Share.share(
-                          buildAppShareText(
-                            title:
-                                '${widget.gameDoc?.name ?? 'ce jeu'} sur ProxiPlay',
-                            description: enseigneDisplayName.isNotEmpty
-                                ? 'Disponible chez $enseigneDisplayName.'
-                                : null,
-                          ),
-                          sharePositionOrigin: getWidgetBoundingBox(context),
-                        );
+                    ),
+                  ),
+                  centerTitle: true,
+                  title: Padding(
+                    padding: const EdgeInsets.only(right: 20.0),
+                    child: SizedBox(
+                      height: 40.0,
+                      child: Image.asset(
+                        'assets/images/logo_D_secondaire.png',
+                        height: 40.0,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ),
+                  actions: [
+                    Builder(
+                      builder: (context) {
+                        if (currentUserUid != '') {
+                          return StreamBuilder<List<FavoriteGamesRecord>>(
+                            stream: queryFavoriteGamesRecord(
+                              parent: currentUserReference,
+                              queryBuilder: (favoriteGamesRecord) =>
+                                  favoriteGamesRecord.where(
+                                'game_id',
+                                isEqualTo: widget.gameDoc?.reference,
+                              ),
+                              singleRecord: true,
+                            ),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8.0),
+                                  child: Container(
+                                    width: 48.0,
+                                    height: 48.0,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.9),
+                                      borderRadius: BorderRadius.circular(12.0),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.1),
+                                          blurRadius: 10.0,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Center(
+                                      child: SizedBox(
+                                        width: 18.0,
+                                        height: 18.0,
+                                        child: SizedBox.shrink(),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                              List<FavoriteGamesRecord> favoriteGamesList =
+                                  snapshot.data!;
+                              final favoriteGame = favoriteGamesList.isNotEmpty
+                                  ? favoriteGamesList.first
+                                  : null;
+
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: Container(
+                                  width: 48.0,
+                                  height: 48.0,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.9),
+                                    borderRadius: BorderRadius.circular(12.0),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 10.0,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints.tightFor(
+                                        width: 48.0, height: 48.0),
+                                    icon: Icon(
+                                      favoriteGame != null
+                                          ? Icons.favorite_rounded
+                                          : Icons.favorite_border_rounded,
+                                      color: favoriteGame != null
+                                          ? const Color(0xFFA0134D)
+                                          : const Color(0xFFA0134D),
+                                      size: 20.0,
+                                    ),
+                                    onPressed: () async {
+                                      if (favoriteGame != null) {
+                                        await favoriteGame.reference.delete();
+                                      } else {
+                                        await FavoriteGamesRecord.createDoc(
+                                                currentUserReference!)
+                                            .set({
+                                          ...createFavoriteGamesRecordData(
+                                            gameId: widget.gameDoc?.reference,
+                                          ),
+                                          ...mapToFirestore({
+                                            'added_at':
+                                                FieldValue.serverTimestamp(),
+                                          }),
+                                        });
+
+                                        await widget.gameDoc!.reference.update({
+                                          ...mapToFirestore({
+                                            'favorites':
+                                                FieldValue.increment(1),
+                                          }),
+                                        });
+                                        safeSetState(() => _model
+                                            .firestoreRequestCompleter = null);
+                                        await _model
+                                            .waitForFirestoreRequestCompleted();
+                                      }
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        } else {
+                          return const SizedBox.shrink();
+                        }
                       },
                     ),
-                  ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 16.0),
+                      child: Container(
+                        width: 48.0,
+                        height: 48.0,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFA0134D),
+                          borderRadius: BorderRadius.circular(12.0),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 10.0,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                              width: 48.0, height: 48.0),
+                          icon: const Icon(
+                            Icons.share_rounded,
+                            color: Colors.white,
+                            size: 22.0,
+                          ),
+                          onPressed: () async {
+                            await Share.share(
+                              buildAppShareText(
+                                title:
+                                    '${widget.gameDoc?.name ?? 'ce jeu'} sur ProxiPlay',
+                                description: enseigneDisplayName.isNotEmpty
+                                    ? 'Disponible chez $enseigneDisplayName.'
+                                    : null,
+                              ),
+                              sharePositionOrigin:
+                                  getWidgetBoundingBox(context),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            body: SafeArea(
-              top: true,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      FlutterFlowTheme.of(context).primaryBackground,
-                      FlutterFlowTheme.of(context)
-                          .primaryBackground
-                          .withOpacity(0.95),
-                    ],
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Flexible(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.zero,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.max,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const SizedBox(height: 12.0),
-                            // Hero Image Section
-                            heroImage,
-                            // Main Content Card (White) - Overlapping using Transform
-                            Transform.translate(
-                              offset: const Offset(0, -30.0),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(30.0),
-                                    topRight: Radius.circular(30.0),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 30.0,
-                                      offset: const Offset(0, -5),
-                                      spreadRadius: 0,
-                                    ),
-                                  ],
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsetsDirectional.fromSTEB(
-                                    24.0,
-                                    32.0,
-                                    24.0,
-                                    24.0,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.max,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      // Game Title
-                                      Text(
-                                        gameName,
-                                        style: GoogleFonts.inter(
-                                          fontSize:
-                                              gameName.isEmpty ? 0.0 : 28.0,
-                                          fontWeight: FontWeight.bold,
-                                          color: const Color(0xFF1A1A1A),
-                                          letterSpacing: -0.5,
-                                        ),
+                body: SafeArea(
+                  top: true,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          FlutterFlowTheme.of(context).primaryBackground,
+                          FlutterFlowTheme.of(context)
+                              .primaryBackground
+                              .withOpacity(0.95),
+                        ],
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.max,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: SingleChildScrollView(
+                            padding: EdgeInsets.zero,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.max,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const SizedBox(height: 12.0),
+                                // Hero Image Section
+                                heroImage,
+                                // Main Content Card (White) - Overlapping using Transform
+                                Transform.translate(
+                                  offset: const Offset(0, -30.0),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(30.0),
+                                        topRight: Radius.circular(30.0),
                                       ),
-                                      const SizedBox(height: 24.0),
-                                      // Action Buttons Column
-                                      Column(
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.05),
+                                          blurRadius: 30.0,
+                                          offset: const Offset(0, -5),
+                                          spreadRadius: 0,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Padding(
+                                      padding:
+                                          const EdgeInsetsDirectional.fromSTEB(
+                                        24.0,
+                                        32.0,
+                                        24.0,
+                                        24.0,
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.max,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          if (leftActionVisible)
-                                            //     Expanded(
-                                            // child:
-                                            Builder(
-                                              builder: (context) {
-                                                if (currentUserUid != '') {
-                                                  return Builder(
-                                                    builder: (context) {
-                                                      if (widget.gameDoc
-                                                              ?.prohibitedForMinors ??
-                                                          false) {
-                                                        return Builder(
-                                                          builder: (context) {
-                                                            if (isGuestOrAnonymous ||
-                                                                ((currentUserDocument
-                                                                            ?.birthday !=
-                                                                        null) &&
-                                                                    functions.isAdult(
-                                                                        currentUserDocument!
-                                                                            .birthday!))) {
-                                                              if (widget.gameDoc!
-                                                                      .accessMode ==
-                                                                  AccessMode
-                                                                      .qr_only) {
+                                          // Game Title
+                                          Text(
+                                            gameName,
+                                            style: GoogleFonts.inter(
+                                              fontSize:
+                                                  gameName.isEmpty ? 0.0 : 28.0,
+                                              fontWeight: FontWeight.bold,
+                                              color: const Color(0xFF1A1A1A),
+                                              letterSpacing: -0.5,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 24.0),
+                                          // Action Buttons Column
+                                          Column(
+                                            children: [
+                                              if (leftActionVisible)
+                                                //     Expanded(
+                                                // child:
+                                                Builder(
+                                                  builder: (context) {
+                                                    if (currentUserUid != '') {
+                                                      return Builder(
+                                                        builder: (context) {
+                                                          if (widget.gameDoc
+                                                                  ?.prohibitedForMinors ??
+                                                              false) {
+                                                            return Builder(
+                                                              builder:
+                                                                  (context) {
+                                                                if (widget
+                                                                        .gameDoc!
+                                                                        .accessMode ==
+                                                                    AccessMode
+                                                                        .qr_only) {
+                                                                  return Visibility(
+                                                                    visible: widget
+                                                                            .gameDoc!
+                                                                            .endDate! >
+                                                                        getCurrentTimestamp,
+                                                                    child:
+                                                                        _buildQrOnlyPrimaryButton(),
+                                                                  );
+                                                                }
                                                                 return Visibility(
                                                                   visible: widget
                                                                           .gameDoc!
                                                                           .endDate! >
                                                                       getCurrentTimestamp,
                                                                   child:
-                                                                      _buildQrOnlyPrimaryButton(),
+                                                                      FFButtonWidget(
+                                                                    showLoadingIndicator:
+                                                                        false,
+                                                                    onPressed: ((widget.gameDoc!.endDate! <
+                                                                                getCurrentTimestamp) ||
+                                                                            (noRemainingParts &&
+                                                                                !hasPlayedToday) ||
+                                                                            _isLaunchingGame)
+                                                                        ? null
+                                                                        : () async {
+                                                                            if (_isLaunchingGame) {
+                                                                              return;
+                                                                            }
+                                                                            if (isGuestOrAnonymous) {
+                                                                              await showCreateAccountToPlayDialog(context);
+                                                                              return;
+                                                                            }
+                                                                            if (!await _ensureMinorRestrictedGameEligibility()) {
+                                                                              return;
+                                                                            }
+                                                                            debugPrint(
+                                                                              '[GAME_FLOW_DEBUG] participate_start screen=JeuDetailJoueurPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
+                                                                            );
+                                                                            await _launchGame(
+                                                                              attemptId: _newAttemptId(),
+                                                                              participate: () async {
+                                                                                final attemptId = _currentAttemptId ??
+                                                                                    _createAttemptId(
+                                                                                      widget.gameDoc?.reference.id ?? 'unknown',
+                                                                                    );
+                                                                                final lastPlay = _coerceDateTime(
+                                                                                  jeuDetailJoueurPageParticipantsDetailsRecord?.lastPlay,
+                                                                                );
+                                                                                final now = DateTime.now();
+                                                                                final hasPlayedTodayNow = _computeHasPlayedToday(
+                                                                                  lastPlay,
+                                                                                  now,
+                                                                                );
+                                                                                _logParticipationTrace(
+                                                                                  stage: 'before_click_play',
+                                                                                  attemptId: attemptId,
+                                                                                  gameId: widget.gameDoc?.reference.id ?? 'unknown',
+                                                                                  lastPlay: lastPlay,
+                                                                                  hasPlayedToday: hasPlayedTodayNow,
+                                                                                  detail: 'source=${widget.source ?? 'unknown'} fromQr=${widget.fromQr}',
+                                                                                );
+                                                                                _model.cloudFunction3sn = await _callParticipateInGameTransaction(
+                                                                                  attemptId: attemptId,
+                                                                                  payload: {
+                                                                                    "gameRef": widget.gameDoc!.reference.id,
+                                                                                    "from_qr": widget.fromQr,
+                                                                                    "attemptId": attemptId,
+                                                                                  },
+                                                                                );
+                                                                                return _model.cloudFunction3sn!;
+                                                                              },
+                                                                            );
+                                                                          },
+                                                                    text: () {
+                                                                      final noRemainingPartsLive =
+                                                                          _hasNoRemainingParts(
+                                                                        currentUserDocument,
+                                                                        getCurrentTimestamp,
+                                                                      );
+                                                                      if (noRemainingPartsLive) {
+                                                                        return 'Vous n\'avez plus de parties';
+                                                                      } else if (widget
+                                                                              .gameDoc!
+                                                                              .endDate! <
+                                                                          getCurrentTimestamp) {
+                                                                        return 'Le jeu est termin\u00E9';
+                                                                      } else if (hasPlayedToday) {
+                                                                        return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
+                                                                      } else if (hasPlayedBefore) {
+                                                                        return 'Rejouer';
+                                                                      } else if (_isLaunchingGame) {
+                                                                        return 'Chargement du jeu\u2026';
+                                                                      } else {
+                                                                        return 'Jouer';
+                                                                      }
+                                                                    }(),
+                                                                    icon: _isLaunchingGame
+                                                                        ? SizedBox(
+                                                                            width:
+                                                                                18.0,
+                                                                            height:
+                                                                                18.0,
+                                                                            child:
+                                                                                CircularProgressIndicator(
+                                                                              strokeWidth: 2.2,
+                                                                              color: Colors.white,
+                                                                            ),
+                                                                          )
+                                                                        : null,
+                                                                    options:
+                                                                        FFButtonOptions(
+                                                                      width: double
+                                                                          .infinity,
+                                                                      height:
+                                                                          56.0,
+                                                                      padding: const EdgeInsets
+                                                                          .all(
+                                                                          0.0),
+                                                                      iconPadding: const EdgeInsetsDirectional
+                                                                          .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                      color: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .primary,
+                                                                      textStyle: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .titleMedium
+                                                                          .override(
+                                                                            font:
+                                                                                GoogleFonts.inter(
+                                                                              fontWeight: FontWeight.w600,
+                                                                            ),
+                                                                            color:
+                                                                                Colors.white,
+                                                                            letterSpacing:
+                                                                                0.0,
+                                                                          ),
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
+                                                                              16.0),
+                                                                      elevation:
+                                                                          4.0,
+                                                                      disabledColor: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .primary
+                                                                          .withValues(
+                                                                            alpha:
+                                                                                0.7,
+                                                                          ),
+                                                                    ),
+                                                                  ),
                                                                 );
-                                                              }
+                                                              },
+                                                            );
+                                                          } else {
+                                                            if (widget.gameDoc!
+                                                                    .accessMode ==
+                                                                AccessMode
+                                                                    .qr_only) {
                                                               return Visibility(
                                                                 visible: widget
                                                                         .gameDoc!
                                                                         .endDate! >
                                                                     getCurrentTimestamp,
                                                                 child:
-                                                                    FFButtonWidget(
-                                                                  showLoadingIndicator:
-                                                                      false,
-                                                                  onPressed: ((widget.gameDoc!.endDate! <
-                                                                              getCurrentTimestamp) ||
-                                                                          (noRemainingParts &&
-                                                                              !hasPlayedToday) ||
-                                                                          _isLaunchingGame)
-                                                                      ? null
-                                                                      : () async {
-                                                                          if (_isLaunchingGame) {
-                                                                            return;
-                                                                          }
-                                                                          if (isGuestOrAnonymous) {
-                                                                            await showCreateAccountToPlayDialog(context);
-                                                                            return;
-                                                                          }
-                                                                          debugPrint(
-                                                                            '[GAME_FLOW_DEBUG] participate_start screen=JeuDetailJoueurPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
-                                                                          );
-                                                                          await _launchGame(
-                                                                            attemptId: _newAttemptId(),
-                                                                            participate: () async {
-                                                                              final attemptId =
-                                                                                  _currentAttemptId ??
-                                                                                      _createAttemptId(
-                                                                                        widget.gameDoc?.reference.id ??
-                                                                                            'unknown',
-                                                                                      );
-                                                                              final lastPlay =
-                                                                                  _coerceDateTime(
-                                                                                jeuDetailJoueurPageParticipantsDetailsRecord
-                                                                                    ?.lastPlay,
-                                                                              );
-                                                                              final now =
-                                                                                  DateTime.now();
-                                                                              final hasPlayedTodayNow =
-                                                                                  _computeHasPlayedToday(
-                                                                                lastPlay,
-                                                                                now,
-                                                                              );
-                                                                              _logParticipationTrace(
-                                                                                stage:
-                                                                                    'before_click_play',
-                                                                                attemptId:
-                                                                                    attemptId,
-                                                                                gameId:
-                                                                                    widget.gameDoc?.reference.id ??
-                                                                                        'unknown',
-                                                                                lastPlay:
-                                                                                    lastPlay,
-                                                                                hasPlayedToday:
-                                                                                    hasPlayedTodayNow,
-                                                                                detail:
-                                                                                    'source=${widget.source ?? 'unknown'} fromQr=${widget.fromQr}',
-                                                                              );
-                                                                              _model.cloudFunction3sn =
-                                                                                  await _callParticipateInGameTransaction(
-                                                                                attemptId:
-                                                                                    attemptId,
-                                                                                payload: {
-                                                                                  "gameRef":
-                                                                                      widget.gameDoc!.reference.id,
-                                                                                  "from_qr":
-                                                                                      widget.fromQr,
-                                                                                  "attemptId":
-                                                                                      attemptId,
-                                                                                },
-                                                                              );
-                                                                              return _model.cloudFunction3sn!;
-                                                                            },
-                                                                          );
-                                                                        },
-                                                                  text: () {
-                                                                    final noRemainingPartsLive =
-                                                                        _hasNoRemainingParts(
-                                                                      currentUserDocument,
-                                                                      getCurrentTimestamp,
-                                                                    );
-                                                                    if (noRemainingPartsLive) {
-                                                                      return 'Vous n\'avez plus de parties';
-                                                                    } else if (widget
-                                                                            .gameDoc!
-                                                                            .endDate! <
-                                                                        getCurrentTimestamp) {
-                                                                      return 'Le jeu est termin\u00E9';
-                                                                    } else if (hasPlayedToday) {
-                                                                      return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
-                                                                    } else if (hasPlayedBefore) {
-                                                                      return 'Rejouer';
-                                                                    } else if (_isLaunchingGame) {
-                                                                      return 'Chargement du jeu\u2026';
-                                                                    } else {
-                                                                      return 'Jouer';
-                                                                    }
-                                                                  }(),
-                                                                  icon: _isLaunchingGame
-                                                                      ? SizedBox(
-                                                                          width:
-                                                                              18.0,
-                                                                          height:
-                                                                              18.0,
-                                                                          child:
-                                                                              CircularProgressIndicator(
-                                                                            strokeWidth:
-                                                                                2.2,
-                                                                            color:
-                                                                              Colors.white,
-                                                                          ),
-                                                                        )
-                                                                      : null,
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    width: double
-                                                                        .infinity,
-                                                                    height:
-                                                                        56.0,
-                                                                    padding:
-                                                                        const EdgeInsets
-                                                                            .all(
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        const EdgeInsetsDirectional
-                                                                            .fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleMedium
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.inter(
-                                                                            fontWeight:
-                                                                                FontWeight.w600,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
-                                                                        ),
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            16.0),
-                                                                    elevation:
-                                                                        4.0,
-                                                                    disabledColor: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary
-                                                                        .withValues(
-                                                                          alpha:
-                                                                              0.7,
-                                                                        ),
-                                                                  ),
-                                                                ),
-                                                              );
-                                                            } else {
-                                                              return Container(
-                                                                height: 56.0,
-                                                                decoration:
-                                                                    BoxDecoration(
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primary,
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              16.0),
-                                                                ),
-                                                                child: Center(
-                                                                  child: Text(
-                                                                    'Interdit au mineur',
-                                                                    style: GoogleFonts
-                                                                        .inter(
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .w600,
-                                                                      color: Colors
-                                                                          .white,
-                                                                    ),
-                                                                  ),
-                                                                ),
+                                                                    _buildQrOnlyPrimaryButton(),
                                                               );
                                                             }
-                                                          },
-                                                        );
-                                                      } else {
-                                                        if (widget.gameDoc!
-                                                                .accessMode ==
-                                                            AccessMode.qr_only) {
-                                                          return Visibility(
-                                                            visible: widget
-                                                                    .gameDoc!
-                                                                    .endDate! >
-                                                                getCurrentTimestamp,
-                                                            child:
-                                                                _buildQrOnlyPrimaryButton(),
-                                                          );
-                                                        }
-                                                        return Visibility(
-                                                          visible: widget
-                                                                  .gameDoc!
-                                                                  .endDate! >
-                                                              getCurrentTimestamp,
-                                                          child:
-                                                              AuthUserStreamWidget(
-                                                            builder: (context) {
-                                                              final noRemainingPartsLive =
-                                                                  _hasNoRemainingParts(
-                                                                currentUserDocument,
-                                                                getCurrentTimestamp,
-                                                              );
-                                                              return FFButtonWidget(
-                                                                showLoadingIndicator:
-                                                                    false,
-                                                                onPressed: ((widget.gameDoc!.endDate! <
-                                                                            getCurrentTimestamp) ||
-                                                                        (noRemainingPartsLive &&
-                                                                            !hasPlayedToday) ||
-                                                                        _isLaunchingGame)
-                                                                    ? null
-                                                                    : () async {
-                                                                        if (_isLaunchingGame) {
-                                                                          return;
-                                                                        }
-                                                                        if (isGuestOrAnonymous) {
-                                                                          await showCreateAccountToPlayDialog(
-                                                                              context);
-                                                                          return;
-                                                                        }
-                                                                        debugPrint(
-                                                                          '[GAME_FLOW_DEBUG] participate_start screen=JeuDetailJoueurPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
-                                                                        );
-                                                                        await _launchGame(
-                                                                          attemptId: _newAttemptId(),
-                                                                          participate:
-                                                                              () async {
-                                                                            final attemptId =
-                                                                                _currentAttemptId ??
+                                                            return Visibility(
+                                                              visible: widget
+                                                                      .gameDoc!
+                                                                      .endDate! >
+                                                                  getCurrentTimestamp,
+                                                              child:
+                                                                  AuthUserStreamWidget(
+                                                                builder:
+                                                                    (context) {
+                                                                  final noRemainingPartsLive =
+                                                                      _hasNoRemainingParts(
+                                                                    currentUserDocument,
+                                                                    getCurrentTimestamp,
+                                                                  );
+                                                                  return FFButtonWidget(
+                                                                    showLoadingIndicator:
+                                                                        false,
+                                                                    onPressed: ((widget.gameDoc!.endDate! <
+                                                                                getCurrentTimestamp) ||
+                                                                            (noRemainingPartsLive &&
+                                                                                !hasPlayedToday) ||
+                                                                            _isLaunchingGame)
+                                                                        ? null
+                                                                        : () async {
+                                                                            if (_isLaunchingGame) {
+                                                                              return;
+                                                                            }
+                                                                            if (isGuestOrAnonymous) {
+                                                                              await showCreateAccountToPlayDialog(context);
+                                                                              return;
+                                                                            }
+                                                                            debugPrint(
+                                                                              '[GAME_FLOW_DEBUG] participate_start screen=JeuDetailJoueurPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
+                                                                            );
+                                                                            await _launchGame(
+                                                                              attemptId: _newAttemptId(),
+                                                                              participate: () async {
+                                                                                final attemptId = _currentAttemptId ??
                                                                                     _createAttemptId(
-                                                                                      widget.gameDoc?.reference.id ??
-                                                                                          'unknown',
+                                                                                      widget.gameDoc?.reference.id ?? 'unknown',
                                                                                     );
-                                                                            final lastPlay =
-                                                                                _coerceDateTime(
-                                                                              jeuDetailJoueurPageParticipantsDetailsRecord
-                                                                                  ?.lastPlay,
-                                                                            );
-                                                                            final now =
-                                                                                DateTime.now();
-                                                                            final hasPlayedTodayNow =
-                                                                                _computeHasPlayedToday(
-                                                                              lastPlay,
-                                                                              now,
-                                                                            );
-                                                                            _logParticipationTrace(
-                                                                              stage:
-                                                                                  'before_click_play',
-                                                                              attemptId:
-                                                                                  attemptId,
-                                                                              gameId:
-                                                                                  widget.gameDoc?.reference.id ??
-                                                                                      'unknown',
-                                                                              lastPlay:
+                                                                                final lastPlay = _coerceDateTime(
+                                                                                  jeuDetailJoueurPageParticipantsDetailsRecord?.lastPlay,
+                                                                                );
+                                                                                final now = DateTime.now();
+                                                                                final hasPlayedTodayNow = _computeHasPlayedToday(
                                                                                   lastPlay,
-                                                                              hasPlayedToday:
-                                                                                  hasPlayedTodayNow,
-                                                                              detail:
-                                                                                  'source=${widget.source ?? 'unknown'} fromQr=${widget.fromQr}',
-                                                                            );
-                                                                            _model.cloudFunction3sn2 =
-                                                                                await _callParticipateInGameTransaction(
-                                                                              attemptId:
-                                                                                  attemptId,
-                                                                              payload: {
-                                                                                "gameRef":
-                                                                                    widget.gameDoc!.reference.id,
-                                                                                "from_qr":
-                                                                                    widget.fromQr,
-                                                                                "attemptId":
-                                                                                    attemptId,
+                                                                                  now,
+                                                                                );
+                                                                                _logParticipationTrace(
+                                                                                  stage: 'before_click_play',
+                                                                                  attemptId: attemptId,
+                                                                                  gameId: widget.gameDoc?.reference.id ?? 'unknown',
+                                                                                  lastPlay: lastPlay,
+                                                                                  hasPlayedToday: hasPlayedTodayNow,
+                                                                                  detail: 'source=${widget.source ?? 'unknown'} fromQr=${widget.fromQr}',
+                                                                                );
+                                                                                _model.cloudFunction3sn2 = await _callParticipateInGameTransaction(
+                                                                                  attemptId: attemptId,
+                                                                                  payload: {
+                                                                                    "gameRef": widget.gameDoc!.reference.id,
+                                                                                    "from_qr": widget.fromQr,
+                                                                                    "attemptId": attemptId,
+                                                                                  },
+                                                                                );
+                                                                                return _model.cloudFunction3sn2!;
                                                                               },
                                                                             );
-                                                                            return _model.cloudFunction3sn2!;
                                                                           },
-                                                                        );
-                                                                      },
-                                                                text: () {
-                                                                  if (noRemainingPartsLive) {
-                                                                    return 'Vous n\'avez plus de parties';
-                                                                  } else if (widget
-                                                                          .gameDoc!
-                                                                          .endDate! <
-                                                                      getCurrentTimestamp) {
-                                                                    return 'Le jeu est termin\u00E9';
-                                                                  } else if (hasPlayedToday) {
-                                                                    return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
-                                                                  } else if (hasPlayedBefore) {
-                                                                    return 'Rejouer';
-                                                                  } else if (_isLaunchingGame) {
-                                                                    return 'Chargement du jeu\u2026';
-                                                                  } else {
-                                                                    return 'Jouer';
-                                                                  }
-                                                                }(),
-                                                                icon: _isLaunchingGame
-                                                                    ? SizedBox(
-                                                                        width:
-                                                                            18.0,
-                                                                        height:
-                                                                            18.0,
-                                                                        child:
-                                                                            CircularProgressIndicator(
-                                                                          strokeWidth:
-                                                                              2.2,
-                                                                          color:
-                                                                          Colors.white,
-                                                                        ),
-                                                                      )
-                                                                    : null,
-                                                                options:
-                                                                    FFButtonOptions(
-                                                                  width: double
-                                                                      .infinity,
-                                                                  height: 56.0,
-                                                                  padding:
-                                                                      const EdgeInsets
+                                                                    text: () {
+                                                                      if (noRemainingPartsLive) {
+                                                                        return 'Vous n\'avez plus de parties';
+                                                                      } else if (widget
+                                                                              .gameDoc!
+                                                                              .endDate! <
+                                                                          getCurrentTimestamp) {
+                                                                        return 'Le jeu est termin\u00E9';
+                                                                      } else if (hasPlayedToday) {
+                                                                        return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
+                                                                      } else if (hasPlayedBefore) {
+                                                                        return 'Rejouer';
+                                                                      } else if (_isLaunchingGame) {
+                                                                        return 'Chargement du jeu\u2026';
+                                                                      } else {
+                                                                        return 'Jouer';
+                                                                      }
+                                                                    }(),
+                                                                    icon: _isLaunchingGame
+                                                                        ? SizedBox(
+                                                                            width:
+                                                                                18.0,
+                                                                            height:
+                                                                                18.0,
+                                                                            child:
+                                                                                CircularProgressIndicator(
+                                                                              strokeWidth: 2.2,
+                                                                              color: Colors.white,
+                                                                            ),
+                                                                          )
+                                                                        : null,
+                                                                    options:
+                                                                        FFButtonOptions(
+                                                                      width: double
+                                                                          .infinity,
+                                                                      height:
+                                                                          56.0,
+                                                                      padding: const EdgeInsets
                                                                           .all(
                                                                           0.0),
-                                                                  iconPadding:
-                                                                      const EdgeInsetsDirectional
+                                                                      iconPadding: const EdgeInsetsDirectional
                                                                           .fromSTEB(
                                                                           0.0,
                                                                           0.0,
                                                                           0.0,
                                                                           0.0),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primary,
-                                                                  textStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleMedium
-                                                                      .override(
-                                                                        font: GoogleFonts
-                                                                            .inter(
-                                                                          fontWeight:
-                                                                              FontWeight.w600,
-                                                                        ),
-                                                                        color: Colors
-                                                                            .white,
-                                                                        letterSpacing:
-                                                                            0.0,
-                                                                      ),
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
+                                                                      color: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .primary,
+                                                                      textStyle: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .titleMedium
+                                                                          .override(
+                                                                            font:
+                                                                                GoogleFonts.inter(
+                                                                              fontWeight: FontWeight.w600,
+                                                                            ),
+                                                                            color:
+                                                                                Colors.white,
+                                                                            letterSpacing:
+                                                                                0.0,
+                                                                          ),
+                                                                      borderRadius:
+                                                                          BorderRadius.circular(
                                                                               16.0),
-                                                                  elevation:
-                                                                      4.0,
-                                                                  disabledColor: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primary
-                                                                      .withValues(
-                                                                          alpha:
-                                                                              0.7),
-                                                                ),
-                                                              );
-                                                            },
-                                                          ),
-                                                        );
-                                                      }
-                                                    },
-                                                  );
-                                                } else {
-                                                  if (widget.gameDoc!
-                                                          .accessMode ==
-                                                      AccessMode.qr_only) {
-                                                    return _buildQrOnlyPrimaryButton();
-                                                  }
-                                                  return FFButtonWidget(
-                                                    onPressed: () async {
-                                                      await showCreateAccountToPlayDialog(
-                                                          context);
-                                                    },
-                                                    text: 'Scanner',
-                                                    options: FFButtonOptions(
-                                                      width: double.infinity,
-                                                      height: 56.0,
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              0.0),
-                                                      iconPadding:
-                                                          const EdgeInsetsDirectional
-                                                              .fromSTEB(0.0,
-                                                              0.0, 0.0, 0.0),
-                                                      color:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .primary,
-                                                      textStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .titleMedium
-                                                              .override(
-                                                                font:
-                                                                    GoogleFonts
-                                                                        .inter(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
-                                                                ),
-                                                                color: Colors
-                                                                    .white,
-                                                                letterSpacing:
-                                                                    0.0,
+                                                                      elevation:
+                                                                          4.0,
+                                                                      disabledColor: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .primary
+                                                                          .withValues(
+                                                                              alpha: 0.7),
+                                                                    ),
+                                                                  );
+                                                                },
                                                               ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              16.0),
-                                                      elevation: 4.0,
-                                                    ),
-                                                  );
-                                                }
-                                              },
-                                              // ),
-                                            ),
-                                          // if (leftActionVisible)
+                                                            );
+                                                          }
+                                                        },
+                                                      );
+                                                    } else {
+                                                      if (widget.gameDoc!
+                                                              .accessMode ==
+                                                          AccessMode.qr_only) {
+                                                        return _buildQrOnlyPrimaryButton();
+                                                      }
+                                                      return FFButtonWidget(
+                                                        onPressed: () async {
+                                                          await showCreateAccountToPlayDialog(
+                                                              context);
+                                                        },
+                                                        text: 'Scanner',
+                                                        options:
+                                                            FFButtonOptions(
+                                                          width:
+                                                              double.infinity,
+                                                          height: 56.0,
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(0.0),
+                                                          iconPadding:
+                                                              const EdgeInsetsDirectional
+                                                                  .fromSTEB(
+                                                                  0.0,
+                                                                  0.0,
+                                                                  0.0,
+                                                                  0.0),
+                                                          color: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .primary,
+                                                          textStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .titleMedium
+                                                                  .override(
+                                                                    font: GoogleFonts
+                                                                        .inter(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600,
+                                                                    ),
+                                                                    color: Colors
+                                                                        .white,
+                                                                    letterSpacing:
+                                                                        0.0,
+                                                                  ),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      16.0),
+                                                          elevation: 4.0,
+                                                        ),
+                                                      );
+                                                    }
+                                                  },
+                                                  // ),
+                                                ),
+                                              // if (leftActionVisible)
 
-                                          if (showShopCard &&
-                                              effectiveEnseigneDoc != null) ...[
-                                            const SizedBox(height: 12.0),
-                                            Material(
-                                              color: Colors.transparent,
-                                              child: InkWell(
-                                                borderRadius:
-                                                    BorderRadius.circular(16.0),
-                                                onTap: () async {
-                                                  context.pushNamed(
-                                                    EnseigneDetailJoueurPageWidget
-                                                        .routeName,
-                                                    queryParameters: {
-                                                      'enseigneDoc':
-                                                          serializeParam(
-                                                        effectiveEnseigneDoc,
-                                                        ParamType.Document,
-                                                      ),
-                                                    }.withoutNulls,
-                                                    extra: <String, dynamic>{
-                                                      'enseigneDoc':
-                                                          effectiveEnseigneDoc,
-                                                    },
-                                                  );
-                                                },
-                                                child: Container(
-                                                  constraints:
-                                                      const BoxConstraints(
-                                                          minHeight: 72.0),
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                    horizontal: 12.0,
-                                                    vertical: 10.0,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white,
+                                              if (showShopCard &&
+                                                  effectiveEnseigneDoc !=
+                                                      null) ...[
+                                                const SizedBox(height: 12.0),
+                                                Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                             16.0),
-                                                    border: Border.all(
-                                                      color: const Color(
-                                                          0xFFA0134D),
-                                                      width: 1.0,
-                                                    ),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black
-                                                            .withOpacity(0.04),
-                                                        blurRadius: 10.0,
-                                                        offset:
-                                                            const Offset(0, 2),
+                                                    onTap: () async {
+                                                      context.pushNamed(
+                                                        EnseigneDetailJoueurPageWidget
+                                                            .routeName,
+                                                        queryParameters: {
+                                                          'enseigneDoc':
+                                                              serializeParam(
+                                                            effectiveEnseigneDoc,
+                                                            ParamType.Document,
+                                                          ),
+                                                        }.withoutNulls,
+                                                        extra: <String,
+                                                            dynamic>{
+                                                          'enseigneDoc':
+                                                              effectiveEnseigneDoc,
+                                                        },
+                                                      );
+                                                    },
+                                                    child: Container(
+                                                      constraints:
+                                                          const BoxConstraints(
+                                                              minHeight: 72.0),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                        horizontal: 12.0,
+                                                        vertical: 10.0,
                                                       ),
-                                                    ],
-                                                  ),
-                                                  child: Row(
-                                                    children: [
-                                                      ClipRRect(
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white,
                                                         borderRadius:
                                                             BorderRadius
-                                                                .circular(12.0),
-                                                        child: SizedBox(
-                                                          width: 52.0,
-                                                          height: 52.0,
-                                                          child: FutureBuilder<
-                                                              List<
-                                                                  ImagesRecord>>(
-                                                            future:
-                                                                queryImagesRecordOnce(
-                                                              parent:
-                                                                  effectiveEnseigneDoc
+                                                                .circular(16.0),
+                                                        border: Border.all(
+                                                          color: const Color(
+                                                              0xFFA0134D),
+                                                          width: 1.0,
+                                                        ),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.black
+                                                                .withOpacity(
+                                                                    0.04),
+                                                            blurRadius: 10.0,
+                                                            offset:
+                                                                const Offset(
+                                                                    0, 2),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          ClipRRect(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        12.0),
+                                                            child: SizedBox(
+                                                              width: 52.0,
+                                                              height: 52.0,
+                                                              child: FutureBuilder<
+                                                                  List<
+                                                                      ImagesRecord>>(
+                                                                future:
+                                                                    queryImagesRecordOnce(
+                                                                  parent: effectiveEnseigneDoc
                                                                       .reference,
-                                                              singleRecord:
-                                                                  true,
-                                                            ),
-                                                            builder: (context,
-                                                                snapshot) {
-                                                              if (snapshot.data
-                                                                      ?.isNotEmpty ==
-                                                                  true) {
-                                                                return ProxiplayNetworkImage(
-                                                                  imageUrl:
-                                                                      snapshot
+                                                                  singleRecord:
+                                                                      true,
+                                                                ),
+                                                                builder: (context,
+                                                                    snapshot) {
+                                                                  if (snapshot
+                                                                          .data
+                                                                          ?.isNotEmpty ==
+                                                                      true) {
+                                                                    return ProxiplayNetworkImage(
+                                                                      imageUrl: snapshot
                                                                           .data!
                                                                           .first
                                                                           .url,
-                                                                  fit: BoxFit
-                                                                      .cover,
-                                                                );
-                                                              }
+                                                                      fit: BoxFit
+                                                                          .cover,
+                                                                    );
+                                                                  }
 
-                                                              return Container(
-                                                                color: const Color(
-                                                                    0xFFF5F6FB),
-                                                                alignment:
-                                                                    Alignment
-                                                                        .center,
-                                                                child:
-                                                                    const Icon(
-                                                                  Icons
-                                                                      .storefront_rounded,
-                                                                  color: Color(
-                                                                      0xFFA0134D),
-                                                                  size: 22.0,
-                                                                ),
-                                                              );
-                                                            },
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(
-                                                          width: 12.0),
-                                                      Expanded(
-                                                        child: Column(
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            Text(
-                                                              effectiveEnseigneDoc
-                                                                      .name
-                                                                      .trim()
-                                                                      .isNotEmpty
-                                                                  ? effectiveEnseigneDoc
-                                                                      .name
-                                                                  : 'Enseigne partenaire',
-                                                              maxLines: 1,
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis,
-                                                              style: GoogleFonts
-                                                                  .inter(
-                                                                fontSize: 15.0,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                                color: const Color(
-                                                                    0xFF1F2937),
-                                                                letterSpacing:
-                                                                    0.0,
+                                                                  return Container(
+                                                                    color: const Color(
+                                                                        0xFFF5F6FB),
+                                                                    alignment:
+                                                                        Alignment
+                                                                            .center,
+                                                                    child:
+                                                                        const Icon(
+                                                                      Icons
+                                                                          .storefront_rounded,
+                                                                      color: Color(
+                                                                          0xFFA0134D),
+                                                                      size:
+                                                                          22.0,
+                                                                    ),
+                                                                  );
+                                                                },
                                                               ),
                                                             ),
-                                                            if (effectiveEnseigneDoc
-                                                                .city
-                                                                .trim()
-                                                                .isNotEmpty)
-                                                              Padding(
-                                                                padding:
-                                                                    const EdgeInsets
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 12.0),
+                                                          Expanded(
+                                                            child: Column(
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .min,
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                Text(
+                                                                  effectiveEnseigneDoc
+                                                                          .name
+                                                                          .trim()
+                                                                          .isNotEmpty
+                                                                      ? effectiveEnseigneDoc
+                                                                          .name
+                                                                      : 'Enseigne partenaire',
+                                                                  maxLines: 1,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style:
+                                                                      GoogleFonts
+                                                                          .inter(
+                                                                    fontSize:
+                                                                        15.0,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w700,
+                                                                    color: const Color(
+                                                                        0xFF1F2937),
+                                                                    letterSpacing:
+                                                                        0.0,
+                                                                  ),
+                                                                ),
+                                                                if (effectiveEnseigneDoc
+                                                                    .city
+                                                                    .trim()
+                                                                    .isNotEmpty)
+                                                                  Padding(
+                                                                    padding: const EdgeInsets
                                                                         .only(
                                                                         top:
                                                                             4.0),
-                                                                child: Row(
-                                                                  children: [
-                                                                    const Icon(
-                                                                      Icons
-                                                                          .location_on_sharp,
-                                                                      size:
-                                                                          14.0,
-                                                                      color: Color(
-                                                                          0xFF6B7280),
-                                                                    ),
-                                                                    const SizedBox(
-                                                                        width:
-                                                                            4.0),
-                                                                    Expanded(
-                                                                      child:
-                                                                          Text(
-                                                                        effectiveEnseigneDoc
-                                                                            .city,
-                                                                        maxLines:
-                                                                            1,
-                                                                        overflow:
-                                                                            TextOverflow.ellipsis,
-                                                                        style: GoogleFonts
-                                                                            .inter(
-                                                                          fontSize:
-                                                                              13.0,
-                                                                          fontWeight:
-                                                                              FontWeight.w500,
+                                                                    child: Row(
+                                                                      children: [
+                                                                        const Icon(
+                                                                          Icons
+                                                                              .location_on_sharp,
+                                                                          size:
+                                                                              14.0,
                                                                           color:
-                                                                              const Color(0xFF6B7280),
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                              Color(0xFF6B7280),
                                                                         ),
-                                                                      ),
+                                                                        const SizedBox(
+                                                                            width:
+                                                                                4.0),
+                                                                        Expanded(
+                                                                          child:
+                                                                              Text(
+                                                                            effectiveEnseigneDoc.city,
+                                                                            maxLines:
+                                                                                1,
+                                                                            overflow:
+                                                                                TextOverflow.ellipsis,
+                                                                            style:
+                                                                                GoogleFonts.inter(
+                                                                              fontSize: 13.0,
+                                                                              fontWeight: FontWeight.w500,
+                                                                              color: const Color(0xFF6B7280),
+                                                                              letterSpacing: 0.0,
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                      ],
                                                                     ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                          ],
-                                                        ),
+                                                                  ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 8.0),
+                                                          const Icon(
+                                                            Icons
+                                                                .chevron_right_rounded,
+                                                            color: Color(
+                                                                0xFF9CA3AF),
+                                                            size: 22.0,
+                                                          ),
+                                                        ],
                                                       ),
-                                                      const SizedBox(
-                                                          width: 8.0),
-                                                      const Icon(
-                                                        Icons
-                                                            .chevron_right_rounded,
-                                                        color:
-                                                            Color(0xFF9CA3AF),
-                                                        size: 22.0,
-                                                      ),
-                                                    ],
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                      const SizedBox(height: 24.0),
-                                      // Winner Announcement Section
-                                      if (hasWinnerAnnouncement)
-                                        Container(
-                                          width: double.infinity,
-                                          margin: const EdgeInsetsDirectional
-                                              .fromSTEB(0.0, 0.0, 0.0, 24.0),
-                                          padding: const EdgeInsets.all(20.0),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                              colors: [
-                                                FlutterFlowTheme.of(context)
-                                                    .primary
-                                                    .withOpacity(0.1),
-                                                FlutterFlowTheme.of(context)
-                                                    .primary
-                                                    .withOpacity(0.05),
                                               ],
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(16.0),
-                                            border: Border.all(
-                                              color:
-                                                  FlutterFlowTheme.of(context)
+                                            ],
+                                          ),
+                                          const SizedBox(height: 24.0),
+                                          // Winner Announcement Section
+                                          if (hasWinnerAnnouncement)
+                                            Container(
+                                              width: double.infinity,
+                                              margin:
+                                                  const EdgeInsetsDirectional
+                                                      .fromSTEB(
+                                                      0.0, 0.0, 0.0, 24.0),
+                                              padding:
+                                                  const EdgeInsets.all(20.0),
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    FlutterFlowTheme.of(context)
+                                                        .primary
+                                                        .withOpacity(0.1),
+                                                    FlutterFlowTheme.of(context)
+                                                        .primary
+                                                        .withOpacity(0.05),
+                                                  ],
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(16.0),
+                                                border: Border.all(
+                                                  color: FlutterFlowTheme.of(
+                                                          context)
                                                       .primary
                                                       .withOpacity(0.3),
-                                              width: 1.5,
-                                            ),
-                                          ),
-                                          child: Padding(
-                                            padding: const EdgeInsetsDirectional
-                                                .fromSTEB(
-                                                16.0, 16.0, 16.0, 16.0),
-                                            child: FutureBuilder<UsersRecord?>(
-                                              future: fetchWinnerUserIfNeeded(
-                                                gameData: widget.gameDoc!
-                                                    .snapshotData,
-                                                winnerRef: widget.gameDoc!
-                                                    .mainPrizeWinner,
+                                                  width: 1.5,
+                                                ),
                                               ),
-                                              builder: (context, snapshot) {
-                                                final winnerMessage =
-                                                    buildWinnerCongratulationsFromSources(
-                                                  gameData: widget.gameDoc!
-                                                      .snapshotData,
-                                                  user: snapshot.data,
-                                                  fallback:
-                                                      'F\u00E9licitations !',
-                                                );
-                                                return Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.max,
-                                                  children: [
-                                                    if (winnerMessage.isNotEmpty)
-                                                      // Text(
-                                                      //   'Félicitations $winnerName de ${snapshot.data!.city} !',
-                                                      //   textAlign:
-                                                      //       TextAlign.center,
-                                                      //   style:
-                                                      //       FlutterFlowTheme.of(
-                                                      //               context)
-                                                      //           .bodyMedium
-                                                      //           .override(
-                                                      //             font:
-                                                      //                 GoogleFonts
-                                                      //                     .inter(
-                                                      //               fontWeight: FlutterFlowTheme.of(
-                                                      //                       context)
-                                                      //                   .bodyMedium
-                                                      //                   .fontWeight,
-                                                      //               fontStyle: FlutterFlowTheme.of(
-                                                      //                       context)
-                                                      //                   .bodyMedium
-                                                      //                   .fontStyle,
-                                                      //             ),
-                                                      //             color: FlutterFlowTheme.of(
-                                                      //                     context)
-                                                      //                 .secondaryText,
-                                                      //             letterSpacing:
-                                                      //                 0.0,
-                                                      //             fontWeight: FlutterFlowTheme.of(
-                                                      //                     context)
-                                                      //                 .bodyMedium
-                                                      //                 .fontWeight,
-                                                      //             fontStyle: FlutterFlowTheme.of(
-                                                      //                     context)
-                                                      //                 .bodyMedium
-                                                      //                 .fontStyle,
-                                                      //           ),
-                                                      // ),
-                                                      Text(
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        winnerMessage,
-                                                        style:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsetsDirectional
+                                                        .fromSTEB(
+                                                        16.0, 16.0, 16.0, 16.0),
+                                                child:
+                                                    FutureBuilder<UsersRecord?>(
+                                                  future:
+                                                      fetchWinnerUserIfNeeded(
+                                                    gameData: widget
+                                                        .gameDoc!.snapshotData,
+                                                    winnerRef: widget.gameDoc!
+                                                        .mainPrizeWinner,
+                                                  ),
+                                                  builder: (context, snapshot) {
+                                                    final winnerMessage =
+                                                        buildWinnerCongratulationsFromSources(
+                                                      gameData: widget.gameDoc!
+                                                          .snapshotData,
+                                                      user: snapshot.data,
+                                                      fallback:
+                                                          'F\u00E9licitations !',
+                                                    );
+                                                    return Column(
+                                                      mainAxisSize:
+                                                          MainAxisSize.max,
+                                                      children: [
+                                                        if (winnerMessage
+                                                            .isNotEmpty)
+                                                          // Text(
+                                                          //   'Félicitations $winnerName de ${snapshot.data!.city} !',
+                                                          //   textAlign:
+                                                          //       TextAlign.center,
+                                                          //   style:
+                                                          //       FlutterFlowTheme.of(
+                                                          //               context)
+                                                          //           .bodyMedium
+                                                          //           .override(
+                                                          //             font:
+                                                          //                 GoogleFonts
+                                                          //                     .inter(
+                                                          //               fontWeight: FlutterFlowTheme.of(
+                                                          //                       context)
+                                                          //                   .bodyMedium
+                                                          //                   .fontWeight,
+                                                          //               fontStyle: FlutterFlowTheme.of(
+                                                          //                       context)
+                                                          //                   .bodyMedium
+                                                          //                   .fontStyle,
+                                                          //             ),
+                                                          //             color: FlutterFlowTheme.of(
+                                                          //                     context)
+                                                          //                 .secondaryText,
+                                                          //             letterSpacing:
+                                                          //                 0.0,
+                                                          //             fontWeight: FlutterFlowTheme.of(
+                                                          //                     context)
+                                                          //                 .bodyMedium
+                                                          //                 .fontWeight,
+                                                          //             fontStyle: FlutterFlowTheme.of(
+                                                          //                     context)
+                                                          //                 .bodyMedium
+                                                          //                 .fontStyle,
+                                                          //           ),
+                                                          // ),
+                                                          Text(
+                                                            textAlign: TextAlign
+                                                                .center,
+                                                            winnerMessage,
+                                                            style: FlutterFlowTheme
+                                                                    .of(context)
                                                                 .titleMedium
                                                                 .override(
                                                                   font: GoogleFonts
@@ -2307,9 +2321,124 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       .titleMedium
                                                                       .fontStyle,
                                                                 ),
-                                                      ),
+                                                          ),
+                                                        Text(
+                                                          'Le jeu est termin\u00E9. Revenez bient\u00F4t pour d\u00E9couvrir les prochains jeux !',
+                                                          textAlign:
+                                                              TextAlign.center,
+                                                          style: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .bodySmall
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodySmall
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodySmall
+                                                                      .fontStyle,
+                                                                ),
+                                                                color: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .secondaryText,
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodySmall
+                                                                    .fontWeight,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodySmall
+                                                                    .fontStyle,
+                                                              ),
+                                                        ),
+                                                      ].divide(const SizedBox(
+                                                          height: 8.0)),
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                            ),
+                                          if (shouldShowAllPrizesAttributedAnnouncement)
+                                            Container(
+                                              width: double.infinity,
+                                              margin:
+                                                  const EdgeInsetsDirectional
+                                                      .fromSTEB(
+                                                      0.0, 0.0, 0.0, 24.0),
+                                              padding:
+                                                  const EdgeInsets.all(20.0),
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    FlutterFlowTheme.of(context)
+                                                        .primary
+                                                        .withOpacity(0.1),
+                                                    FlutterFlowTheme.of(context)
+                                                        .primary
+                                                        .withOpacity(0.05),
+                                                  ],
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(16.0),
+                                                border: Border.all(
+                                                  color: FlutterFlowTheme.of(
+                                                          context)
+                                                      .primary
+                                                      .withOpacity(0.3),
+                                                  width: 1.5,
+                                                ),
+                                              ),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsetsDirectional
+                                                        .fromSTEB(
+                                                        16.0, 16.0, 16.0, 16.0),
+                                                child: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.max,
+                                                  children: [
                                                     Text(
-                                                      'Le jeu est termin\u00E9. Revenez bient\u00F4t pour d\u00E9couvrir les prochains jeux !',
+                                                      'Tous les lots ont \u00E9t\u00E9 attribu\u00E9s, bravo aux heureux gagnants !',
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .titleMedium
+                                                              .override(
+                                                                font: GoogleFonts
+                                                                    .interTight(
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleMedium
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleMedium
+                                                                      .fontStyle,
+                                                                ),
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .titleMedium
+                                                                    .fontWeight,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .titleMedium
+                                                                    .fontStyle,
+                                                              ),
+                                                    ),
+                                                    Text(
+                                                      'Le jeu est terminé. Revenez bientôt pour découvrir les prochains jeux !',
                                                       textAlign:
                                                           TextAlign.center,
                                                       style:
@@ -2346,1280 +2475,1192 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     ),
                                                   ].divide(const SizedBox(
                                                       height: 8.0)),
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                      if (shouldShowAllPrizesAttributedAnnouncement)
-                                        Container(
-                                          width: double.infinity,
-                                          margin: const EdgeInsetsDirectional
-                                              .fromSTEB(0.0, 0.0, 0.0, 24.0),
-                                          padding: const EdgeInsets.all(20.0),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                              colors: [
-                                                FlutterFlowTheme.of(context)
-                                                    .primary
-                                                    .withOpacity(0.1),
-                                                FlutterFlowTheme.of(context)
-                                                    .primary
-                                                    .withOpacity(0.05),
-                                              ],
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(16.0),
-                                            border: Border.all(
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .primary
-                                                      .withOpacity(0.3),
-                                              width: 1.5,
-                                            ),
-                                          ),
-                                          child: Padding(
-                                            padding: const EdgeInsetsDirectional
-                                                .fromSTEB(
-                                                16.0, 16.0, 16.0, 16.0),
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.max,
-                                              children: [
-                                                Text(
-                                                  'Tous les lots ont \u00E9t\u00E9 attribu\u00E9s, bravo aux heureux gagnants !',
-                                                  textAlign: TextAlign.center,
-                                                  style:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .titleMedium
-                                                          .override(
-                                                            font: GoogleFonts
-                                                                .interTight(
-                                                              fontWeight: FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .titleMedium
-                                                                  .fontWeight,
-                                                              fontStyle: FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .titleMedium
-                                                                  .fontStyle,
-                                                            ),
-                                                            letterSpacing: 0.0,
-                                                            fontWeight: FlutterFlowTheme.of(
-                                                                    context)
-                                                                .titleMedium
-                                                                .fontWeight,
-                                                            fontStyle: FlutterFlowTheme.of(
-                                                                    context)
-                                                                .titleMedium
-                                                                .fontStyle,
-                                                          ),
                                                 ),
-                                                Text(
-                                                  'Le jeu est terminé. Revenez bientôt pour découvrir les prochains jeux !',
-                                                  textAlign: TextAlign.center,
-                                                  style:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodySmall
-                                                          .override(
-                                                            font: GoogleFonts
-                                                                .inter(
-                                                              fontWeight: FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodySmall
-                                                                  .fontWeight,
-                                                              fontStyle: FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodySmall
-                                                                  .fontStyle,
-                                                            ),
-                                                            color: FlutterFlowTheme.of(
-                                                                    context)
-                                                                .secondaryText,
-                                                            letterSpacing: 0.0,
-                                                            fontWeight: FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodySmall
-                                                                .fontWeight,
-                                                            fontStyle: FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodySmall
-                                                                .fontStyle,
-                                                          ),
-                                                ),
-                                              ].divide(const SizedBox(
-                                                  height: 8.0)),
+                                              ),
                                             ),
-                                          ),
-                                        ),
-                                      // Store Information Section
-                                      // if (widget.enseigneDoc != null)
-                                      //   Column(
-                                      //     mainAxisSize: MainAxisSize.max,
-                                      //     crossAxisAlignment: CrossAxisAlignment.start,
-                                      //     children: [
-                                      // Store Name in Container
-                                      // Container(
-                                      //   width: double.infinity,
-                                      //   margin: EdgeInsets.only(bottom: 16.0),
-                                      //   padding: EdgeInsets.all(20.0),
-                                      //   decoration: BoxDecoration(
-                                      //     color: Colors.white,
-                                      //     borderRadius: BorderRadius.circular(24.0),
-                                      //     boxShadow: [
-                                      //       BoxShadow(
-                                      //         color: Colors.black.withOpacity(0.05),
-                                      //         blurRadius: 20.0,
-                                      //         offset: Offset(0, 4),
-                                      //         spreadRadius: 0,
-                                      //       ),
-                                      //     ],
-                                      //   ),
-                                      //   child: Text(
-                                      //     widget.enseigneDoc!.name,
-                                      //     style: GoogleFonts.inter(
-                                      //       fontSize: 22.0,
-                                      //       fontWeight: FontWeight.bold,
-                                      //       color: Color(0xFF1A1A1A),
-                                      //       letterSpacing: -0.5,
-                                      //     ),
-                                      //   ),
-                                      // ),
-                                      // Store Images - Outside Container
-                                      //   FutureBuilder<List<ImagesRecord>>(
-                                      //     future: (_model
-                                      //                 .firestoreRequestCompleter ??=
-                                      //             Completer<
-                                      //                 List<ImagesRecord>>()
-                                      //               ..complete(
-                                      //                   queryImagesRecordOnce(
-                                      //                 parent: widget
-                                      //                     .enseigneDoc
-                                      //                     ?.reference,
-                                      //                 limit: 5,
-                                      //               )))
-                                      //         .future,
-                                      //     builder: (context, snapshot) {
-                                      //       if (!snapshot.hasData) {
-                                      //         return Center(
-                                      //         child: Padding(
-                                      //           padding: EdgeInsets.all(20.0),
-                                      //           child: SizedBox(
-                                      //             width: 40.0,
-                                      //             height: 40.0,
-                                      //             child:
-                                      //                 const SizedBox.shrink(),
-                                      //             ),
-                                      //           ),
-                                      //         );
-                                      //       }
-                                      //       List<ImagesRecord>
-                                      //           rowImagesRecordList =
-                                      //           snapshot.data!;
+                                          // Store Information Section
+                                          // if (widget.enseigneDoc != null)
+                                          //   Column(
+                                          //     mainAxisSize: MainAxisSize.max,
+                                          //     crossAxisAlignment: CrossAxisAlignment.start,
+                                          //     children: [
+                                          // Store Name in Container
+                                          // Container(
+                                          //   width: double.infinity,
+                                          //   margin: EdgeInsets.only(bottom: 16.0),
+                                          //   padding: EdgeInsets.all(20.0),
+                                          //   decoration: BoxDecoration(
+                                          //     color: Colors.white,
+                                          //     borderRadius: BorderRadius.circular(24.0),
+                                          //     boxShadow: [
+                                          //       BoxShadow(
+                                          //         color: Colors.black.withOpacity(0.05),
+                                          //         blurRadius: 20.0,
+                                          //         offset: Offset(0, 4),
+                                          //         spreadRadius: 0,
+                                          //       ),
+                                          //     ],
+                                          //   ),
+                                          //   child: Text(
+                                          //     widget.enseigneDoc!.name,
+                                          //     style: GoogleFonts.inter(
+                                          //       fontSize: 22.0,
+                                          //       fontWeight: FontWeight.bold,
+                                          //       color: Color(0xFF1A1A1A),
+                                          //       letterSpacing: -0.5,
+                                          //     ),
+                                          //   ),
+                                          // ),
+                                          // Store Images - Outside Container
+                                          //   FutureBuilder<List<ImagesRecord>>(
+                                          //     future: (_model
+                                          //                 .firestoreRequestCompleter ??=
+                                          //             Completer<
+                                          //                 List<ImagesRecord>>()
+                                          //               ..complete(
+                                          //                   queryImagesRecordOnce(
+                                          //                 parent: widget
+                                          //                     .enseigneDoc
+                                          //                     ?.reference,
+                                          //                 limit: 5,
+                                          //               )))
+                                          //         .future,
+                                          //     builder: (context, snapshot) {
+                                          //       if (!snapshot.hasData) {
+                                          //         return Center(
+                                          //         child: Padding(
+                                          //           padding: EdgeInsets.all(20.0),
+                                          //           child: SizedBox(
+                                          //             width: 40.0,
+                                          //             height: 40.0,
+                                          //             child:
+                                          //                 const SizedBox.shrink(),
+                                          //             ),
+                                          //           ),
+                                          //         );
+                                          //       }
+                                          //       List<ImagesRecord>
+                                          //           rowImagesRecordList =
+                                          //           snapshot.data!;
 
-                                      //     if (rowImagesRecordList.isEmpty) {
-                                      //       return const SizedBox.shrink();
-                                      //     }
+                                          //     if (rowImagesRecordList.isEmpty) {
+                                          //       return const SizedBox.shrink();
+                                          //     }
 
-                                      //     return Container(
-                                      //       margin: EdgeInsets.only(bottom: 16.0),
-                                      //       child: SingleChildScrollView(
-                                      //         scrollDirection:
-                                      //             Axis.horizontal,
-                                      //         padding: EdgeInsets.symmetric(horizontal: 4.0),
-                                      //         child: Row(
-                                      //           mainAxisSize:
-                                      //               MainAxisSize.max,
-                                      //           children: List.generate(
-                                      //               rowImagesRecordList.length > 2 ? 2 : rowImagesRecordList.length,
-                                      //               (rowIndex) {
-                                      //             final rowImagesRecord =
-                                      //                 rowImagesRecordList[
-                                      //                     rowIndex];
-                                      //             return Container(
-                                      //               width: (MediaQuery.of(context).size.width - 64.0) * 0.48,
-                                      //               height: 160.0,
-                                      //               margin: EdgeInsets.only(right: 12.0),
-                                      //               decoration: BoxDecoration(
-                                      //                 borderRadius:
-                                      //                     BorderRadius
-                                      //                         .circular(20.0),
-                                      //                 boxShadow: [
-                                      //                   BoxShadow(
-                                      //                     color: Colors.black.withOpacity(0.12),
-                                      //                     blurRadius: 20.0,
-                                      //                     offset: Offset(0, 4),
-                                      //                     spreadRadius: 0,
-                                      //                   ),
-                                      //                 ],
-                                      //               ),
-                                      //               child: ClipRRect(
-                                      //                 borderRadius:
-                                      //                     BorderRadius
-                                      //                         .circular(20.0),
-                                      //                 child: Image.network(
-                                      //                   rowImagesRecord.url,
-                                      //                   width: double.infinity,
-                                      //                   height: 160.0,
-                                      //                   fit: BoxFit.cover,
-                                      //                 ),
-                                      //               ),
-                                      //             );
-                                      //           }),
-                                      //         ),
-                                      //         ),
-                                      //       );
-                                      //     },
-                                      //   ),
-                                      // ],
-                                      // ),
-                                      Builder(
-                                        builder: (context) {
-                                          if (effectiveEnseigneDoc != null) {
-                                            return Column(
-                                              mainAxisSize: MainAxisSize.max,
-                                              children: [
-                                                // Website Link Card
-                                                if (!functions
-                                                        .checkValueIsEmpty(effectiveEnseigneDoc
-                                                        .siteWebUrl))
-                                                  // Container(
-                                                  //   width: double.infinity,
-                                                  //   margin: EdgeInsets.only(bottom: 16.0),
-                                                  //   decoration: BoxDecoration(
-                                                  //     color: Colors.white,
-                                                  //     borderRadius: BorderRadius.circular(20.0),
-                                                  //     border: Border.all(
-                                                  //       color: FlutterFlowTheme.of(context).primary.withOpacity(0.2),
-                                                  //       width: 1.5,
-                                                  //     ),
-                                                  //     boxShadow: [
-                                                  //       BoxShadow(
-                                                  //         color: Colors.black.withOpacity(0.06),
-                                                  //         blurRadius: 20.0,
-                                                  //         offset: Offset(0, 4),
-                                                  //         spreadRadius: 0,
-                                                  //       ),
-                                                  //     ],
-                                                  //   ),
-                                                  //   child: InkWell(
-                                                  //     splashColor: Colors.transparent,
-                                                  //     focusColor: Colors.transparent,
-                                                  //     hoverColor: Colors.transparent,
-                                                  //     highlightColor: Colors.transparent,
-                                                  //     onTap: () async {
-                                                  //       await launchURL(widget
-                                                  //           .enseigneDoc!
-                                                  //           .siteWebUrl);
-                                                  //     },
-                                                  //     child: Padding(
-                                                  //       padding: EdgeInsets.all(18.0),
-                                                  //       child: Row(
-                                                  //         mainAxisSize: MainAxisSize.max,
-                                                  //         children: [
-                                                  //           Container(
-                                                  //             width: 48.0,
-                                                  //             height: 48.0,
-                                                  //             decoration: BoxDecoration(
-                                                  //               gradient: LinearGradient(
-                                                  //                 begin: Alignment.topLeft,
-                                                  //                 end: Alignment.bottomRight,
-                                                  //                 colors: [
-                                                  //                   FlutterFlowTheme.of(context).primary,
-                                                  //                   FlutterFlowTheme.of(context).primary.withOpacity(0.8),
-                                                  //                 ],
-                                                  //               ),
-                                                  //               borderRadius: BorderRadius.circular(14.0),
-                                                  //               boxShadow: [
-                                                  //                 BoxShadow(
-                                                  //                   color: FlutterFlowTheme.of(context).primary.withOpacity(0.3),
-                                                  //                   blurRadius: 8.0,
-                                                  //                   offset: Offset(0, 2),
-                                                  //                 ),
-                                                  //               ],
-                                                  //             ),
-                                                  //             child: Icon(
-                                                  //               Icons.language_rounded,
-                                                  //               color: Colors.white,
-                                                  //               size: 24.0,
-                                                  //             ),
-                                                  //           ),
-                                                  //           SizedBox(width: 16.0),
-                                                  //           Expanded(
-                                                  //             child: Column(
-                                                  //               mainAxisSize: MainAxisSize.min,
-                                                  //               crossAxisAlignment: CrossAxisAlignment.start,
-                                                  //               children: [
-                                                  //                 Text(
-                                                  //                   'Site Web',
-                                                  //                   style: GoogleFonts.inter(
-                                                  //                     fontSize: 12.0,
-                                                  //                     fontWeight: FontWeight.w500,
-                                                  //                     color: Color(0xFF6B7280),
-                                                  //                     letterSpacing: 0.5,
-                                                  //                   ),
-                                                  //                 ),
-                                                  //                 SizedBox(height: 4.0),
-                                                  //                 Text(
-                                                  //                   widget
-                                                  //                       .enseigneDoc!
-                                                  //                       .siteWebUrl,
-                                                  //                   style: GoogleFonts.inter(
-                                                  //                     fontSize: 15.0,
-                                                  //                     fontWeight: FontWeight.w600,
-                                                  //                     color: Color(0xFF1A1A1A),
-                                                  //                     letterSpacing: 0.0,
-                                                  //                   ),
-                                                  //                   maxLines: 1,
-                                                  //                   overflow: TextOverflow.ellipsis,
-                                                  //                 ),
-                                                  //               ],
-                                                  //             ),
-                                                  //           ),
-                                                  //           Container(
-                                                  //             width: 36.0,
-                                                  //             height: 36.0,
-                                                  //             decoration: BoxDecoration(
-                                                  //               color: FlutterFlowTheme.of(context).primary.withOpacity(0.1),
-                                                  //               borderRadius: BorderRadius.circular(10.0),
-                                                  //             ),
-                                                  //             child: Icon(
-                                                  //               Icons.open_in_new_rounded,
-                                                  //               color: FlutterFlowTheme.of(context).primary,
-                                                  //               size: 20.0,
-                                                  //             ),
-                                                  //           ),
-                                                  //         ],
-                                                  //       ),
-                                                  //     ),
-                                                  //   ),
-                                                  // ),
+                                          //     return Container(
+                                          //       margin: EdgeInsets.only(bottom: 16.0),
+                                          //       child: SingleChildScrollView(
+                                          //         scrollDirection:
+                                          //             Axis.horizontal,
+                                          //         padding: EdgeInsets.symmetric(horizontal: 4.0),
+                                          //         child: Row(
+                                          //           mainAxisSize:
+                                          //               MainAxisSize.max,
+                                          //           children: List.generate(
+                                          //               rowImagesRecordList.length > 2 ? 2 : rowImagesRecordList.length,
+                                          //               (rowIndex) {
+                                          //             final rowImagesRecord =
+                                          //                 rowImagesRecordList[
+                                          //                     rowIndex];
+                                          //             return Container(
+                                          //               width: (MediaQuery.of(context).size.width - 64.0) * 0.48,
+                                          //               height: 160.0,
+                                          //               margin: EdgeInsets.only(right: 12.0),
+                                          //               decoration: BoxDecoration(
+                                          //                 borderRadius:
+                                          //                     BorderRadius
+                                          //                         .circular(20.0),
+                                          //                 boxShadow: [
+                                          //                   BoxShadow(
+                                          //                     color: Colors.black.withOpacity(0.12),
+                                          //                     blurRadius: 20.0,
+                                          //                     offset: Offset(0, 4),
+                                          //                     spreadRadius: 0,
+                                          //                   ),
+                                          //                 ],
+                                          //               ),
+                                          //               child: ClipRRect(
+                                          //                 borderRadius:
+                                          //                     BorderRadius
+                                          //                         .circular(20.0),
+                                          //                 child: Image.network(
+                                          //                   rowImagesRecord.url,
+                                          //                   width: double.infinity,
+                                          //                   height: 160.0,
+                                          //                   fit: BoxFit.cover,
+                                          //                 ),
+                                          //               ),
+                                          //             );
+                                          //           }),
+                                          //         ),
+                                          //         ),
+                                          //       );
+                                          //     },
+                                          //   ),
+                                          // ],
+                                          // ),
+                                          Builder(
+                                            builder: (context) {
+                                              if (effectiveEnseigneDoc !=
+                                                  null) {
+                                                return Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.max,
+                                                  children: [
+                                                    // Website Link Card
+                                                    if (!functions
+                                                        .checkValueIsEmpty(
+                                                            effectiveEnseigneDoc
+                                                                .siteWebUrl))
+                                                      // Container(
+                                                      //   width: double.infinity,
+                                                      //   margin: EdgeInsets.only(bottom: 16.0),
+                                                      //   decoration: BoxDecoration(
+                                                      //     color: Colors.white,
+                                                      //     borderRadius: BorderRadius.circular(20.0),
+                                                      //     border: Border.all(
+                                                      //       color: FlutterFlowTheme.of(context).primary.withOpacity(0.2),
+                                                      //       width: 1.5,
+                                                      //     ),
+                                                      //     boxShadow: [
+                                                      //       BoxShadow(
+                                                      //         color: Colors.black.withOpacity(0.06),
+                                                      //         blurRadius: 20.0,
+                                                      //         offset: Offset(0, 4),
+                                                      //         spreadRadius: 0,
+                                                      //       ),
+                                                      //     ],
+                                                      //   ),
+                                                      //   child: InkWell(
+                                                      //     splashColor: Colors.transparent,
+                                                      //     focusColor: Colors.transparent,
+                                                      //     hoverColor: Colors.transparent,
+                                                      //     highlightColor: Colors.transparent,
+                                                      //     onTap: () async {
+                                                      //       await launchURL(widget
+                                                      //           .enseigneDoc!
+                                                      //           .siteWebUrl);
+                                                      //     },
+                                                      //     child: Padding(
+                                                      //       padding: EdgeInsets.all(18.0),
+                                                      //       child: Row(
+                                                      //         mainAxisSize: MainAxisSize.max,
+                                                      //         children: [
+                                                      //           Container(
+                                                      //             width: 48.0,
+                                                      //             height: 48.0,
+                                                      //             decoration: BoxDecoration(
+                                                      //               gradient: LinearGradient(
+                                                      //                 begin: Alignment.topLeft,
+                                                      //                 end: Alignment.bottomRight,
+                                                      //                 colors: [
+                                                      //                   FlutterFlowTheme.of(context).primary,
+                                                      //                   FlutterFlowTheme.of(context).primary.withOpacity(0.8),
+                                                      //                 ],
+                                                      //               ),
+                                                      //               borderRadius: BorderRadius.circular(14.0),
+                                                      //               boxShadow: [
+                                                      //                 BoxShadow(
+                                                      //                   color: FlutterFlowTheme.of(context).primary.withOpacity(0.3),
+                                                      //                   blurRadius: 8.0,
+                                                      //                   offset: Offset(0, 2),
+                                                      //                 ),
+                                                      //               ],
+                                                      //             ),
+                                                      //             child: Icon(
+                                                      //               Icons.language_rounded,
+                                                      //               color: Colors.white,
+                                                      //               size: 24.0,
+                                                      //             ),
+                                                      //           ),
+                                                      //           SizedBox(width: 16.0),
+                                                      //           Expanded(
+                                                      //             child: Column(
+                                                      //               mainAxisSize: MainAxisSize.min,
+                                                      //               crossAxisAlignment: CrossAxisAlignment.start,
+                                                      //               children: [
+                                                      //                 Text(
+                                                      //                   'Site Web',
+                                                      //                   style: GoogleFonts.inter(
+                                                      //                     fontSize: 12.0,
+                                                      //                     fontWeight: FontWeight.w500,
+                                                      //                     color: Color(0xFF6B7280),
+                                                      //                     letterSpacing: 0.5,
+                                                      //                   ),
+                                                      //                 ),
+                                                      //                 SizedBox(height: 4.0),
+                                                      //                 Text(
+                                                      //                   widget
+                                                      //                       .enseigneDoc!
+                                                      //                       .siteWebUrl,
+                                                      //                   style: GoogleFonts.inter(
+                                                      //                     fontSize: 15.0,
+                                                      //                     fontWeight: FontWeight.w600,
+                                                      //                     color: Color(0xFF1A1A1A),
+                                                      //                     letterSpacing: 0.0,
+                                                      //                   ),
+                                                      //                   maxLines: 1,
+                                                      //                   overflow: TextOverflow.ellipsis,
+                                                      //                 ),
+                                                      //               ],
+                                                      //             ),
+                                                      //           ),
+                                                      //           Container(
+                                                      //             width: 36.0,
+                                                      //             height: 36.0,
+                                                      //             decoration: BoxDecoration(
+                                                      //               color: FlutterFlowTheme.of(context).primary.withOpacity(0.1),
+                                                      //               borderRadius: BorderRadius.circular(10.0),
+                                                      //             ),
+                                                      //             child: Icon(
+                                                      //               Icons.open_in_new_rounded,
+                                                      //               color: FlutterFlowTheme.of(context).primary,
+                                                      //               size: 20.0,
+                                                      //             ),
+                                                      //           ),
+                                                      //         ],
+                                                      //       ),
+                                                      //     ),
+                                                      //   ),
+                                                      // ),
 
-                                                  // Social Media Links
-                                                  // if (!functions.checkValueIsEmpty(
-                                                  //         widget.enseigneDoc!
-                                                  //             .facebookLink) ||
-                                                  //     !functions.checkValueIsEmpty(
-                                                  //         widget.enseigneDoc!
-                                                  //             .twitterLink) ||
-                                                  //     !functions.checkValueIsEmpty(
-                                                  //         widget.enseigneDoc!
-                                                  //             .instagramLink))
-                                                  //   Container(
-                                                  //       width: double.infinity,
-                                                  //     margin: EdgeInsets.only(bottom: 16.0),
-                                                  //     padding: EdgeInsets.all(16.0),
-                                                  //       decoration: BoxDecoration(
-                                                  //       color: Colors.white,
-                                                  //       borderRadius: BorderRadius.circular(16.0),
-                                                  //       boxShadow: [
-                                                  //         BoxShadow(
-                                                  //           color: Colors.black.withOpacity(0.05),
-                                                  //           blurRadius: 15.0,
-                                                  //           offset: Offset(0, 2),
-                                                  //           spreadRadius: 0,
-                                                  //         ),
-                                                  //       ],
-                                                  //     ),
-                                                  //     child: Wrap(
-                                                  //       spacing: 12.0,
-                                                  //       runSpacing: 12.0,
-                                                  //           children: [
-                                                  //             if (!functions
-                                                  //             .checkValueIsEmpty(widget
-                                                  //                         .enseigneDoc!
-                                                  //                 .facebookLink))
-                                                  //                     InkWell(
-                                                  //             splashColor: Colors.transparent,
-                                                  //             focusColor: Colors.transparent,
-                                                  //             hoverColor: Colors.transparent,
-                                                  //             highlightColor: Colors.transparent,
-                                                  //             onTap: () async {
-                                                  //                         await launchURL(widget
-                                                  //                             .enseigneDoc!
-                                                  //                   .facebookLink);
-                                                  //             },
-                                                  //             child: Container(
-                                                  //               padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                                  //               decoration: BoxDecoration(
-                                                  //                 color: Color(0xFF1877F2).withOpacity(0.1),
-                                                  //                 borderRadius: BorderRadius.circular(12.0),
-                                                  //               ),
-                                                  //                 child: Row(
-                                                  //                 mainAxisSize: MainAxisSize.min,
-                                                  //                   children: [
-                                                  //                     Icon(
-                                                  //                     Icons.facebook,
-                                                  //                     color: Color(0xFF1877F2),
-                                                  //                     size: 18.0,
-                                                  //                   ),
-                                                  //                   SizedBox(width: 6.0),
-                                                  //                   Text(
-                                                  //                     'Facebook',
-                                                  //                     style: GoogleFonts.inter(
-                                                  //                       fontSize: 13.0,
-                                                  //                       fontWeight: FontWeight.w600,
-                                                  //                       color: Color(0xFF1877F2),
-                                                  //                     ),
-                                                  //                   ),
-                                                  //                 ],
-                                                  //               ),
-                                                  //                 ),
-                                                  //               ),
-                                                  //             if (!functions
-                                                  //                 .checkValueIsEmpty(widget
-                                                  //                     .enseigneDoc!
-                                                  //                     .instagramLink))
-                                                  //                     InkWell(
-                                                  //             splashColor: Colors.transparent,
-                                                  //             focusColor: Colors.transparent,
-                                                  //             hoverColor: Colors.transparent,
-                                                  //             highlightColor: Colors.transparent,
-                                                  //             onTap: () async {
-                                                  //                         await launchURL(widget
-                                                  //                             .enseigneDoc!
-                                                  //                             .instagramLink);
-                                                  //                       },
-                                                  //             child: Container(
-                                                  //               padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                                  //               decoration: BoxDecoration(
-                                                  //                 color: Color(0xFFE4405F).withOpacity(0.1),
-                                                  //                 borderRadius: BorderRadius.circular(12.0),
-                                                  //               ),
-                                                  //               child: Row(
-                                                  //                 mainAxisSize: MainAxisSize.min,
-                                                  //                 children: [
-                                                  //                   FaIcon(
-                                                  //                     FontAwesomeIcons.instagram,
-                                                  //                     color: Color(0xFFE4405F),
-                                                  //                     size: 18.0,
-                                                  //                   ),
-                                                  //                   SizedBox(width: 6.0),
-                                                  //                   Text(
-                                                  //                     'Instagram',
-                                                  //                     style: GoogleFonts.inter(
-                                                  //                       fontSize: 13.0,
-                                                  //                       fontWeight: FontWeight.w600,
-                                                  //                       color: Color(0xFFE4405F),
-                                                  //                     ),
-                                                  //                   ),
-                                                  //                 ],
-                                                  //               ),
-                                                  //                 ),
-                                                  //               ),
-                                                  //             if (!functions
-                                                  //                 .checkValueIsEmpty(widget
-                                                  //                     .enseigneDoc!
-                                                  //                     .twitterLink))
-                                                  //                     InkWell(
-                                                  //             splashColor: Colors.transparent,
-                                                  //             focusColor: Colors.transparent,
-                                                  //             hoverColor: Colors.transparent,
-                                                  //             highlightColor: Colors.transparent,
-                                                  //             onTap: () async {
-                                                  //                         await launchURL(widget
-                                                  //                             .enseigneDoc!
-                                                  //                             .twitterLink);
-                                                  //                       },
-                                                  //             child: Container(
-                                                  //               padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                                  //               decoration: BoxDecoration(
-                                                  //                 color: Color(0xFF1DA1F2).withOpacity(0.1),
-                                                  //                 borderRadius: BorderRadius.circular(12.0),
-                                                  //               ),
-                                                  //               child: Row(
-                                                  //                 mainAxisSize: MainAxisSize.min,
-                                                  //                 children: [
-                                                  //                   FaIcon(
-                                                  //                     FontAwesomeIcons.twitter,
-                                                  //                     color: Color(0xFF1DA1F2),
-                                                  //                     size: 18.0,
-                                                  //                   ),
-                                                  //                   SizedBox(width: 6.0),
-                                                  //                   Text(
-                                                  //                     'Twitter',
-                                                  //                     style: GoogleFonts.inter(
-                                                  //                       fontSize: 13.0,
-                                                  //                       fontWeight: FontWeight.w600,
-                                                  //                       color: Color(0xFF1DA1F2),
-                                                  //                     ),
-                                                  //                   ),
-                                                  //                 ],
-                                                  //               ),
-                                                  //             ),
-                                                  //           ),
-                                                  //       ],
-                                                  //     ),
-                                                  //   ),
-                                                  FutureBuilder<
-                                                      List<HorairesRecord>>(
-                                                    future:
-                                                        queryHorairesRecordOnce(
-                                                      parent: effectiveEnseigneDoc
-                                                          .reference,
-                                                      queryBuilder:
-                                                          (horairesRecord) =>
-                                                              horairesRecord
-                                                                  .orderBy(
-                                                                      'created_time'),
+                                                      // Social Media Links
+                                                      // if (!functions.checkValueIsEmpty(
+                                                      //         widget.enseigneDoc!
+                                                      //             .facebookLink) ||
+                                                      //     !functions.checkValueIsEmpty(
+                                                      //         widget.enseigneDoc!
+                                                      //             .twitterLink) ||
+                                                      //     !functions.checkValueIsEmpty(
+                                                      //         widget.enseigneDoc!
+                                                      //             .instagramLink))
+                                                      //   Container(
+                                                      //       width: double.infinity,
+                                                      //     margin: EdgeInsets.only(bottom: 16.0),
+                                                      //     padding: EdgeInsets.all(16.0),
+                                                      //       decoration: BoxDecoration(
+                                                      //       color: Colors.white,
+                                                      //       borderRadius: BorderRadius.circular(16.0),
+                                                      //       boxShadow: [
+                                                      //         BoxShadow(
+                                                      //           color: Colors.black.withOpacity(0.05),
+                                                      //           blurRadius: 15.0,
+                                                      //           offset: Offset(0, 2),
+                                                      //           spreadRadius: 0,
+                                                      //         ),
+                                                      //       ],
+                                                      //     ),
+                                                      //     child: Wrap(
+                                                      //       spacing: 12.0,
+                                                      //       runSpacing: 12.0,
+                                                      //           children: [
+                                                      //             if (!functions
+                                                      //             .checkValueIsEmpty(widget
+                                                      //                         .enseigneDoc!
+                                                      //                 .facebookLink))
+                                                      //                     InkWell(
+                                                      //             splashColor: Colors.transparent,
+                                                      //             focusColor: Colors.transparent,
+                                                      //             hoverColor: Colors.transparent,
+                                                      //             highlightColor: Colors.transparent,
+                                                      //             onTap: () async {
+                                                      //                         await launchURL(widget
+                                                      //                             .enseigneDoc!
+                                                      //                   .facebookLink);
+                                                      //             },
+                                                      //             child: Container(
+                                                      //               padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                                      //               decoration: BoxDecoration(
+                                                      //                 color: Color(0xFF1877F2).withOpacity(0.1),
+                                                      //                 borderRadius: BorderRadius.circular(12.0),
+                                                      //               ),
+                                                      //                 child: Row(
+                                                      //                 mainAxisSize: MainAxisSize.min,
+                                                      //                   children: [
+                                                      //                     Icon(
+                                                      //                     Icons.facebook,
+                                                      //                     color: Color(0xFF1877F2),
+                                                      //                     size: 18.0,
+                                                      //                   ),
+                                                      //                   SizedBox(width: 6.0),
+                                                      //                   Text(
+                                                      //                     'Facebook',
+                                                      //                     style: GoogleFonts.inter(
+                                                      //                       fontSize: 13.0,
+                                                      //                       fontWeight: FontWeight.w600,
+                                                      //                       color: Color(0xFF1877F2),
+                                                      //                     ),
+                                                      //                   ),
+                                                      //                 ],
+                                                      //               ),
+                                                      //                 ),
+                                                      //               ),
+                                                      //             if (!functions
+                                                      //                 .checkValueIsEmpty(widget
+                                                      //                     .enseigneDoc!
+                                                      //                     .instagramLink))
+                                                      //                     InkWell(
+                                                      //             splashColor: Colors.transparent,
+                                                      //             focusColor: Colors.transparent,
+                                                      //             hoverColor: Colors.transparent,
+                                                      //             highlightColor: Colors.transparent,
+                                                      //             onTap: () async {
+                                                      //                         await launchURL(widget
+                                                      //                             .enseigneDoc!
+                                                      //                             .instagramLink);
+                                                      //                       },
+                                                      //             child: Container(
+                                                      //               padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                                      //               decoration: BoxDecoration(
+                                                      //                 color: Color(0xFFE4405F).withOpacity(0.1),
+                                                      //                 borderRadius: BorderRadius.circular(12.0),
+                                                      //               ),
+                                                      //               child: Row(
+                                                      //                 mainAxisSize: MainAxisSize.min,
+                                                      //                 children: [
+                                                      //                   FaIcon(
+                                                      //                     FontAwesomeIcons.instagram,
+                                                      //                     color: Color(0xFFE4405F),
+                                                      //                     size: 18.0,
+                                                      //                   ),
+                                                      //                   SizedBox(width: 6.0),
+                                                      //                   Text(
+                                                      //                     'Instagram',
+                                                      //                     style: GoogleFonts.inter(
+                                                      //                       fontSize: 13.0,
+                                                      //                       fontWeight: FontWeight.w600,
+                                                      //                       color: Color(0xFFE4405F),
+                                                      //                     ),
+                                                      //                   ),
+                                                      //                 ],
+                                                      //               ),
+                                                      //                 ),
+                                                      //               ),
+                                                      //             if (!functions
+                                                      //                 .checkValueIsEmpty(widget
+                                                      //                     .enseigneDoc!
+                                                      //                     .twitterLink))
+                                                      //                     InkWell(
+                                                      //             splashColor: Colors.transparent,
+                                                      //             focusColor: Colors.transparent,
+                                                      //             hoverColor: Colors.transparent,
+                                                      //             highlightColor: Colors.transparent,
+                                                      //             onTap: () async {
+                                                      //                         await launchURL(widget
+                                                      //                             .enseigneDoc!
+                                                      //                             .twitterLink);
+                                                      //                       },
+                                                      //             child: Container(
+                                                      //               padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                                      //               decoration: BoxDecoration(
+                                                      //                 color: Color(0xFF1DA1F2).withOpacity(0.1),
+                                                      //                 borderRadius: BorderRadius.circular(12.0),
+                                                      //               ),
+                                                      //               child: Row(
+                                                      //                 mainAxisSize: MainAxisSize.min,
+                                                      //                 children: [
+                                                      //                   FaIcon(
+                                                      //                     FontAwesomeIcons.twitter,
+                                                      //                     color: Color(0xFF1DA1F2),
+                                                      //                     size: 18.0,
+                                                      //                   ),
+                                                      //                   SizedBox(width: 6.0),
+                                                      //                   Text(
+                                                      //                     'Twitter',
+                                                      //                     style: GoogleFonts.inter(
+                                                      //                       fontSize: 13.0,
+                                                      //                       fontWeight: FontWeight.w600,
+                                                      //                       color: Color(0xFF1DA1F2),
+                                                      //                     ),
+                                                      //                   ),
+                                                      //                 ],
+                                                      //               ),
+                                                      //             ),
+                                                      //           ),
+                                                      //       ],
+                                                      //     ),
+                                                      //   ),
+                                                      FutureBuilder<
+                                                          List<HorairesRecord>>(
+                                                        future:
+                                                            queryHorairesRecordOnce(
+                                                          parent:
+                                                              effectiveEnseigneDoc
+                                                                  .reference,
+                                                          queryBuilder:
+                                                              (horairesRecord) =>
+                                                                  horairesRecord
+                                                                      .orderBy(
+                                                                          'created_time'),
+                                                        ),
+                                                        builder: (context,
+                                                            snapshot) {
+                                                          // Customize what your widget looks like when it[s loading.
+                                                          if (!snapshot
+                                                              .hasData) {
+                                                            return const Center(
+                                                              child: SizedBox(
+                                                                width: 50.0,
+                                                                height: 50.0,
+                                                                child: SizedBox
+                                                                    .shrink(),
+                                                              ),
+                                                            );
+                                                          }
+                                                          return Container(
+                                                            decoration:
+                                                                const BoxDecoration(),
+                                                          );
+                                                        },
+                                                      ),
+                                                    FutureBuilder<
+                                                        List<HorairesRecord>>(
+                                                      future:
+                                                          queryHorairesRecordOnce(
+                                                        parent:
+                                                            effectiveEnseigneDoc
+                                                                .reference,
+                                                        queryBuilder:
+                                                            (horairesRecord) =>
+                                                                horairesRecord
+                                                                    .orderBy(
+                                                                        'created_time'),
+                                                      ),
+                                                      builder:
+                                                          (context, snapshot) {
+                                                        // Customize what your widget looks like when it[s loading.
+                                                        if (!snapshot.hasData) {
+                                                          return const Center(
+                                                            child: SizedBox(
+                                                              width: 50.0,
+                                                              height: 50.0,
+                                                              child: SizedBox
+                                                                  .shrink(),
+                                                            ),
+                                                          );
+                                                        }
+                                                        // List<HorairesRecord>
+                                                        //     containerHorairesRecordList =
+                                                        //     snapshot.data!;
+
+                                                        // return Visibility(
+                                                        //   visible:
+                                                        //       containerHorairesRecordList
+                                                        //           .isNotEmpty,
+                                                        //   child: Container(
+                                                        //     width: double.infinity,
+                                                        //     margin: EdgeInsets.only(bottom: 16.0),
+                                                        //     decoration: BoxDecoration(
+                                                        //       color: Colors.white,
+                                                        //       borderRadius: BorderRadius.circular(24.0),
+                                                        //       boxShadow: [
+                                                        //         BoxShadow(
+                                                        //           color: Colors.black.withOpacity(0.05),
+                                                        //           blurRadius: 20.0,
+                                                        //           offset: Offset(0, 4),
+                                                        //           spreadRadius: 0,
+                                                        //         ),
+                                                        //       ],
+                                                        //     ),
+                                                        //     child: Padding(
+                                                        //       padding: EdgeInsets.all(20.0),
+                                                        //       child: Column(
+                                                        //         mainAxisSize:
+                                                        //             MainAxisSize.max,
+                                                        //         crossAxisAlignment: CrossAxisAlignment.start,
+                                                        //         children: [
+                                                        //           Text(
+                                                        //             'Horaires d\'ouverture[,
+                                                        //             style: GoogleFonts.inter(
+                                                        //               fontSize: 20.0,
+                                                        //               fontWeight: FontWeight.bold,
+                                                        //               color: Color(0xFF1A1A1A),
+                                                        //               letterSpacing: -0.5,
+                                                        //             ),
+                                                        //           ),
+                                                        //           SizedBox(height: 20.0),
+                                                        //               Builder(
+                                                        //                 builder:
+                                                        //                     (context) {
+                                                        //                   final addHoraireCommercantPageVar =
+                                                        //                       containerHorairesRecordList
+                                                        //                           .toList();
+
+                                                        //                   return ListView
+                                                        //                       .separated(
+                                                        //                     padding:
+                                                        //                         EdgeInsets
+                                                        //                             .zero,
+                                                        //                     primary:
+                                                        //                         false,
+                                                        //                     shrinkWrap:
+                                                        //                         true,
+                                                        //                     scrollDirection:
+                                                        //                         Axis.vertical,
+                                                        //                     itemCount:
+                                                        //                         addHoraireCommercantPageVar
+                                                        //                             .length,
+                                                        //                     separatorBuilder: (_,
+                                                        //                             __) =>
+                                                        //                         SizedBox(
+                                                        //                             height: 10.0),
+                                                        //                     itemBuilder:
+                                                        //                         (context,
+                                                        //                             addHoraireCommercantPageVarIndex) {
+                                                        //                       final addHoraireCommercantPageVarItem =
+                                                        //                           addHoraireCommercantPageVar[addHoraireCommercantPageVarIndex];
+                                                        //                       return InkWell(
+                                                        //                         splashColor: Colors.transparent,
+                                                        //                         focusColor: Colors.transparent,
+                                                        //                         hoverColor: Colors.transparent,
+                                                        //                         highlightColor: Colors.transparent,
+                                                        //                         onTap: () async {
+                                                        //                           await showModalBottomSheet(
+                                                        //                             isScrollControlled: true,
+                                                        //                             backgroundColor: Colors.transparent,
+                                                        //                             enableDrag: false,
+                                                        //                             context: context,
+                                                        //                             builder: (context) {
+                                                        //                               return WebViewAware(
+                                                        //                                 child: GestureDetector(
+                                                        //                                   onTap: () {
+                                                        //                                     FocusScope.of(context).unfocus();
+                                                        //                                     FocusManager.instance.primaryFocus?.unfocus();
+                                                        //                                   },
+                                                        //                                   child: Padding(
+                                                        //                                     padding: MediaQuery.viewInsetsOf(context),
+                                                        //                                     child: Container(
+                                                        //                                       height: MediaQuery.sizeOf(context).height * 0.7,
+                                                        //                                       child: UpdateHoraireCardWidget(
+                                                        //                                         day: addHoraireCommercantPageVarItem,
+                                                        //                                       ),
+                                                        //                                     ),
+                                                        //                                   ),
+                                                        //                                 ),
+                                                        //                               );
+                                                        //                             },
+                                                        //                           ).then((value) => safeSetState(() {}));
+                                                        //                         },
+                                                        //                         child: Container(
+                                                        //                           width: double.infinity,
+                                                        //                           padding: EdgeInsets.symmetric(vertical: 12.0),
+                                                        //                           child: Row(
+                                                        //                             mainAxisSize: MainAxisSize.max,
+                                                        //                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                        //                             crossAxisAlignment: CrossAxisAlignment.start,
+                                                        //                             children: [
+                                                        //                               Text(
+                                                        //                                 addHoraireCommercantPageVarItem.day!.name,
+                                                        //                                 style: GoogleFonts.inter(
+                                                        //                                   fontSize: 15.0,
+                                                        //                                   fontWeight: FontWeight.w600,
+                                                        //                                   color: Color(0xFF1A1A1A),
+                                                        //                                   letterSpacing: 0.0,
+                                                        //                                 ),
+                                                        //                               ),
+                                                        //                               Expanded(
+                                                        //                                 child: Align(
+                                                        //                                   alignment: Alignment.centerRight,
+                                                        //                                   child: Builder(
+                                                        //                                     builder: (context) {
+                                                        //                                       if (addHoraireCommercantPageVarItem.isOpen) {
+                                                        //                                         return Builder(
+                                                        //                                           builder: (context) {
+                                                        //                                             if (!addHoraireCommercantPageVarItem.isFullDay) {
+                                                        //                                               return Text(
+                                                        //                                                 [${dateTimeFormat(
+                                                        //                                                   "Hm",
+                                                        //                                                   addHoraireCommercantPageVarItem.openingDay,
+                                                        //                                                   locale: FFLocalizations.of(context).languageCode,
+                                                        //                                                 )} - ${dateTimeFormat(
+                                                        //                                                   "Hm",
+                                                        //                                                   addHoraireCommercantPageVarItem.closingDay,
+                                                        //                                                   locale: FFLocalizations.of(context).languageCode,
+                                                        //                                                 )}[,
+                                                        //                                                 textAlign: TextAlign.right,
+                                                        //                                                 style: GoogleFonts.inter(
+                                                        //                                                   fontSize: 14.0,
+                                                        //                                                   fontWeight: FontWeight.w500,
+                                                        //                                                   color: Color(0xFF6B7280),
+                                                        //                                                   letterSpacing: 0.0,
+                                                        //                                                 ),
+                                                        //                                               );
+                                                        //                                             } else {
+                                                        //                                               return Column(
+                                                        //                                                 mainAxisSize: MainAxisSize.min,
+                                                        //                                                 crossAxisAlignment: CrossAxisAlignment.end,
+                                                        //                                                 children: [
+                                                        //                                                   Text(
+                                                        //                                                     [${dateTimeFormat(
+                                                        //                                                       "Hm",
+                                                        //                                                       addHoraireCommercantPageVarItem.openingMorning,
+                                                        //                                                       locale: FFLocalizations.of(context).languageCode,
+                                                        //                                                     )} - ${dateTimeFormat(
+                                                        //                                                       "Hm",
+                                                        //                                                       addHoraireCommercantPageVarItem.closingMorning,
+                                                        //                                                       locale: FFLocalizations.of(context).languageCode,
+                                                        //                                                     )}[,
+                                                        //                                                     textAlign: TextAlign.right,
+                                                        //                                                     style: GoogleFonts.inter(
+                                                        //                                                       fontSize: 14.0,
+                                                        //                                                       fontWeight: FontWeight.w500,
+                                                        //                                                       color: Color(0xFF6B7280),
+                                                        //                                                       letterSpacing: 0.0,
+                                                        //                                                     ),
+                                                        //                                                   ),
+                                                        //                                                   SizedBox(height: 4.0),
+                                                        //                                                   Text(
+                                                        //                                                     [${dateTimeFormat(
+                                                        //                                                       "Hm",
+                                                        //                                                       addHoraireCommercantPageVarItem.openingAfternoon,
+                                                        //                                                       locale: FFLocalizations.of(context).languageCode,
+                                                        //                                                     )} - ${dateTimeFormat(
+                                                        //                                                       "Hm",
+                                                        //                                                       addHoraireCommercantPageVarItem.closingAfternoon,
+                                                        //                                                       locale: FFLocalizations.of(context).languageCode,
+                                                        //                                                     )}[,
+                                                        //                                                     textAlign: TextAlign.right,
+                                                        //                                                     style: GoogleFonts.inter(
+                                                        //                                                       fontSize: 14.0,
+                                                        //                                                       fontWeight: FontWeight.w500,
+                                                        //                                                       color: Color(0xFF6B7280),
+                                                        //                                                       letterSpacing: 0.0,
+                                                        //                                                     ),
+                                                        //                                                   ),
+                                                        //                                                 ],
+                                                        //                                               );
+                                                        //                                             }
+                                                        //                                           },
+                                                        //                                         );
+                                                        //                                       } else {
+                                                        //                                         return Text(
+                                                        //                                           'Fermé',
+                                                        //                                           textAlign: TextAlign.right,
+                                                        //                                           style: GoogleFonts.inter(
+                                                        //                                             fontSize: 14.0,
+                                                        //                                             fontWeight: FontWeight.w500,
+                                                        //                                             color: Color(0xFF9CA3AF),
+                                                        //                                             letterSpacing: 0.0,
+                                                        //                                           ),
+                                                        //                                         );
+                                                        //                                       }
+                                                        //                                     },
+                                                        //                                   ),
+                                                        //                                 ),
+                                                        //                               ),
+                                                        //                             ],
+                                                        //                           ),
+                                                        //                         ),
+                                                        //                       );
+                                                        //                     },
+                                                        //                   );
+                                                        //                 },
+                                                        //               ),
+                                                        //         ],
+                                                        //       ),
+                                                        //     ),
+                                                        //   ),
+                                                        // );
+                                                        return Container();
+                                                      },
                                                     ),
-                                                    builder:
-                                                        (context, snapshot) {
-                                                      // Customize what your widget looks like when it[s loading.
-                                                      if (!snapshot.hasData) {
-                                                        return const Center(
-                                                          child: SizedBox(
-                                                            width: 50.0,
-                                                            height: 50.0,
-                                                            child: SizedBox
-                                                                .shrink(),
-                                                          ),
-                                                        );
-                                                      }
-                                                      return Container(
+                                                    if (hasSecondaryPrizeContent ||
+                                                        shouldShowMainPrize)
+                                                      Container(
+                                                        width: double.infinity,
+                                                        margin: const EdgeInsets
+                                                            .only(bottom: 16.0),
                                                         decoration:
-                                                            const BoxDecoration(),
-                                                      );
-                                                    },
-                                                  ),
-                                                FutureBuilder<
-                                                    List<HorairesRecord>>(
-                                                  future:
-                                                      queryHorairesRecordOnce(
-                                                    parent:
-                                                        effectiveEnseigneDoc
-                                                            .reference,
-                                                    queryBuilder:
-                                                        (horairesRecord) =>
-                                                            horairesRecord.orderBy(
-                                                                'created_time'),
-                                                  ),
-                                                  builder: (context, snapshot) {
-                                                    // Customize what your widget looks like when it[s loading.
-                                                    if (!snapshot.hasData) {
-                                                      return const Center(
-                                                        child: SizedBox(
-                                                          width: 50.0,
-                                                          height: 50.0,
-                                                          child:
-                                                              SizedBox.shrink(),
-                                                        ),
-                                                      );
-                                                    }
-                                                    // List<HorairesRecord>
-                                                    //     containerHorairesRecordList =
-                                                    //     snapshot.data!;
-
-                                                    // return Visibility(
-                                                    //   visible:
-                                                    //       containerHorairesRecordList
-                                                    //           .isNotEmpty,
-                                                    //   child: Container(
-                                                    //     width: double.infinity,
-                                                    //     margin: EdgeInsets.only(bottom: 16.0),
-                                                    //     decoration: BoxDecoration(
-                                                    //       color: Colors.white,
-                                                    //       borderRadius: BorderRadius.circular(24.0),
-                                                    //       boxShadow: [
-                                                    //         BoxShadow(
-                                                    //           color: Colors.black.withOpacity(0.05),
-                                                    //           blurRadius: 20.0,
-                                                    //           offset: Offset(0, 4),
-                                                    //           spreadRadius: 0,
-                                                    //         ),
-                                                    //       ],
-                                                    //     ),
-                                                    //     child: Padding(
-                                                    //       padding: EdgeInsets.all(20.0),
-                                                    //       child: Column(
-                                                    //         mainAxisSize:
-                                                    //             MainAxisSize.max,
-                                                    //         crossAxisAlignment: CrossAxisAlignment.start,
-                                                    //         children: [
-                                                    //           Text(
-                                                    //             'Horaires d\'ouverture[,
-                                                    //             style: GoogleFonts.inter(
-                                                    //               fontSize: 20.0,
-                                                    //               fontWeight: FontWeight.bold,
-                                                    //               color: Color(0xFF1A1A1A),
-                                                    //               letterSpacing: -0.5,
-                                                    //             ),
-                                                    //           ),
-                                                    //           SizedBox(height: 20.0),
-                                                    //               Builder(
-                                                    //                 builder:
-                                                    //                     (context) {
-                                                    //                   final addHoraireCommercantPageVar =
-                                                    //                       containerHorairesRecordList
-                                                    //                           .toList();
-
-                                                    //                   return ListView
-                                                    //                       .separated(
-                                                    //                     padding:
-                                                    //                         EdgeInsets
-                                                    //                             .zero,
-                                                    //                     primary:
-                                                    //                         false,
-                                                    //                     shrinkWrap:
-                                                    //                         true,
-                                                    //                     scrollDirection:
-                                                    //                         Axis.vertical,
-                                                    //                     itemCount:
-                                                    //                         addHoraireCommercantPageVar
-                                                    //                             .length,
-                                                    //                     separatorBuilder: (_,
-                                                    //                             __) =>
-                                                    //                         SizedBox(
-                                                    //                             height: 10.0),
-                                                    //                     itemBuilder:
-                                                    //                         (context,
-                                                    //                             addHoraireCommercantPageVarIndex) {
-                                                    //                       final addHoraireCommercantPageVarItem =
-                                                    //                           addHoraireCommercantPageVar[addHoraireCommercantPageVarIndex];
-                                                    //                       return InkWell(
-                                                    //                         splashColor: Colors.transparent,
-                                                    //                         focusColor: Colors.transparent,
-                                                    //                         hoverColor: Colors.transparent,
-                                                    //                         highlightColor: Colors.transparent,
-                                                    //                         onTap: () async {
-                                                    //                           await showModalBottomSheet(
-                                                    //                             isScrollControlled: true,
-                                                    //                             backgroundColor: Colors.transparent,
-                                                    //                             enableDrag: false,
-                                                    //                             context: context,
-                                                    //                             builder: (context) {
-                                                    //                               return WebViewAware(
-                                                    //                                 child: GestureDetector(
-                                                    //                                   onTap: () {
-                                                    //                                     FocusScope.of(context).unfocus();
-                                                    //                                     FocusManager.instance.primaryFocus?.unfocus();
-                                                    //                                   },
-                                                    //                                   child: Padding(
-                                                    //                                     padding: MediaQuery.viewInsetsOf(context),
-                                                    //                                     child: Container(
-                                                    //                                       height: MediaQuery.sizeOf(context).height * 0.7,
-                                                    //                                       child: UpdateHoraireCardWidget(
-                                                    //                                         day: addHoraireCommercantPageVarItem,
-                                                    //                                       ),
-                                                    //                                     ),
-                                                    //                                   ),
-                                                    //                                 ),
-                                                    //                               );
-                                                    //                             },
-                                                    //                           ).then((value) => safeSetState(() {}));
-                                                    //                         },
-                                                    //                         child: Container(
-                                                    //                           width: double.infinity,
-                                                    //                           padding: EdgeInsets.symmetric(vertical: 12.0),
-                                                    //                           child: Row(
-                                                    //                             mainAxisSize: MainAxisSize.max,
-                                                    //                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                    //                             crossAxisAlignment: CrossAxisAlignment.start,
-                                                    //                             children: [
-                                                    //                               Text(
-                                                    //                                 addHoraireCommercantPageVarItem.day!.name,
-                                                    //                                 style: GoogleFonts.inter(
-                                                    //                                   fontSize: 15.0,
-                                                    //                                   fontWeight: FontWeight.w600,
-                                                    //                                   color: Color(0xFF1A1A1A),
-                                                    //                                   letterSpacing: 0.0,
-                                                    //                                 ),
-                                                    //                               ),
-                                                    //                               Expanded(
-                                                    //                                 child: Align(
-                                                    //                                   alignment: Alignment.centerRight,
-                                                    //                                   child: Builder(
-                                                    //                                     builder: (context) {
-                                                    //                                       if (addHoraireCommercantPageVarItem.isOpen) {
-                                                    //                                         return Builder(
-                                                    //                                           builder: (context) {
-                                                    //                                             if (!addHoraireCommercantPageVarItem.isFullDay) {
-                                                    //                                               return Text(
-                                                    //                                                 [${dateTimeFormat(
-                                                    //                                                   "Hm",
-                                                    //                                                   addHoraireCommercantPageVarItem.openingDay,
-                                                    //                                                   locale: FFLocalizations.of(context).languageCode,
-                                                    //                                                 )} - ${dateTimeFormat(
-                                                    //                                                   "Hm",
-                                                    //                                                   addHoraireCommercantPageVarItem.closingDay,
-                                                    //                                                   locale: FFLocalizations.of(context).languageCode,
-                                                    //                                                 )}[,
-                                                    //                                                 textAlign: TextAlign.right,
-                                                    //                                                 style: GoogleFonts.inter(
-                                                    //                                                   fontSize: 14.0,
-                                                    //                                                   fontWeight: FontWeight.w500,
-                                                    //                                                   color: Color(0xFF6B7280),
-                                                    //                                                   letterSpacing: 0.0,
-                                                    //                                                 ),
-                                                    //                                               );
-                                                    //                                             } else {
-                                                    //                                               return Column(
-                                                    //                                                 mainAxisSize: MainAxisSize.min,
-                                                    //                                                 crossAxisAlignment: CrossAxisAlignment.end,
-                                                    //                                                 children: [
-                                                    //                                                   Text(
-                                                    //                                                     [${dateTimeFormat(
-                                                    //                                                       "Hm",
-                                                    //                                                       addHoraireCommercantPageVarItem.openingMorning,
-                                                    //                                                       locale: FFLocalizations.of(context).languageCode,
-                                                    //                                                     )} - ${dateTimeFormat(
-                                                    //                                                       "Hm",
-                                                    //                                                       addHoraireCommercantPageVarItem.closingMorning,
-                                                    //                                                       locale: FFLocalizations.of(context).languageCode,
-                                                    //                                                     )}[,
-                                                    //                                                     textAlign: TextAlign.right,
-                                                    //                                                     style: GoogleFonts.inter(
-                                                    //                                                       fontSize: 14.0,
-                                                    //                                                       fontWeight: FontWeight.w500,
-                                                    //                                                       color: Color(0xFF6B7280),
-                                                    //                                                       letterSpacing: 0.0,
-                                                    //                                                     ),
-                                                    //                                                   ),
-                                                    //                                                   SizedBox(height: 4.0),
-                                                    //                                                   Text(
-                                                    //                                                     [${dateTimeFormat(
-                                                    //                                                       "Hm",
-                                                    //                                                       addHoraireCommercantPageVarItem.openingAfternoon,
-                                                    //                                                       locale: FFLocalizations.of(context).languageCode,
-                                                    //                                                     )} - ${dateTimeFormat(
-                                                    //                                                       "Hm",
-                                                    //                                                       addHoraireCommercantPageVarItem.closingAfternoon,
-                                                    //                                                       locale: FFLocalizations.of(context).languageCode,
-                                                    //                                                     )}[,
-                                                    //                                                     textAlign: TextAlign.right,
-                                                    //                                                     style: GoogleFonts.inter(
-                                                    //                                                       fontSize: 14.0,
-                                                    //                                                       fontWeight: FontWeight.w500,
-                                                    //                                                       color: Color(0xFF6B7280),
-                                                    //                                                       letterSpacing: 0.0,
-                                                    //                                                     ),
-                                                    //                                                   ),
-                                                    //                                                 ],
-                                                    //                                               );
-                                                    //                                             }
-                                                    //                                           },
-                                                    //                                         );
-                                                    //                                       } else {
-                                                    //                                         return Text(
-                                                    //                                           'Fermé',
-                                                    //                                           textAlign: TextAlign.right,
-                                                    //                                           style: GoogleFonts.inter(
-                                                    //                                             fontSize: 14.0,
-                                                    //                                             fontWeight: FontWeight.w500,
-                                                    //                                             color: Color(0xFF9CA3AF),
-                                                    //                                             letterSpacing: 0.0,
-                                                    //                                           ),
-                                                    //                                         );
-                                                    //                                       }
-                                                    //                                     },
-                                                    //                                   ),
-                                                    //                                 ),
-                                                    //                               ),
-                                                    //                             ],
-                                                    //                           ),
-                                                    //                         ),
-                                                    //                       );
-                                                    //                     },
-                                                    //                   );
-                                                    //                 },
-                                                    //               ),
-                                                    //         ],
-                                                    //       ),
-                                                    //     ),
-                                                    //   ),
-                                                    // );
-                                                    return Container();
-                                                  },
-                                                ),
-                                                if (hasSecondaryPrizeContent ||
-                                                    shouldShowMainPrize)
-                                                  Container(
-                                                    width: double.infinity,
-                                                    margin:
-                                                        const EdgeInsets.only(
-                                                            bottom: 16.0),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.white,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              20.0),
-                                                      border: Border.all(
-                                                        color: const Color(
-                                                            0xFFE7EAF3),
-                                                      ),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                          blurRadius: 18.0,
-                                                          color: const Color(
-                                                                  0xFF1F3A5F)
-                                                              .withOpacity(
-                                                                  0.06),
-                                                          offset: const Offset(
-                                                              0.0, 10.0),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                              16.0),
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          Text(
-                                                            lotsTitle,
-                                                            style:
-                                                                detailSectionTitleStyle,
+                                                            BoxDecoration(
+                                                          color: Colors.white,
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      20.0),
+                                                          border: Border.all(
+                                                            color: const Color(
+                                                                0xFFE7EAF3),
                                                           ),
-                                                          if (shouldShowMainPrize)
-                                                            ...[
-                                                              const SizedBox(
-                                                                  height: 14.0),
-                                                              buildMainPrizeWidget(
-                                                                mainPrizeDescription,
-                                                              ),
-                                                            ],
-                                                          if (hasSecondaryPrizeContent)
-                                                            ...[
-                                                              const SizedBox(
-                                                                  height: 14.0),
-                                                              ...secondaryPrizeWidgets,
-                                                            ],
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                Container(
-                                                  width: double.infinity,
-                                                  margin: const EdgeInsets.only(
-                                                      bottom: 16.0),
-                                                  padding: const EdgeInsets.all(
-                                                      16.0),
-                                                  decoration:
-                                                      detailCardDecoration,
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        'R\u00E8gles du jeu',
-                                                        style:
-                                                            detailSectionTitleStyle,
-                                                      ),
-                                                      const SizedBox(
-                                                          height: 12.0),
-                                                      Row(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          const Icon(
-                                                            Icons
-                                                                .access_time_rounded,
-                                                            size: 16.0,
-                                                            color: Color(
-                                                                0xFF6B7280),
-                                                          ),
-                                                          const SizedBox(
-                                                              width: 8.0),
-                                                          Expanded(
-                                                            child: Text(
-                                                              shouldShowMainPrize
-                                                                  ? 'D\u00E9but du jeu le ${widget.gameDoc?.startDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.startDate, locale: FFLocalizations.of(context).languageCode) : '-'}'
-                                                                  : 'Fin du jeu le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
-                                                              style:
-                                                                  detailBodyStyle,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(
-                                                          height: 8.0),
-                                                      Row(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          const Icon(
-                                                            Icons
-                                                                .pan_tool_alt_rounded,
-                                                            size: 16.0,
-                                                            color: Color(
-                                                                0xFF6B7280),
-                                                          ),
-                                                          const SizedBox(
-                                                              width: 8.0),
-                                                          Expanded(
-                                                            child: Text(
-                                                              'Grattez la zone ci-dessus pour d\u00E9couvrir si vous avez gagn\u00E9',
-                                                              style:
-                                                                  detailBodyStyle,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(
-                                                          height: 8.0),
-                                                      if (shouldShowMainPrize)
-                                                        Row(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            const Icon(
-                                                              Icons
-                                                                  .card_giftcard_rounded,
-                                                              size: 16.0,
-                                                              color: Color(
-                                                                  0xFF6B7280),
-                                                            ),
-                                                            const SizedBox(
-                                                                width: 8.0),
-                                                            Expanded(
-                                                              child: Column(
-                                                                crossAxisAlignment:
-                                                                    CrossAxisAlignment
-                                                                        .start,
-                                                                children: [
-                                                                  Text(
-                                                                    'Le lot principal sera attribu\u00E9 par tirage au sort le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
-                                                                    style:
-                                                                        detailBodyStyle,
-                                                                  ),
-                                                                  const SizedBox(
-                                                                      height:
-                                                                          4.0),
-                                                                  Text(
-                                                                    'Plus vous participez, plus vous augmentez vos chances lors du tirage au sort',
-                                                                    style:
-                                                                        detailBodyStyle,
-                                                                  ),
-                                                                ],
-                                                              ),
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              blurRadius: 18.0,
+                                                              color: const Color(
+                                                                      0xFF1F3A5F)
+                                                                  .withOpacity(
+                                                                      0.06),
+                                                              offset:
+                                                                  const Offset(
+                                                                      0.0,
+                                                                      10.0),
                                                             ),
                                                           ],
                                                         ),
-                                                      const SizedBox(
-                                                          height: 8.0),
-                                                      if (hasSecondaryPrizeContent)
-                                                        Row(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            const Icon(
-                                                              Icons
-                                                                  .emoji_events_outlined,
-                                                              size: 16.0,
-                                                              color: Color(
-                                                                  0xFF6B7280),
-                                                            ),
-                                                            const SizedBox(
-                                                                width: 8.0),
-                                                            Expanded(
-                                                              child: Text(
-                                                                secondaryPrizeRulesText,
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(16.0),
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Text(
+                                                                lotsTitle,
                                                                 style:
-                                                                    detailBodyStyle,
+                                                                    detailSectionTitleStyle,
                                                               ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ].divide(
-                                                  const SizedBox(height: 10.0)),
-                                            );
-                                          } else {
-                                            return Column(
-                                              mainAxisSize: MainAxisSize.max,
-                                              children: [
-                                                Container(
-                                                  width: double.infinity,
-                                                  decoration: BoxDecoration(
-                                                    color:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .secondaryBackground,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            20.0),
-                                                  ),
-                                                  child: Padding(
-                                                    padding:
-                                                        const EdgeInsets.all(
-                                                            10.0),
-                                                    child: Column(
-                                                      mainAxisSize:
-                                                          MainAxisSize.max,
-                                                      children: [
-                                                        Text(
-                                                          'Les informations de cette enseigne sont indisponibles pour le moment.',
-                                                          style: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .bodyMedium
-                                                              .override(
-                                                                font: GoogleFonts
-                                                                    .inter(
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
+                                                              if (shouldShowMainPrize) ...[
+                                                                const SizedBox(
+                                                                    height:
+                                                                        14.0),
+                                                                buildMainPrizeWidget(
+                                                                  mainPrizeDescription,
                                                                 ),
-                                                                letterSpacing:
-                                                                    0.0,
-                                                                fontWeight: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontWeight,
-                                                                fontStyle: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                              ),
+                                                              ],
+                                                              if (hasSecondaryPrizeContent) ...[
+                                                                const SizedBox(
+                                                                    height:
+                                                                        14.0),
+                                                                ...secondaryPrizeWidgets,
+                                                              ],
+                                                            ],
+                                                          ),
                                                         ),
-                                                      ].divide(const SizedBox(
-                                                          height: 10.0)),
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (hasSecondaryPrizeContent ||
-                                                    shouldShowMainPrize)
-                                                  Container(
-                                                    width: double.infinity,
-                                                    margin:
-                                                        const EdgeInsets.only(
-                                                            bottom: 16.0),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.white,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              20.0),
-                                                      border: Border.all(
-                                                        color: const Color(
-                                                            0xFFE7EAF3),
                                                       ),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                          blurRadius: 18.0,
-                                                          color: const Color(
-                                                                  0xFF1F3A5F)
-                                                              .withOpacity(
-                                                                  0.06),
-                                                          offset: const Offset(
-                                                              0.0, 10.0),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    child: Padding(
+                                                    Container(
+                                                      width: double.infinity,
+                                                      margin:
+                                                          const EdgeInsets.only(
+                                                              bottom: 16.0),
                                                       padding:
                                                           const EdgeInsets.all(
                                                               16.0),
+                                                      decoration:
+                                                          detailCardDecoration,
                                                       child: Column(
                                                         crossAxisAlignment:
                                                             CrossAxisAlignment
                                                                 .start,
                                                         children: [
                                                           Text(
-                                                            lotsTitle,
+                                                            'R\u00E8gles du jeu',
                                                             style:
                                                                 detailSectionTitleStyle,
                                                           ),
-                                                          if (shouldShowMainPrize)
-                                                            ...[
+                                                          const SizedBox(
+                                                              height: 12.0),
+                                                          Row(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              const Icon(
+                                                                Icons
+                                                                    .access_time_rounded,
+                                                                size: 16.0,
+                                                                color: Color(
+                                                                    0xFF6B7280),
+                                                              ),
                                                               const SizedBox(
-                                                                  height: 14.0),
-                                                              buildMainPrizeWidget(
-                                                                mainPrizeDescription,
+                                                                  width: 8.0),
+                                                              Expanded(
+                                                                child: Text(
+                                                                  shouldShowMainPrize
+                                                                      ? 'D\u00E9but du jeu le ${widget.gameDoc?.startDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.startDate, locale: FFLocalizations.of(context).languageCode) : '-'}'
+                                                                      : 'Fin du jeu le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
+                                                                  style:
+                                                                      detailBodyStyle,
+                                                                ),
                                                               ),
                                                             ],
-                                                          if (hasSecondaryPrizeContent)
-                                                            ...[
+                                                          ),
+                                                          const SizedBox(
+                                                              height: 8.0),
+                                                          Row(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              const Icon(
+                                                                Icons
+                                                                    .pan_tool_alt_rounded,
+                                                                size: 16.0,
+                                                                color: Color(
+                                                                    0xFF6B7280),
+                                                              ),
                                                               const SizedBox(
-                                                                  height: 14.0),
-                                                              ...secondaryPrizeWidgets,
+                                                                  width: 8.0),
+                                                              Expanded(
+                                                                child: Text(
+                                                                  'Grattez la zone ci-dessus pour d\u00E9couvrir si vous avez gagn\u00E9',
+                                                                  style:
+                                                                      detailBodyStyle,
+                                                                ),
+                                                              ),
                                                             ],
+                                                          ),
+                                                          const SizedBox(
+                                                              height: 8.0),
+                                                          if (shouldShowMainPrize)
+                                                            Row(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                const Icon(
+                                                                  Icons
+                                                                      .card_giftcard_rounded,
+                                                                  size: 16.0,
+                                                                  color: Color(
+                                                                      0xFF6B7280),
+                                                                ),
+                                                                const SizedBox(
+                                                                    width: 8.0),
+                                                                Expanded(
+                                                                  child: Column(
+                                                                    crossAxisAlignment:
+                                                                        CrossAxisAlignment
+                                                                            .start,
+                                                                    children: [
+                                                                      Text(
+                                                                        'Le lot principal sera attribu\u00E9 par tirage au sort le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
+                                                                        style:
+                                                                            detailBodyStyle,
+                                                                      ),
+                                                                      const SizedBox(
+                                                                          height:
+                                                                              4.0),
+                                                                      Text(
+                                                                        'Plus vous participez, plus vous augmentez vos chances lors du tirage au sort',
+                                                                        style:
+                                                                            detailBodyStyle,
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          const SizedBox(
+                                                              height: 8.0),
+                                                          if (hasSecondaryPrizeContent)
+                                                            Row(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                const Icon(
+                                                                  Icons
+                                                                      .emoji_events_outlined,
+                                                                  size: 16.0,
+                                                                  color: Color(
+                                                                      0xFF6B7280),
+                                                                ),
+                                                                const SizedBox(
+                                                                    width: 8.0),
+                                                                Expanded(
+                                                                  child: Text(
+                                                                    secondaryPrizeRulesText,
+                                                                    style:
+                                                                        detailBodyStyle,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
                                                         ],
                                                       ),
                                                     ),
-                                                  ),
-                                                Container(
-                                                  width: double.infinity,
-                                                  margin: const EdgeInsets.only(
-                                                      bottom: 16.0),
-                                                  padding:
-                                                      const EdgeInsets.all(
-                                                          16.0),
-                                                  decoration:
-                                                      detailCardDecoration,
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        'R\u00E8gles du jeu',
-                                                        style:
-                                                            detailSectionTitleStyle,
+                                                  ].divide(const SizedBox(
+                                                      height: 10.0)),
+                                                );
+                                              } else {
+                                                return Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.max,
+                                                  children: [
+                                                    Container(
+                                                      width: double.infinity,
+                                                      decoration: BoxDecoration(
+                                                        color: FlutterFlowTheme
+                                                                .of(context)
+                                                            .secondaryBackground,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(20.0),
                                                       ),
-                                                      const SizedBox(
-                                                          height: 12.0),
-                                                      Row(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          const Icon(
-                                                            Icons
-                                                                .access_time_rounded,
-                                                            size: 16.0,
-                                                            color: Color(
-                                                                0xFF6B7280),
-                                                          ),
-                                                          const SizedBox(
-                                                              width: 8.0),
-                                                          Expanded(
-                                                            child: Text(
-                                                              shouldShowMainPrize
-                                                                  ? 'D\u00E9but du jeu le ${widget.gameDoc?.startDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.startDate, locale: FFLocalizations.of(context).languageCode) : '-'}'
-                                                                  : 'Fin du jeu le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
-                                                              style:
-                                                                  detailBodyStyle,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(
-                                                          height: 8.0),
-                                                      Row(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          const Icon(
-                                                            Icons
-                                                                .pan_tool_alt_rounded,
-                                                            size: 16.0,
-                                                            color: Color(
-                                                                0xFF6B7280),
-                                                          ),
-                                                          const SizedBox(
-                                                              width: 8.0),
-                                                          Expanded(
-                                                            child: Text(
-                                                              'Grattez la zone ci-dessus pour découvrir si vous avez gagné',
-                                                              style:
-                                                                  detailBodyStyle,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(
-                                                          height: 8.0),
-                                                      if (shouldShowMainPrize)
-                                                        Row(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .all(10.0),
+                                                        child: Column(
+                                                          mainAxisSize:
+                                                              MainAxisSize.max,
                                                           children: [
-                                                            const Icon(
-                                                              Icons
-                                                                  .emoji_events_outlined,
-                                                              size: 16.0,
-                                                              color: Color(
-                                                                  0xFF6B7280),
+                                                            Text(
+                                                              'Les informations de cette enseigne sont indisponibles pour le moment.',
+                                                              style: FlutterFlowTheme
+                                                                      .of(context)
+                                                                  .bodyMedium
+                                                                  .override(
+                                                                    font: GoogleFonts
+                                                                        .inter(
+                                                                      fontWeight: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .bodyMedium
+                                                                          .fontWeight,
+                                                                      fontStyle: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .bodyMedium
+                                                                          .fontStyle,
+                                                                    ),
+                                                                    letterSpacing:
+                                                                        0.0,
+                                                                    fontWeight: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodyMedium
+                                                                        .fontWeight,
+                                                                    fontStyle: FlutterFlowTheme.of(
+                                                                            context)
+                                                                        .bodyMedium
+                                                                        .fontStyle,
+                                                                  ),
                                                             ),
-                                                            const SizedBox(
-                                                                width: 8.0),
-                                                            Expanded(
-                                                              child: Column(
-                                                                crossAxisAlignment:
-                                                                    CrossAxisAlignment
-                                                                        .start,
-                                                                children: [
-                                                                  Text(
-                                                                    'Le lot principal sera attribu\u00E9 par tirage au sort le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
-                                                                    style:
-                                                                        detailBodyStyle,
-                                                                  ),
-                                                                  const SizedBox(
-                                                                      height:
-                                                                          4.0),
-                                                                  Text(
-                                                                    'Plus vous participez, plus vous augmentez vos chances lors du tirage au sort',
-                                                                    style:
-                                                                        detailBodyStyle,
-                                                                  ),
-                                                                ],
-                                                              ),
+                                                          ].divide(
+                                                              const SizedBox(
+                                                                  height:
+                                                                      10.0)),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    if (hasSecondaryPrizeContent ||
+                                                        shouldShowMainPrize)
+                                                      Container(
+                                                        width: double.infinity,
+                                                        margin: const EdgeInsets
+                                                            .only(bottom: 16.0),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: Colors.white,
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      20.0),
+                                                          border: Border.all(
+                                                            color: const Color(
+                                                                0xFFE7EAF3),
+                                                          ),
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              blurRadius: 18.0,
+                                                              color: const Color(
+                                                                      0xFF1F3A5F)
+                                                                  .withOpacity(
+                                                                      0.06),
+                                                              offset:
+                                                                  const Offset(
+                                                                      0.0,
+                                                                      10.0),
                                                             ),
                                                           ],
                                                         ),
-                                                      const SizedBox(
-                                                          height: 8.0),
-                                                      if (hasSecondaryPrizeContent)
-                                                        Row(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            const Icon(
-                                                              Icons
-                                                                  .emoji_events_outlined,
-                                                              size: 16.0,
-                                                              color: Color(
-                                                                  0xFF6B7280),
-                                                            ),
-                                                            const SizedBox(
-                                                                width: 8.0),
-                                                            Expanded(
-                                                              child: Text(
-                                                                secondaryPrizeRulesText,
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets
+                                                                  .all(16.0),
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              Text(
+                                                                lotsTitle,
                                                                 style:
-                                                                    detailBodyStyle,
+                                                                    detailSectionTitleStyle,
                                                               ),
-                                                            ),
-                                                          ],
+                                                              if (shouldShowMainPrize) ...[
+                                                                const SizedBox(
+                                                                    height:
+                                                                        14.0),
+                                                                buildMainPrizeWidget(
+                                                                  mainPrizeDescription,
+                                                                ),
+                                                              ],
+                                                              if (hasSecondaryPrizeContent) ...[
+                                                                const SizedBox(
+                                                                    height:
+                                                                        14.0),
+                                                                ...secondaryPrizeWidgets,
+                                                              ],
+                                                            ],
+                                                          ),
                                                         ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ].divide(
-                                                  const SizedBox(height: 10.0)),
-                                            );
-                                          }
-                                        },
+                                                      ),
+                                                    Container(
+                                                      width: double.infinity,
+                                                      margin:
+                                                          const EdgeInsets.only(
+                                                              bottom: 16.0),
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              16.0),
+                                                      decoration:
+                                                          detailCardDecoration,
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            'R\u00E8gles du jeu',
+                                                            style:
+                                                                detailSectionTitleStyle,
+                                                          ),
+                                                          const SizedBox(
+                                                              height: 12.0),
+                                                          Row(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              const Icon(
+                                                                Icons
+                                                                    .access_time_rounded,
+                                                                size: 16.0,
+                                                                color: Color(
+                                                                    0xFF6B7280),
+                                                              ),
+                                                              const SizedBox(
+                                                                  width: 8.0),
+                                                              Expanded(
+                                                                child: Text(
+                                                                  shouldShowMainPrize
+                                                                      ? 'D\u00E9but du jeu le ${widget.gameDoc?.startDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.startDate, locale: FFLocalizations.of(context).languageCode) : '-'}'
+                                                                      : 'Fin du jeu le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
+                                                                  style:
+                                                                      detailBodyStyle,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          const SizedBox(
+                                                              height: 8.0),
+                                                          Row(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
+                                                            children: [
+                                                              const Icon(
+                                                                Icons
+                                                                    .pan_tool_alt_rounded,
+                                                                size: 16.0,
+                                                                color: Color(
+                                                                    0xFF6B7280),
+                                                              ),
+                                                              const SizedBox(
+                                                                  width: 8.0),
+                                                              Expanded(
+                                                                child: Text(
+                                                                  'Grattez la zone ci-dessus pour découvrir si vous avez gagné',
+                                                                  style:
+                                                                      detailBodyStyle,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          const SizedBox(
+                                                              height: 8.0),
+                                                          if (shouldShowMainPrize)
+                                                            Row(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                const Icon(
+                                                                  Icons
+                                                                      .emoji_events_outlined,
+                                                                  size: 16.0,
+                                                                  color: Color(
+                                                                      0xFF6B7280),
+                                                                ),
+                                                                const SizedBox(
+                                                                    width: 8.0),
+                                                                Expanded(
+                                                                  child: Column(
+                                                                    crossAxisAlignment:
+                                                                        CrossAxisAlignment
+                                                                            .start,
+                                                                    children: [
+                                                                      Text(
+                                                                        'Le lot principal sera attribu\u00E9 par tirage au sort le ${widget.gameDoc?.endDate != null ? dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode) : '-'}',
+                                                                        style:
+                                                                            detailBodyStyle,
+                                                                      ),
+                                                                      const SizedBox(
+                                                                          height:
+                                                                              4.0),
+                                                                      Text(
+                                                                        'Plus vous participez, plus vous augmentez vos chances lors du tirage au sort',
+                                                                        style:
+                                                                            detailBodyStyle,
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          const SizedBox(
+                                                              height: 8.0),
+                                                          if (hasSecondaryPrizeContent)
+                                                            Row(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                const Icon(
+                                                                  Icons
+                                                                      .emoji_events_outlined,
+                                                                  size: 16.0,
+                                                                  color: Color(
+                                                                      0xFF6B7280),
+                                                                ),
+                                                                const SizedBox(
+                                                                    width: 8.0),
+                                                                Expanded(
+                                                                  child: Text(
+                                                                    secondaryPrizeRulesText,
+                                                                    style:
+                                                                        detailBodyStyle,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ].divide(const SizedBox(
+                                                      height: 10.0)),
+                                                );
+                                              }
+                                            },
+                                          ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+                        wrapWithModel(
+                          model: _model.customNavBarJoueurModel,
+                          updateCallback: () => safeSetState(() {}),
+                          child: const CustomNavBarJoueurWidget(),
+                        ),
+                      ],
                     ),
-                    wrapWithModel(
-                      model: _model.customNavBarJoueurModel,
-                      updateCallback: () => safeSetState(() {}),
-                      child: const CustomNavBarJoueurWidget(),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
               if (_isLaunchingGame) _buildLaunchingOverlay(context),
             ],
           ),
@@ -3628,7 +3669,3 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     );
   }
 }
-
-
-
-
