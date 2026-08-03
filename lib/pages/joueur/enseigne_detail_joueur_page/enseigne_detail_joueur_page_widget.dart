@@ -82,11 +82,7 @@ class _EnseigneDetailJoueurPageWidgetState
     return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
   }
 
-  bool get _canViewMinorRestrictedGames =>
-      currentUserUid == '' ||
-      isGuestOrAnonymous ||
-      ((currentUserDocument?.birthday != null) &&
-          functions.isAdult(currentUserDocument!.birthday!));
+  bool get _canViewMinorRestrictedGames => true;
 
   String _buildOngoingGamesFutureKey() =>
       '${widget.enseigneDoc?.reference.path ?? 'no_enseigne'}|'
@@ -229,7 +225,8 @@ class _EnseigneDetailJoueurPageWidgetState
     return StreamBuilder<List<FavoriteEnseignesRecord>>(
       stream: queryFavoriteEnseignesRecord(
         parent: currentUserReference,
-        queryBuilder: (favoriteEnseignesRecord) => favoriteEnseignesRecord.where(
+        queryBuilder: (favoriteEnseignesRecord) =>
+            favoriteEnseignesRecord.where(
           'enseigne_id',
           isEqualTo: widget.enseigneDoc?.reference,
         ),
@@ -258,9 +255,7 @@ class _EnseigneDetailJoueurPageWidgetState
           borderRadius: buttonSize / 2,
           buttonSize: buttonSize,
           icon: Icon(
-            isFavorite
-                ? Icons.favorite_rounded
-                : Icons.favorite_border_rounded,
+            isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
             color: const Color(0xFFA0134D),
             size: iconSize,
           ),
@@ -1826,12 +1821,7 @@ class _EnseigneDetailJoueurPageWidgetState
                                   if (currentUserUid != '') {
                                     return Builder(
                                       builder: (context) {
-                                        if (isGuestOrAnonymous ||
-                                            ((currentUserDocument?.birthday !=
-                                                    null) &&
-                                                functions.isAdult(
-                                                    currentUserDocument!
-                                                        .birthday!))) {
+                                        if (_canViewMinorRestrictedGames) {
                                           return FutureBuilder<
                                               List<GamesRecord>>(
                                             future: ongoingGamesFuture,
@@ -1908,9 +1898,11 @@ class _EnseigneDetailJoueurPageWidgetState
                                                                 Colors
                                                                     .transparent,
                                                             onTap: () async {
-                                                            debugPrint('[MERCHANT_PAGE_DEBUG] game_card_tap gameId=${listViewGamesRecord.reference.id}');
-                                                            debugPrint('[MERCHANT_PAGE_DEBUG] navigate_to_game gameId=${listViewGamesRecord.reference.id}');
-                                                            context.pushNamed(
+                                                              debugPrint(
+                                                                  '[MERCHANT_PAGE_DEBUG] game_card_tap gameId=${listViewGamesRecord.reference.id}');
+                                                              debugPrint(
+                                                                  '[MERCHANT_PAGE_DEBUG] navigate_to_game gameId=${listViewGamesRecord.reference.id}');
+                                                              context.pushNamed(
                                                                 JeuDetailJoueurPageWidget
                                                                     .routeName,
                                                                 queryParameters:
@@ -2232,8 +2224,10 @@ class _EnseigneDetailJoueurPageWidgetState
                                                           highlightColor: Colors
                                                               .transparent,
                                                           onTap: () async {
-                                                            debugPrint('[MERCHANT_PAGE_DEBUG] game_card_tap gameId=${listViewGamesRecord.reference.id}');
-                                                            debugPrint('[MERCHANT_PAGE_DEBUG] navigate_to_game gameId=${listViewGamesRecord.reference.id}');
+                                                            debugPrint(
+                                                                '[MERCHANT_PAGE_DEBUG] game_card_tap gameId=${listViewGamesRecord.reference.id}');
+                                                            debugPrint(
+                                                                '[MERCHANT_PAGE_DEBUG] navigate_to_game gameId=${listViewGamesRecord.reference.id}');
                                                             context.pushNamed(
                                                               JeuDetailJoueurPageWidget
                                                                   .routeName,
@@ -2552,9 +2546,11 @@ class _EnseigneDetailJoueurPageWidgetState
                                                       highlightColor:
                                                           Colors.transparent,
                                                       onTap: () async {
-                                                            debugPrint('[MERCHANT_PAGE_DEBUG] game_card_tap gameId=${listViewGamesRecord.reference.id}');
-                                                            debugPrint('[MERCHANT_PAGE_DEBUG] navigate_to_game gameId=${listViewGamesRecord.reference.id}');
-                                                            context.pushNamed(
+                                                        debugPrint(
+                                                            '[MERCHANT_PAGE_DEBUG] game_card_tap gameId=${listViewGamesRecord.reference.id}');
+                                                        debugPrint(
+                                                            '[MERCHANT_PAGE_DEBUG] navigate_to_game gameId=${listViewGamesRecord.reference.id}');
+                                                        context.pushNamed(
                                                           JeuDetailJoueurPageWidget
                                                               .routeName,
                                                           queryParameters: {
@@ -2847,4 +2843,3 @@ class _EnseigneDetailJoueurPageWidgetState
     );
   }
 }
-

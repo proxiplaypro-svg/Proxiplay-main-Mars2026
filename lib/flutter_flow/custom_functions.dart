@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import '/backend/schema/enums/enums.dart';
+import '/utils/minor_restricted_game_access.dart'
+    as minor_restricted_game_access;
 
 DayOfTheWeek stringDayIntoEnumDay(String day) {
   // convert string in enum item
@@ -63,16 +65,7 @@ int textToNumber(String textValue) {
   }
 }
 
-bool isAdult(DateTime date) {
-  // en fonction d'une date, détermine si la personne est adulte ou non (plus de 18 ans, en fonction de l'année, mois et jours) est retourne un boolean
-  final today = DateTime.now();
-  final age = today.year - date.year;
-  if (today.month < date.month ||
-      (today.month == date.month && today.day < date.day)) {
-    return age > 18;
-  }
-  return age >= 18;
-}
+bool isAdult(DateTime date) => minor_restricted_game_access.isAdult(date);
 
 DateTime addDate(int heure) {
   // retourner une date précise en fonction de l'heure passer en arguments (integer)
