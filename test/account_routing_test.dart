@@ -10,6 +10,7 @@ void main() {
         effectiveRole: Roles.joueur,
         playerSignals: const ['remaining_part'],
         accountStatus: null,
+        requiresProfileCompletion: false,
       );
 
       expect(target, AuthenticatedHomeTarget.joueurHome);
@@ -21,6 +22,7 @@ void main() {
         effectiveRole: Roles.joueur,
         playerSignals: const ['remaining_part'],
         accountStatus: AccountStatus.pendingInfo,
+        requiresProfileCompletion: false,
       );
 
       expect(target, AuthenticatedHomeTarget.pendingInfo);
@@ -32,6 +34,7 @@ void main() {
         effectiveRole: Roles.joueur,
         playerSignals: const ['remaining_part'],
         accountStatus: null,
+        requiresProfileCompletion: false,
       );
 
       expect(target, AuthenticatedHomeTarget.joueurHome);
@@ -43,6 +46,7 @@ void main() {
         effectiveRole: Roles.commercant,
         playerSignals: const [],
         accountStatus: null,
+        requiresProfileCompletion: false,
       );
 
       expect(target, AuthenticatedHomeTarget.commercantHome);
@@ -54,6 +58,7 @@ void main() {
         effectiveRole: Roles.admin,
         playerSignals: const [],
         accountStatus: null,
+        requiresProfileCompletion: false,
       );
 
       expect(target, AuthenticatedHomeTarget.adminHome);
@@ -65,6 +70,7 @@ void main() {
         effectiveRole: null,
         playerSignals: const ['remaining_part'],
         accountStatus: null,
+        requiresProfileCompletion: false,
       );
 
       expect(target, AuthenticatedHomeTarget.routingIssue);
@@ -76,6 +82,7 @@ void main() {
         effectiveRole: null,
         playerSignals: const [],
         accountStatus: null,
+        requiresProfileCompletion: false,
       );
 
       expect(target, AuthenticatedHomeTarget.routingIssue);
@@ -87,6 +94,7 @@ void main() {
         effectiveRole: Roles.commercant,
         playerSignals: const ['remaining_part'],
         accountStatus: null,
+        requiresProfileCompletion: false,
       );
 
       expect(target, AuthenticatedHomeTarget.routingIssue);
@@ -98,6 +106,7 @@ void main() {
         effectiveRole: Roles.joueur,
         playerSignals: const ['remaining_part'],
         accountStatus: null,
+        requiresProfileCompletion: false,
       );
 
       expect(target, AuthenticatedHomeTarget.routingIssue);
@@ -109,9 +118,34 @@ void main() {
         effectiveRole: Roles.commercant,
         playerSignals: const [],
         accountStatus: AccountStatus.pendingValidation,
+        requiresProfileCompletion: false,
       );
 
       expect(target, AuthenticatedHomeTarget.waitingValidation);
+    });
+
+    test('new player requiring profile completion goes to pending info', () {
+      final target = resolveTargetFromResolvedRole(
+        documentExists: true,
+        effectiveRole: Roles.joueur,
+        playerSignals: const ['remaining_part'],
+        accountStatus: null,
+        requiresProfileCompletion: true,
+      );
+
+      expect(target, AuthenticatedHomeTarget.pendingInfo);
+    });
+
+    test('new merchant requiring profile completion goes to pending info', () {
+      final target = resolveTargetFromResolvedRole(
+        documentExists: true,
+        effectiveRole: Roles.commercant,
+        playerSignals: const [],
+        accountStatus: AccountStatus.pendingValidation,
+        requiresProfileCompletion: true,
+      );
+
+      expect(target, AuthenticatedHomeTarget.pendingInfo);
     });
   });
 

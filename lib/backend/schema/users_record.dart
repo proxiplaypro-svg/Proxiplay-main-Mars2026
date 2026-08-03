@@ -127,6 +127,21 @@ class UsersRecord extends FirestoreRecord {
   DateTime? get lastInactiveRelaunchAt => _lastInactiveRelaunchAt;
   bool hasLastInactiveRelaunchAt() => _lastInactiveRelaunchAt != null;
 
+  // "profile_completed" field.
+  bool? _profileCompleted;
+  bool get profileCompleted => _profileCompleted ?? false;
+  bool hasProfileCompleted() => _profileCompleted != null;
+
+  // "profile_completed_at" field.
+  DateTime? _profileCompletedAt;
+  DateTime? get profileCompletedAt => _profileCompletedAt;
+  bool hasProfileCompletedAt() => _profileCompletedAt != null;
+
+  // "profile_schema_version" field.
+  int? _profileSchemaVersion;
+  int get profileSchemaVersion => _profileSchemaVersion ?? 0;
+  bool hasProfileSchemaVersion() => _profileSchemaVersion != null;
+
   void _initializeFields() {
     _email = snapshotData['email'] as String?;
     _uid = snapshotData['uid'] as String?;
@@ -154,6 +169,10 @@ class UsersRecord extends FirestoreRecord {
     _gamesPlayedCount = castToType<int>(snapshotData['games_played_count']);
     _playerStatusCached = snapshotData['player_status_cached'] as String?;
     _lastInactiveRelaunchAt = snapshotData['last_inactive_relaunch_at'] as DateTime?;
+    _profileCompleted = snapshotData['profile_completed'] as bool?;
+    _profileCompletedAt = snapshotData['profile_completed_at'] as DateTime?;
+    _profileSchemaVersion =
+        castToType<int>(snapshotData['profile_schema_version']);
   }
 
   static CollectionReference get collection =>
@@ -230,6 +249,9 @@ Map<String, dynamic> createUsersRecordData({
   DateTime? lastRealActivityAt,
   int? gamesPlayedCount,
   DateTime? lastInactiveRelaunchAt,
+  bool? profileCompleted,
+  DateTime? profileCompletedAt,
+  int? profileSchemaVersion,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -254,6 +276,9 @@ Map<String, dynamic> createUsersRecordData({
       'last_real_activity_at': lastRealActivityAt,
       'games_played_count': gamesPlayedCount,
       'last_inactive_relaunch_at': lastInactiveRelaunchAt,
+      'profile_completed': profileCompleted,
+      'profile_completed_at': profileCompletedAt,
+      'profile_schema_version': profileSchemaVersion,
     }.withoutNulls,
   );
 
@@ -286,7 +311,10 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e1?.lastInactiveRelaunchAt == e2?.lastInactiveRelaunchAt &&
         e1?.lastRealActivityAt == e2?.lastRealActivityAt &&
         e1?.gamesPlayedCount == e2?.gamesPlayedCount &&
-        e1?.playerStatusCached == e2?.playerStatusCached;
+        e1?.playerStatusCached == e2?.playerStatusCached &&
+        e1?.profileCompleted == e2?.profileCompleted &&
+        e1?.profileCompletedAt == e2?.profileCompletedAt &&
+        e1?.profileSchemaVersion == e2?.profileSchemaVersion;
   }
 
   @override
@@ -313,6 +341,9 @@ class UsersRecordDocumentEquality implements Equality<UsersRecord> {
         e?.gamesPlayedCount,
         e?.lastInactiveRelaunchAt,
         e?.playerStatusCached,
+        e?.profileCompleted,
+        e?.profileCompletedAt,
+        e?.profileSchemaVersion,
       ]);
 
   @override

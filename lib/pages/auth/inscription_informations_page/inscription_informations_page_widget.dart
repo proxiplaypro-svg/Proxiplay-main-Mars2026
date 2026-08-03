@@ -1,4 +1,5 @@
 import '/auth/firebase_auth/auth_util.dart';
+import '/auth/user_profile/user_profile_completion.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
@@ -9,6 +10,7 @@ import '/index.dart';
 import '/services/city_autocomplete_service.dart';
 import '/utils/city_compat.dart';
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -156,8 +158,29 @@ class _InscriptionInformationsPageWidgetState
             ? normalizeInseeCode(userDoc.cityInseeCode)
             : null;
     _model.datePicked ??= userDoc.birthday;
+    _seedTemporaryNamesFromAuthDisplayNameIfNeeded(userDoc);
 
     _hasSeededInitialValues = true;
+  }
+
+  void _seedTemporaryNamesFromAuthDisplayNameIfNeeded(UsersRecord userDoc) {
+    if (hasMeaningfulUserProfileText(userDoc.firstName) ||
+        hasMeaningfulUserProfileText(userDoc.lastName)) {
+      return;
+    }
+
+    final authDisplayName = FirebaseAuth.instance.currentUser?.displayName;
+    final prefill = buildTemporaryNamePrefillFromDisplayName(authDisplayName);
+    if (prefill == null) {
+      return;
+    }
+
+    if ((_model.prenomTextController?.text ?? '').trim().isEmpty) {
+      _model.prenomTextController?.text = prefill.firstName;
+    }
+    if ((_model.nomTextController?.text ?? '').trim().isEmpty) {
+      _model.nomTextController?.text = prefill.lastName;
+    }
   }
 
   @override
@@ -1252,15 +1275,23 @@ class _InscriptionInformationsPageWidgetState
                                     _isSubmitting = true;
                                   });
                                   try {
+                                    final firstName =
+                                        _model.prenomTextController.text.trim();
+                                    final lastName =
+                                        _model.nomTextController.text.trim();
                                     await currentUserReference!.set(
                                         createUsersRecordData(
                                       phoneNumber: _model
                                           .telephoneTextController.text
                                           .trim(),
                                       firstName:
-                                          _model.prenomTextController.text.trim(),
+                                          firstName,
                                       lastName:
-                                          _model.nomTextController.text.trim(),
+                                          lastName,
+                                      displayName: buildDisplayNameFromProfileNames(
+                                        firstName: firstName,
+                                        lastName: lastName,
+                                      ),
                                       city:
                                           _model.villeTextController.text.trim(),
                                       cityInseeCode:
@@ -1269,6 +1300,15 @@ class _InscriptionInformationsPageWidgetState
                                               : null,
                                       birthday:
                                           isMerchant ? null : _model.datePicked,
+                                      profileCompleted: true,
+                                      profileCompletedAt:
+                                          currentUserDocument?.hasProfileCompletedAt() ==
+                                                  true
+                                              ? currentUserDocument
+                                                  ?.profileCompletedAt
+                                              : DateTime.now(),
+                                      profileSchemaVersion:
+                                          kCurrentUserProfileSchemaVersion,
                                     ),
                                         SetOptions(merge: true));
                                     await refreshCurrentUserDocument();
