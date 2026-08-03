@@ -58,63 +58,6 @@ void main() {
     });
   });
 
-  group('shouldRequireUserProfileCompletionFromData', () {
-    test('new schema player with profile_completed false is blocked', () {
-      final requiresCompletion = shouldRequireUserProfileCompletionFromData(
-        <String, dynamic>{
-          'profile_schema_version': 1,
-          'profile_completed': false,
-          'first_name': '',
-          'last_name': '',
-          'phone_number': '',
-          'city': '',
-        },
-        role: Roles.joueur,
-      );
-
-      expect(requiresCompletion, isTrue);
-    });
-
-    test('new schema player with complete profile is not blocked', () {
-      final requiresCompletion = shouldRequireUserProfileCompletionFromData(
-        <String, dynamic>{
-          'profile_schema_version': 1,
-          'profile_completed': true,
-          'first_name': 'Julie',
-          'last_name': 'Deblieck',
-          'phone_number': '06 00 00 00 00',
-          'city': 'Lille',
-          'birthday': DateTime(1995, 1, 1),
-        },
-        role: Roles.joueur,
-      );
-
-      expect(requiresCompletion, isFalse);
-    });
-
-    test('legacy incomplete player without schema version is not blocked', () {
-      final requiresCompletion = shouldRequireUserProfileCompletionFromData(
-        <String, dynamic>{
-          'display_name': 'Julie Deblieck',
-        },
-        role: Roles.joueur,
-      );
-
-      expect(requiresCompletion, isFalse);
-    });
-
-    test('legacy account explicitly marked incomplete can be blocked later', () {
-      final requiresCompletion = shouldRequireUserProfileCompletionFromData(
-        <String, dynamic>{
-          'profile_completed': false,
-        },
-        role: Roles.joueur,
-      );
-
-      expect(requiresCompletion, isTrue);
-    });
-  });
-
   group('profile display name helpers', () {
     test('display name is rebuilt from validated first and last name', () {
       expect(

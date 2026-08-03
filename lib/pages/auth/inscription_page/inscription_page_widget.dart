@@ -280,18 +280,8 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       return;
     }
 
-    final needsAdditionalInfo = refreshedUserDoc == null ||
-        shouldRequireUserProfileCompletion(refreshedUserDoc);
-
-    if (needsAdditionalInfo) {
-      _logGoogleSignup('navigationAfterGoogleSignup destination=pendingInfo');
-      context.goNamedAuth(
-        InscriptionInformationsPageWidget.routeName,
-        mounted,
-        ignoreRedirect: true,
-      );
-      return;
-    }
+    final shouldOfferProfileCompletion = refreshedUserDoc != null &&
+        !isUserProfileComplete(refreshedUserDoc);
 
     final resolution = await resolveAuthenticatedHome(
       source: 'google_signup',
@@ -301,10 +291,27 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       'navigationAfterGoogleSignup '
       'target=${resolution.target.name} '
       'reason=${resolution.reason} '
-      'firebaseUserStillPresent=${FirebaseAuth.instance.currentUser != null}',
+      'firebaseUserStillPresent=${FirebaseAuth.instance.currentUser != null} '
+      'offerProfileCompletion=$shouldOfferProfileCompletion',
     );
 
     if (!mounted) {
+      return;
+    }
+
+    if (shouldOfferProfileCompletion) {
+      FFAppState().update(() {
+        FFAppState().offerProfileCompletionAfterLogin = true;
+        FFAppState().profileCompletionReturnRouteName = resolution.routeName;
+      });
+      _logGoogleSignup(
+        'navigationAfterGoogleSignup destination=optionalProfileCompletion',
+      );
+      context.goNamedAuth(
+        InscriptionInformationsPageWidget.routeName,
+        mounted,
+        ignoreRedirect: true,
+      );
       return;
     }
 

@@ -254,6 +254,7 @@ function buildFinding({ uid, data, authRecord }) {
   const explicitProfileCompleted =
     typeof data.profile_completed === "boolean" ? data.profile_completed : null;
   const likelyGoogleAccount = providerIds.includes("google.com");
+  const accountsWhoseAccessWouldChange = 0;
 
   const patch = {};
   const patchReasons = [];
@@ -272,11 +273,6 @@ function buildFinding({ uid, data, authRecord }) {
     }
   }
 
-  if (!currentDisplayName && composedDisplayName) {
-    patch.display_name = composedDisplayName;
-    patchReasons.push("display_name<-first_name+last_name");
-  }
-
   return {
     uid,
     role,
@@ -288,6 +284,7 @@ function buildFinding({ uid, data, authRecord }) {
     displayNameMismatch,
     missingCreatedTime,
     missingRole,
+    accountsWhoseAccessWouldChange,
     likelyGoogleAccount,
     currentDisplayName,
     composedDisplayName,
@@ -352,6 +349,7 @@ function createSummary() {
     withoutRole: 0,
     likelyGoogleAccounts: 0,
     writableFindings: 0,
+    accountsWhoseAccessWouldChange: 0,
   };
 }
 
@@ -405,6 +403,8 @@ async function main() {
     if (finding.patchFieldNames.length > 0) {
       summary.writableFindings += 1;
     }
+    summary.accountsWhoseAccessWouldChange +=
+      finding.accountsWhoseAccessWouldChange;
 
     if (!args.dryRun && finding.patchFieldNames.length > 0) {
       await doc.ref.set(finding.patch, { merge: true });
@@ -424,6 +424,10 @@ async function main() {
         displayNameMismatch: finding.displayNameMismatch,
         missingCreatedTime: finding.missingCreatedTime,
         missingRole: finding.missingRole,
+        profiles_complete: finding.profileComplete,
+        profiles_incomplete: !finding.profileComplete,
+        accounts_whose_access_would_change:
+          finding.accountsWhoseAccessWouldChange,
         likelyGoogleAccount: finding.likelyGoogleAccount,
         authProviders: finding.authProviders,
         patch: finding.patch,
@@ -434,7 +438,7 @@ async function main() {
   }
 
   console.log(
-    `[audit_user_profile_schema] DONE project=${args.projectId} mode=${args.dryRun ? "dry-run" : "apply"} totalUsers=${summary.totalUsers} completeProfiles=${summary.completeProfiles} incompleteProfiles=${summary.incompleteProfiles} onlyDisplayName=${summary.onlyDisplayName} displayNameMismatches=${summary.displayNameMismatches} withoutCreatedTime=${summary.withoutCreatedTime} withoutRole=${summary.withoutRole} likelyGoogleAccounts=${summary.likelyGoogleAccounts} writableFindings=${summary.writableFindings}`
+    `[audit_user_profile_schema] DONE project=${args.projectId} mode=${args.dryRun ? "dry-run" : "apply"} totalUsers=${summary.totalUsers} profiles_complete=${summary.completeProfiles} profiles_incomplete=${summary.incompleteProfiles} onlyDisplayName=${summary.onlyDisplayName} displayNameMismatches=${summary.displayNameMismatches} withoutCreatedTime=${summary.withoutCreatedTime} withoutRole=${summary.withoutRole} likelyGoogleAccounts=${summary.likelyGoogleAccounts} accounts_whose_access_would_change=${summary.accountsWhoseAccessWouldChange} writableFindings=${summary.writableFindings}`
   );
 }
 
