@@ -182,7 +182,8 @@ void main() {
       expect(redirect, '/loginPage');
     });
 
-    test('merchant can open merchant route when role is explicit and clean', () {
+    test('merchant can open merchant route when role is explicit and clean',
+        () {
       final redirect = resolveCachedRoleGuardRedirectPathForRole(
         requireAdmin: false,
         requireMerchant: true,
@@ -223,7 +224,9 @@ void main() {
       expect(redirect, '/loginPage');
     });
 
-    test('logged in user with null document keeps waiting on protected business route', () {
+    test(
+        'logged in user with null document keeps waiting on protected business route',
+        () {
       final redirect = resolveProtectedRouteGuardRedirectPath(
         hasResolvedAuthState: true,
         loggedIn: true,

@@ -168,7 +168,8 @@ class UsersRecord extends FirestoreRecord {
     _lastRealActivityAt = snapshotData['last_real_activity_at'] as DateTime?;
     _gamesPlayedCount = castToType<int>(snapshotData['games_played_count']);
     _playerStatusCached = snapshotData['player_status_cached'] as String?;
-    _lastInactiveRelaunchAt = snapshotData['last_inactive_relaunch_at'] as DateTime?;
+    _lastInactiveRelaunchAt =
+        snapshotData['last_inactive_relaunch_at'] as DateTime?;
     _profileCompleted = snapshotData['profile_completed'] as bool?;
     _profileCompletedAt = snapshotData['profile_completed_at'] as DateTime?;
     _profileSchemaVersion =

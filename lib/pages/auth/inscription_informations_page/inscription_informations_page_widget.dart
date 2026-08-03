@@ -347,7 +347,8 @@ class _InscriptionInformationsPageWidgetState
       FFAppState().offerProfileCompletionAfterLogin;
 
   String _optionalProfileCompletionReturnRouteName(bool isMerchant) {
-    final configuredRoute = FFAppState().profileCompletionReturnRouteName.trim();
+    final configuredRoute =
+        FFAppState().profileCompletionReturnRouteName.trim();
     if (configuredRoute.isNotEmpty) {
       return configuredRoute;
     }
@@ -529,8 +530,8 @@ class _InscriptionInformationsPageWidgetState
                     key: _model.formKey,
                     autovalidateMode: _autovalidateMode,
                     child: Padding(
-                      padding:
-                          const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                          20.0, 0.0, 20.0, 0.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
                         children: [
@@ -747,8 +748,8 @@ class _InscriptionInformationsPageWidgetState
                                       final datePickedDate =
                                           await showDatePicker(
                                         context: context,
-                                        initialDate:
-                                            _model.datePicked ?? getCurrentTimestamp,
+                                        initialDate: _model.datePicked ??
+                                            getCurrentTimestamp,
                                         firstDate: DateTime(1900),
                                         lastDate: getCurrentTimestamp,
                                         builder: (context, child) {
@@ -761,30 +762,27 @@ class _InscriptionInformationsPageWidgetState
                                             headerForegroundColor:
                                                 FlutterFlowTheme.of(context)
                                                     .info,
-                                            headerTextStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .headlineLarge
-                                                    .override(
-                                                      font: GoogleFonts
-                                                          .interTight(
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .headlineLarge
-                                                                .fontStyle,
-                                                      ),
-                                                      fontSize: 32.0,
-                                                      letterSpacing: 0.0,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .headlineLarge
-                                                              .fontStyle,
-                                                    ),
+                                            headerTextStyle: FlutterFlowTheme
+                                                    .of(context)
+                                                .headlineLarge
+                                                .override(
+                                                  font: GoogleFonts.interTight(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .headlineLarge
+                                                            .fontStyle,
+                                                  ),
+                                                  fontSize: 32.0,
+                                                  letterSpacing: 0.0,
+                                                  fontWeight: FontWeight.w600,
+                                                  fontStyle:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .headlineLarge
+                                                          .fontStyle,
+                                                ),
                                             pickerBackgroundColor:
                                                 FlutterFlowTheme.of(context)
                                                     .secondaryBackground,
@@ -841,10 +839,9 @@ class _InscriptionInformationsPageWidgetState
                                                             .bodyMedium
                                                             .fontStyle,
                                                   ),
-                                                  color:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .fieldText,
+                                                  color: FlutterFlowTheme.of(
+                                                          context)
+                                                      .fieldText,
                                                   letterSpacing: 0.0,
                                                   fontWeight:
                                                       FlutterFlowTheme.of(
@@ -859,10 +856,8 @@ class _InscriptionInformationsPageWidgetState
                                                 ),
                                           ),
                                         Padding(
-                                          padding:
-                                              const EdgeInsetsDirectional
-                                                  .fromSTEB(
-                                                      0.0, 0.0, 0.0, 1.0),
+                                          padding: const EdgeInsetsDirectional
+                                              .fromSTEB(0.0, 0.0, 0.0, 1.0),
                                           child: Text(
                                             dateTimeFormat(
                                               "d/M/y",
@@ -918,24 +913,11 @@ class _InscriptionInformationsPageWidgetState
                                   autofocus: false,
                                   obscureText: false,
                                   decoration: InputDecoration(
-                                      labelText:
-                                          'Pseudo (5 caractères minimum)',
-                                      labelStyle: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .fieldText,
-                                            letterSpacing: 0.0,
+                                    labelText: 'Pseudo (5 caractères minimum)',
+                                    labelStyle: FlutterFlowTheme.of(context)
+                                        .labelMedium
+                                        .override(
+                                          font: GoogleFonts.inter(
                                             fontWeight:
                                                 FlutterFlowTheme.of(context)
                                                     .labelMedium
@@ -945,46 +927,54 @@ class _InscriptionInformationsPageWidgetState
                                                     .labelMedium
                                                     .fontStyle,
                                           ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderSide: const BorderSide(
-                                          color: Color(0x00000000),
-                                          width: 2.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(12.0),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
                                           color: FlutterFlowTheme.of(context)
-                                              .primary,
-                                          width: 2.0,
+                                              .fieldText,
+                                          letterSpacing: 0.0,
+                                          fontWeight:
+                                              FlutterFlowTheme.of(context)
+                                                  .labelMedium
+                                                  .fontWeight,
+                                          fontStyle:
+                                              FlutterFlowTheme.of(context)
+                                                  .labelMedium
+                                                  .fontStyle,
                                         ),
-                                        borderRadius:
-                                            BorderRadius.circular(12.0),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderSide: const BorderSide(
+                                        color: Color(0x00000000),
+                                        width: 2.0,
                                       ),
-                                      errorBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
-                                          width: 2.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(12.0),
-                                      ),
-                                      focusedErrorBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
-                                          width: 2.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(12.0),
-                                      ),
-                                      filled: true,
-                                      fillColor:
-                                          FlutterFlowTheme.of(context).fieldBg,
-                                      contentPadding: const EdgeInsets.all(24.0),
+                                      borderRadius: BorderRadius.circular(12.0),
                                     ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: FlutterFlowTheme.of(context)
+                                            .primary,
+                                        width: 2.0,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12.0),
+                                    ),
+                                    errorBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color:
+                                            FlutterFlowTheme.of(context).error,
+                                        width: 2.0,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12.0),
+                                    ),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color:
+                                            FlutterFlowTheme.of(context).error,
+                                        width: 2.0,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12.0),
+                                    ),
+                                    filled: true,
+                                    fillColor:
+                                        FlutterFlowTheme.of(context).fieldBg,
+                                    contentPadding: const EdgeInsets.all(24.0),
+                                  ),
                                   style: FlutterFlowTheme.of(context)
                                       .bodyMedium
                                       .override(
@@ -1001,14 +991,12 @@ class _InscriptionInformationsPageWidgetState
                                         color: FlutterFlowTheme.of(context)
                                             .primaryText,
                                         letterSpacing: 0.0,
-                                        fontWeight:
-                                            FlutterFlowTheme.of(context)
-                                                .bodyMedium
-                                                .fontWeight,
-                                        fontStyle:
-                                            FlutterFlowTheme.of(context)
-                                                .bodyMedium
-                                                .fontStyle,
+                                        fontWeight: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .fontWeight,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .fontStyle,
                                       ),
                                   validator: _model
                                       .pseudoTextControllerValidator
@@ -1029,23 +1017,11 @@ class _InscriptionInformationsPageWidgetState
                                   obscureText: false,
                                   onChanged: _onCityChanged,
                                   decoration: InputDecoration(
-                                      labelText: 'Ville de résidence',
-                                      labelStyle: FlutterFlowTheme.of(context)
-                                          .labelMedium
-                                          .override(
-                                            font: GoogleFonts.inter(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .labelMedium
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .fieldText,
-                                            letterSpacing: 0.0,
+                                    labelText: 'Ville de résidence',
+                                    labelStyle: FlutterFlowTheme.of(context)
+                                        .labelMedium
+                                        .override(
+                                          font: GoogleFonts.inter(
                                             fontWeight:
                                                 FlutterFlowTheme.of(context)
                                                     .labelMedium
@@ -1055,46 +1031,54 @@ class _InscriptionInformationsPageWidgetState
                                                     .labelMedium
                                                     .fontStyle,
                                           ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderSide: const BorderSide(
-                                          color: Color(0x00000000),
-                                          width: 2.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(12.0),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
                                           color: FlutterFlowTheme.of(context)
-                                              .primary,
-                                          width: 2.0,
+                                              .fieldText,
+                                          letterSpacing: 0.0,
+                                          fontWeight:
+                                              FlutterFlowTheme.of(context)
+                                                  .labelMedium
+                                                  .fontWeight,
+                                          fontStyle:
+                                              FlutterFlowTheme.of(context)
+                                                  .labelMedium
+                                                  .fontStyle,
                                         ),
-                                        borderRadius:
-                                            BorderRadius.circular(12.0),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderSide: const BorderSide(
+                                        color: Color(0x00000000),
+                                        width: 2.0,
                                       ),
-                                      errorBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
-                                          width: 2.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(12.0),
-                                      ),
-                                      focusedErrorBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: FlutterFlowTheme.of(context)
-                                              .error,
-                                          width: 2.0,
-                                        ),
-                                        borderRadius:
-                                            BorderRadius.circular(12.0),
-                                      ),
-                                      filled: true,
-                                      fillColor:
-                                          FlutterFlowTheme.of(context).fieldBg,
-                                      contentPadding: const EdgeInsets.all(24.0),
+                                      borderRadius: BorderRadius.circular(12.0),
                                     ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: FlutterFlowTheme.of(context)
+                                            .primary,
+                                        width: 2.0,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12.0),
+                                    ),
+                                    errorBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color:
+                                            FlutterFlowTheme.of(context).error,
+                                        width: 2.0,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12.0),
+                                    ),
+                                    focusedErrorBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color:
+                                            FlutterFlowTheme.of(context).error,
+                                        width: 2.0,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12.0),
+                                    ),
+                                    filled: true,
+                                    fillColor:
+                                        FlutterFlowTheme.of(context).fieldBg,
+                                    contentPadding: const EdgeInsets.all(24.0),
+                                  ),
                                   style: FlutterFlowTheme.of(context)
                                       .bodyMedium
                                       .override(
@@ -1111,17 +1095,14 @@ class _InscriptionInformationsPageWidgetState
                                         color: FlutterFlowTheme.of(context)
                                             .primaryText,
                                         letterSpacing: 0.0,
-                                        fontWeight:
-                                            FlutterFlowTheme.of(context)
-                                                .bodyMedium
-                                                .fontWeight,
-                                        fontStyle:
-                                            FlutterFlowTheme.of(context)
-                                                .bodyMedium
-                                                .fontStyle,
+                                        fontWeight: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .fontWeight,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .fontStyle,
                                       ),
-                                  validator: _model
-                                      .villeTextControllerValidator
+                                  validator: _model.villeTextControllerValidator
                                       .asValidator(context),
                                 ),
                               ),
@@ -1199,7 +1180,9 @@ class _InscriptionInformationsPageWidgetState
                                 controller: _model.telephoneTextController,
                                 focusNode: _model.telephoneFocusNode,
                                 autofocus: false,
-                                autofillHints: const [AutofillHints.telephoneNumber],
+                                autofillHints: const [
+                                  AutofillHints.telephoneNumber
+                                ],
                                 obscureText: false,
                                 decoration: InputDecoration(
                                   labelText: 'Numéro de téléphone',
@@ -1346,40 +1329,41 @@ class _InscriptionInformationsPageWidgetState
                                         _model.nomTextController.text.trim();
                                     await currentUserReference!.set(
                                         createUsersRecordData(
-                                      phoneNumber: _model
-                                          .telephoneTextController.text
-                                          .trim(),
-                                      firstName:
-                                          firstName,
-                                      lastName:
-                                          lastName,
-                                      displayName: buildDisplayNameFromProfileNames(
-                                        firstName: firstName,
-                                        lastName: lastName,
-                                      ),
-                                      city:
-                                          _model.villeTextController.text.trim(),
-                                      cityInseeCode:
-                                          normalizedCityInseeCode.isNotEmpty
-                                              ? normalizedCityInseeCode
-                                              : null,
-                                      birthday:
-                                          isMerchant ? null : _model.datePicked,
-                                      profileCompleted: true,
-                                      profileCompletedAt:
-                                          currentUserDocument?.hasProfileCompletedAt() ==
+                                          phoneNumber: _model
+                                              .telephoneTextController.text
+                                              .trim(),
+                                          firstName: firstName,
+                                          lastName: lastName,
+                                          displayName:
+                                              buildDisplayNameFromProfileNames(
+                                            firstName: firstName,
+                                            lastName: lastName,
+                                          ),
+                                          city: _model.villeTextController.text
+                                              .trim(),
+                                          cityInseeCode:
+                                              normalizedCityInseeCode.isNotEmpty
+                                                  ? normalizedCityInseeCode
+                                                  : null,
+                                          birthday: isMerchant
+                                              ? null
+                                              : _model.datePicked,
+                                          profileCompleted: true,
+                                          profileCompletedAt: currentUserDocument
+                                                      ?.hasProfileCompletedAt() ==
                                                   true
                                               ? currentUserDocument
                                                   ?.profileCompletedAt
                                               : DateTime.now(),
-                                      profileSchemaVersion:
-                                          kCurrentUserProfileSchemaVersion,
-                                    ),
+                                          profileSchemaVersion:
+                                              kCurrentUserProfileSchemaVersion,
+                                        ),
                                         SetOptions(merge: true));
                                     if (_isOptionalProfileCompletionFlow) {
                                       FFAppState().update(() {
                                         if (currentUserUid.isNotEmpty) {
-                                          FFAppState().dismissProfileCompletionPromptForUid(
+                                          FFAppState()
+                                              .dismissProfileCompletionPromptForUid(
                                             currentUserUid,
                                           );
                                         }
@@ -1391,13 +1375,16 @@ class _InscriptionInformationsPageWidgetState
                                     if (!mounted) {
                                       return;
                                     }
-                                    final destination = _isOptionalProfileCompletionFlow
-                                        ? _optionalProfileCompletionReturnRouteName(
-                                            isMerchant,
-                                          )
-                                        : (isMerchant
-                                            ? WaitingValidationPageWidget.routeName
-                                            : HomeJoueurPageWidget.routeName);
+                                    final destination =
+                                        _isOptionalProfileCompletionFlow
+                                            ? _optionalProfileCompletionReturnRouteName(
+                                                isMerchant,
+                                              )
+                                            : (isMerchant
+                                                ? WaitingValidationPageWidget
+                                                    .routeName
+                                                : HomeJoueurPageWidget
+                                                    .routeName);
                                     _navigateOnce(router, destination);
                                   } catch (error) {
                                     debugPrint(
@@ -1426,8 +1413,9 @@ class _InscriptionInformationsPageWidgetState
                                   height: 52.0,
                                   padding: const EdgeInsetsDirectional.fromSTEB(
                                       0.0, 0.0, 0.0, 0.0),
-                                  iconPadding: const EdgeInsetsDirectional.fromSTEB(
-                                      0.0, 0.0, 0.0, 0.0),
+                                  iconPadding:
+                                      const EdgeInsetsDirectional.fromSTEB(
+                                          0.0, 0.0, 0.0, 0.0),
                                   color: FlutterFlowTheme.of(context).primary,
                                   textStyle: FlutterFlowTheme.of(context)
                                       .titleSmall
