@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/auth/firebase_auth/account_routing.dart';
+import '/auth/user_profile/user_profile_completion.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_animations.dart';
@@ -198,6 +199,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
           phoneNumber:
               userDoc?.hasPhoneNumber() == true ? null : firebaseUser.phoneNumber,
           userRole: isExistingUserDoc ? null : Roles.joueur,
+          profileCompleted: isExistingUserDoc ? null : false,
+          profileSchemaVersion: isExistingUserDoc
+              ? null
+              : kCurrentUserProfileSchemaVersion,
         ),
       },
       SetOptions(merge: true),
@@ -276,11 +281,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     }
 
     final needsAdditionalInfo = refreshedUserDoc == null ||
-        !refreshedUserDoc.hasFirstName() ||
-        !refreshedUserDoc.hasLastName() ||
-        !refreshedUserDoc.hasCity() ||
-        !refreshedUserDoc.hasPhoneNumber() ||
-        !refreshedUserDoc.hasBirthday();
+        shouldRequireUserProfileCompletion(refreshedUserDoc);
 
     if (needsAdditionalInfo) {
       _logGoogleSignup('navigationAfterGoogleSignup destination=pendingInfo');
@@ -1994,10 +1995,13 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                       .collection
                                                                       .doc(user.uid)
                                                                       .set(
-                                                                          createUsersRecordData(
+                                                                        createUsersRecordData(
                                                                         uid: user.uid,
                                                                         userRole: _model
                                                                             .userType,
+                                                                        profileCompleted: false,
+                                                                        profileSchemaVersion:
+                                                                            kCurrentUserProfileSchemaVersion,
                                                                       ),
                                                                           SetOptions(
                                                                               merge:
@@ -3352,13 +3356,16 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                   .collection
                                                                   .doc(user.uid)
                                                                   .set(
-                                                                      createUsersRecordData(
+                                                                       createUsersRecordData(
                                                                     uid: user.uid,
                                                                     userRole: _model
                                                                         .userType,
                                                                     professionalCategory:
                                                                         _model
                                                                             .professionalCategoryValue,
+                                                                    profileCompleted: false,
+                                                                    profileSchemaVersion:
+                                                                        kCurrentUserProfileSchemaVersion,
                                                                   ),
                                                                       SetOptions(
                                                                           merge:
