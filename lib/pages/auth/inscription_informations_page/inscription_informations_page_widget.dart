@@ -357,7 +357,11 @@ class _InscriptionInformationsPageWidgetState
   }
 
   void _skipOptionalProfileCompletion(GoRouter router, bool isMerchant) {
+    final uid = currentUserUid;
     FFAppState().update(() {
+      if (uid.isNotEmpty) {
+        FFAppState().dismissProfileCompletionPromptForUid(uid);
+      }
       FFAppState().clearProfileCompletionPromptState();
     });
     _navigateOnce(
@@ -381,7 +385,19 @@ class _InscriptionInformationsPageWidgetState
         FocusManager.instance.primaryFocus?.unfocus();
       },
       child: PopScope(
-        canPop: _isOptionalProfileCompletionFlow,
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop ||
+              !_isOptionalProfileCompletionFlow ||
+              _isSubmitting ||
+              _hasNavigatedAway) {
+            return;
+          }
+          _skipOptionalProfileCompletion(
+            GoRouter.of(context),
+            isMerchant,
+          );
+        },
         child: Scaffold(
           key: scaffoldKey,
           backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
@@ -1362,6 +1378,11 @@ class _InscriptionInformationsPageWidgetState
                                         SetOptions(merge: true));
                                     if (_isOptionalProfileCompletionFlow) {
                                       FFAppState().update(() {
+                                        if (currentUserUid.isNotEmpty) {
+                                          FFAppState().dismissProfileCompletionPromptForUid(
+                                            currentUserUid,
+                                          );
+                                        }
                                         FFAppState()
                                             .clearProfileCompletionPromptState();
                                       });

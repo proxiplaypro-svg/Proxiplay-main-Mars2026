@@ -27,6 +27,9 @@ class FFAppState extends ChangeNotifier {
           prefs.getString('ff_pendingDeepLinkGameId') ?? _pendingDeepLinkGameId;
       _pendingReferralCode =
           prefs.getString('ff_pendingReferralCode') ?? _pendingReferralCode;
+      _dismissedProfileCompletionPromptUids =
+          prefs.getStringList('ff_dismissedProfileCompletionPromptUids') ??
+              _dismissedProfileCompletionPromptUids;
       _globalTickerTotalPlayers =
           prefs.getInt('ff_globalTickerTotalPlayers') ??
               _globalTickerTotalPlayers;
@@ -184,6 +187,49 @@ class FFAppState extends ChangeNotifier {
   void clearProfileCompletionPromptState() {
     _offerProfileCompletionAfterLogin = false;
     _profileCompletionReturnRouteName = '';
+  }
+
+  List<String> _dismissedProfileCompletionPromptUids = const <String>[];
+  List<String> get dismissedProfileCompletionPromptUids =>
+      _dismissedProfileCompletionPromptUids;
+  set dismissedProfileCompletionPromptUids(List<String> value) {
+    _dismissedProfileCompletionPromptUids = value
+        .map((uid) => uid.trim())
+        .where((uid) => uid.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    if (_prefsReady) {
+      prefs.setStringList(
+        'ff_dismissedProfileCompletionPromptUids',
+        _dismissedProfileCompletionPromptUids,
+      );
+    }
+  }
+
+  bool hasDismissedProfileCompletionPromptForUid(String uid) =>
+      _dismissedProfileCompletionPromptUids.contains(uid.trim());
+
+  void dismissProfileCompletionPromptForUid(String uid) {
+    final normalizedUid = uid.trim();
+    if (normalizedUid.isEmpty ||
+        hasDismissedProfileCompletionPromptForUid(normalizedUid)) {
+      return;
+    }
+    dismissedProfileCompletionPromptUids = <String>[
+      ..._dismissedProfileCompletionPromptUids,
+      normalizedUid,
+    ];
+  }
+
+  void allowProfileCompletionPromptForUid(String uid) {
+    final normalizedUid = uid.trim();
+    if (normalizedUid.isEmpty) {
+      return;
+    }
+    dismissedProfileCompletionPromptUids = _dismissedProfileCompletionPromptUids
+        .where((existingUid) => existingUid != normalizedUid)
+        .toList();
   }
 
   int _globalTickerTotalPlayers = 0;
