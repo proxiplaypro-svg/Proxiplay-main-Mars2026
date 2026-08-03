@@ -9,6 +9,7 @@ AuthenticatedHomeTarget resolveTargetFromResolvedRole({
   required Roles? effectiveRole,
   required List<String> playerSignals,
   required AccountStatus? accountStatus,
+  required bool requiresProfileCompletion,
 }) {
   if (!documentExists) {
     return AuthenticatedHomeTarget.routingIssue;
@@ -26,6 +27,10 @@ AuthenticatedHomeTarget resolveTargetFromResolvedRole({
     return AuthenticatedHomeTarget.adminHome;
   }
   if (effectiveRole == Roles.commercant) {
+    if (requiresProfileCompletion ||
+        accountStatus == AccountStatus.pendingInfo) {
+      return AuthenticatedHomeTarget.pendingInfo;
+    }
     if (accountStatus == AccountStatus.rejected) {
       return AuthenticatedHomeTarget.rejected;
     }
@@ -34,12 +39,9 @@ AuthenticatedHomeTarget resolveTargetFromResolvedRole({
         accountStatus == AccountStatus.pendingIdentityPhoto) {
       return AuthenticatedHomeTarget.waitingValidation;
     }
-    if (accountStatus == AccountStatus.pendingInfo) {
-      return AuthenticatedHomeTarget.pendingInfo;
-    }
     return AuthenticatedHomeTarget.commercantHome;
   }
-  if (accountStatus == AccountStatus.pendingInfo) {
+  if (requiresProfileCompletion || accountStatus == AccountStatus.pendingInfo) {
     return AuthenticatedHomeTarget.pendingInfo;
   }
   if (accountStatus == AccountStatus.rejected) {
