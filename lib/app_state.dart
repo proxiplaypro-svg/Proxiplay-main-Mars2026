@@ -166,6 +166,26 @@ class FFAppState extends ChangeNotifier {
     }
   }
 
+  bool _offerProfileCompletionAfterLogin = false;
+  bool get offerProfileCompletionAfterLogin => _offerProfileCompletionAfterLogin;
+  set offerProfileCompletionAfterLogin(bool value) {
+    _offerProfileCompletionAfterLogin = value;
+  }
+
+  String _profileCompletionReturnRouteName = '';
+  String get profileCompletionReturnRouteName => _profileCompletionReturnRouteName;
+  set profileCompletionReturnRouteName(String value) {
+    _profileCompletionReturnRouteName = value.trim();
+  }
+
+  bool get hasProfileCompletionReturnRouteName =>
+      _profileCompletionReturnRouteName.isNotEmpty;
+
+  void clearProfileCompletionPromptState() {
+    _offerProfileCompletionAfterLogin = false;
+    _profileCompletionReturnRouteName = '';
+  }
+
   int _globalTickerTotalPlayers = 0;
   int get globalTickerTotalPlayers => _globalTickerTotalPlayers;
   set globalTickerTotalPlayers(int value) {
