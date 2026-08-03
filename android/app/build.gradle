@@ -91,16 +91,25 @@ android {
 
     buildTypes {
         release {
-            if (!hasReleaseKeystoreConfig) {
-                throw new GradleException(
-                        "Release signing is not configured. Provide android/key.properties with a valid release keystore before building a release."
-                )
+            if (hasReleaseKeystoreConfig) {
+                signingConfig signingConfigs.release
             }
-            signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+    }
+}
+
+gradle.taskGraph.whenReady { taskGraph ->
+    def isReleaseBuild = taskGraph.allTasks.any { task ->
+        task.project == project && task.name.toLowerCase().contains('release')
+    }
+
+    if (isReleaseBuild && !hasReleaseKeystoreConfig) {
+        throw new GradleException(
+                "Release signing is not configured. Provide android/key.properties with a valid release keystore before building a release."
+        )
     }
 }
 
