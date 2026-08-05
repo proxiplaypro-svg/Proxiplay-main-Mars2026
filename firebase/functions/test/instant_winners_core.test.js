@@ -346,6 +346,109 @@ test("quantity increase before game start adds only newly missing occurrences", 
   assert.equal(plan.preservedEntries[0].dateMs, 100);
 });
 
+test("edited prize text refreshes an unwon existing occurrence", () => {
+  const existingEntries = [
+    {
+      id: "instant_game-5_spi_0_occ_0",
+      secondary_prize_index: 0,
+      secondary_prize_occurrence_index: 0,
+      dateMs: 100,
+      hasWinner: false,
+      secondary_prize_name: "Dessert offert*",
+      secondary_prize_presentation: "A utiliser jusqu'au 30 juin 3026",
+    },
+  ];
+
+  const plan = planInstantWinnerReconciliation({
+    gameId: "game-5",
+    startDateMs: 0,
+    endDateMs: 1000,
+    secondaryPrizes: [
+      {
+        name: "Dessert offert*",
+        count: 1,
+        description: "A utiliser jusqu'au 27 Aout 2026",
+      },
+    ],
+    existingEntries,
+    randomUnit: () => 0.1,
+  });
+
+  assert.equal(plan.missingPayloads.length, 0);
+  assert.deepEqual(plan.staleTextEntries, [
+    {
+      docId: "instant_game-5_spi_0_occ_0",
+      patch: {
+        secondary_prize_name: "Dessert offert*",
+        secondary_prize_presentation: "A utiliser jusqu'au 27 Aout 2026",
+      },
+    },
+  ]);
+});
+
+test("an already-won occurrence keeps its original text even if the game prize text changes", () => {
+  const existingEntries = [
+    {
+      id: "instant_game-6_spi_0_occ_0",
+      secondary_prize_index: 0,
+      secondary_prize_occurrence_index: 0,
+      dateMs: 100,
+      hasWinner: true,
+      player_id: "player-abc",
+      secondary_prize_name: "Dessert offert*",
+      secondary_prize_presentation: "A utiliser jusqu'au 30 juin 3026",
+    },
+  ];
+
+  const plan = planInstantWinnerReconciliation({
+    gameId: "game-6",
+    startDateMs: 0,
+    endDateMs: 1000,
+    secondaryPrizes: [
+      {
+        name: "Dessert offert*",
+        count: 1,
+        description: "A utiliser jusqu'au 27 Aout 2026",
+      },
+    ],
+    existingEntries,
+    randomUnit: () => 0.1,
+  });
+
+  assert.equal(plan.staleTextEntries.length, 0);
+});
+
+test("unchanged prize text does not produce a stale entry", () => {
+  const existingEntries = [
+    {
+      id: "instant_game-7_spi_0_occ_0",
+      secondary_prize_index: 0,
+      secondary_prize_occurrence_index: 0,
+      dateMs: 100,
+      hasWinner: false,
+      secondary_prize_name: "Dessert offert*",
+      secondary_prize_presentation: "A utiliser jusqu'au 27 Aout 2026",
+    },
+  ];
+
+  const plan = planInstantWinnerReconciliation({
+    gameId: "game-7",
+    startDateMs: 0,
+    endDateMs: 1000,
+    secondaryPrizes: [
+      {
+        name: "Dessert offert*",
+        count: 1,
+        description: "A utiliser jusqu'au 27 Aout 2026",
+      },
+    ],
+    existingEntries,
+    randomUnit: () => 0.1,
+  });
+
+  assert.equal(plan.staleTextEntries.length, 0);
+});
+
 test("player-readable instant_winners access is not allowed in Firestore rules", () => {
   const rulesPath = path.resolve(__dirname, "../../firestore.rules");
   const rules = fs.readFileSync(rulesPath, "utf8");

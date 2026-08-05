@@ -207,10 +207,19 @@ const generateInstantWinnersForGameCallable = functions
         });
       });
 
+      // Un jeu duplique (bug de creation) puis nettoye peut avoir des lots
+      // instant_winners generes avec l'ancienne description du jeu d'origine.
+      // On rattrape ici le texte des occurrences pas encore gagnees pour
+      // qu'il suive la description actuelle du jeu.
+      freshPlan.staleTextEntries.forEach(({docId, patch}) => {
+        transaction.update(instantWinnersRef.doc(docId), patch);
+      });
+
       return {
         desiredCount: freshPlan.desiredCount,
         existingCount: freshPlan.existingCount,
         createdCount: freshPlan.missingPayloads.length,
+        refreshedTextCount: freshPlan.staleTextEntries.length,
         duplicateExistingKeys: freshPlan.duplicateExistingKeys,
         unexpectedExistingCount: freshPlan.unexpectedExistingEntries.length,
         hasAssignedInstantWinner,
@@ -225,8 +234,11 @@ const generateInstantWinnersForGameCallable = functions
           ? transactionResult.existingCount > 0
             ? "completed_missing_occurrences"
             : "created"
-          : "already_complete",
+          : transactionResult.refreshedTextCount > 0
+            ? "refreshed_stale_text"
+            : "already_complete",
       createdCount: transactionResult.createdCount,
+      refreshedTextCount: transactionResult.refreshedTextCount,
       desiredCount: transactionResult.desiredCount,
       existingCount: transactionResult.existingCount,
       duplicateExistingKeys: transactionResult.duplicateExistingKeys,
@@ -6080,5 +6092,14 @@ try {
   exports.drawAnimationWinners = drawAnimationWinners;
 } catch (error) {
   console.log("drawAnimationWinners not loaded yet:", error.message);
+}
+
+try {
+  const {
+    drawReferralGameWinner,
+  } = require("./draw_referral_game_winner");
+  exports.drawReferralGameWinner = drawReferralGameWinner;
+} catch (error) {
+  console.log("drawReferralGameWinner not loaded yet:", error.message);
 }
 

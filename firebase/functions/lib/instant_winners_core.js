@@ -158,6 +158,7 @@ function planInstantWinnerReconciliation({
 
   const missingPayloads = [];
   const preservedEntries = [];
+  const staleTextEntries = [];
   const desiredKeys = new Set();
 
   payloads.forEach((payload) => {
@@ -166,6 +167,30 @@ function planInstantWinnerReconciliation({
     const existingEntry = existingByKey.get(key);
     if (existingEntry) {
       preservedEntries.push(existingEntry);
+
+      // Un lot deja gagne ne doit jamais changer de texte sous les yeux du
+      // joueur : on ne rafraichit que les occurrences pas encore attribuees.
+      const alreadyWon =
+        existingEntry.hasWinner === true || !!existingEntry.player_id;
+      if (!alreadyWon) {
+        const nameChanged =
+          getTrimmedString(existingEntry.secondary_prize_name) !==
+          payload.secondary_prize_name;
+        const presentationChanged =
+          getTrimmedString(existingEntry.secondary_prize_presentation) !==
+          getTrimmedString(payload.secondary_prize_presentation);
+        if (nameChanged || presentationChanged) {
+          staleTextEntries.push({
+            docId: existingEntry.id,
+            patch: {
+              secondary_prize_name: payload.secondary_prize_name,
+              ...(payload.secondary_prize_presentation
+                ? {secondary_prize_presentation: payload.secondary_prize_presentation}
+                : {}),
+            },
+          });
+        }
+      }
       return;
     }
 
@@ -192,6 +217,7 @@ function planInstantWinnerReconciliation({
     existingCount: existingEntries.length,
     preservedEntries,
     missingPayloads,
+    staleTextEntries,
     duplicateExistingKeys: Array.from(duplicateExistingByKey.keys()),
     unexpectedExistingEntries,
   };

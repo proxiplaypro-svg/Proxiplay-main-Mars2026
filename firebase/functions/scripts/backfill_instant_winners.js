@@ -110,7 +110,7 @@ async function createInstantWinnersIfMissing(gameDoc, dryRun) {
     })),
   });
 
-  if (plan.missingPayloads.length === 0) {
+  if (plan.missingPayloads.length === 0 && plan.staleTextEntries.length === 0) {
     return {
       status: "skip_already_complete",
       desiredCount,
@@ -123,12 +123,15 @@ async function createInstantWinnersIfMissing(gameDoc, dryRun) {
   if (dryRun) {
     return {
       status:
-        instantWinnersSnap.size > 0
-          ? "would_complete_missing_occurrences"
-          : "would_create",
+        plan.missingPayloads.length > 0
+          ? instantWinnersSnap.size > 0
+            ? "would_complete_missing_occurrences"
+            : "would_create"
+          : "would_refresh_stale_text",
       desiredCount,
       existingCount: instantWinnersSnap.size,
       missingCount: plan.missingPayloads.length,
+      staleTextCount: plan.staleTextEntries.length,
       duplicateExistingKeys: plan.duplicateExistingKeys,
       unexpectedExistingCount: plan.unexpectedExistingEntries.length,
     };
@@ -169,15 +172,22 @@ async function createInstantWinnersIfMissing(gameDoc, dryRun) {
     });
   });
 
+  plan.staleTextEntries.forEach(({docId, patch}) => {
+    batch.update(instantWinnersRef.doc(docId), patch);
+  });
+
   await batch.commit();
   return {
     status:
-      instantWinnersSnap.size > 0
-        ? "completed_missing_occurrences"
-        : "created",
+      plan.missingPayloads.length > 0
+        ? instantWinnersSnap.size > 0
+          ? "completed_missing_occurrences"
+          : "created"
+        : "refreshed_stale_text",
     desiredCount,
     existingCount: instantWinnersSnap.size,
     missingCount: plan.missingPayloads.length,
+    staleTextCount: plan.staleTextEntries.length,
     duplicateExistingKeys: plan.duplicateExistingKeys,
     unexpectedExistingCount: plan.unexpectedExistingEntries.length,
   };

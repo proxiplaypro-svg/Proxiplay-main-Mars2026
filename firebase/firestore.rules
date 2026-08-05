@@ -351,6 +351,19 @@ service cloud.firestore {
       }
     }
 
+    // Jeu de parrainage : cree par l'admin uniquement. Un ticket est cree
+    // uniquement par la Cloud Function registerReferralAcceptance (SDK admin,
+    // ignore ces regles) -- jamais par un client, meme le parrain lui-meme.
+    match /referral_games/{gameId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+
+      match /entries/{document} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+
     match /admin_stats/{document} {
       allow read: if isAdmin();
       allow write: if false;

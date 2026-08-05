@@ -32,6 +32,7 @@ import {
   ReferralRecord,
   SharePromoConfig,
 } from './types';
+import { addReferralGameTicket, findActiveReferralGame } from './referral_games';
 
 type CallableAuth = NonNullable<functions.https.CallableContext['auth']>;
 
@@ -410,7 +411,19 @@ export const registerReferralAcceptance = functions
       recomputeAdminStats(),
     ]);
 
-    if (acceptanceResult.rewardStatus === 'available') {
+    // Le filleul vient d'utiliser le code pour creer son compte : c'est ce
+    // qui compte comme parrainage valide. S'il existe un jeu de parrainage
+    // actif, ce parrainage donne un ticket de tirage au sort a la place de
+    // la recompense classique (remplacement conditionne a l'existence d'un
+    // jeu actif, pas une bascule definitive -- voir referral_games.ts).
+    const activeReferralGame = await findActiveReferralGame();
+    if (activeReferralGame) {
+      await addReferralGameTicket(
+        activeReferralGame.id,
+        acceptanceResult.inviterUid,
+        referralRef.id,
+      );
+    } else if (acceptanceResult.rewardStatus === 'available') {
       await grantReferralRewardInternal(
         referralRef.id,
         'system/registerReferralAcceptance',
