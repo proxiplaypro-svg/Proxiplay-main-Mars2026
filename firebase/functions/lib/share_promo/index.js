@@ -33,84 +33,13 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.expireOldReferrals = exports.remindUsersWithRemainingDailyPlays = exports.grantReferralReward = exports.adminSetNotificationsConfig = exports.adminGetNotificationsConfig = exports.registerReferralAcceptance = exports.validateReferralCode = exports.createReferral = exports.getSharePromoState = void 0;
+exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.expireOldReferrals = exports.grantReferralReward = exports.registerReferralAcceptance = exports.createReferral = exports.getSharePromoState = exports.remindUsersWithRemainingDailyPlays = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const crypto = __importStar(require("crypto"));
-const params_1 = require("firebase-functions/params");
-const nodemailer = require('nodemailer');
 const firestore_1 = require("./firestore");
-const SMTP_HOST = (0, params_1.defineString)('SMTP_HOST');
-const SMTP_PORT = (0, params_1.defineInt)('SMTP_PORT', { default: 587 });
-const SMTP_SECURE = (0, params_1.defineBoolean)('SMTP_SECURE', { default: false });
-const SMTP_USER = (0, params_1.defineString)('SMTP_USER');
-const SMTP_PASS = (0, params_1.defineString)('SMTP_PASS');
-const SMTP_FROM_EMAIL = (0, params_1.defineString)('SMTP_FROM_EMAIL');
-const SMTP_FROM_NAME = (0, params_1.defineString)('SMTP_FROM_NAME');
-const SMTP_REPLY_TO = (0, params_1.defineString)('SMTP_REPLY_TO', { default: '' });
-const dailyPlaysReminderVariants = [
-    {
-        title: 'Il vous reste des chances !',
-        body: 'Tentez votre chance avant minuit.',
-    },
-    {
-        title: 'Vos parties du jour vous attendent',
-        body: "Vous avez encore des chances \u00e0 jouer aujourd'hui.",
-    },
-    {
-        title: 'Ne laissez pas vos parties expirer',
-        body: 'Utilisez vos chances avant la fin de la journ\u00e9e.',
-    },
-    {
-        title: 'Des jeux vous attendent encore',
-        body: "Vous pouvez encore jouer sur ProxiPlay aujourd'hui.",
-    },
-    {
-        title: 'Il est encore temps de jouer',
-        body: 'Vos chances du jour ne sont pas encore utilis\u00e9es.',
-    },
-    {
-        title: "Vous n'avez pas tout utilis\u00e9",
-        body: 'Revenez tenter votre chance avant minuit.',
-    },
-    {
-        title: 'Encore des chances disponibles',
-        body: "Profitez-en tant qu'il est encore temps.",
-    },
-    {
-        title: "Votre journ\u00e9e ProxiPlay n'est pas finie",
-        body: 'Il vous reste encore des parties \u00e0 jouer.',
-    },
-];
-function getParisDateKey(date = new Date()) {
-    return new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Europe/Paris',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-    }).format(date);
-}
-function parseDailyReminderIndex(value) {
-    return Number.isInteger(value) ? Number(value) : null;
-}
-function pickDailyPlaysReminderVariant(lastIndex) {
-    let index = Math.floor(Math.random() * dailyPlaysReminderVariants.length);
-    if (dailyPlaysReminderVariants.length > 1 &&
-        lastIndex !== null &&
-        lastIndex >= 0 &&
-        lastIndex < dailyPlaysReminderVariants.length &&
-        index === lastIndex) {
-        index =
-            (index +
-                1 +
-                Math.floor(Math.random() * (dailyPlaysReminderVariants.length - 1))) %
-                dailyPlaysReminderVariants.length;
-    }
-    return {
-        index,
-        ...dailyPlaysReminderVariants[index],
-    };
-}
+const referral_games_1 = require("./referral_games");
+var daily_plays_reminder_1 = require("./daily_plays_reminder");
+Object.defineProperty(exports, "remindUsersWithRemainingDailyPlays", { enumerable: true, get: function () { return daily_plays_reminder_1.remindUsersWithRemainingDailyPlays; } });
 function requireAuth(request) {
     const { auth } = request;
     if (!auth?.uid) {
@@ -136,163 +65,6 @@ async function loadCampaign() {
     const campaignSnap = await firestore_1.refs.sharePromoConfig().get();
     return (0, firestore_1.buildActiveCampaign)((campaignSnap.exists ? campaignSnap.data() : undefined));
 }
-async function loadNotificationsConfig() {
-    const configSnap = await firestore_1.db.collection('app_config').doc('notifications').get();
-    const configData = (configSnap.data() ?? {});
-    return {
-        dailyRemainingChancesReminderEnabled: configData.dailyRemainingChancesReminderEnabled !== false,
-    };
-}
-function getTrimmedString(value) {
-    return typeof value == 'string' ? value.trim() : '';
-}
-function createSmtpMailer() {
-    const host = getTrimmedString(SMTP_HOST.value());
-    const port = Number(SMTP_PORT.value() || 587);
-    const secure = SMTP_SECURE.value();
-    const user = getTrimmedString(SMTP_USER.value());
-    const pass = getTrimmedString(SMTP_PASS.value());
-    const fromEmail = getTrimmedString(SMTP_FROM_EMAIL.value());
-    const fromName = getTrimmedString(SMTP_FROM_NAME.value());
-    const replyTo = getTrimmedString(SMTP_REPLY_TO.value());
-    if (!host || !port || !user || !pass || !fromEmail || !fromName) {
-        throw new Error('smtp_not_configured');
-    }
-    const transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: { user, pass },
-    });
-    return {
-        transporter,
-        from: `${fromName} <${fromEmail}>`,
-        fromEmail,
-        replyTo,
-    };
-}
-function escapeHtml(value) {
-    return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-function linkifyHtml(text) {
-    return escapeHtml(text).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:#0f766e;text-decoration:underline;">$1</a>');
-}
-function buildMessageId(fromEmail) {
-    const domain = getTrimmedString(fromEmail).split('@')[1] || 'proxiplay.local';
-    const uniqueId = typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : crypto.randomBytes(16).toString('hex');
-    return `<${uniqueId}@${domain}>`;
-}
-function buildTransactionalEmailHtml(subject, text) {
-    const content = getTrimmedString(text)
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0)
-        .map((line) => `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#1f2937;">${linkifyHtml(line)}</p>`)
-        .join('');
-    return ('<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:24px;background:#f4f7f5;font-family:Arial,sans-serif;color:#1f2937;">' +
-        '<div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #dce7e2;border-radius:16px;overflow:hidden;">' +
-        '<div style="padding:24px 28px;background:#0f766e;color:#ffffff;">' +
-        `<div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;opacity:0.9;">ProxiPlay</div><h1 style="margin:8px 0 0;font-size:24px;line-height:1.3;">${escapeHtml(subject)}</h1></div>` +
-        `<div style="padding:28px;">${content}` +
-        '<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">' +
-        '<p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#6b7280;">Email transactionnel envoye par ProxiPlay.</p>' +
-        '<p style="margin:0;font-size:13px;line-height:1.6;color:#6b7280;">Site: <a href="https://proxiplay.fr" target="_blank" rel="noopener noreferrer" style="color:#0f766e;">proxiplay.fr</a><br>Contact: <a href="mailto:contact@proxiplay.fr" style="color:#0f766e;">contact@proxiplay.fr</a></p>' +
-        '</div></div></body></html>');
-}
-async function resolveUserEmail(uid) {
-    const userSnap = await firestore_1.refs.user(uid).get();
-    const userData = userSnap.data() ?? {};
-    const emailFromDoc = getTrimmedString(userData.email);
-    if (emailFromDoc) {
-        return emailFromDoc;
-    }
-    try {
-        const authUser = await admin.auth().getUser(uid);
-        return getTrimmedString(authUser.email);
-    }
-    catch (_) {
-        return '';
-    }
-}
-async function sendEmailNotification(mailer, to, subject, textBody) {
-    const normalizedText = [
-        getTrimmedString(textBody),
-        '',
-        '--',
-        'ProxiPlay',
-        'https://proxiplay.fr',
-        'Contact : contact@proxiplay.fr',
-    ].join('\n');
-    await mailer.transporter.sendMail({
-        from: mailer.from,
-        sender: mailer.fromEmail,
-        envelope: {
-            from: mailer.fromEmail,
-            to: [to],
-        },
-        to,
-        subject,
-        text: normalizedText,
-        html: buildTransactionalEmailHtml(subject, normalizedText),
-        messageId: buildMessageId(mailer.fromEmail),
-        headers: {
-            'X-Auto-Response-Suppress': 'OOF, AutoReply',
-            'X-Transactional-Email': 'true',
-        },
-        ...(mailer.replyTo ? { replyTo: mailer.replyTo } : {}),
-    });
-}
-async function writeRewardEmailAttempt(referralId, inviterUid, status, details = {}) {
-    await firestore_1.db
-        .collection('notifications')
-        .doc(`share_promo_reward_email_${referralId}`)
-        .set({
-        type: 'share_promo_reward_email',
-        referralId,
-        inviterUid,
-        status,
-        details,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
-}
-async function notifyInviterRewardByEmail(referralId, inviterUid, subject, body) {
-    const recipientEmail = await resolveUserEmail(inviterUid);
-    if (!recipientEmail) {
-        await writeRewardEmailAttempt(referralId, inviterUid, 'missing_email');
-        console.log('[share_promo] reward email skipped: missing_email');
-        return;
-    }
-    let mailer;
-    try {
-        mailer = createSmtpMailer();
-        await mailer.transporter.verify();
-    }
-    catch (error) {
-        await writeRewardEmailAttempt(referralId, inviterUid, 'smtp_unavailable', {
-            error: String(error),
-            to: recipientEmail,
-        });
-        console.log(`[share_promo] reward email skipped: smtp_unavailable error=${error}`);
-        return;
-    }
-    await writeRewardEmailAttempt(referralId, inviterUid, 'sending', {
-        to: recipientEmail,
-        subject,
-    });
-    await sendEmailNotification(mailer, recipientEmail, subject, body);
-    await writeRewardEmailAttempt(referralId, inviterUid, 'sent', {
-        to: recipientEmail,
-        subject,
-    });
-    console.log('[share_promo] reward email sent');
-}
 async function grantReferralRewardInternal(referralId, grantedBy) {
     const campaign = await loadCampaign();
     const referralRef = firestore_1.refs.referral(referralId);
@@ -309,7 +81,7 @@ async function grantReferralRewardInternal(referralId, grantedBy) {
         if (referral.status !== 'accepted' || !referral.inviteeUid) {
             return { granted: false, reason: 'referral_not_eligible' };
         }
-        const [inviterGrantedSnap, inviteeGrantedSnap, eventSnap, inviterUserSnap] = await Promise.all([
+        const [inviterGrantedSnap, inviteeGrantedSnap, eventSnap] = await Promise.all([
             transaction.get(firestore_1.refs
                 .referrals()
                 .where('inviterUid', '==', referral.inviterUid)
@@ -319,7 +91,6 @@ async function grantReferralRewardInternal(referralId, grantedBy) {
                 .where('inviteeUid', '==', referral.inviteeUid)
                 .where('rewardStatus', '==', 'granted')),
             transaction.get(eventRef),
-            transaction.get(firestore_1.refs.user(referral.inviterUid)),
         ]);
         if (eventSnap.exists) {
             return { granted: false, reason: 'event_exists' };
@@ -345,7 +116,7 @@ async function grantReferralRewardInternal(referralId, grantedBy) {
             return { granted: false, reason: 'max_rewards_per_invitee_reached' };
         }
         transaction.set(eventRef, (0, firestore_1.buildRewardEvent)(referral.inviterUid, referralId, campaign, grantedBy));
-        await (0, firestore_1.applyRewardToUser)(transaction, referral.inviterUid, referral.rewardType, referral.rewardValue, inviterUserSnap.data() ?? {});
+        await (0, firestore_1.applyRewardToUser)(transaction, referral.inviterUid, referral.rewardType, referral.rewardValue);
         transaction.set(firestore_1.refs.shareState(referral.inviterUid), {
             grantedCount: admin.firestore.FieldValue.increment(1),
             rewardAvailable: false,
@@ -366,24 +137,12 @@ async function grantReferralRewardInternal(referralId, grantedBy) {
             (0, firestore_1.recomputeAdminStats)(),
         ];
         if ((0, firestore_1.isAllGamesUntilMidnightReward)(referral.rewardType)) {
-            const notificationTitle = 'Bonne nouvelle !';
-            const notificationBody = 'Votre parrainage a \u00e9t\u00e9 valid\u00e9. Vous pouvez jouer \u00e0 tous les jeux jusqu\u2019\u00e0 minuit.';
             followUpTasks.push((0, firestore_1.queueUserPushNotification)({
                 docId: `share_promo_reward_${referralId}`,
-                title: notificationTitle,
-                body: notificationBody,
+                title: '🎉 Ton parrainage a fonctionné !',
+                body: 'Tu peux maintenant jouer à tous les jeux jusqu’à minuit.',
                 userUid: referral.inviterUid,
                 createdBy: grantedBy,
-            }), (0, firestore_1.createUserInAppNotification)({
-                docId: `share_promo_reward_${referralId}`,
-                title: notificationTitle,
-                body: notificationBody,
-                userUid: referral.inviterUid,
-            }), notifyInviterRewardByEmail(referralId, referral.inviterUid, notificationTitle, notificationBody).catch((error) => {
-                void writeRewardEmailAttempt(referralId, referral.inviterUid, 'failed', {
-                    error: String(error),
-                });
-                console.log(`[share_promo] reward email failed referralId=${referralId} error=${error}`);
             }));
         }
         await Promise.all(followUpTasks);
@@ -406,61 +165,41 @@ exports.getSharePromoState = functions
         : firestore_1.defaultShareState;
     const remainingPart = (0, firestore_1.normalizeNumber)(userData.remaining_part, 0);
     const campaignActive = (0, firestore_1.isCampaignActive)(campaign);
-    const bonusExpiresAt = (0, firestore_1.toTimestamp)(userData.bonusExpiresAt) ?? (0, firestore_1.toTimestamp)(userData.allGamesAccessUntil);
-    const bonusMode = (0, firestore_1.normalizeString)(userData.bonusMode);
-    const bonusSource = (0, firestore_1.normalizeString)(userData.bonusSource);
-    const bonusActive = bonusExpiresAt != null && bonusExpiresAt.toMillis() > Date.now();
     let kind = null;
     let title = null;
     let message = null;
     let action = null;
-    let playerStatus = null;
-    if (bonusActive) {
-        kind = 'bonusActive';
-        title = 'Bonus activ\u00e9';
-        message = 'Vous pouvez jouer \u00e0 tous les jeux jusqu\u2019\u00e0 minuit.';
-        action = 'bonusActive';
-        playerStatus = 'bonus_active';
-    }
-    else if (shareState.rewardAvailable) {
+    if (shareState.rewardAvailable) {
         kind = 'rewardAvailable';
-        title = 'R\u00e9compense disponible';
+        title = 'Récompense disponible';
         message = 'Votre bonus de parrainage est disponible.';
         action = 'rewardAvailable';
-        playerStatus = remainingPart <= 0 ? 'no_parts' : remainingPart <= 1 ? 'low_parts' : 'normal';
     }
     else if (shareState.pendingCount > 0) {
         kind = 'friendPending';
         title = 'Invitation en attente';
-        message = 'Un ami n\u2019a pas encore finalis\u00e9 son inscription.';
+        message = 'Un ami n’a pas encore finalisé son inscription.';
         action = 'friendPending';
-        playerStatus = remainingPart <= 0 ? 'no_parts' : remainingPart <= 1 ? 'low_parts' : 'normal';
     }
     else if (campaignActive && campaign.kind !== 'defaultInvite') {
         kind = 'specialCampaign';
         title = campaign.title;
         message = campaign.message;
         action = 'specialCampaign';
-        playerStatus = remainingPart <= 0 ? 'no_parts' : remainingPart <= 1 ? 'low_parts' : 'normal';
     }
     else if (campaignActive && remainingPart <= 1) {
         kind = 'lowRemainingPlaysInvite';
         title = remainingPart <= 0
             ? 'Plus de chances disponibles'
-            : 'Plus qu\u2019une chance disponible';
-        message = 'Invitez un proche pour continuer \u00e0 jouer.';
+            : 'Plus qu’une chance disponible';
+        message = 'Invitez un proche pour continuer à jouer.';
         action = 'lowRemainingPlaysInvite';
-        playerStatus = remainingPart <= 0 ? 'no_parts' : 'low_parts';
     }
     else if (campaignActive) {
         kind = 'defaultInvite';
         title = campaign.title;
         message = campaign.message;
         action = 'defaultInvite';
-        playerStatus = 'normal';
-    }
-    else {
-        playerStatus = remainingPart <= 0 ? 'no_parts' : remainingPart <= 1 ? 'low_parts' : 'normal';
     }
     return {
         showBanner: kind != null,
@@ -469,10 +208,6 @@ exports.getSharePromoState = functions
         message,
         ctaText: kind == null ? null : campaign.ctaText,
         action,
-        playerStatus,
-        bonusMode: bonusMode || null,
-        bonusSource: bonusSource || null,
-        bonusExpiresAt,
         campaign: kind == null
             ? null
             : {
@@ -541,49 +276,12 @@ exports.createReferral = functions
         shareLink: (0, firestore_1.buildShareLink)(inviteCode),
     };
 });
-exports.validateReferralCode = functions
-    .region(firestore_1.region)
-    .runWith({ timeoutSeconds: 30, memory: '256MB' })
-    .https.onCall(async (data, _context) => {
-    const inviteCode = (0, firestore_1.normalizeString)(data?.inviteCode).toUpperCase();
-    if (!inviteCode) {
-        return {
-            valid: false,
-            inviteCode: '',
-            reason: 'empty',
-        };
-    }
-    const referralQuery = await firestore_1.refs
-        .referrals()
-        .where('inviteCode', '==', inviteCode)
-        .limit(1)
-        .get();
-    if (referralQuery.empty) {
-        const legacyUserQuery = await firestore_1.db
-            .collection('users')
-            .where('referralCode', '==', inviteCode)
-            .limit(1)
-            .get();
-        return {
-            valid: !legacyUserQuery.empty,
-            inviteCode,
-            reason: legacyUserQuery.empty ? 'not_found' : 'legacy_user',
-        };
-    }
-    const referral = referralQuery.docs[0].data();
-    const isPending = referral.status === 'pending' && !referral.inviteeUid;
-    return {
-        valid: isPending,
-        inviteCode,
-        reason: isPending ? null : 'already_used',
-    };
-});
 exports.registerReferralAcceptance = functions
     .region(firestore_1.region)
     .runWith({ timeoutSeconds: 60, memory: '256MB' })
     .https.onCall(async (data, context) => {
     const auth = requireAuth(context);
-    const inviteCode = (0, firestore_1.normalizeString)(data?.inviteCode).toUpperCase();
+    const inviteCode = (0, firestore_1.normalizeString)(data?.inviteCode);
     if (!inviteCode) {
         throw new functions.https.HttpsError('invalid-argument', 'inviteCode is required.');
     }
@@ -592,128 +290,58 @@ exports.registerReferralAcceptance = functions
         .where('inviteCode', '==', inviteCode)
         .limit(1)
         .get();
-    const referralRef = referralQuery.empty
-        ? firestore_1.refs.referrals().doc()
-        : referralQuery.docs[0].ref;
-    const legacyInviterRef = referralQuery.empty
-        ? (await firestore_1.db
-            .collection('users')
-            .where('referralCode', '==', inviteCode)
-            .limit(1)
-            .get()).docs[0]?.ref ?? null
-        : null;
-    if (referralQuery.empty && !legacyInviterRef) {
+    if (referralQuery.empty) {
         throw new functions.https.HttpsError('not-found', 'Referral not found.');
     }
     const campaign = await loadCampaign();
+    const referralRef = referralQuery.docs[0].ref;
     const acceptanceResult = await firestore_1.db.runTransaction(async (transaction) => {
-        const asyncReads = [
+        const [referralSnap, inviteeUserSnap, existingInviteeReferralSnap] = await Promise.all([
+            transaction.get(referralRef),
             transaction.get(firestore_1.refs.user(auth.uid)),
             transaction.get(firestore_1.refs.referrals().where('inviteeUid', '==', auth.uid).limit(1)),
-        ];
-        if (referralQuery.empty) {
-            asyncReads.unshift(transaction.get(legacyInviterRef));
-        }
-        else {
-            asyncReads.unshift(transaction.get(referralRef));
-        }
-        const [primarySnap, inviteeUserSnap, existingInviteeReferralSnap] = await Promise.all(asyncReads);
-        let inviterUid;
-        if (referralQuery.empty) {
-            if (!primarySnap.exists) {
-                throw new functions.https.HttpsError('not-found', 'Referral not found.');
-            }
-            inviterUid = primarySnap.id;
-        }
-        else {
-            const referral = primarySnap.data();
-            inviterUid = referral.inviterUid;
-            if (referral.status !== 'pending' || referral.inviteeUid) {
-                throw new functions.https.HttpsError('already-exists', 'This referral has already been accepted.');
-            }
-        }
-        if (inviterUid === auth.uid) {
+        ]);
+        const referral = referralSnap.data();
+        if (referral.inviterUid === auth.uid) {
             throw new functions.https.HttpsError('failed-precondition', 'Self-referrals are not allowed.');
         }
         if (!existingInviteeReferralSnap.empty) {
             throw new functions.https.HttpsError('already-exists', 'A referral has already been used for this account.');
         }
+        if (referral.status !== 'pending' || referral.inviteeUid) {
+            throw new functions.https.HttpsError('already-exists', 'This referral has already been accepted.');
+        }
         const rewardStatus = campaign.requireInviteeSignup && !inviteeUserSnap.exists
             ? 'blocked'
             : 'available';
-        if (referralQuery.empty) {
-            const inviterData = primarySnap.data() ?? {};
-            const inviterPseudo = (0, firestore_1.normalizeNullableString)(inviterData.pseudo) ??
-                (0, firestore_1.normalizeNullableString)(inviterData.display_name) ??
-                (0, firestore_1.normalizeNullableString)(inviterData.first_name);
-            const referral = {
-                campaignId: firestore_1.campaignId,
-                inviterUid,
-                inviterPseudo,
-                inviteeUid: auth.uid,
-                inviteeContact: null,
-                inviteCode,
-                shareChannel: 'legacy_referral_code',
-                status: 'accepted',
-                rewardStatus,
-                rewardType: campaign.rewardType,
-                rewardValue: campaign.rewardValue,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                acceptedAt: admin.firestore.Timestamp.now(),
-                rewardGrantedAt: null,
-                expiredAt: null,
-                createdFromDeviceId: null,
-                acceptedFromDeviceId: (0, firestore_1.normalizeNullableString)(data?.acceptedFromDeviceId),
-                metadata: {
-                    legacyReferralCode: true,
-                },
-            };
-            transaction.set(referralRef, referral);
-        }
-        else {
-            transaction.update(referralRef, {
-                inviteeUid: auth.uid,
-                status: 'accepted',
-                acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
-                acceptedFromDeviceId: (0, firestore_1.normalizeNullableString)(data?.acceptedFromDeviceId),
-                rewardStatus,
-            });
-        }
-        return { inviterUid, rewardStatus };
+        transaction.update(referralRef, {
+            inviteeUid: auth.uid,
+            status: 'accepted',
+            acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
+            acceptedFromDeviceId: (0, firestore_1.normalizeNullableString)(data?.acceptedFromDeviceId),
+            rewardStatus,
+        });
+        return { inviterUid: referral.inviterUid, rewardStatus };
     });
     await Promise.all([
         (0, firestore_1.recomputeShareState)(acceptanceResult.inviterUid),
         (0, firestore_1.recomputeAdminStats)(),
     ]);
-    if (acceptanceResult.rewardStatus === 'available') {
+    // Le filleul vient d'utiliser le code pour creer son compte : c'est ce
+    // qui compte comme parrainage valide. S'il existe un jeu de parrainage
+    // actif, ce parrainage donne un ticket de tirage au sort a la place de
+    // la recompense classique (remplacement conditionne a l'existence d'un
+    // jeu actif, pas une bascule definitive -- voir referral_games.ts).
+    const activeReferralGame = await (0, referral_games_1.findActiveReferralGame)();
+    if (activeReferralGame) {
+        await (0, referral_games_1.addReferralGameTicket)(activeReferralGame.id, acceptanceResult.inviterUid, referralRef.id);
+    }
+    else if (acceptanceResult.rewardStatus === 'available') {
         await grantReferralRewardInternal(referralRef.id, 'system/registerReferralAcceptance');
     }
     return {
         success: true,
         referralId: referralRef.id,
-    };
-});
-exports.adminGetNotificationsConfig = functions
-    .region(firestore_1.region)
-    .runWith({ timeoutSeconds: 60, memory: '256MB' })
-    .https.onCall(async (_data, context) => {
-    await requireAdmin(context);
-    return loadNotificationsConfig();
-});
-exports.adminSetNotificationsConfig = functions
-    .region(firestore_1.region)
-    .runWith({ timeoutSeconds: 60, memory: '256MB' })
-    .https.onCall(async (data, context) => {
-    const adminUid = await requireAdmin(context);
-    const dailyRemainingChancesReminderEnabled = data?.dailyRemainingChancesReminderEnabled !== false;
-    await firestore_1.db.collection('app_config').doc('notifications').set({
-        dailyRemainingChancesReminderEnabled,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedBy: firestore_1.refs.user(adminUid),
-    }, { merge: true });
-    return {
-        ok: true,
-        dailyRemainingChancesReminderEnabled,
     };
 });
 exports.grantReferralReward = functions
@@ -726,76 +354,6 @@ exports.grantReferralReward = functions
         throw new functions.https.HttpsError('invalid-argument', 'referralId is required.');
     }
     return grantReferralRewardInternal(referralId, `admin/${adminUid}`);
-});
-exports.remindUsersWithRemainingDailyPlays = functions
-    .region(firestore_1.region)
-    .runWith({ timeoutSeconds: 540, memory: '512MB' })
-    .pubsub.schedule('0 18 * * *')
-    .timeZone('Europe/Paris')
-    .onRun(async () => {
-    const { dailyRemainingChancesReminderEnabled } = await loadNotificationsConfig();
-    if (!dailyRemainingChancesReminderEnabled) {
-        console.log('[remindUsersWithRemainingDailyPlays] skipped dailyRemainingChancesReminderEnabled=false');
-        return null;
-    }
-    const dateKey = getParisDateKey();
-    const usersSnap = await firestore_1.db
-        .collection('users')
-        .where('remaining_part', '>', 0)
-        .get();
-    let queued = 0;
-    let skippedAlreadyQueued = 0;
-    let skippedWithoutParts = 0;
-    let failed = 0;
-    for (const userDoc of usersSnap.docs) {
-        const userData = userDoc.data() ?? {};
-        const remainingPart = (0, firestore_1.normalizeNumber)(userData.remaining_part, 0);
-        if (remainingPart <= 0) {
-            skippedWithoutParts += 1;
-            continue;
-        }
-        const notificationDocId = `daily_remaining_plays_${dateKey}_${userDoc.id}`;
-        const notificationRef = firestore_1.db
-            .collection(firestore_1.pushNotificationsCollection)
-            .doc(notificationDocId);
-        const notificationSnap = await notificationRef.get();
-        if (notificationSnap.exists) {
-            skippedAlreadyQueued += 1;
-            continue;
-        }
-        try {
-            const shareStateSnap = await firestore_1.refs.shareState(userDoc.id).get();
-            const shareState = shareStateSnap.exists ? shareStateSnap.data() ?? {} : {};
-            const lastIndex = parseDailyReminderIndex(shareState.lastDailyPlayReminderIndex);
-            const variant = pickDailyPlaysReminderVariant(lastIndex);
-            await (0, firestore_1.queueUserPushNotification)({
-                docId: notificationDocId,
-                title: variant.title,
-                body: variant.body,
-                userUid: userDoc.id,
-                createdBy: 'system/remindUsersWithRemainingDailyPlays',
-            });
-            await firestore_1.refs.shareState(userDoc.id).set({
-                lastDailyPlayReminderDateKey: dateKey,
-                lastDailyPlayReminderIndex: variant.index,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            }, { merge: true });
-            queued += 1;
-        }
-        catch (error) {
-            failed += 1;
-            console.log(`[remindUsersWithRemainingDailyPlays] user=${userDoc.id} error=${error}`);
-        }
-    }
-    console.log('[remindUsersWithRemainingDailyPlays] done', JSON.stringify({
-        dateKey,
-        matchedUsers: usersSnap.size,
-        queued,
-        skippedAlreadyQueued,
-        skippedWithoutParts,
-        failed,
-    }));
-    return null;
 });
 exports.expireOldReferrals = functions
     .region(firestore_1.region)

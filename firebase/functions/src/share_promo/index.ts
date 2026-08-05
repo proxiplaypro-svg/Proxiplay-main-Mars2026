@@ -34,6 +34,8 @@ import {
 } from './types';
 import { addReferralGameTicket, findActiveReferralGame } from './referral_games';
 
+export { remindUsersWithRemainingDailyPlays } from './daily_plays_reminder';
+
 type CallableAuth = NonNullable<functions.https.CallableContext['auth']>;
 
 function requireAuth(request: functions.https.CallableContext): CallableAuth {

@@ -47,12 +47,11 @@ exports.buildShareMessage = buildShareMessage;
 exports.recomputeAdminStats = recomputeAdminStats;
 exports.recomputeShareState = recomputeShareState;
 exports.isRewardPlayable = isRewardPlayable;
-exports.getCurrentDayEndTimestamp = getCurrentDayEndTimestamp;
+exports.getNextMidnightTimestamp = getNextMidnightTimestamp;
 exports.isAllGamesUntilMidnightReward = isAllGamesUntilMidnightReward;
 exports.applyRewardToUser = applyRewardToUser;
 exports.buildRewardEvent = buildRewardEvent;
 exports.queueUserPushNotification = queueUserPushNotification;
-exports.createUserInAppNotification = createUserInAppNotification;
 const admin = __importStar(require("firebase-admin"));
 const crypto_1 = require("crypto");
 if (admin.apps.length === 0) {
@@ -71,7 +70,6 @@ exports.paths = {
     adminStats: 'admin_stats/share_promo',
     shareState: (uid) => `users/${uid}/private/share_state`,
     user: (uid) => `users/${uid}`,
-    userNotification: (uid, notificationId) => `users/${uid}/notifications/${notificationId}`,
     referral: (referralId) => `referrals/${referralId}`,
     rewardEvent: (eventId) => `reward_events/${eventId}`,
 };
@@ -80,7 +78,6 @@ exports.refs = {
     adminStats: () => exports.db.doc(exports.paths.adminStats),
     shareState: (uid) => exports.db.doc(exports.paths.shareState(uid)),
     user: (uid) => exports.db.doc(exports.paths.user(uid)),
-    userNotification: (uid, notificationId) => exports.db.doc(exports.paths.userNotification(uid, notificationId)),
     referral: (referralId) => exports.db.doc(exports.paths.referral(referralId)),
     rewardEvent: (eventId) => exports.db.doc(exports.paths.rewardEvent(eventId)),
     referrals: () => exports.db.collection('referrals'),
@@ -111,8 +108,6 @@ exports.defaultShareState = {
     rewardAvailable: false,
     lastReferralAt: null,
     lastRewardAt: null,
-    lastDailyPlayReminderDateKey: null,
-    lastDailyPlayReminderIndex: null,
     remainingEligibleRewards: 0,
     currentBannerKind: null,
     currentBannerTitle: null,
@@ -382,28 +377,18 @@ function buildTimeZoneMidnightTimestamp(year, month, day, timeZone) {
     const offsetMs = getTimeZoneOffsetMs(new Date(utcGuess), timeZone);
     return admin.firestore.Timestamp.fromMillis(utcGuess - offsetMs);
 }
-function getCurrentDayEndTimestamp(now = admin.firestore.Timestamp.now(), timeZone = exports.rewardAccessTimeZone) {
+function getNextMidnightTimestamp(now = admin.firestore.Timestamp.now(), timeZone = exports.rewardAccessTimeZone) {
     const localDate = getDatePartsInTimeZone(now.toDate(), timeZone);
-    const nextDayMidnight = buildTimeZoneMidnightTimestamp(localDate.year, localDate.month, localDate.day + 1, timeZone);
-    return admin.firestore.Timestamp.fromMillis(nextDayMidnight.toMillis() - 1);
+    const nextDayUtc = new Date(Date.UTC(localDate.year, localDate.month - 1, localDate.day + 1));
+    return buildTimeZoneMidnightTimestamp(nextDayUtc.getUTCFullYear(), nextDayUtc.getUTCMonth() + 1, nextDayUtc.getUTCDate(), timeZone);
 }
 function isAllGamesUntilMidnightReward(type) {
     return normalizeString(type) === 'all_games_until_midnight';
 }
-async function applyRewardToUser(transaction, uid, rewardType, rewardValue, existingUserData) {
+async function applyRewardToUser(transaction, uid, rewardType, rewardValue) {
     if (isAllGamesUntilMidnightReward(rewardType)) {
-        const userRef = exports.refs.user(uid);
-        const userData = existingUserData ?? {};
-        const currentDayEnd = getCurrentDayEndTimestamp();
-        const existingBonusExpiry = toTimestamp(userData.bonusExpiresAt) ?? toTimestamp(userData.allGamesAccessUntil);
-        const effectiveBonusExpiry = existingBonusExpiry && existingBonusExpiry.toMillis() > currentDayEnd.toMillis()
-            ? existingBonusExpiry
-            : currentDayEnd;
-        transaction.set(userRef, {
-            allGamesAccessUntil: effectiveBonusExpiry,
-            bonusMode: 'all_games_until_midnight',
-            bonusExpiresAt: effectiveBonusExpiry,
-            bonusSource: 'referral',
+        transaction.set(exports.refs.user(uid), {
+            allGamesAccessUntil: getNextMidnightTimestamp(),
             updated_time: admin.firestore.FieldValue.serverTimestamp(),
         }, { merge: true });
         return;
@@ -447,18 +432,5 @@ async function queueUserPushNotification({ docId, title, body, userUid, createdB
         status: 'started',
         created_at: admin.firestore.FieldValue.serverTimestamp(),
         created_by: createdBy,
-    });
-}
-async function createUserInAppNotification({ docId, title, body, userUid, }) {
-    const ref = exports.refs.userNotification(userUid, docId);
-    const existing = await ref.get();
-    if (existing.exists) {
-        return;
-    }
-    await ref.set({
-        title,
-        message: body,
-        date: admin.firestore.FieldValue.serverTimestamp(),
-        read: false,
     });
 }
