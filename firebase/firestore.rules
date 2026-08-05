@@ -358,8 +358,12 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if isAdmin();
 
+      // Un joueur peut lire uniquement ses propres tickets (requete filtree
+      // sur inviter_uid == son uid) pour afficher son nombre de chances --
+      // jamais la liste complete ni les tickets d'un autre joueur.
       match /entries/{document} {
-        allow read: if isAdmin();
+        allow read: if isAdmin() ||
+          (request.auth != null && resource.data.inviter_uid == request.auth.uid);
         allow write: if false;
       }
     }

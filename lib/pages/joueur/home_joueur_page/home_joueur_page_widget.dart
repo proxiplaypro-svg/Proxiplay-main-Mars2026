@@ -14,6 +14,7 @@ import '/services/global_ticker_service.dart';
 import '/widgets/recent_winners_ticker.dart';
 import '/widgets/proxiplay_loading_logo.dart';
 import '/widgets/proxiplay_network_image.dart';
+import '/widgets/referral_game_card.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import '/utils/perf_trace.dart';
@@ -393,9 +394,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   Widget _buildFeaturedGamesCarousel(
     BuildContext context,
     List<GamesRecord> featuredGames,
-    String sectionName,
-  ) {
-    if (featuredGames.isEmpty) {
+    String sectionName, {
+    bool showReferralGameCard = false,
+  }) {
+    if (featuredGames.isEmpty && !showReferralGameCard) {
       return const SizedBox(
         height: AppStyles.gameCardHeight,
         child: ListEmptyComponentWidget(
@@ -419,14 +421,26 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           renderItemCount: featuredGames.length,
         );
 
+        // La carte du jeu de parrainage (referral_games, collection separee
+        // de games) est inseree en premiere position quand un jeu est actif
+        // -- se replie automatiquement (SizedBox.shrink) si aucun jeu actif.
+        final itemCount =
+            featuredGames.length + (showReferralGameCard ? 1 : 0);
+
         return ListView.separated(
           padding: EdgeInsets.zero,
           primary: false,
           scrollDirection: Axis.horizontal,
-          itemCount: featuredGames.length,
+          itemCount: itemCount,
           separatorBuilder: (_, __) =>
               const SizedBox(width: _homeHorizontalCardGap),
-          itemBuilder: (context, index) {
+          itemBuilder: (context, rawIndex) {
+            if (showReferralGameCard && rawIndex == 0) {
+              return ReferralGameCard(
+                width: _computeHomeCardWidth(context),
+              );
+            }
+            final index = showReferralGameCard ? rawIndex - 1 : rawIndex;
             final game = featuredGames[index];
             _logHomeRenderItem(
               sectionName: sectionName,
@@ -2124,6 +2138,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         context,
                                                                         featuredGames,
                                                                         'À la une',
+                                                                        showReferralGameCard:
+                                                                            true,
                                                                       ),
                                                                     );
                                                                   }
@@ -4079,6 +4095,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               context,
                                                               featuredGames,
                                                               'À la une',
+                                                              showReferralGameCard:
+                                                                  true,
                                                             ),
                                                           );
                                                         }
