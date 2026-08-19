@@ -11,7 +11,11 @@
 //     "node --test test/notify_prize_won_idempotence.test.js"
 
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
-process.env.GCLOUD_PROJECT = "demo-proxiplay-rules-test";
+// Dedicated project id: several other test files in this directory share
+// "demo-proxiplay-rules-test" and running them together intermittently
+// leaks Firestore state across files. Giving this file its own project
+// avoids adding a fifth writer to that shared namespace.
+process.env.GCLOUD_PROJECT = "demo-proxiplay-notify-prize-test";
 
 const test = require("node:test");
 const assert = require("node:assert/strict");

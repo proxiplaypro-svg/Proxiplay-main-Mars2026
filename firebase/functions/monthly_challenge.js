@@ -179,6 +179,30 @@ function getMonthlyChallengeEntryRef(monthKey, uid) {
   return db.collection("monthly_challenge_entries").doc(`${monthKey}_${uid}`);
 }
 
+// Firestore transactions require every transaction.get() to happen before
+// any transaction.set()/update() in the whole transaction, not just within
+// this function. Callers that already issued writes earlier in the same
+// transaction (e.g. participateInGameTransaction) must call this up front,
+// before their first write, and pass the result to
+// trackMonthlyChallengeParticipation() as `prefetched`.
+async function prefetchMonthlyChallengeParticipationState({
+  uid,
+  userRef,
+  now,
+  transaction,
+}) {
+  const monthKey = getParisMonthKey(now.toDate());
+  const configRef = getMonthlyChallengeConfigRef();
+  const stateRef = getMonthlyChallengeUserStateRef(userRef, monthKey);
+  const entryRef = getMonthlyChallengeEntryRef(monthKey, uid);
+  const [configSnap, stateSnap, entrySnap] = await Promise.all([
+    transaction.get(configRef),
+    transaction.get(stateRef),
+    transaction.get(entryRef),
+  ]);
+  return {monthKey, stateRef, entryRef, configSnap, stateSnap, entrySnap};
+}
+
 function getMonthlyChallengeDrawRef(monthKey) {
   return db.collection("monthly_challenge_draws").doc(monthKey);
 }
@@ -720,12 +744,20 @@ async function trackMonthlyChallengeParticipation({
   userRef,
   now,
   transaction,
+  prefetched = null,
 }) {
-  const configSnap = await transaction.get(getMonthlyChallengeConfigRef());
+  const fetched =
+    prefetched ||
+    (await prefetchMonthlyChallengeParticipationState({
+      uid,
+      userRef,
+      now,
+      transaction,
+    }));
+  const {monthKey, stateRef, entryRef, configSnap, stateSnap, entrySnap} = fetched;
   const config = normalizeMonthlyChallengeConfig(
     configSnap.exists ? configSnap.data() : {},
   );
-  const monthKey = getParisMonthKey(now.toDate());
   const dayKey = getParisDayKey(now.toDate());
 
   if (!config.enabled || !isMonthKey(config.month) || config.month !== monthKey) {
@@ -735,13 +767,6 @@ async function trackMonthlyChallengeParticipation({
       notifications: [],
     };
   }
-
-  const stateRef = getMonthlyChallengeUserStateRef(userRef, monthKey);
-  const entryRef = getMonthlyChallengeEntryRef(monthKey, uid);
-  const [stateSnap, entrySnap] = await Promise.all([
-    transaction.get(stateRef),
-    transaction.get(entryRef),
-  ]);
 
   const state = stateSnap.exists ? stateSnap.data() || {} : {};
   const activeDates = sanitizeStringArray(state.active_dates);
@@ -1232,6 +1257,7 @@ module.exports = {
   normalizeMonthlyChallengeConfig,
   buildChallengeStateResponse,
   trackMonthlyChallengeParticipation,
+  prefetchMonthlyChallengeParticipationState,
   queueMonthlyChallengeNotifications,
   ensureChallengeQualificationForUser,
   reconcileMonthlyChallengeEligibility,

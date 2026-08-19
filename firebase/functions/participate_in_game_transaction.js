@@ -12,6 +12,7 @@ const {
 } = require("./push_notification_request.js");
 const {
   trackMonthlyChallengeParticipation,
+  prefetchMonthlyChallengeParticipationState,
   queueMonthlyChallengeNotifications,
 } = require("./monthly_challenge.js");
 
@@ -507,6 +508,18 @@ exports.participateInGameTransaction = functions.https.onCall(
             transaction.get(uniquePlayerRef),
           ]);
 
+        // Must happen before any transaction.set()/update() below --
+        // Firestore requires every read in a transaction to complete before
+        // its first write, and trackMonthlyChallengeParticipation() (called
+        // further down, after the "already played" / "no remaining part"
+        // guards) does its own reads unless handed this prefetch.
+        const monthlyChallengePrefetch = await prefetchMonthlyChallengeParticipationState({
+          uid,
+          userRef,
+          now,
+          transaction,
+        });
+
         // 1. Référence à la sous-collection
         const instantWinnersRef = gameRef.collection("instant_winners");
 
@@ -912,6 +925,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           userRef,
           now,
           transaction,
+          prefetched: monthlyChallengePrefetch,
         });
 
         // Enregistrer participation
