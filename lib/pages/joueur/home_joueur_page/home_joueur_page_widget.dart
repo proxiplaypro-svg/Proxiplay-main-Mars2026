@@ -1,6 +1,7 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/app_bar_joueur_widget.dart';
+import '/components/monthly_challenge_banner_widget.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/game_card_widget.dart';
 import '/components/list_empty_component_widget.dart';
@@ -9,7 +10,9 @@ import '/flutter_flow/app_styles.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/models/share_promo_models.dart';
+import '/models/monthly_challenge_models.dart';
 import '/services/share_promo_service.dart';
+import '/services/monthly_challenge_service.dart';
 import '/services/global_ticker_service.dart';
 import '/widgets/recent_winners_ticker.dart';
 import '/widgets/proxiplay_loading_logo.dart';
@@ -62,6 +65,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   DateTime? _lastResumeRefresh;
   late Future<SharePromoStateViewModel?> _sharePromoFuture;
   SharePromoStateViewModel? _latestSharePromoState;
+  late Future<MonthlyChallengeStateViewModel?> _monthlyChallengeFuture;
+  MonthlyChallengeStateViewModel? _latestMonthlyChallengeState;
+  final _monthlyChallengeService = MonthlyChallengeService();
   final Map<String, Future<EnseignesRecord>> _enseigneFutureCache = {};
   final Map<String, Future<Map<String, EnseignesRecord>>>
       _featuredEnseignesSectionCache = {};
@@ -111,6 +117,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
     _sharePromoFuture = _loadSharePromoState();
+    _monthlyChallengeFuture = _loadMonthlyChallengeState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureTickerLoaded();
     });
@@ -667,6 +674,50 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     }
   }
 
+  Future<MonthlyChallengeStateViewModel?> _loadMonthlyChallengeState() async {
+    if (isGuestOrAnonymous || currentUserUid.isEmpty) {
+      _latestMonthlyChallengeState = null;
+      return null;
+    }
+    try {
+      final state = await _monthlyChallengeService.getMonthlyChallengeState();
+      _latestMonthlyChallengeState = state;
+      if (state.showCard) {
+        logFirebaseEvent(
+          'monthly_challenge_viewed',
+          parameters: {
+            'month': state.month,
+            'qualified': state.qualified,
+            'active_days': state.activeDaysCount,
+            'target_days': state.targetDays,
+          },
+        );
+        logFirebaseEvent(
+          'monthly_challenge_progress',
+          parameters: {
+            'month': state.month,
+            'active_days': state.activeDaysCount,
+            'target_days': state.targetDays,
+            'remaining_days': state.remainingDays,
+          },
+        );
+        if (state.qualified) {
+          logFirebaseEvent(
+            'monthly_challenge_qualified',
+            parameters: {
+              'month': state.month,
+              'active_days': state.activeDaysCount,
+            },
+          );
+        }
+      }
+      return state;
+    } catch (_) {
+      _latestMonthlyChallengeState = null;
+      return null;
+    }
+  }
+
   SharePromoData? _buildSharePromoData(SharePromoStateViewModel? state) {
     if (state == null || !state.showBanner || state.kind == null) {
       return null;
@@ -750,6 +801,22 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       return '${value.toStringAsFixed(0)} €';
     }
     return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
+  }
+
+  Widget _buildMonthlyChallengeZone() {
+    return FutureBuilder<MonthlyChallengeStateViewModel?>(
+      future: _monthlyChallengeFuture,
+      builder: (context, snapshot) {
+        final state = snapshot.data ?? _latestMonthlyChallengeState;
+        if (state == null || !state.showCard) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: MonthlyChallengeBannerWidget(state: state),
+        );
+      },
+    );
   }
 
   String _readAnimationText(Map<String, dynamic> data, String key) {
@@ -2037,6 +2104,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                   children: [
                                                     _buildTopDynamicZone(
                                                         context),
+                                                    _buildMonthlyChallengeZone(),
                                                     _buildRecentWinnersZone(),
                                                     _buildActiveAnimationsSection(
                                                       context,

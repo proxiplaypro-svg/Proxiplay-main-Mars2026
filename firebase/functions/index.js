@@ -13,6 +13,14 @@ const {sendTextEmail} = require("./lib/notifications/email_sender");
 const {
   queuePushNotificationRequest,
 } = require("./push_notification_request.js");
+const {
+  getMonthlyChallengeStateCallable,
+  adminGetMonthlyChallengeConfigCallable,
+  adminUpsertMonthlyChallengeCallable,
+  adminGetMonthlyChallengeStatsCallable,
+  adminRunMonthlyChallengeDrawCallable,
+  drawMonthlyChallengeWinnerScheduled,
+} = require("./monthly_challenge");
 
 const kFcmTokensCollection = "fcm_tokens";
 const kPushNotificationsCollection = "ff_push_notifications";
@@ -1966,6 +1974,71 @@ async function sendEmailNotification(mailer, to, subject, text, html = "") {
 
 function isChannelDone(statusData, sentField, skippedField) {
   return statusData[sentField] === true || statusData[skippedField] === true;
+}
+
+function isMerchantEmailSendingStale(statusData, now) {
+  const updatedAt = statusData.merchant_email_status_updated_at;
+  if (!updatedAt || typeof updatedAt.toMillis !== "function") {
+    return true;
+  }
+  const ageMs = now.toMillis() - updatedAt.toMillis();
+  return ageMs > 5 * 60 * 1000; // 5 minutes
+}
+
+async function acquireMerchantEmailSendRight(statusRef) {
+  const now = admin.firestore.Timestamp.now();
+  return firestore.runTransaction(async (transaction) => {
+    const statusSnap = await transaction.get(statusRef);
+    const statusData = statusSnap.exists ? statusSnap.data() || {} : {};
+
+    if (isChannelDone(statusData, "merchant_email_sent", "merchant_email_skipped")) {
+      return { acquired: false, reason: "done" };
+    }
+
+    if (
+      statusData.merchant_email_status === "sending" &&
+      !isMerchantEmailSendingStale(statusData, now)
+    ) {
+      return { acquired: false, reason: "sending_in_progress" };
+    }
+
+    transaction.set(
+      statusRef,
+      {
+        merchant_email_status: "sending",
+        merchant_email_status_updated_at: now,
+      },
+      { merge: true },
+    );
+
+    return { acquired: true };
+  });
+}
+
+async function markMerchantEmailSent(statusRef) {
+  const now = admin.firestore.Timestamp.now();
+  await statusRef.set(
+    {
+      merchant_email_status: "sent",
+      merchant_email_status_updated_at: now,
+      merchant_email_sent: true,
+      merchant_email_skipped: admin.firestore.FieldValue.delete(),
+    },
+    { merge: true },
+  );
+}
+
+async function markMerchantEmailFailed(statusRef, error) {
+  const now = admin.firestore.Timestamp.now();
+  await statusRef.set(
+    {
+      merchant_email_status: "failed",
+      merchant_email_status_updated_at: now,
+      merchant_email_sent: false,
+      merchant_email_error: String(error),
+    },
+    { merge: true },
+  );
 }
 
 function getPrizeNotificationStatusRef(prizeId) {
@@ -5002,7 +5075,7 @@ exports.notifyPrizeWon = functions
       "player_email_sent",
       "player_email_skipped",
     );
-    const merchantEmailDone = isChannelDone(
+    let merchantEmailDone = isChannelDone(
       statusData,
       "merchant_email_sent",
       "merchant_email_skipped",
@@ -5085,7 +5158,7 @@ exports.notifyPrizeWon = functions
     );
     const shopLink = buildShopLink(enseigneData);
 
-    const merchantEmailSubject = `Un gagnant pour votre jeu "${gameName}"`;
+    const merchantEmailSubject = "🎉 Un joueur a gagné dans votre commerce !";
     const merchantEmailBody = [
       `Bonjour ${merchantName},`,
       `${winnerFirstName} de ${winnerCity} a remport\u00E9 ${prizeName} sur ProxiPlay :`,
@@ -5126,6 +5199,21 @@ exports.notifyPrizeWon = functions
       }
       return mailer;
     };
+
+    if (!merchantEmailDone) {
+      const lockResult = await acquireMerchantEmailSendRight(statusRef);
+      if (!lockResult.acquired) {
+        console.log(
+          `[notifyPrizeWon] prize=${prizeId} merchant_email send skipped reason=${lockResult.reason}`,
+        );
+        if (
+          lockResult.reason === "sending_in_progress" ||
+          lockResult.reason === "done"
+        ) {
+          merchantEmailDone = true;
+        }
+      }
+    }
 
     if (!playerEmailDone) {
       const playerEmail = await resolveUserEmail(winnerRef, winnerData);
@@ -5205,51 +5293,48 @@ exports.notifyPrizeWon = functions
     }
 
     if (!merchantEmailDone) {
-      const merchantEmail = await resolveUserEmail(ownerRef, ownerData);
-      logPrizeEmailAudit({
-        prizeId,
-        gameId: gameRef ? gameRef.id : "",
-        winnerRef,
-        winnerUserId: getUserUidFromRef(winnerRef),
-        resolvedEmail: merchantEmail,
-        resolvedUserId: getUserUidFromRef(ownerRef),
-        sourceFunction: "notifyPrizeWon:resolveMerchantEmail",
-      });
-      const merchantEmailRecipientCheck = await validatePrizeEmailMerchantRecipient({
-        prizeId,
-        ownerRef,
-        enseigneRef,
-        enseigneData,
-        gameRef,
-        gameData,
-        resolvedEmail: merchantEmail,
-        resolvedUserId: getUserUidFromRef(ownerRef),
-        sourceFunction: "notifyPrizeWon:merchantEmail",
-      });
-      if (!merchantEmail) {
+      const lockResult = await acquireMerchantEmailSendRight(statusRef);
+      if (!lockResult.acquired) {
+        console.log(
+          `[notifyPrizeWon] prize=${prizeId} merchant_email send skipped reason=${lockResult.reason}`,
+        );
         updates.merchant_email_skipped = true;
-        updates.merchant_email_skip_reason = "missing_merchant_email";
-      } else if (!merchantEmailRecipientCheck.ok) {
-        updates.merchant_email_skipped = true;
-        updates.merchant_email_skip_reason =
-          merchantEmailRecipientCheck.reason || "recipient_guard_blocked";
-      } else if (kPrizeEmailEmergencyDisabled === true) {
-        console.log("[PRIZE_EMAIL_CONTENT_CHECK]", {
+        updates.merchant_email_skip_reason = `skipped_${lockResult.reason}`;
+      } else {
+        const merchantEmail = await resolveUserEmail(ownerRef, ownerData);
+        logPrizeEmailAudit({
           prizeId,
-          winnerId: winnerRef && winnerRef.id ? winnerRef.id : null,
-          claimCode: prizeData.claim_code,
-          prizeNameFromDB: prizeData.name,
-          emailPrizeNameUsed: prizeName,
-          emailGameNameUsed: gameName,
+          gameId: gameRef ? gameRef.id : "",
+          winnerRef,
+          winnerUserId: getUserUidFromRef(winnerRef),
+          resolvedEmail: merchantEmail,
+          resolvedUserId: getUserUidFromRef(ownerRef),
+          sourceFunction: "notifyPrizeWon:resolveMerchantEmail",
+        });
+        const merchantEmailRecipientCheck = await validatePrizeEmailMerchantRecipient({
+          prizeId,
+          ownerRef,
+          enseigneRef,
+          enseigneData,
+          gameRef,
+          gameData,
+          resolvedEmail: merchantEmail,
+          resolvedUserId: getUserUidFromRef(ownerRef),
           sourceFunction: "notifyPrizeWon:merchantEmail",
         });
-        updates.merchant_email_skipped = true;
-        updates.merchant_email_skip_reason = "emergency_disabled";
-        console.log(
-          `[notifyPrizeWon] prize=${prizeId} merchant_email_disabled reason=${kPrizeEmailEmergencyDisabledReason}`,
-        );
-      } else {
-        try {
+        if (!merchantEmail) {
+          updates.merchant_email_skipped = true;
+          updates.merchant_email_skip_reason = "missing_merchant_email";
+          await markMerchantEmailFailed(statusRef, "missing_merchant_email");
+        } else if (!merchantEmailRecipientCheck.ok) {
+          updates.merchant_email_skipped = true;
+          updates.merchant_email_skip_reason =
+            merchantEmailRecipientCheck.reason || "recipient_guard_blocked";
+          await markMerchantEmailFailed(
+            statusRef,
+            updates.merchant_email_skip_reason,
+          );
+        } else if (kPrizeEmailEmergencyDisabled === true) {
           console.log("[PRIZE_EMAIL_CONTENT_CHECK]", {
             prizeId,
             winnerId: winnerRef && winnerRef.id ? winnerRef.id : null,
@@ -5259,27 +5344,47 @@ exports.notifyPrizeWon = functions
             emailGameNameUsed: gameName,
             sourceFunction: "notifyPrizeWon:merchantEmail",
           });
-          await sendEmailNotification(
-            getMailer(),
-            merchantEmail,
-            merchantEmailSubject,
-            merchantEmailBody,
+          updates.merchant_email_skipped = true;
+          updates.merchant_email_skip_reason = "emergency_disabled";
+          console.log(
+            `[notifyPrizeWon] prize=${prizeId} merchant_email_disabled reason=${kPrizeEmailEmergencyDisabledReason}`,
           );
-          logPrizeEmailAudit({
-            prizeId,
-            gameId: gameRef ? gameRef.id : "",
-            winnerRef,
-            winnerUserId: getUserUidFromRef(winnerRef),
-            resolvedEmail: merchantEmail,
-            resolvedUserId: getUserUidFromRef(ownerRef),
-            sourceFunction: "notifyPrizeWon:sendMerchantEmail",
-          });
-          updates.merchant_email_sent = true;
-          updates.merchant_email_skipped = admin.firestore.FieldValue.delete();
-          updates.merchant_email_skip_reason = admin.firestore.FieldValue.delete();
-        } catch (e) {
-          errors.push(`merchant_email: ${e.message || e}`);
-          updates.merchant_email_sent = false;
+          await markMerchantEmailFailed(statusRef, "emergency_disabled");
+        } else {
+          try {
+            console.log("[PRIZE_EMAIL_CONTENT_CHECK]", {
+              prizeId,
+              winnerId: winnerRef && winnerRef.id ? winnerRef.id : null,
+              claimCode: prizeData.claim_code,
+              prizeNameFromDB: prizeData.name,
+              emailPrizeNameUsed: prizeName,
+              emailGameNameUsed: gameName,
+              sourceFunction: "notifyPrizeWon:merchantEmail",
+            });
+            await sendEmailNotification(
+              getMailer(),
+              merchantEmail,
+              merchantEmailSubject,
+              merchantEmailBody,
+            );
+            await markMerchantEmailSent(statusRef);
+            logPrizeEmailAudit({
+              prizeId,
+              gameId: gameRef ? gameRef.id : "",
+              winnerRef,
+              winnerUserId: getUserUidFromRef(winnerRef),
+              resolvedEmail: merchantEmail,
+              resolvedUserId: getUserUidFromRef(ownerRef),
+              sourceFunction: "notifyPrizeWon:sendMerchantEmail",
+            });
+            updates.merchant_email_sent = true;
+            updates.merchant_email_skipped = admin.firestore.FieldValue.delete();
+            updates.merchant_email_skip_reason = admin.firestore.FieldValue.delete();
+          } catch (e) {
+            errors.push(`merchant_email: ${e.message || e}`);
+            updates.merchant_email_sent = false;
+            await markMerchantEmailFailed(statusRef, e);
+          }
         }
       }
     }
@@ -5343,6 +5448,13 @@ exports.notifyPrizeWon = functions
     }
     return null;
   });
+}
+
+exports._testHelpers = {
+  acquireMerchantEmailSendRight,
+  markMerchantEmailSent,
+  markMerchantEmailFailed,
+};
 
 /**
  * Scheduled processing for push notifications:
@@ -6031,6 +6143,14 @@ exports.runPrizeRemindersDaily = runPrizeRemindersDailyScheduled;
 exports.generateInstantWinnersForGame = generateInstantWinnersForGameCallable;
 exports.getPrizeWinnerContactForMerchant =
   getPrizeWinnerContactForMerchantCallable;
+exports.getMonthlyChallengeState = getMonthlyChallengeStateCallable;
+exports.adminGetMonthlyChallengeConfig =
+  adminGetMonthlyChallengeConfigCallable;
+exports.adminUpsertMonthlyChallenge = adminUpsertMonthlyChallengeCallable;
+exports.adminGetMonthlyChallengeStats =
+  adminGetMonthlyChallengeStatsCallable;
+exports.adminRunMonthlyChallengeDraw = adminRunMonthlyChallengeDrawCallable;
+exports.drawMonthlyChallengeWinner = drawMonthlyChallengeWinnerScheduled;
 
 try {
   const {

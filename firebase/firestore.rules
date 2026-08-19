@@ -317,6 +317,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /app_config/monthly_challenge {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /app_config/mobile_versioning {
       allow read: if true;
       allow write: if isAdmin();
@@ -333,6 +338,21 @@ service cloud.firestore {
 
     match /users/{uid}/private/share_state {
       allow read: if isSelf(uid) || isAdmin();
+      allow write: if false;
+    }
+
+    match /users/{uid}/monthly_challenges/{document} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow write: if false;
+    }
+
+    match /monthly_challenge_entries/{document} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /monthly_challenge_draws/{document} {
+      allow read: if isAdmin();
       allow write: if false;
     }
 

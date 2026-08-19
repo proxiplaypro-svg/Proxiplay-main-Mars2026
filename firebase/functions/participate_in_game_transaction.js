@@ -10,6 +10,10 @@ const {
 const {
   queuePushNotificationRequest,
 } = require("./push_notification_request.js");
+const {
+  trackMonthlyChallengeParticipation,
+  queueMonthlyChallengeNotifications,
+} = require("./monthly_challenge.js");
 
 const db = admin.firestore();
 
@@ -457,6 +461,7 @@ exports.participateInGameTransaction = functions.https.onCall(
     let userRef = null;
     let lotGagne = false;
     let gameName = "";
+    let monthlyChallengeResult = null;
 
     try {
       await db.runTransaction(async (transaction) => {
@@ -902,6 +907,13 @@ exports.participateInGameTransaction = functions.https.onCall(
           );
         }
 
+        monthlyChallengeResult = await trackMonthlyChallengeParticipation({
+          uid,
+          userRef,
+          now,
+          transaction,
+        });
+
         // Enregistrer participation
         if (Object.keys(gameConsistencyPatch).length > 0) {
           recordWrite("update", gameRef, gameConsistencyPatch);
@@ -1254,28 +1266,6 @@ exports.participateInGameTransaction = functions.https.onCall(
             }
           }
 
-          if (merchantEmail) {
-            const merchantMailSubject = "🎉 Un joueur a gagné dans votre commerce !";
-            const merchantMailHtml = `
-              <p>Un joueur vient de gagner : ${lotDetails}</p>
-              <p>Il se présentera avec le code : ${claim_code}</p>
-              <p>Jeu : ${gameName}</p>
-            `;
-            const merchantMailText = [
-              `Un joueur vient de gagner : ${lotDetails}`,
-              `Il se présentera avec le code : ${claim_code}`,
-              `Jeu : ${gameName}`,
-            ].join("\n");
-
-            await sendEmailNotification(
-              mailer,
-              merchantEmail,
-              merchantMailSubject,
-              merchantMailText,
-              merchantMailHtml
-            );
-          }
-
           if (merchantOwnerRef) {
             await queuePushNotificationRequest(db, {
               title: "🎉 Un joueur a gagné !",
@@ -1288,6 +1278,21 @@ exports.participateInGameTransaction = functions.https.onCall(
           console.error(
             `participateInGameTransaction: post-transaction notifications failed for gameId=${gameRef.id} uid=${uid}`,
             postTransactionNotificationError
+          );
+        }
+      }
+
+      if (monthlyChallengeResult?.tracked === true) {
+        try {
+          await queueMonthlyChallengeNotifications(
+            uid,
+            monthlyChallengeResult.notifications,
+            monthlyChallengeResult.monthKey
+          );
+        } catch (monthlyChallengeNotificationError) {
+          console.error(
+            `participateInGameTransaction: monthly challenge notifications failed for gameId=${gameRef.id} uid=${uid}`,
+            monthlyChallengeNotificationError
           );
         }
       }
