@@ -5200,21 +5200,6 @@ exports.notifyPrizeWon = functions
       return mailer;
     };
 
-    if (!merchantEmailDone) {
-      const lockResult = await acquireMerchantEmailSendRight(statusRef);
-      if (!lockResult.acquired) {
-        console.log(
-          `[notifyPrizeWon] prize=${prizeId} merchant_email send skipped reason=${lockResult.reason}`,
-        );
-        if (
-          lockResult.reason === "sending_in_progress" ||
-          lockResult.reason === "done"
-        ) {
-          merchantEmailDone = true;
-        }
-      }
-    }
-
     if (!playerEmailDone) {
       const playerEmail = await resolveUserEmail(winnerRef, winnerData);
       logPrizeEmailAudit({
@@ -5448,7 +5433,6 @@ exports.notifyPrizeWon = functions
     }
     return null;
   });
-}
 
 exports._testHelpers = {
   acquireMerchantEmailSendRight,
