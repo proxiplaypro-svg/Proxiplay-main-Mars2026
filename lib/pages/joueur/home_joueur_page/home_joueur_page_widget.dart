@@ -394,8 +394,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   double _computeHomeCardWidth(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final availableWidth = screenWidth - (_homePageHorizontalPadding * 2);
-    return ((availableWidth - _homeHorizontalCardGap) / 2)
-        .clamp(168.0, AppStyles.gameCardWidth);
+    final twoColumnWidth =
+        (availableWidth - _homeHorizontalCardGap) / 2;
+    return twoColumnWidth.clamp(140.0, AppStyles.gameCardWidth);
   }
 
   Widget _buildFeaturedGamesCarousel(
@@ -428,48 +429,68 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           renderItemCount: featuredGames.length,
         );
 
-        // La carte du jeu de parrainage (referral_games, collection separee
-        // de games) est inseree en premiere position quand un jeu est actif
-        // -- se replie automatiquement (SizedBox.shrink) si aucun jeu actif.
-        final itemCount =
-            featuredGames.length + (showReferralGameCard ? 1 : 0);
+        Widget buildCarousel({required bool hasActiveReferralGame}) {
+          final includeReferralCard =
+              showReferralGameCard && hasActiveReferralGame;
+          final itemCount =
+              featuredGames.length + (includeReferralCard ? 1 : 0);
 
-        return ListView.separated(
-          padding: EdgeInsets.zero,
-          primary: false,
-          scrollDirection: Axis.horizontal,
-          itemCount: itemCount,
-          separatorBuilder: (_, __) =>
-              const SizedBox(width: _homeHorizontalCardGap),
-          itemBuilder: (context, rawIndex) {
-            if (showReferralGameCard && rawIndex == 0) {
-              return ReferralGameCard(
-                width: _computeHomeCardWidth(context),
+          return ListView.separated(
+            padding: EdgeInsets.zero,
+            primary: false,
+            scrollDirection: Axis.horizontal,
+            itemCount: itemCount,
+            separatorBuilder: (_, __) =>
+                const SizedBox(width: _homeHorizontalCardGap),
+            itemBuilder: (context, rawIndex) {
+              if (includeReferralCard && rawIndex == 0) {
+                return ReferralGameCard(
+                  width: _computeHomeCardWidth(context),
+                );
+              }
+              final index = includeReferralCard ? rawIndex - 1 : rawIndex;
+              final game = featuredGames[index];
+              _logHomeRenderItem(
+                sectionName: sectionName,
+                index: index,
+                game: game,
               );
-            }
-            final index = showReferralGameCard ? rawIndex - 1 : rawIndex;
-            final game = featuredGames[index];
-            _logHomeRenderItem(
-              sectionName: sectionName,
-              index: index,
-              game: game,
-            );
-            final enseigne = game.enseigneId != null
-                ? enseignesByPath[game.enseigneId!.path]
-                : null;
+              final enseigne = game.enseigneId != null
+                  ? enseignesByPath[game.enseigneId!.path]
+                  : null;
 
-            return _buildHomeGameCard(
-              game: game,
-              enseigne: enseigne,
-              prizeText: game.prizeValue == 0
-                  ? 'Gains instantan\u00E9s'
-                  : _formatEuroAmount(game.prizeValue),
-              endDateText: game.endDate != null
-                  ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}"
-                  : "Jusqu'au : -",
-              onTap: () async {
-                await _openGameDetails(game);
-              },
+              return _buildHomeGameCard(
+                game: game,
+                enseigne: enseigne,
+                prizeText: game.prizeValue == 0
+                    ? 'Gains instantan\u00E9s'
+                    : _formatEuroAmount(game.prizeValue),
+                endDateText: game.endDate != null
+                    ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}"
+                    : "Jusqu'au : -",
+                onTap: () async {
+                  await _openGameDetails(game);
+                },
+              );
+            },
+          );
+        }
+
+        if (!showReferralGameCard) {
+          return buildCarousel(hasActiveReferralGame: false);
+        }
+
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance
+              .collection('referral_games')
+              .where('status', isEqualTo: 'active')
+              .limit(1)
+              .snapshots(),
+          builder: (context, referralSnapshot) {
+            final hasActiveReferralGame =
+                referralSnapshot.data?.docs.isNotEmpty ?? false;
+            return buildCarousel(
+              hasActiveReferralGame: hasActiveReferralGame,
             );
           },
         );
@@ -2428,9 +2449,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                             enseignesSnapshot.data ??
                                                                                 const <String, EnseignesRecord>{};
                                                                         if (endingSoonGames
-                                                                            .isEmpty)
+                                                                            .isEmpty) {
                                                                           return const SizedBox
                                                                               .shrink();
+                                                                        }
                                                                         return Container(
                                                                           width:
                                                                               double.infinity,
@@ -4208,9 +4230,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         true),
                                                           ),
                                                           padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  right: 20.0),
+                                                              EdgeInsets.zero,
                                                           primary: false,
                                                           reverse: false,
                                                           scrollDirection:
