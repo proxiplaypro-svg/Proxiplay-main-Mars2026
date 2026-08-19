@@ -1,6 +1,7 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/app_bar_joueur_widget.dart';
+import '/components/monthly_challenge_banner_widget.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/game_card_widget.dart';
 import '/components/list_empty_component_widget.dart';
@@ -9,7 +10,9 @@ import '/flutter_flow/app_styles.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/models/share_promo_models.dart';
+import '/models/monthly_challenge_models.dart';
 import '/services/share_promo_service.dart';
+import '/services/monthly_challenge_service.dart';
 import '/services/global_ticker_service.dart';
 import '/widgets/recent_winners_ticker.dart';
 import '/widgets/proxiplay_loading_logo.dart';
@@ -62,6 +65,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   DateTime? _lastResumeRefresh;
   late Future<SharePromoStateViewModel?> _sharePromoFuture;
   SharePromoStateViewModel? _latestSharePromoState;
+  late Future<MonthlyChallengeStateViewModel?> _monthlyChallengeFuture;
+  MonthlyChallengeStateViewModel? _latestMonthlyChallengeState;
+  final _monthlyChallengeService = MonthlyChallengeService();
   final Map<String, Future<EnseignesRecord>> _enseigneFutureCache = {};
   final Map<String, Future<Map<String, EnseignesRecord>>>
       _featuredEnseignesSectionCache = {};
@@ -111,6 +117,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
     _sharePromoFuture = _loadSharePromoState();
+    _monthlyChallengeFuture = _loadMonthlyChallengeState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureTickerLoaded();
     });
@@ -387,8 +394,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   double _computeHomeCardWidth(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final availableWidth = screenWidth - (_homePageHorizontalPadding * 2);
-    return ((availableWidth - _homeHorizontalCardGap) / 2)
-        .clamp(168.0, AppStyles.gameCardWidth);
+    final twoColumnWidth =
+        (availableWidth - _homeHorizontalCardGap) / 2;
+    return twoColumnWidth.clamp(140.0, AppStyles.gameCardWidth);
   }
 
   Widget _buildFeaturedGamesCarousel(
@@ -421,48 +429,68 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           renderItemCount: featuredGames.length,
         );
 
-        // La carte du jeu de parrainage (referral_games, collection separee
-        // de games) est inseree en premiere position quand un jeu est actif
-        // -- se replie automatiquement (SizedBox.shrink) si aucun jeu actif.
-        final itemCount =
-            featuredGames.length + (showReferralGameCard ? 1 : 0);
+        Widget buildCarousel({required bool hasActiveReferralGame}) {
+          final includeReferralCard =
+              showReferralGameCard && hasActiveReferralGame;
+          final itemCount =
+              featuredGames.length + (includeReferralCard ? 1 : 0);
 
-        return ListView.separated(
-          padding: EdgeInsets.zero,
-          primary: false,
-          scrollDirection: Axis.horizontal,
-          itemCount: itemCount,
-          separatorBuilder: (_, __) =>
-              const SizedBox(width: _homeHorizontalCardGap),
-          itemBuilder: (context, rawIndex) {
-            if (showReferralGameCard && rawIndex == 0) {
-              return ReferralGameCard(
-                width: _computeHomeCardWidth(context),
+          return ListView.separated(
+            padding: EdgeInsets.zero,
+            primary: false,
+            scrollDirection: Axis.horizontal,
+            itemCount: itemCount,
+            separatorBuilder: (_, __) =>
+                const SizedBox(width: _homeHorizontalCardGap),
+            itemBuilder: (context, rawIndex) {
+              if (includeReferralCard && rawIndex == 0) {
+                return ReferralGameCard(
+                  width: _computeHomeCardWidth(context),
+                );
+              }
+              final index = includeReferralCard ? rawIndex - 1 : rawIndex;
+              final game = featuredGames[index];
+              _logHomeRenderItem(
+                sectionName: sectionName,
+                index: index,
+                game: game,
               );
-            }
-            final index = showReferralGameCard ? rawIndex - 1 : rawIndex;
-            final game = featuredGames[index];
-            _logHomeRenderItem(
-              sectionName: sectionName,
-              index: index,
-              game: game,
-            );
-            final enseigne = game.enseigneId != null
-                ? enseignesByPath[game.enseigneId!.path]
-                : null;
+              final enseigne = game.enseigneId != null
+                  ? enseignesByPath[game.enseigneId!.path]
+                  : null;
 
-            return _buildHomeGameCard(
-              game: game,
-              enseigne: enseigne,
-              prizeText: game.prizeValue == 0
-                  ? 'Gains instantan\u00E9s'
-                  : _formatEuroAmount(game.prizeValue),
-              endDateText: game.endDate != null
-                  ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}"
-                  : "Jusqu'au : -",
-              onTap: () async {
-                await _openGameDetails(game);
-              },
+              return _buildHomeGameCard(
+                game: game,
+                enseigne: enseigne,
+                prizeText: game.prizeValue == 0
+                    ? 'Gains instantan\u00E9s'
+                    : _formatEuroAmount(game.prizeValue),
+                endDateText: game.endDate != null
+                    ? "Jusqu'au : ${dateTimeFormat('d/M/y', game.endDate, locale: FFLocalizations.of(context).languageCode)}"
+                    : "Jusqu'au : -",
+                onTap: () async {
+                  await _openGameDetails(game);
+                },
+              );
+            },
+          );
+        }
+
+        if (!showReferralGameCard) {
+          return buildCarousel(hasActiveReferralGame: false);
+        }
+
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance
+              .collection('referral_games')
+              .where('status', isEqualTo: 'active')
+              .limit(1)
+              .snapshots(),
+          builder: (context, referralSnapshot) {
+            final hasActiveReferralGame =
+                referralSnapshot.data?.docs.isNotEmpty ?? false;
+            return buildCarousel(
+              hasActiveReferralGame: hasActiveReferralGame,
             );
           },
         );
@@ -667,6 +695,50 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     }
   }
 
+  Future<MonthlyChallengeStateViewModel?> _loadMonthlyChallengeState() async {
+    if (isGuestOrAnonymous || currentUserUid.isEmpty) {
+      _latestMonthlyChallengeState = null;
+      return null;
+    }
+    try {
+      final state = await _monthlyChallengeService.getMonthlyChallengeState();
+      _latestMonthlyChallengeState = state;
+      if (state.showCard) {
+        logFirebaseEvent(
+          'monthly_challenge_viewed',
+          parameters: {
+            'month': state.month,
+            'qualified': state.qualified,
+            'active_days': state.activeDaysCount,
+            'target_days': state.targetDays,
+          },
+        );
+        logFirebaseEvent(
+          'monthly_challenge_progress',
+          parameters: {
+            'month': state.month,
+            'active_days': state.activeDaysCount,
+            'target_days': state.targetDays,
+            'remaining_days': state.remainingDays,
+          },
+        );
+        if (state.qualified) {
+          logFirebaseEvent(
+            'monthly_challenge_qualified',
+            parameters: {
+              'month': state.month,
+              'active_days': state.activeDaysCount,
+            },
+          );
+        }
+      }
+      return state;
+    } catch (_) {
+      _latestMonthlyChallengeState = null;
+      return null;
+    }
+  }
+
   SharePromoData? _buildSharePromoData(SharePromoStateViewModel? state) {
     if (state == null || !state.showBanner || state.kind == null) {
       return null;
@@ -750,6 +822,22 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       return '${value.toStringAsFixed(0)} €';
     }
     return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
+  }
+
+  Widget _buildMonthlyChallengeZone() {
+    return FutureBuilder<MonthlyChallengeStateViewModel?>(
+      future: _monthlyChallengeFuture,
+      builder: (context, snapshot) {
+        final state = snapshot.data ?? _latestMonthlyChallengeState;
+        if (state == null || !state.showCard) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: MonthlyChallengeBannerWidget(state: state),
+        );
+      },
+    );
   }
 
   String _readAnimationText(Map<String, dynamic> data, String key) {
@@ -2037,6 +2125,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                   children: [
                                                     _buildTopDynamicZone(
                                                         context),
+                                                    _buildMonthlyChallengeZone(),
                                                     _buildRecentWinnersZone(),
                                                     _buildActiveAnimationsSection(
                                                       context,
@@ -2360,9 +2449,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                             enseignesSnapshot.data ??
                                                                                 const <String, EnseignesRecord>{};
                                                                         if (endingSoonGames
-                                                                            .isEmpty)
+                                                                            .isEmpty) {
                                                                           return const SizedBox
                                                                               .shrink();
+                                                                        }
                                                                         return Container(
                                                                           width:
                                                                               double.infinity,
@@ -4140,9 +4230,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         true),
                                                           ),
                                                           padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  right: 20.0),
+                                                              EdgeInsets.zero,
                                                           primary: false,
                                                           reverse: false,
                                                           scrollDirection:

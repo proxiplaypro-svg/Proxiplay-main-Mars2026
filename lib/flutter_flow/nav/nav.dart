@@ -129,9 +129,7 @@ class AppStateNotifier extends ChangeNotifier {
   String? get debugRedirectLocation => _redirectLocation;
   bool hasRedirect() => _redirectLocation != null;
   void setRedirectLocationIfUnset(String loc) {
-    if (_redirectLocation == null) {
-      _redirectLocation = loc;
-    }
+    _redirectLocation ??= loc;
   }
 
   void clearRedirectLocation() {

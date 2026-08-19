@@ -1,7 +1,9 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../campaign_monthly_challenge_admin_page/campaign_monthly_challenge_admin_page_widget.dart';
 import '../campaign_share_promo_admin_page/campaign_share_promo_admin_page_widget.dart';
+import '../monthly_challenge_stats_admin_page/monthly_challenge_stats_admin_page_widget.dart';
 import '../share_promo_stats_admin_page/share_promo_stats_admin_page_widget.dart';
 
 class AnimationsPromotionsAdminPageWidget extends StatelessWidget {
@@ -154,6 +156,30 @@ class AnimationsPromotionsAdminPageWidget extends StatelessWidget {
               const SharePromoStatsAdminPageWidget(),
             ),
             accentColor: const Color(0xFF2E90FA),
+          ),
+          const SizedBox(height: 14.0),
+          _buildActionCard(
+            context,
+            icon: Icons.emoji_events_rounded,
+            title: 'Défi mensuel',
+            subtitle: 'Configurer le défi d’assiduité du mois.',
+            onTap: () => _openPage(
+              context,
+              const CampaignMonthlyChallengeAdminPageWidget(),
+            ),
+            accentColor: const Color(0xFFC26A1B),
+          ),
+          const SizedBox(height: 14.0),
+          _buildActionCard(
+            context,
+            icon: Icons.query_stats_rounded,
+            title: 'Stats défi mensuel',
+            subtitle: 'Voir les qualifiés et lancer le tirage.',
+            onTap: () => _openPage(
+              context,
+              const MonthlyChallengeStatsAdminPageWidget(),
+            ),
+            accentColor: const Color(0xFF1D8348),
           ),
         ],
       ),

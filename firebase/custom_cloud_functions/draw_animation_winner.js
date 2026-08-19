@@ -214,22 +214,6 @@ async function drawWinnerForAnimation(animationRef, animationId, animationData) 
       const merchantEmail = getTrimmedString(ownerData.email);
       const enseigneName = getTrimmedString(enseigneData.name || gameData.enseigne_name);
 
-      const mailer = createSmtpMailer();
-      if (merchantEmail) {
-        const subject = `Un gagnant a été tiré au sort pour l'animation : ${animationName}`;
-        const html = `
-          <p>Bonjour ${enseigneName ? enseigneName : ""} !</p>
-          <p>Le tirage au sort de l'animation <strong>${animationName}</strong> vient d'avoir lieu.</p>
-          <p>Le gagnant du gros lot (<em>${prizeDescription}</em>) sera contacté par l'équipe Proxiplay.</p>
-        `;
-        const text = [
-          `Bonjour ${enseigneName ? enseigneName : ""} !`,
-          `Le tirage au sort de l'animation "${animationName}" vient d'avoir lieu.`,
-          `Le gagnant du gros lot (${prizeDescription}) sera contacté par l'équipe Proxiplay.`,
-        ].join("\n");
-        await sendEmailNotification(mailer, merchantEmail, subject, text, html);
-      }
-
       await queuePushNotificationRequest(db, {
         title: `Tirage au sort : ${animationName}`,
         body: `Un gagnant a été désigné pour le gros lot de l'animation.`,

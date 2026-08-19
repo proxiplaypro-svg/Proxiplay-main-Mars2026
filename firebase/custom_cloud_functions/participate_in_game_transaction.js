@@ -971,28 +971,6 @@ exports.participateInGameTransaction = functions.https.onCall(
             }
           }
 
-          if (merchantEmail) {
-            const merchantMailSubject = "🎉 Un joueur a gagné dans votre commerce !";
-            const merchantMailHtml = `
-              <p>Un joueur vient de gagner : ${lotDetails}</p>
-              <p>Il se présentera avec le code : ${claim_code}</p>
-              <p>Jeu : ${gameName}</p>
-            `;
-            const merchantMailText = [
-              `Un joueur vient de gagner : ${lotDetails}`,
-              `Il se présentera avec le code : ${claim_code}`,
-              `Jeu : ${gameName}`,
-            ].join("\n");
-
-            await sendEmailNotification(
-              mailer,
-              merchantEmail,
-              merchantMailSubject,
-              merchantMailText,
-              merchantMailHtml
-            );
-          }
-
           if (merchantOwnerRef) {
             await queuePushNotificationRequest(db, {
               title: "🎉 Un joueur a gagné !",
