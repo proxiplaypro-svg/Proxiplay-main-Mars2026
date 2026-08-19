@@ -11,7 +11,7 @@ Le consommateur principal lit ce schéma dans `firebase/functions/index.js`, not
 Les payloads doivent etre construits via:
 
 - `buildPushNotificationRequestData()` dans `firebase/functions/index.js`
-- `queuePushNotificationRequest()` dans `firebase/custom_cloud_functions/push_notification_request.js`
+- `queuePushNotificationRequest()` dans `firebase/functions/push_notification_request.js`
 
 Ne pas recreer le schema a la main si ce n'est pas necessaire.
 
@@ -67,10 +67,15 @@ Cote `firebase/functions/index.js`:
 - notifications "nouveau jeu disponible"
 - notifications "relance inactifs"
 
-Cote `firebase/custom_cloud_functions`:
+Cote `firebase/functions` (autres fichiers du meme codebase):
 
 - `participate_in_game_transaction.js`
 - `draw_animation_winner.js`
+
+Le codebase `firebase/custom_cloud_functions` est deploye separement (voir
+`firebase/firebase.json`) mais son `index.js` n'expose que
+`deleteEnseigneAndGames`, `deleteCommercantAccount` et
+`backfillPlayerStatusCached` — aucun producteur de notification.
 
 ## Regle pratique
 
