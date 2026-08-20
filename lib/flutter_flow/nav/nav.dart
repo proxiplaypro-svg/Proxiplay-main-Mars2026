@@ -665,6 +665,12 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               builder: (context, params) => const LotsJoueurPageWidget(),
             ),
             FFRoute(
+              name: ParrainageJoueurPageWidget.routeName,
+              path: ParrainageJoueurPageWidget.routePath,
+              requireAuth: true,
+              builder: (context, params) => const ParrainageJoueurPageWidget(),
+            ),
+            FFRoute(
               name: LotDetailJoueurPageWidget.routeName,
               path: LotDetailJoueurPageWidget.routePath,
               requireAuth: true,
@@ -977,7 +983,8 @@ class FFRoute {
           final deepLinkGameId = _extractDeepLinkGameId(state.uri);
           final isDeepLinkRoute = deepLinkGameId != null;
           if (isDeepLinkRoute) {
-            debugPrint('[DEEPLINK_RECEIVED] gameId=$deepLinkGameId uri=${state.uri.toString()}');
+            debugPrint(
+                '[DEEPLINK_RECEIVED] gameId=$deepLinkGameId uri=${state.uri.toString()}');
             debugPrint(
               '[QR_DEEPLINK_RECEIVED] gameId=$deepLinkGameId uri=${state.uri.toString()}',
             );

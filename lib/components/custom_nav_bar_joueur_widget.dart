@@ -73,127 +73,55 @@ class _CustomNavBarJoueurWidgetState extends State<CustomNavBarJoueurWidget> {
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
       width: double.infinity,
-      height: hideForKeyboard
-          ? 0.0
-          : ProxiPlayLayout.bottomNavHeight(context),
+      height: hideForKeyboard ? 0.0 : ProxiPlayLayout.bottomNavHeight(context),
       decoration: BoxDecoration(
         color: FlutterFlowTheme.of(context).primary,
       ),
       padding: EdgeInsets.only(bottom: hideForKeyboard ? 0.0 : bottomInset),
       child: hideForKeyboard
           ? const SizedBox.shrink()
-          : SizedBox(
-              height: ProxiPlayLayout.bottomNavContentHeight,
-              child: Row(
-                mainAxisSize: MainAxisSize.max,
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 50.0,
-                        height: 50.0,
-                        decoration: BoxDecoration(
-                          color: widget.indexActive == 1
-                              ? FlutterFlowTheme.of(context).primaryBackground
-                              : FlutterFlowTheme.of(context).primary,
-                          borderRadius: BorderRadius.circular(24.0),
-                        ),
-                        alignment: const AlignmentDirectional(0.0, 0.0),
-                        child: InkWell(
-                          splashColor: Colors.transparent,
-                          focusColor: Colors.transparent,
-                          hoverColor: Colors.transparent,
-                          highlightColor: Colors.transparent,
-                          onTap: () async {
-                            context.goNamed(
-                              HomeJoueurPageWidget.routeName,
-                              extra: <String, dynamic>{
-                                kTransitionInfoKey: const TransitionInfo(
-                                  hasTransition: true,
-                                  transitionType: PageTransitionType.fade,
-                                  duration: Duration(milliseconds: 0),
-                                ),
-                              },
-                            );
-                          },
-                          child: Icon(
-                            Icons.home_rounded,
+          : ClipRect(
+              child: SizedBox(
+                height: ProxiPlayLayout.bottomNavContentHeight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 50.0,
+                          height: 50.0,
+                          decoration: BoxDecoration(
                             color: widget.indexActive == 1
-                                ? FlutterFlowTheme.of(context).primary
-                                : FlutterFlowTheme.of(context)
-                                    .primaryBackground,
-                            size: 30.0,
+                                ? FlutterFlowTheme.of(context).primaryBackground
+                                : FlutterFlowTheme.of(context).primary,
+                            borderRadius: BorderRadius.circular(24.0),
                           ),
-                        ),
-                      ),
-                    ].divide(const SizedBox(height: 8.0)),
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 50.0,
-                        height: 50.0,
-                        decoration: BoxDecoration(
-                          color: widget.indexActive == 2
-                              ? FlutterFlowTheme.of(context).primaryBackground
-                              : FlutterFlowTheme.of(context).primary,
-                          borderRadius: BorderRadius.circular(24.0),
-                        ),
-                        child: Builder(
-                          builder: (context) => InkWell(
+                          alignment: const AlignmentDirectional(0.0, 0.0),
+                          child: InkWell(
                             splashColor: Colors.transparent,
                             focusColor: Colors.transparent,
                             hoverColor: Colors.transparent,
                             highlightColor: Colors.transparent,
                             onTap: () async {
-                              if (currentUserUid != '') {
-                                context.goNamed(
-                                  FavorisJoueurPageWidget.routeName,
-                                  extra: <String, dynamic>{
-                                    kTransitionInfoKey: const TransitionInfo(
-                                      hasTransition: true,
-                                      transitionType: PageTransitionType.fade,
-                                      duration: Duration(milliseconds: 0),
-                                    ),
-                                  },
-                                );
-                              } else {
-                                await showDialog(
-                                  context: context,
-                                  builder: (dialogContext) {
-                                    return Dialog(
-                                      elevation: 0,
-                                      insetPadding: EdgeInsets.zero,
-                                      backgroundColor: Colors.transparent,
-                                      alignment: const AlignmentDirectional(0.0, 0.0)
-                                          .resolve(Directionality.of(context)),
-                                      child: WebViewAware(
-                                        child: SignupAcccountWidget(
-                                          callback: () async {
-                                            if (Navigator.of(context)
-                                                .canPop()) {
-                                              context.pop();
-                                            }
-                                            context.pushNamed(
-                                                InscriptionPageWidget
-                                                    .routeName);
-                                          },
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                );
-                              }
+                              context.goNamed(
+                                HomeJoueurPageWidget.routeName,
+                                extra: <String, dynamic>{
+                                  kTransitionInfoKey: const TransitionInfo(
+                                    hasTransition: true,
+                                    transitionType: PageTransitionType.fade,
+                                    duration: Duration(milliseconds: 0),
+                                  ),
+                                },
+                              );
                             },
                             child: Icon(
-                              Icons.star,
-                              color: widget.indexActive == 2
+                              Icons.home_rounded,
+                              color: widget.indexActive == 1
                                   ? FlutterFlowTheme.of(context).primary
                                   : FlutterFlowTheme.of(context)
                                       .primaryBackground,
@@ -201,113 +129,115 @@ class _CustomNavBarJoueurWidgetState extends State<CustomNavBarJoueurWidget> {
                             ),
                           ),
                         ),
-                      ),
-                    ].divide(const SizedBox(height: 8.0)),
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 50.0,
-                        height: 50.0,
-                        decoration: BoxDecoration(
-                          color: widget.indexActive == 3
-                              ? FlutterFlowTheme.of(context).primaryBackground
-                              : FlutterFlowTheme.of(context).primary,
-                          borderRadius: BorderRadius.circular(24.0),
-                        ),
-                        child: InkWell(
-                          splashColor: Colors.transparent,
-                          focusColor: Colors.transparent,
-                          hoverColor: Colors.transparent,
-                          highlightColor: Colors.transparent,
-                          onTap: () async {
-                            context.goNamed(
-                              EnseigneJoueurPageWidget.routeName,
-                              extra: <String, dynamic>{
-                                kTransitionInfoKey: const TransitionInfo(
-                                  hasTransition: true,
-                                  transitionType: PageTransitionType.fade,
-                                  duration: Duration(milliseconds: 0),
-                                ),
+                      ].divide(const SizedBox(height: 8.0)),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 50.0,
+                          height: 50.0,
+                          decoration: BoxDecoration(
+                            color: widget.indexActive == 2
+                                ? FlutterFlowTheme.of(context).primaryBackground
+                                : FlutterFlowTheme.of(context).primary,
+                            borderRadius: BorderRadius.circular(24.0),
+                          ),
+                          child: Builder(
+                            builder: (context) => InkWell(
+                              splashColor: Colors.transparent,
+                              focusColor: Colors.transparent,
+                              hoverColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
+                              onTap: () async {
+                                if (currentUserUid != '') {
+                                  context.goNamed(
+                                    FavorisJoueurPageWidget.routeName,
+                                    extra: <String, dynamic>{
+                                      kTransitionInfoKey: const TransitionInfo(
+                                        hasTransition: true,
+                                        transitionType: PageTransitionType.fade,
+                                        duration: Duration(milliseconds: 0),
+                                      ),
+                                    },
+                                  );
+                                } else {
+                                  await showDialog(
+                                    context: context,
+                                    builder: (dialogContext) {
+                                      return Dialog(
+                                        elevation: 0,
+                                        insetPadding: EdgeInsets.zero,
+                                        backgroundColor: Colors.transparent,
+                                        alignment:
+                                            const AlignmentDirectional(0.0, 0.0)
+                                                .resolve(
+                                                    Directionality.of(context)),
+                                        child: WebViewAware(
+                                          child: SignupAcccountWidget(
+                                            callback: () async {
+                                              if (Navigator.of(context)
+                                                  .canPop()) {
+                                                context.pop();
+                                              }
+                                              context.pushNamed(
+                                                  InscriptionPageWidget
+                                                      .routeName);
+                                            },
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                }
                               },
-                            );
-                          },
-                          child: Icon(
-                            Icons.store_rounded,
-                            color: widget.indexActive == 3
-                                ? FlutterFlowTheme.of(context).primary
-                                : FlutterFlowTheme.of(context)
-                                    .primaryBackground,
-                            size: 30.0,
+                              child: Icon(
+                                Icons.star,
+                                color: widget.indexActive == 2
+                                    ? FlutterFlowTheme.of(context).primary
+                                    : FlutterFlowTheme.of(context)
+                                        .primaryBackground,
+                                size: 30.0,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ].divide(const SizedBox(height: 8.0)),
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 50.0,
-                        height: 50.0,
-                        decoration: BoxDecoration(
-                          color: widget.indexActive == 4
-                              ? FlutterFlowTheme.of(context).primaryBackground
-                              : FlutterFlowTheme.of(context).primary,
-                          borderRadius: BorderRadius.circular(24.0),
-                        ),
-                        child: Builder(
-                          builder: (context) => InkWell(
+                      ].divide(const SizedBox(height: 8.0)),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 50.0,
+                          height: 50.0,
+                          decoration: BoxDecoration(
+                            color: widget.indexActive == 3
+                                ? FlutterFlowTheme.of(context).primaryBackground
+                                : FlutterFlowTheme.of(context).primary,
+                            borderRadius: BorderRadius.circular(24.0),
+                          ),
+                          child: InkWell(
                             splashColor: Colors.transparent,
                             focusColor: Colors.transparent,
                             hoverColor: Colors.transparent,
                             highlightColor: Colors.transparent,
                             onTap: () async {
-                              if (currentUserUid != '') {
-                                context.goNamed(
-                                  ProfilJoueurPageWidget.routeName,
-                                  extra: <String, dynamic>{
-                                    kTransitionInfoKey: const TransitionInfo(
-                                      hasTransition: true,
-                                      transitionType: PageTransitionType.fade,
-                                      duration: Duration(milliseconds: 0),
-                                    ),
-                                  },
-                                );
-                              } else {
-                                await showDialog(
-                                  context: context,
-                                  builder: (dialogContext) {
-                                    return Dialog(
-                                      elevation: 0,
-                                      insetPadding: EdgeInsets.zero,
-                                      backgroundColor: Colors.transparent,
-                                      alignment: const AlignmentDirectional(0.0, 0.0)
-                                          .resolve(Directionality.of(context)),
-                                      child: WebViewAware(
-                                        child: SignupAcccountWidget(
-                                          callback: () async {
-                                            if (Navigator.of(context)
-                                                .canPop()) {
-                                              context.pop();
-                                            }
-                                            context.pushNamed(
-                                                InscriptionPageWidget
-                                                    .routeName);
-                                          },
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                );
-                              }
+                              context.goNamed(
+                                EnseigneJoueurPageWidget.routeName,
+                                extra: <String, dynamic>{
+                                  kTransitionInfoKey: const TransitionInfo(
+                                    hasTransition: true,
+                                    transitionType: PageTransitionType.fade,
+                                    duration: Duration(milliseconds: 0),
+                                  ),
+                                },
+                              );
                             },
                             child: Icon(
-                              Icons.person_rounded,
-                              color: widget.indexActive == 4
+                              Icons.store_rounded,
+                              color: widget.indexActive == 3
                                   ? FlutterFlowTheme.of(context).primary
                                   : FlutterFlowTheme.of(context)
                                       .primaryBackground,
@@ -315,10 +245,84 @@ class _CustomNavBarJoueurWidgetState extends State<CustomNavBarJoueurWidget> {
                             ),
                           ),
                         ),
-                      ),
-                    ].divide(const SizedBox(height: 8.0)),
-                  ),
-                ],
+                      ].divide(const SizedBox(height: 8.0)),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 50.0,
+                          height: 50.0,
+                          decoration: BoxDecoration(
+                            color: widget.indexActive == 4
+                                ? FlutterFlowTheme.of(context).primaryBackground
+                                : FlutterFlowTheme.of(context).primary,
+                            borderRadius: BorderRadius.circular(24.0),
+                          ),
+                          child: Builder(
+                            builder: (context) => InkWell(
+                              splashColor: Colors.transparent,
+                              focusColor: Colors.transparent,
+                              hoverColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
+                              onTap: () async {
+                                if (currentUserUid != '') {
+                                  context.goNamed(
+                                    ProfilJoueurPageWidget.routeName,
+                                    extra: <String, dynamic>{
+                                      kTransitionInfoKey: const TransitionInfo(
+                                        hasTransition: true,
+                                        transitionType: PageTransitionType.fade,
+                                        duration: Duration(milliseconds: 0),
+                                      ),
+                                    },
+                                  );
+                                } else {
+                                  await showDialog(
+                                    context: context,
+                                    builder: (dialogContext) {
+                                      return Dialog(
+                                        elevation: 0,
+                                        insetPadding: EdgeInsets.zero,
+                                        backgroundColor: Colors.transparent,
+                                        alignment:
+                                            const AlignmentDirectional(0.0, 0.0)
+                                                .resolve(
+                                                    Directionality.of(context)),
+                                        child: WebViewAware(
+                                          child: SignupAcccountWidget(
+                                            callback: () async {
+                                              if (Navigator.of(context)
+                                                  .canPop()) {
+                                                context.pop();
+                                              }
+                                              context.pushNamed(
+                                                  InscriptionPageWidget
+                                                      .routeName);
+                                            },
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                }
+                              },
+                              child: Icon(
+                                Icons.person_rounded,
+                                color: widget.indexActive == 4
+                                    ? FlutterFlowTheme.of(context).primary
+                                    : FlutterFlowTheme.of(context)
+                                        .primaryBackground,
+                                size: 30.0,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ].divide(const SizedBox(height: 8.0)),
+                    ),
+                  ],
+                ),
               ),
             ),
     );

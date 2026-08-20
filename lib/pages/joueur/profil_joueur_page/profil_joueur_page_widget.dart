@@ -76,13 +76,11 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                     'Êtes-vous sûr de vouloir supprimer votre compte ?'),
                 actions: [
                   TextButton(
-                    onPressed: () =>
-                        Navigator.pop(alertDialogContext, false),
+                    onPressed: () => Navigator.pop(alertDialogContext, false),
                     child: const Text('Annuler'),
                   ),
                   TextButton(
-                    onPressed: () =>
-                        Navigator.pop(alertDialogContext, true),
+                    onPressed: () => Navigator.pop(alertDialogContext, true),
                     child: const Text('Confirmer'),
                   ),
                 ],
@@ -249,8 +247,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                                 font: GoogleFonts.interTight(
                                                   fontWeight: FontWeight.w800,
                                                 ),
-                                                color:
-                                                    const Color(0xFF2D2A72),
+                                                color: const Color(0xFF2D2A72),
                                                 letterSpacing: 0.0,
                                                 fontSize: 33.0,
                                                 fontWeight: FontWeight.w800,
@@ -265,8 +262,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                                 font: GoogleFonts.inter(
                                                   fontWeight: FontWeight.w400,
                                                 ),
-                                                color:
-                                                    const Color(0xFF6B6B8B),
+                                                color: const Color(0xFF6B6B8B),
                                                 fontSize: 15.0,
                                                 letterSpacing: 0.0,
                                               ),
@@ -291,9 +287,8 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                 builder: (context, snapshot) {
                                   return FutureBuilder<int>(
                                     future: snapshot.hasData
-                                        ? _countUnclaimedLots(
-                                            snapshot.data ??
-                                                const <MyLotsRecord>[])
+                                        ? _countUnclaimedLots(snapshot.data ??
+                                            const <MyLotsRecord>[])
                                         : Future<int>.value(0),
                                     builder: (context, countSnapshot) {
                                       final count = countSnapshot.data ?? 0;
@@ -324,8 +319,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                                   fontWeight: FontWeight.w700,
                                                 ),
                                                 fontSize: 16.0,
-                                                color:
-                                                    const Color(0xFF2D2A72),
+                                                color: const Color(0xFF2D2A72),
                                                 letterSpacing: 0.0,
                                                 fontWeight: FontWeight.w700,
                                               ),
@@ -334,6 +328,35 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                     },
                                   );
                                 },
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 14.0),
+                              child: _buildMenuCard(
+                                context,
+                                icon: Icons.share_rounded,
+                                onTap: () {
+                                  context.pushNamed(
+                                      ParrainageJoueurPageWidget.routeName);
+                                },
+                                backgroundColor: const Color(0xFFFDF5F8),
+                                circleColor: const Color(0xFFF9E4EC),
+                                iconColor: const Color(0xFFA0134D),
+                                arrowColor: const Color(0xFFA0134D),
+                                title: Text(
+                                  'Parrainage',
+                                  style: FlutterFlowTheme.of(context)
+                                      .bodyLarge
+                                      .override(
+                                        font: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        fontSize: 16.0,
+                                        color: const Color(0xFF2D2A72),
+                                        letterSpacing: 0.0,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
                               ),
                             ),
                             Padding(
@@ -399,7 +422,8 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                                 context,
                                 icon: Icons.mail_outline_rounded,
                                 onTap: () {
-                                  context.pushNamed(ContactPageWidget.routeName);
+                                  context
+                                      .pushNamed(ContactPageWidget.routeName);
                                 },
                                 title: Text(
                                   'Nous contacter',
