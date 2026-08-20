@@ -413,6 +413,50 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     );
   }
 
+  // Un ticket = une participation validee un jour donne (games/{id}/participants,
+  // un doc par cle "{dayKey}_{uid}"). Plus un joueur revient sur plusieurs
+  // jours, plus il accumule de tickets pour le tirage au sort du lot
+  // principal (voir pickMainPrizeWinners cote Cloud Functions).
+  Widget _buildYourTicketsRow(TextStyle bodyStyle) {
+    final gameDoc = widget.gameDoc;
+    final userRef = currentUserReference;
+    if (gameDoc == null || userRef == null) {
+      return const SizedBox.shrink();
+    }
+    return StreamBuilder<QuerySnapshot>(
+      stream: gameDoc.reference
+          .collection('participants')
+          .where('user_id', isEqualTo: userRef)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final ticketCount = snapshot.data?.docs.length ?? 0;
+        if (ticketCount <= 0) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.confirmation_number_outlined,
+                size: 16.0,
+                color: Color(0xFF6B7280),
+              ),
+              const SizedBox(width: 8.0),
+              Expanded(
+                child: Text(
+                  'Vos tickets pour ce tirage : $ticketCount',
+                  style: bodyStyle,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildQrOnlyPrimaryButton() {
     if (widget.fromQr) {
       return SizedBox(
@@ -3333,6 +3377,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         style:
                                                                             detailBodyStyle,
                                                                       ),
+                                                                      _buildYourTicketsRow(
+                                                                          detailBodyStyle),
                                                                     ],
                                                                   ),
                                                                 ),
@@ -3600,6 +3646,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         style:
                                                                             detailBodyStyle,
                                                                       ),
+                                                                      _buildYourTicketsRow(
+                                                                          detailBodyStyle),
                                                                     ],
                                                                   ),
                                                                 ),

@@ -671,6 +671,18 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               builder: (context, params) => const ParrainageJoueurPageWidget(),
             ),
             FFRoute(
+              name: ReferralGameDetailJoueurPageWidget.routeName,
+              path: ReferralGameDetailJoueurPageWidget.routePath,
+              requireAuth: true,
+              builder: (context, params) => ReferralGameDetailJoueurPageWidget(
+                gameId: params.getParam(
+                      'gameId',
+                      ParamType.String,
+                    ) ??
+                    '',
+              ),
+            ),
+            FFRoute(
               name: LotDetailJoueurPageWidget.routeName,
               path: LotDetailJoueurPageWidget.routePath,
               requireAuth: true,

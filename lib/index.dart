@@ -80,6 +80,8 @@ export '/pages/joueur/lots_joueur_page/lots_joueur_page_widget.dart'
     show LotsJoueurPageWidget;
 export '/pages/joueur/parrainage_joueur_page/parrainage_joueur_page_widget.dart'
     show ParrainageJoueurPageWidget;
+export '/pages/joueur/referral_game_detail_joueur_page/referral_game_detail_joueur_page_widget.dart'
+    show ReferralGameDetailJoueurPageWidget;
 export '/pages/joueur/lot_detail_joueur_page/lot_detail_joueur_page_widget.dart'
     show LotDetailJoueurPageWidget;
 export '/pages/commercant/validation_lot_commercant_page/validation_lot_commercant_page_widget.dart'
