@@ -6,7 +6,14 @@ service firebase.storage {
     }
 
     function isAdmin() {
+      // request.auth.token.email est verifie en priorite car les appels
+      // multiservices firestore.get() ci-dessous dependent d'une
+      // configuration projet qui s'est averee peu fiable en pratique
+      // (echec silencieux -> storage/unauthorized meme avec un role
+      // Firestore correct). Garde la meme liste que l'allowlist admin
+      // du panel Next.js (lib/firebase/adminAccess.ts).
       return isSignedIn() && (
+        request.auth.token.email == 'proxiplay.pro@gmail.com' ||
         request.auth.token.admin == true ||
         firestore.get(
           /databases/(default)/documents/users/$(request.auth.uid)
