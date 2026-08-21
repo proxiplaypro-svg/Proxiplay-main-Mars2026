@@ -15,6 +15,11 @@ const {
   prefetchActiveMonthlyChallenges,
   queueMonthlyChallengeNotifications,
 } = require("./monthly_challenge.js");
+const {
+  getEmulatorNowDate,
+  getNowTimestamp,
+  isFunctionsEmulator,
+} = require("./lib/emulator_runtime");
 
 const db = admin.firestore();
 
@@ -128,6 +133,13 @@ function getSmtpSettings() {
 }
 
 function createSmtpMailer() {
+  if (isFunctionsEmulator()) {
+    return {
+      transporter: { sendMail: async () => ({ suppressed: true }) },
+      from: "Proxiplay Local <no-reply@proxiplay.local>",
+      replyTo: "",
+    };
+  }
   const settings = getSmtpSettings();
   return {
     transporter: nodemailer.createTransport({
@@ -145,6 +157,10 @@ function createSmtpMailer() {
 }
 
 async function sendEmailNotification(mailer, to, subject, text, html = "") {
+  if (isFunctionsEmulator()) {
+    console.log(`[LOCAL_FIREBASE_EMULATORS] email suppressed to=${to} subject=${subject}`);
+    return;
+  }
   await mailer.transporter.sendMail({
     from: mailer.from,
     to,
@@ -466,9 +482,9 @@ exports.participateInGameTransaction = functions.https.onCall(
 
     try {
       await db.runTransaction(async (transaction) => {
-        const now = admin.firestore.Timestamp.now();
+        const now = getNowTimestamp(admin);
         uid = context.auth.uid;
-        const dayKey = getParisDayKey(new Date());
+        const dayKey = getParisDayKey(getEmulatorNowDate());
         const participantDocId = `${dayKey}_${uid}`;
 
         const participantsRef = gameRef.collection("participants");

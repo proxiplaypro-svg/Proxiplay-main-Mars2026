@@ -2,6 +2,7 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
+const {isFunctionsEmulator} = require("./lib/emulator_runtime");
 admin.initializeApp();
 const participateInGameTransaction = require("./participate_in_game_transaction.js");
 const {
@@ -1927,6 +1928,13 @@ function getSmtpSettings() {
 }
 
 function createSmtpMailer() {
+  if (isFunctionsEmulator()) {
+    return {
+      transporter: {sendMail: async () => ({suppressed: true})},
+      from: "Proxiplay Local <no-reply@proxiplay.local>",
+      replyTo: "",
+    };
+  }
   const settings = getSmtpSettings();
   const transporter = nodemailer.createTransport({
     host: settings.host,
@@ -1963,6 +1971,10 @@ function applyTemplateVariables(template, variables = {}) {
 }
 
 async function sendEmailNotification(mailer, to, subject, text, html = "") {
+  if (isFunctionsEmulator()) {
+    console.log(`[LOCAL_FIREBASE_EMULATORS] email suppressed to=${to} subject=${subject}`);
+    return;
+  }
   await mailer.transporter.sendMail({
     from: mailer.from,
     to,
@@ -4838,6 +4850,15 @@ exports.notifyNewGameAvailableToAllEligible = functions
   });
 
 async function sendPushNotifications(snapshot) {
+  if (isFunctionsEmulator()) {
+    console.log(`[LOCAL_FIREBASE_EMULATORS] FCM suppressed notification=${snapshot.id}`);
+    await snapshot.ref.update({
+      status: "suppressed_local",
+      num_sent: 0,
+      error: "FCM disabled in Firebase Functions Emulator",
+    });
+    return;
+  }
   const notificationData = snapshot.data();
   const title = notificationData.notification_title || "";
   const body = notificationData.notification_text || "";

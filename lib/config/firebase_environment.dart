@@ -83,25 +83,35 @@ class FirebaseEnvironment {
     required this.appEnvironment,
     required this.runtimePlatform,
     required this.emulatorHostOverride,
+    required this.emulatorModeRequested,
   });
 
   static const String appEnvDefine =
       String.fromEnvironment('APP_ENV', defaultValue: 'prod');
   static const String emulatorHostDefine =
       String.fromEnvironment('EMULATOR_HOST', defaultValue: '');
+  static const bool emulatorModeDefine = bool.fromEnvironment(
+    'USE_FIREBASE_EMULATORS',
+    defaultValue: false,
+  );
 
   static const int authPort = 9099;
   static const int firestorePort = 8080;
   static const int functionsPort = 5001;
+  static const int storagePort = 9199;
   static const String functionsRegion = 'us-central1';
 
   final AppEnvironment appEnvironment;
   final FirebaseRuntimePlatform runtimePlatform;
   final String emulatorHostOverride;
+  final bool emulatorModeRequested;
 
   bool get isDev => appEnvironment == AppEnvironment.dev;
   bool get isProd => appEnvironment == AppEnvironment.prod;
-  bool get shouldUseEmulators => isDev;
+  // This must remain opt-in. APP_ENV=dev alone must never redirect Firebase.
+  bool get shouldUseEmulators => emulatorModeRequested && kDebugMode;
+
+  static bool get isLocalEmulatorMode => emulatorModeDefine && kDebugMode;
 
   String? get emulatorHostOrNull {
     final trimmed = emulatorHostOverride.trim();
@@ -114,9 +124,10 @@ class FirebaseEnvironment {
       return explicitHost;
     }
 
-    if (!isDev) {
+    if (!shouldUseEmulators) {
       throw StateError(
-        'resolvedEmulatorHost is only available when APP_ENV=dev.',
+        'resolvedEmulatorHost is only available with '
+        'USE_FIREBASE_EMULATORS=true in a debug build.',
       );
     }
 
@@ -124,22 +135,18 @@ class FirebaseEnvironment {
       case FirebaseTargetPlatform.web:
         return '127.0.0.1';
       case FirebaseTargetPlatform.android:
-        if (runtimePlatform.isPhysicalDevice == false) {
-          return '10.0.2.2';
-        }
-        throw StateError(
-          'APP_ENV=dev on a physical Android device requires '
-          '--dart-define=EMULATOR_HOST=<reachable-lan-ip>. '
-          'No fallback to Firebase production is allowed.',
-        );
+        // On a USB device, `adb reverse` maps its loopback interface to the
+        // workstation. An explicit EMULATOR_HOST still supports LAN testing.
+        return runtimePlatform.isPhysicalDevice == false
+            ? '10.0.2.2'
+            : '127.0.0.1';
       case FirebaseTargetPlatform.ios:
         if (runtimePlatform.isPhysicalDevice == false) {
           return '127.0.0.1';
         }
         throw StateError(
-          'APP_ENV=dev on a physical iOS device requires '
-          '--dart-define=EMULATOR_HOST=<reachable-lan-ip>. '
-          'No fallback to Firebase production is allowed.',
+          'A physical iOS device requires --dart-define=EMULATOR_HOST='
+          '<reachable-lan-ip> when USE_FIREBASE_EMULATORS=true.',
         );
       case FirebaseTargetPlatform.unsupported:
         throw UnsupportedError(
@@ -158,11 +165,13 @@ class FirebaseEnvironment {
     required String? appEnv,
     required String? emulatorHost,
     required FirebaseRuntimePlatform runtimePlatform,
+    bool useFirebaseEmulators = false,
   }) {
     return FirebaseEnvironment(
       appEnvironment: parseAppEnvironment(appEnv),
       runtimePlatform: runtimePlatform,
       emulatorHostOverride: emulatorHost ?? '',
+      emulatorModeRequested: useFirebaseEmulators,
     );
   }
 
@@ -172,6 +181,7 @@ class FirebaseEnvironment {
       appEnv: appEnvDefine,
       emulatorHost: emulatorHostDefine,
       runtimePlatform: runtimePlatform,
+      useFirebaseEmulators: emulatorModeDefine,
     );
   }
 }

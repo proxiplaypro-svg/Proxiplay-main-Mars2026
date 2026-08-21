@@ -26,7 +26,7 @@ void main() {
       expect(environment.shouldUseEmulators, isFalse);
     });
 
-    test('APP_ENV=dev enables DEV mode', () {
+    test('APP_ENV=dev alone does not enable emulators', () {
       final environment = FirebaseEnvironment.fromValues(
         appEnv: 'dev',
         emulatorHost: null,
@@ -34,13 +34,14 @@ void main() {
       );
 
       expect(environment.appEnvironment, AppEnvironment.dev);
-      expect(environment.shouldUseEmulators, isTrue);
+      expect(environment.shouldUseEmulators, isFalse);
     });
 
     test('explicit EMULATOR_HOST takes priority', () {
       final environment = FirebaseEnvironment.fromValues(
         appEnv: 'dev',
         emulatorHost: '192.168.1.20',
+        useFirebaseEmulators: true,
         runtimePlatform: const FirebaseRuntimePlatform.android(
           isPhysicalDevice: true,
         ),
@@ -53,6 +54,7 @@ void main() {
       final environment = FirebaseEnvironment.fromValues(
         appEnv: 'dev',
         emulatorHost: null,
+        useFirebaseEmulators: true,
         runtimePlatform: const FirebaseRuntimePlatform.android(
           isPhysicalDevice: false,
         ),
@@ -65,6 +67,7 @@ void main() {
       final environment = FirebaseEnvironment.fromValues(
         appEnv: 'dev',
         emulatorHost: null,
+        useFirebaseEmulators: true,
         runtimePlatform: const FirebaseRuntimePlatform.ios(
           isPhysicalDevice: false,
         ),
@@ -77,6 +80,7 @@ void main() {
       final environment = FirebaseEnvironment.fromValues(
         appEnv: 'dev',
         emulatorHost: null,
+        useFirebaseEmulators: true,
         runtimePlatform: const FirebaseRuntimePlatform.web(),
       );
 
@@ -87,6 +91,7 @@ void main() {
       final environment = FirebaseEnvironment.fromValues(
         appEnv: 'dev',
         emulatorHost: null,
+        useFirebaseEmulators: true,
         runtimePlatform: const FirebaseRuntimePlatform.unsupported(
           label: 'windows',
         ),
@@ -104,25 +109,17 @@ void main() {
       );
     });
 
-    test('physical device without EMULATOR_HOST throws clearly', () {
+    test('physical Android uses loopback for adb reverse', () {
       final environment = FirebaseEnvironment.fromValues(
         appEnv: 'dev',
         emulatorHost: null,
+        useFirebaseEmulators: true,
         runtimePlatform: const FirebaseRuntimePlatform.android(
           isPhysicalDevice: true,
         ),
       );
 
-      expect(
-        () => environment.resolvedEmulatorHost,
-        throwsA(
-          isA<StateError>().having(
-            (error) => error.message,
-            'message',
-            contains('EMULATOR_HOST'),
-          ),
-        ),
-      );
+      expect(environment.resolvedEmulatorHost, '127.0.0.1');
     });
 
     test('PROD never enables emulators', () {

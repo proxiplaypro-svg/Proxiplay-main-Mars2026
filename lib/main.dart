@@ -21,6 +21,7 @@ import 'backend/schema/enums/enums.dart';
 
 import 'backend/push_notifications/push_notifications_util.dart';
 import 'backend/firebase/firebase_config.dart';
+import 'config/firebase_environment.dart';
 import 'flutter_flow/flutter_flow_util.dart';
 import 'flutter_flow/internationalization.dart';
 import 'flutter_flow/permissions_util.dart';
@@ -144,7 +145,7 @@ void main() async {
     }
   }());
 
-  if (!kIsWeb) {
+  if (!kIsWeb && !FirebaseEnvironment.isLocalEmulatorMode) {
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   }
 
@@ -225,7 +226,11 @@ class MyAppState extends State<MyApp> {
       _lastRoutingRefreshSnapshot = nextSnapshot;
       _appStateNotifier.refreshRouting();
     });
-    _fcmTokenSub = fcmTokenUserStream.listen((_) {});
+    if (!FirebaseEnvironment.isLocalEmulatorMode) {
+      _fcmTokenSub = fcmTokenUserStream.listen((_) {});
+    } else {
+      debugPrint('[LOCAL_FIREBASE_EMULATORS] FCM disabled');
+    }
     _routerReferralListener = () {
       _capturePendingReferralCodeFromRouter(source: 'warm_start');
     };
@@ -241,11 +246,18 @@ class MyAppState extends State<MyApp> {
     });
 
     // Vérification au démarrage (Fonctionne sur Web et Mobile)
-    _checkRemoteConfig();
+    if (FirebaseEnvironment.isLocalEmulatorMode) {
+      _isLoadingConfig = false;
+      debugPrint('[LOCAL_FIREBASE_EMULATORS] Remote Config disabled');
+    } else {
+      _checkRemoteConfig();
+    }
 
     // Request notification permission on Android 13+ at startup.
     Future.delayed(const Duration(milliseconds: 1500), () async {
-      if (!kIsWeb && Platform.isAndroid) {
+      if (!FirebaseEnvironment.isLocalEmulatorMode &&
+          !kIsWeb &&
+          Platform.isAndroid) {
         final status = await notificationsPermission.status;
         if (status.isDenied || status.isRestricted) {
           await notificationsPermission.request();
@@ -255,7 +267,7 @@ class MyAppState extends State<MyApp> {
 
     // --- CORRECTION WEB ---
     // On n'active l'écouteur temps réel QUE si nous ne sommes PAS sur le Web.
-    if (!kIsWeb) {
+    if (!FirebaseEnvironment.isLocalEmulatorMode && !kIsWeb) {
       FirebaseRemoteConfig.instance.onConfigUpdated.listen((event) async {
         await FirebaseRemoteConfig.instance.activate();
 
@@ -368,8 +380,8 @@ class MyAppState extends State<MyApp> {
 
   _RoutingRefreshSnapshot _captureRoutingRefreshSnapshot() {
     return _RoutingRefreshSnapshot(
-      isAuthenticated:
-          FirebaseAuth.instance.currentUser != null || currentUserUid.isNotEmpty,
+      isAuthenticated: FirebaseAuth.instance.currentUser != null ||
+          currentUserUid.isNotEmpty,
       hasUserDocument: currentUserDocument != null,
       userRole: currentUserDocument?.userRole,
       accountStatus: currentUserDocument?.accountStatus,
@@ -492,10 +504,21 @@ class MyAppState extends State<MyApp> {
         ),
       ),
       themeMode: _themeMode,
-      builder: (context, child) => AppUpdateGate(
-        navigatorKey: _router.routerDelegate.navigatorKey,
-        child: child ?? const SizedBox.shrink(),
-      ),
+      builder: (context, child) {
+        final app = AppUpdateGate(
+          navigatorKey: _router.routerDelegate.navigatorKey,
+          child: child ?? const SizedBox.shrink(),
+        );
+        if (!FirebaseEnvironment.isLocalEmulatorMode) {
+          return app;
+        }
+        return Banner(
+          message: 'LOCAL EMULATEURS FIREBASE',
+          location: BannerLocation.topStart,
+          color: Colors.deepOrange,
+          child: app,
+        );
+      },
       routerConfig: _router,
     );
   }

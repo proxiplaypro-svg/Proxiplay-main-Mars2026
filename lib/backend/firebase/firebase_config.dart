@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 
 import '/config/firebase_environment.dart';
@@ -9,8 +10,8 @@ import '/firebase_options.dart';
 
 Future<FirebaseApp>? _initFirebaseFuture;
 bool _firestoreSettingsConfigured = false;
-bool _devEmulatorsConfigured = false;
-String? _configuredDevEmulatorHost;
+bool _localEmulatorsConfigured = false;
+String? _configuredLocalEmulatorHost;
 
 Future<FirebaseApp> initFirebase() {
   final inFlight = _initFirebaseFuture;
@@ -32,8 +33,8 @@ Future<FirebaseApp> _initFirebaseInternal() async {
           )
         : Firebase.app();
 
-    if (environment.isDev) {
-      await _configureDevEmulators(
+    if (environment.shouldUseEmulators) {
+      await _configureLocalEmulators(
         app: app,
         environment: environment,
       );
@@ -61,17 +62,17 @@ Future<FirebaseApp> _initFirebaseInternal() async {
   }
 }
 
-Future<void> _configureDevEmulators({
+Future<void> _configureLocalEmulators({
   required FirebaseApp app,
   required FirebaseEnvironment environment,
 }) async {
   final host = environment.resolvedEmulatorHost;
 
-  if (_devEmulatorsConfigured) {
-    if (_configuredDevEmulatorHost != host) {
+  if (_localEmulatorsConfigured) {
+    if (_configuredLocalEmulatorHost != host) {
       throw StateError(
         'Firebase emulators are already configured for '
-        '$_configuredDevEmulatorHost in this isolate, cannot reconfigure '
+        '$_configuredLocalEmulatorHost in this isolate, cannot reconfigure '
         'to $host.',
       );
     }
@@ -87,6 +88,14 @@ Future<void> _configureDevEmulators({
       host,
       FirebaseEnvironment.firestorePort,
     );
+    await FirebaseStorage.instance.useStorageEmulator(
+      host,
+      FirebaseEnvironment.storagePort,
+    );
+    FirebaseFunctions.instance.useFunctionsEmulator(
+      host,
+      FirebaseEnvironment.functionsPort,
+    );
     FirebaseFunctions.instanceFor(
       region: FirebaseEnvironment.functionsRegion,
     ).useFunctionsEmulator(
@@ -94,18 +103,19 @@ Future<void> _configureDevEmulators({
       FirebaseEnvironment.functionsPort,
     );
 
-    _devEmulatorsConfigured = true;
-    _configuredDevEmulatorHost = host;
+    _localEmulatorsConfigured = true;
+    _configuredLocalEmulatorHost = host;
 
     debugPrint(
-      'APP_ENV=dev projectId=${app.options.projectId} '
+      '[LOCAL_FIREBASE_EMULATORS] projectId=${app.options.projectId} '
       'emulatorHost=$host auth=${FirebaseEnvironment.authPort} '
       'firestore=${FirebaseEnvironment.firestorePort} '
       'functions=${FirebaseEnvironment.functionsPort} '
+      'storage=${FirebaseEnvironment.storagePort} '
       'region=${FirebaseEnvironment.functionsRegion}',
     );
   } catch (error, stackTrace) {
-    debugPrint('DEV FIREBASE EMULATOR CONFIGURATION FAILED');
+    debugPrint('[LOCAL_FIREBASE_EMULATORS] CONFIGURATION FAILED');
     debugPrint('error=$error');
     debugPrint('stackTrace=$stackTrace');
     try {

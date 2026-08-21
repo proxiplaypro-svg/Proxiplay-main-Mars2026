@@ -2,11 +2,15 @@ import 'dart:math';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import '../../auth/firebase_auth/auth_util.dart';
+import '../../config/firebase_environment.dart';
 
 const kMaxEventNameLength = 40;
 const kMaxParameterLength = 100;
 
 void logFirebaseEvent(String eventName, {Map<String?, dynamic>? parameters}) {
+  if (FirebaseEnvironment.isLocalEmulatorMode) {
+    return;
+  }
   // https://firebase.google.com/docs/reference/cpp/group/event-names
   assert(eventName.length <= kMaxEventNameLength);
 

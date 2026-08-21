@@ -1,6 +1,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const {getNowTimestamp} = require("./lib/emulator_runtime");
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -1092,7 +1093,7 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
   config = normalizeMonthlyChallengeConfig(config || {});
   const monthKey = config.month;
   const challengeId = config.challenge_id || getChallengeId(config.type, monthKey);
-  const now = admin.firestore.Timestamp.now();
+  const now = getNowTimestamp(admin);
   validateDrawExecutionOrThrow(config, now);
   await reconcileMonthlyChallengeEligibility(config, now);
 
@@ -1315,7 +1316,7 @@ const getMonthlyChallengeStateCallable = functions
         userRef,
         monthKey,
         config,
-        now: admin.firestore.Timestamp.now(),
+        now: getNowTimestamp(admin),
       });
       const refreshedSnap = await getMonthlyChallengeUserStateRef(userRef, monthKey).get();
       return buildChallengeStateResponse(
@@ -1466,7 +1467,7 @@ const adminRunMonthlyChallengeDrawCallable = functions
       type,
       getTrimmedString(data?.month) || getParisMonthKey(),
     );
-    validateDrawExecutionOrThrow(config, admin.firestore.Timestamp.now());
+    validateDrawExecutionOrThrow(config, getNowTimestamp(admin));
     return drawWinnerForMonthlyChallenge(config, "admin");
   });
 
@@ -1474,7 +1475,7 @@ const drawMonthlyChallengeWinnerScheduled = functions.pubsub
   .schedule("0 1 * * *")
   .timeZone(kTimeZone)
   .onRun(async () => {
-    const now = admin.firestore.Timestamp.now();
+    const now = getNowTimestamp(admin);
     const [configsSnap, legacySnap] = await Promise.all([
       db.collection(kMonthlyChallengesCollection).where("enabled", "==", true).get(),
       getMonthlyChallengeConfigRef().get(),
