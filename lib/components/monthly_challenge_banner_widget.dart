@@ -20,6 +20,11 @@ class MonthlyChallengeBannerWidget extends StatelessWidget {
     final accent = state.qualified
         ? const Color(0xFF1D8348)
         : const Color(0xFFC26A1B);
+    final isRestaurant = state.type == 'restaurant';
+    final defaultTitle = isRestaurant ? 'Resto du mois' : 'Défi du mois';
+    final defaultPrize = isRestaurant && state.restaurantName.isNotEmpty
+        ? 'Un repas pour 2 chez ${state.restaurantName}'
+        : 'Lot à gagner';
 
     return Container(
       width: double.infinity,
@@ -70,7 +75,7 @@ class MonthlyChallengeBannerWidget extends StatelessWidget {
                           ? 'Tu es qualifié !'
                           : (state.title.isNotEmpty
                               ? state.title
-                              : 'Défi mensuel Proxiplay'),
+                              : defaultTitle),
                       style: theme.titleMedium.override(
                         font: GoogleFonts.interTight(
                           fontWeight: FontWeight.w800,
@@ -86,7 +91,7 @@ class MonthlyChallengeBannerWidget extends StatelessWidget {
                     Text(
                       state.prizeTitle.isNotEmpty
                           ? state.prizeTitle
-                          : 'Lot à gagner',
+                          : defaultPrize,
                       style: theme.bodyMedium.override(
                         font: GoogleFonts.inter(
                           fontWeight: FontWeight.w600,

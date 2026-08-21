@@ -10,8 +10,11 @@ const db = admin.firestore();
 const kTimeZone = "Europe/Paris";
 const kFunctionsRegion = "us-central1";
 const kMonthlyChallengeConfigPath = "app_config/monthly_challenge";
+const kMonthlyChallengesCollection = "monthly_challenges";
 const kPushNotificationsCollection = "ff_push_notifications";
 const kDefaultTargetDays = 15;
+const kAttendanceChallengeType = "attendance";
+const kRestaurantChallengeType = "restaurant";
 
 function getTrimmedString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -146,11 +149,23 @@ function getParisDayKeyFromTimestamp(value) {
 
 function normalizeMonthlyChallengeConfig(raw) {
   const month = getTrimmedString(raw?.month);
+  const type = raw?.type === kRestaurantChallengeType ?
+    kRestaurantChallengeType :
+    kAttendanceChallengeType;
+  const challengeId = getTrimmedString(raw?.challenge_id) ||
+    getChallengeId(type, month);
   const targetDays = Math.max(
     1,
     normalizeNumber(raw?.target_days ?? raw?.targetDays, kDefaultTargetDays),
   );
+  const rawRestaurantRef = raw?.restaurant_ref ?? raw?.restaurantRef;
+  const restaurantRef = typeof rawRestaurantRef === "string" &&
+    rawRestaurantRef.trim().startsWith("enseignes/") ?
+    db.doc(rawRestaurantRef.trim()) :
+    rawRestaurantRef || null;
   return {
+    challenge_id: challengeId,
+    type,
     enabled: normalizeBoolean(raw?.enabled, false),
     month,
     title: getTrimmedString(raw?.title),
@@ -162,21 +177,73 @@ function normalizeMonthlyChallengeConfig(raw) {
     ),
     prize_value: normalizeNumber(raw?.prize_value ?? raw?.prizeValue, 0),
     image_url: getTrimmedString(raw?.image_url ?? raw?.imageUrl),
+    restaurant_ref: restaurantRef,
+    restaurant_name: getTrimmedString(raw?.restaurant_name ?? raw?.restaurantName),
+    restaurant_image_url: getTrimmedString(
+      raw?.restaurant_image_url ?? raw?.restaurantImageUrl,
+    ),
     draw_date: toTimestamp(raw?.draw_date ?? raw?.drawDate),
     updated_at: raw?.updated_at || null,
   };
+}
+
+function getChallengeId(type, monthKey) {
+  const month = getTrimmedString(monthKey);
+  return type === kRestaurantChallengeType ? `restaurant_${month}` : month;
 }
 
 function getMonthlyChallengeConfigRef() {
   return db.doc(kMonthlyChallengeConfigPath);
 }
 
-function getMonthlyChallengeUserStateRef(userRef, monthKey) {
-  return userRef.collection("monthly_challenges").doc(monthKey);
+function getMonthlyChallengeConfigDocRef(challengeId) {
+  return db.collection(kMonthlyChallengesCollection).doc(challengeId);
 }
 
-function getMonthlyChallengeEntryRef(monthKey, uid) {
-  return db.collection("monthly_challenge_entries").doc(`${monthKey}_${uid}`);
+async function getChallengeConfigForType(type, monthKey) {
+  const challengeId = getChallengeId(type, monthKey);
+  const configSnap = await getMonthlyChallengeConfigDocRef(challengeId).get();
+  if (configSnap.exists) {
+    return normalizeMonthlyChallengeConfig(configSnap.data() || {});
+  }
+  if (type === kAttendanceChallengeType) {
+    const legacySnap = await getMonthlyChallengeConfigRef().get();
+    const legacy = normalizeMonthlyChallengeConfig(
+      legacySnap.exists ? legacySnap.data() || {} : {},
+    );
+    if (legacy.month === monthKey) {
+      return {...legacy, challenge_id: challengeId, type};
+    }
+  }
+  return normalizeMonthlyChallengeConfig({type, month: monthKey});
+}
+
+async function getActiveMonthlyChallengeConfigs(monthKey) {
+  const [configsSnap, legacySnap] = await Promise.all([
+    db.collection(kMonthlyChallengesCollection).where("month", "==", monthKey).get(),
+    getMonthlyChallengeConfigRef().get(),
+  ]);
+  const configs = configsSnap.docs
+    .map((snap) => normalizeMonthlyChallengeConfig(snap.data() || {}))
+    .filter((config) => config.enabled && config.month === monthKey);
+  const hasAttendance = configs.some(
+    (config) => config.type === kAttendanceChallengeType,
+  );
+  const legacy = normalizeMonthlyChallengeConfig(
+    legacySnap.exists ? legacySnap.data() || {} : {},
+  );
+  if (legacy.enabled && legacy.month === monthKey && !hasAttendance) {
+    configs.push({...legacy, challenge_id: monthKey, type: kAttendanceChallengeType});
+  }
+  return configs;
+}
+
+function getMonthlyChallengeUserStateRef(userRef, challengeId) {
+  return userRef.collection("monthly_challenges").doc(challengeId);
+}
+
+function getMonthlyChallengeEntryRef(challengeId, uid) {
+  return db.collection("monthly_challenge_entries").doc(`${challengeId}_${uid}`);
 }
 
 // Firestore transactions require every transaction.get() to happen before
@@ -190,21 +257,68 @@ async function prefetchMonthlyChallengeParticipationState({
   userRef,
   now,
   transaction,
+  configRef = getMonthlyChallengeConfigRef(),
+  challengeId = "",
 }) {
   const monthKey = getParisMonthKey(now.toDate());
-  const configRef = getMonthlyChallengeConfigRef();
-  const stateRef = getMonthlyChallengeUserStateRef(userRef, monthKey);
-  const entryRef = getMonthlyChallengeEntryRef(monthKey, uid);
+  const resolvedChallengeId = challengeId || monthKey;
+  const stateRef = getMonthlyChallengeUserStateRef(userRef, resolvedChallengeId);
+  const entryRef = getMonthlyChallengeEntryRef(resolvedChallengeId, uid);
   const [configSnap, stateSnap, entrySnap] = await Promise.all([
     transaction.get(configRef),
     transaction.get(stateRef),
     transaction.get(entryRef),
   ]);
-  return {monthKey, stateRef, entryRef, configSnap, stateSnap, entrySnap};
+  return {
+    monthKey,
+    challengeId: resolvedChallengeId,
+    configRef,
+    stateRef,
+    entryRef,
+    configSnap,
+    stateSnap,
+    entrySnap,
+  };
 }
 
-function getMonthlyChallengeDrawRef(monthKey) {
-  return db.collection("monthly_challenge_draws").doc(monthKey);
+function getMonthlyChallengeDrawRef(challengeId) {
+  return db.collection("monthly_challenge_draws").doc(challengeId);
+}
+
+async function prefetchActiveMonthlyChallenges({uid, userRef, now, transaction}) {
+  const monthKey = getParisMonthKey(now.toDate());
+  const [challengeConfigsSnap, legacyConfigSnap] = await Promise.all([
+    transaction.get(
+      db.collection(kMonthlyChallengesCollection).where("month", "==", monthKey),
+    ),
+    transaction.get(getMonthlyChallengeConfigRef()),
+  ]);
+  const configs = challengeConfigsSnap.docs
+    .map((snap) => ({config: normalizeMonthlyChallengeConfig(snap.data() || {}), ref: snap.ref}))
+    .filter(({config}) => config.enabled && config.month === monthKey);
+  const hasAttendance = configs.some(
+    ({config}) => config.type === kAttendanceChallengeType,
+  );
+  const legacyConfig = normalizeMonthlyChallengeConfig(
+    legacyConfigSnap.exists ? legacyConfigSnap.data() || {} : {},
+  );
+  if (legacyConfig.enabled && legacyConfig.month === monthKey && !hasAttendance) {
+    configs.push({
+      config: {...legacyConfig, challenge_id: monthKey, type: kAttendanceChallengeType},
+      ref: getMonthlyChallengeConfigRef(),
+    });
+  }
+
+  return Promise.all(configs.map(({config, ref}) =>
+    prefetchMonthlyChallengeParticipationState({
+      uid,
+      userRef,
+      now,
+      transaction,
+      configRef: ref,
+      challengeId: config.challenge_id,
+    }),
+  ));
 }
 
 function sanitizeStringArray(value) {
@@ -555,6 +669,10 @@ function buildChallengeStateResponse(config, userState) {
   const effectiveQualified =
     userState?.qualified === true || activeDaysCount >= targetDays;
   return {
+    challengeId: config.challenge_id,
+    type: config.type,
+    challengeId: config.challenge_id,
+    type: config.type,
     showCard: config.enabled && isMonthKey(config.month),
     enabled: config.enabled,
     month: config.month,
@@ -566,6 +684,10 @@ function buildChallengeStateResponse(config, userState) {
     prizeDescription: config.prize_description,
     prizeValue: config.prize_value,
     imageUrl: config.image_url,
+    restaurantName: config.restaurant_name,
+    restaurantImageUrl: config.restaurant_image_url,
+    restaurantName: config.restaurant_name,
+    restaurantImageUrl: config.restaurant_image_url,
     drawDate: config.draw_date,
     activeDaysCount,
     activeDates: sanitizeStringArray(userState?.active_dates),
@@ -664,6 +786,7 @@ async function ensureChallengeQualificationForUser({
 
 async function reconcileMonthlyChallengeEligibility(config, now) {
   const monthKey = config.month;
+  const challengeId = config.challenge_id || getChallengeId(config.type, monthKey);
   if (!isMonthKey(monthKey)) {
     return {reconciledUsers: 0, reconciledEntries: 0};
   }
@@ -689,6 +812,9 @@ async function reconcileMonthlyChallengeEligibility(config, now) {
 
   for (const doc of snaps.docs) {
     const state = doc.data() || {};
+    if (getTrimmedString(state.challenge_id || doc.id) !== challengeId) {
+      continue;
+    }
     const targetDays = getFrozenTargetDays(state, config);
     const activeDaysCount = Math.max(
       normalizeNumber(state.active_days_count, 0),
@@ -702,7 +828,7 @@ async function reconcileMonthlyChallengeEligibility(config, now) {
     if (!uid || !userRef) {
       continue;
     }
-    const entryRef = getMonthlyChallengeEntryRef(monthKey, uid);
+    const entryRef = getMonthlyChallengeEntryRef(challengeId, uid);
     const entrySnap = await entryRef.get();
 
     const patch = {
@@ -717,6 +843,8 @@ async function reconcileMonthlyChallengeEligibility(config, now) {
       batch.set(entryRef, {
         uid,
         month: monthKey,
+        challenge_id: challengeId,
+        type: config.type,
         user_ref: userRef,
         status: "qualified",
         qualified_at: patch.qualified_at || now,
@@ -754,7 +882,15 @@ async function trackMonthlyChallengeParticipation({
       now,
       transaction,
     }));
-  const {monthKey, stateRef, entryRef, configSnap, stateSnap, entrySnap} = fetched;
+  const {
+    monthKey,
+    challengeId,
+    stateRef,
+    entryRef,
+    configSnap,
+    stateSnap,
+    entrySnap,
+  } = fetched;
   const config = normalizeMonthlyChallengeConfig(
     configSnap.exists ? configSnap.data() : {},
   );
@@ -763,6 +899,7 @@ async function trackMonthlyChallengeParticipation({
   if (!config.enabled || !isMonthKey(config.month) || config.month !== monthKey) {
     return {
       tracked: false,
+      challengeId,
       config,
       notifications: [],
     };
@@ -784,6 +921,7 @@ async function trackMonthlyChallengeParticipation({
       tracked: true,
       config,
       monthKey,
+      challengeId,
       dayKey,
       activeDaysCount: activeDaysCountBefore,
       qualified: effectiveQualifiedBefore,
@@ -798,6 +936,8 @@ async function trackMonthlyChallengeParticipation({
   const remainingDays = Math.max(0, targetDays - nextActiveDaysCount);
 
   const patch = {
+    challenge_id: challengeId,
+    type: config.type,
     month: monthKey,
     active_days_count: nextActiveDaysCount,
     active_dates: nextActiveDates,
@@ -822,6 +962,8 @@ async function trackMonthlyChallengeParticipation({
     transaction.set(entryRef, {
       uid,
       month: monthKey,
+      challenge_id: challengeId,
+      type: config.type,
       user_ref: userRef,
       status: "qualified",
       qualified_at: patch.qualified_at || state.qualified_at || now,
@@ -846,7 +988,9 @@ async function trackMonthlyChallengeParticipation({
     notifications.push({
       key: "qualified",
       title: "Tu es qualifie !",
-      body: "Tu participes maintenant au tirage Proxiplay du defi mensuel.",
+      body: config.type === kRestaurantChallengeType ?
+        `Tu participes au tirage du Resto du mois${config.restaurant_name ? ` chez ${config.restaurant_name}` : ""}.` :
+        "Tu participes maintenant au tirage Proxiplay du Defi du mois.",
     });
   } else {
     const reminderKey = getProgressNotificationKey(remainingDays);
@@ -864,9 +1008,13 @@ async function trackMonthlyChallengeParticipation({
       notifications.push({
         key: reminderKey,
         title: remainingDays === 1 ? "Plus qu'un jour !" : "Plus que 3 jours",
-        body: remainingDays === 1 ?
-          "Reviens jouer encore un jour pour etre qualifie au tirage." :
-          "Encore 3 jours actifs ce mois-ci pour participer au tirage Proxiplay.",
+        body: config.type === kRestaurantChallengeType ?
+          (remainingDays === 1 ?
+            `Reviens jouer encore un jour pour tenter de gagner ton repas pour 2${config.restaurant_name ? ` chez ${config.restaurant_name}` : ""}.` :
+            "Encore 3 jours actifs pour participer au tirage du Resto du mois.") :
+          (remainingDays === 1 ?
+            "Plus qu'un jour pour participer au tirage du Defi Proxiplay." :
+            "Encore 3 jours actifs ce mois-ci pour participer au tirage Proxiplay."),
       });
     }
   }
@@ -875,12 +1023,50 @@ async function trackMonthlyChallengeParticipation({
     tracked: true,
     config,
     monthKey,
+    challengeId,
     dayKey,
     activeDaysCount: nextActiveDaysCount,
     qualified: effectiveQualifiedAfter,
     qualifiedNow: !effectiveQualifiedBefore && effectiveQualifiedAfter,
     drawEntryCreatedNow: createdEntry,
     notifications,
+  };
+}
+
+async function trackMonthlyChallengesParticipation({
+  uid,
+  userRef,
+  now,
+  transaction,
+  prefetched = null,
+}) {
+  const challengeStates = prefetched || await prefetchActiveMonthlyChallenges({
+    uid,
+    userRef,
+    now,
+    transaction,
+  });
+  const results = [];
+  for (const fetched of challengeStates) {
+    results.push(await trackMonthlyChallengeParticipation({
+      uid,
+      userRef,
+      now,
+      transaction,
+      prefetched: fetched,
+    }));
+  }
+  return {
+    tracked: results.some((result) => result.tracked),
+    results,
+    notifications: results.flatMap((result) => result.notifications || []).map(
+      (notification, index) => ({
+        ...notification,
+        challengeId: results.find((result) =>
+          (result.notifications || []).includes(notification),
+        )?.challengeId || String(index),
+      }),
+    ),
   };
 }
 
@@ -891,24 +1077,26 @@ async function queueMonthlyChallengeNotifications(uid, notifications, monthKey) 
   for (const notification of notifications) {
     const notificationKey = getTrimmedString(notification.key) || "generic";
     await createPushNotificationRequestIfAbsent(
-      `monthly_challenge_${monthKey || "unknown"}_${uid}_${notificationKey}`,
+      `monthly_challenge_${notification.challengeId || monthKey || "unknown"}_${uid}_${notificationKey}`,
       {
         title: notification.title,
         body: notification.body,
         userRefOrPath: `users/${uid}`,
-        createdBy: `system/monthly_challenge/${monthKey || "unknown"}`,
+        createdBy: `system/monthly_challenge/${notification.challengeId || monthKey || "unknown"}`,
       },
     );
   }
 }
 
 async function drawWinnerForMonthlyChallenge(config, triggerSource) {
+  config = normalizeMonthlyChallengeConfig(config || {});
   const monthKey = config.month;
+  const challengeId = config.challenge_id || getChallengeId(config.type, monthKey);
   const now = admin.firestore.Timestamp.now();
   validateDrawExecutionOrThrow(config, now);
   await reconcileMonthlyChallengeEligibility(config, now);
 
-  const drawRef = getMonthlyChallengeDrawRef(monthKey);
+  const drawRef = getMonthlyChallengeDrawRef(challengeId);
   const entriesQuery = db
     .collection("monthly_challenge_entries")
     .where("month", "==", monthKey)
@@ -927,6 +1115,7 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
           "already_completed" :
           "already_finalized",
         month: monthKey,
+        challengeId,
         eligibleCount: normalizeNumber(drawData.eligible_count, 0),
         winnerUid: getTrimmedString(drawData.winner_uid),
       };
@@ -935,6 +1124,9 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
     const evaluatedEntries = [];
     for (const entryDoc of entriesSnap.docs) {
       const entryData = entryDoc.data() || {};
+      if (getTrimmedString(entryData.challenge_id || entryData.month) !== challengeId) {
+        continue;
+      }
       const userRef = entryData.user_ref;
       if (!userRef || typeof userRef.get !== "function") {
         evaluatedEntries.push({
@@ -982,6 +1174,8 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
     if (eligibleDocs.length === 0) {
       transaction.set(drawRef, {
         month: monthKey,
+        challenge_id: challengeId,
+        type: config.type,
         status: "no_eligible_users",
         eligible_count: 0,
         drawn_at: now,
@@ -996,9 +1190,9 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
 
     const selected = eligibleDocs[crypto.randomInt(0, eligibleDocs.length)];
     const winnerUid = selected.userRef.id;
-    const winnerStateRef = getMonthlyChallengeUserStateRef(selected.userRef, monthKey);
+    const winnerStateRef = getMonthlyChallengeUserStateRef(selected.userRef, challengeId);
     const claimCode = generateClaimCode();
-    const prizeRef = db.collection("prizes").doc(`monthly_challenge_${monthKey}`);
+    const prizeRef = db.collection("prizes").doc(`monthly_challenge_${challengeId}`);
     const winnerFirstName = getTrimmedString(
       selected.userData.first_name || selected.userData.firstName,
     ).split(/\s+/)[0] || "";
@@ -1020,6 +1214,8 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
 
     transaction.set(drawRef, {
       month: monthKey,
+      challenge_id: challengeId,
+      type: config.type,
       status: "completed",
       winner_uid: winnerUid,
       winner_ref: selected.userRef,
@@ -1050,6 +1246,8 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
       claimed: false,
       win_date: now,
       monthly_challenge_month: monthKey,
+      monthly_challenge_id: challengeId,
+      monthly_challenge_type: config.type,
       monthly_challenge_draw_ref: drawRef,
       prize_value: config.prize_value,
       ...denormalizedWinnerFields,
@@ -1063,6 +1261,7 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
     return {
       status: "completed",
       month: monthKey,
+      challengeId,
       eligibleCount: eligibleDocs.length,
       winnerUid,
       prizeId: prizeRef.id,
@@ -1071,12 +1270,14 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
   }).then(async (result) => {
     if (result.status === "completed" && result.winnerUid) {
       await createPushNotificationRequestIfAbsent(
-        `monthly_challenge_draw_${monthKey}_${result.winnerUid}`,
+        `monthly_challenge_draw_${challengeId}_${result.winnerUid}`,
         {
           title: "Felicitations !",
-          body: "Tu as remporte le Defi Proxiplay du mois.",
+          body: config.type === kRestaurantChallengeType ?
+            `Tu as remporte le Resto du mois${config.restaurant_name ? ` chez ${config.restaurant_name}` : ""} !` :
+            "Tu as remporte le Defi Proxiplay du mois.",
           userRefOrPath: `users/${result.winnerUid}`,
-          createdBy: `system/monthly_challenge_draw/${monthKey}`,
+          createdBy: `system/monthly_challenge_draw/${challengeId}`,
         },
       );
     }
@@ -1126,13 +1327,40 @@ const getMonthlyChallengeStateCallable = functions
     return state;
   });
 
-const adminGetMonthlyChallengeConfigCallable = functions
+const getMonthlyChallengesStateCallable = functions
   .region(kFunctionsRegion)
   .runWith({timeoutSeconds: 30, memory: "256MB"})
   .https.onCall(async (_data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "Authentification requise.",
+      );
+    }
+    const userRef = db.collection("users").doc(context.auth.uid);
+    const configs = await getActiveMonthlyChallengeConfigs(getParisMonthKey());
+    const challenges = await Promise.all(configs.map(async (config) => {
+      const stateSnap = await getMonthlyChallengeUserStateRef(
+        userRef,
+        config.challenge_id,
+      ).get();
+      return buildChallengeStateResponse(
+        config,
+        stateSnap.exists ? stateSnap.data() || {} : {},
+      );
+    }));
+    return {challenges};
+  });
+
+const adminGetMonthlyChallengeConfigCallable = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 30, memory: "256MB"})
+  .https.onCall(async (data, context) => {
     await assertIsAdmin(context);
-    const snap = await getMonthlyChallengeConfigRef().get();
-    return normalizeMonthlyChallengeConfig(snap.exists ? snap.data() : {});
+    const type = data?.type === kRestaurantChallengeType ?
+      kRestaurantChallengeType : kAttendanceChallengeType;
+    const month = getTrimmedString(data?.month) || getParisMonthKey();
+    return getChallengeConfigForType(type, month);
   });
 
 const adminUpsertMonthlyChallengeCallable = functions
@@ -1147,7 +1375,8 @@ const adminUpsertMonthlyChallengeCallable = functions
       validateMonthlyChallengeConfig(payload);
     }
 
-    const existingSnap = await getMonthlyChallengeConfigRef().get();
+    const configRef = getMonthlyChallengeConfigDocRef(payload.challenge_id);
+    const existingSnap = await configRef.get();
     const existingConfig = normalizeMonthlyChallengeConfig(
       existingSnap.exists ? existingSnap.data() : {},
     );
@@ -1169,7 +1398,9 @@ const adminUpsertMonthlyChallengeCallable = functions
             .get(),
         ),
       );
-      if (startedChecks.some((snap) => !snap.empty)) {
+      if (startedChecks.some((snap) => snap.docs.some((doc) =>
+        getTrimmedString(doc.data()?.challenge_id || doc.id) === payload.challenge_id,
+      ))) {
         throw new functions.https.HttpsError(
           "failed-precondition",
           "Le defi a deja commence. Le mois, target_days et draw_date sont figes.",
@@ -1177,7 +1408,7 @@ const adminUpsertMonthlyChallengeCallable = functions
       }
     }
 
-    await getMonthlyChallengeConfigRef().set({
+    await configRef.set({
       ...payload,
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_by: context.auth.uid,
@@ -1191,23 +1422,28 @@ const adminUpsertMonthlyChallengeCallable = functions
 const adminGetMonthlyChallengeStatsCallable = functions
   .region(kFunctionsRegion)
   .runWith({timeoutSeconds: 120, memory: "512MB"})
-  .https.onCall(async (_data, context) => {
+  .https.onCall(async (data, context) => {
     await assertIsAdmin(context);
-    const configSnap = await getMonthlyChallengeConfigRef().get();
-    const config = normalizeMonthlyChallengeConfig(
-      configSnap.exists ? configSnap.data() : {},
+    const type = data?.type === kRestaurantChallengeType ?
+      kRestaurantChallengeType : kAttendanceChallengeType;
+    const config = await getChallengeConfigForType(
+      type,
+      getTrimmedString(data?.month) || getParisMonthKey(),
     );
     const monthKey = config.month;
+    const challengeId = config.challenge_id;
     let monthlyStates = [];
     if (isMonthKey(monthKey)) {
       const statesSnap = await db
         .collectionGroup("monthly_challenges")
         .where("month", "==", monthKey)
         .get();
-      monthlyStates = statesSnap.docs.map((doc) => doc.data() || {});
+      monthlyStates = statesSnap.docs
+        .filter((doc) => getTrimmedString(doc.data()?.challenge_id || doc.id) === challengeId)
+        .map((doc) => doc.data() || {});
     }
     const drawSnap = isMonthKey(monthKey) ?
-      await getMonthlyChallengeDrawRef(monthKey).get() :
+      await getMonthlyChallengeDrawRef(challengeId).get() :
       null;
     const drawData = drawSnap && drawSnap.exists ? drawSnap.data() || {} : {};
     const computedStats = computeMonthlyChallengeStats(config, monthlyStates, drawData);
@@ -1222,11 +1458,13 @@ const adminGetMonthlyChallengeStatsCallable = functions
 const adminRunMonthlyChallengeDrawCallable = functions
   .region(kFunctionsRegion)
   .runWith({timeoutSeconds: 180, memory: "512MB"})
-  .https.onCall(async (_data, context) => {
+  .https.onCall(async (data, context) => {
     await assertIsAdmin(context);
-    const configSnap = await getMonthlyChallengeConfigRef().get();
-    const config = normalizeMonthlyChallengeConfig(
-      configSnap.exists ? configSnap.data() : {},
+    const type = data?.type === kRestaurantChallengeType ?
+      kRestaurantChallengeType : kAttendanceChallengeType;
+    const config = await getChallengeConfigForType(
+      type,
+      getTrimmedString(data?.month) || getParisMonthKey(),
     );
     validateDrawExecutionOrThrow(config, admin.firestore.Timestamp.now());
     return drawWinnerForMonthlyChallenge(config, "admin");
@@ -1236,20 +1474,30 @@ const drawMonthlyChallengeWinnerScheduled = functions.pubsub
   .schedule("0 1 * * *")
   .timeZone(kTimeZone)
   .onRun(async () => {
-    const configSnap = await getMonthlyChallengeConfigRef().get();
-    const config = normalizeMonthlyChallengeConfig(
-      configSnap.exists ? configSnap.data() : {},
-    );
-    if (!config.enabled || !config.draw_date) {
-      return null;
-    }
     const now = admin.firestore.Timestamp.now();
-    try {
-      validateDrawExecutionOrThrow(config, now);
-    } catch (_error) {
-      return null;
+    const [configsSnap, legacySnap] = await Promise.all([
+      db.collection(kMonthlyChallengesCollection).where("enabled", "==", true).get(),
+      getMonthlyChallengeConfigRef().get(),
+    ]);
+    const configs = configsSnap.docs.map((snap) =>
+      normalizeMonthlyChallengeConfig(snap.data() || {}),
+    );
+    const legacy = normalizeMonthlyChallengeConfig(
+      legacySnap.exists ? legacySnap.data() || {} : {},
+    );
+    if (legacy.enabled && !configs.some((config) =>
+      config.type === kAttendanceChallengeType && config.month === legacy.month,
+    )) {
+      configs.push({...legacy, challenge_id: legacy.month, type: kAttendanceChallengeType});
     }
-    await drawWinnerForMonthlyChallenge(config, "scheduled");
+    await Promise.all(configs.map(async (config) => {
+      try {
+        validateDrawExecutionOrThrow(config, now);
+        await drawWinnerForMonthlyChallenge(config, "scheduled");
+      } catch (_error) {
+        // A draw is only eligible after its configured date.
+      }
+    }));
     return null;
   });
 
@@ -1257,12 +1505,15 @@ module.exports = {
   normalizeMonthlyChallengeConfig,
   buildChallengeStateResponse,
   trackMonthlyChallengeParticipation,
+  trackMonthlyChallengesParticipation,
   prefetchMonthlyChallengeParticipationState,
+  prefetchActiveMonthlyChallenges,
   queueMonthlyChallengeNotifications,
   ensureChallengeQualificationForUser,
   reconcileMonthlyChallengeEligibility,
   drawWinnerForMonthlyChallenge,
   getMonthlyChallengeStateCallable,
+  getMonthlyChallengesStateCallable,
   adminGetMonthlyChallengeConfigCallable,
   adminUpsertMonthlyChallengeCallable,
   adminGetMonthlyChallengeStatsCallable,

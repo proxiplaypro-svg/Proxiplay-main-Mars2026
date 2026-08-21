@@ -161,23 +161,55 @@ class AnimationsPromotionsAdminPageWidget extends StatelessWidget {
           _buildActionCard(
             context,
             icon: Icons.emoji_events_rounded,
-            title: 'Défi mensuel',
-            subtitle: 'Configurer le défi d’assiduité du mois.',
+            title: 'Défi d’assiduité',
+            subtitle: 'Récompensez les joueurs les plus réguliers.',
             onTap: () => _openPage(
               context,
-              const CampaignMonthlyChallengeAdminPageWidget(),
+              const CampaignMonthlyChallengeAdminPageWidget(
+                challengeType: 'attendance',
+              ),
             ),
             accentColor: const Color(0xFFC26A1B),
           ),
           const SizedBox(height: 14.0),
           _buildActionCard(
             context,
+            icon: Icons.restaurant_rounded,
+            title: 'Resto du mois',
+            subtitle: 'Mettez un restaurant à l’honneur chaque mois.',
+            onTap: () => _openPage(
+              context,
+              const CampaignMonthlyChallengeAdminPageWidget(
+                challengeType: 'restaurant',
+              ),
+            ),
+            accentColor: const Color(0xFFB54708),
+          ),
+          const SizedBox(height: 14.0),
+          _buildActionCard(
+            context,
             icon: Icons.query_stats_rounded,
-            title: 'Stats défi mensuel',
+            title: 'Stats défi d’assiduité',
             subtitle: 'Voir les qualifiés et lancer le tirage.',
             onTap: () => _openPage(
               context,
-              const MonthlyChallengeStatsAdminPageWidget(),
+              const MonthlyChallengeStatsAdminPageWidget(
+                challengeType: 'attendance',
+              ),
+            ),
+            accentColor: const Color(0xFF1D8348),
+          ),
+          const SizedBox(height: 14.0),
+          _buildActionCard(
+            context,
+            icon: Icons.query_stats_rounded,
+            title: 'Stats resto du mois',
+            subtitle: 'Voir les qualifiés et lancer le tirage restaurant.',
+            onTap: () => _openPage(
+              context,
+              const MonthlyChallengeStatsAdminPageWidget(
+                challengeType: 'restaurant',
+              ),
             ),
             accentColor: const Color(0xFF1D8348),
           ),

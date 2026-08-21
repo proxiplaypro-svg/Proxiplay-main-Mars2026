@@ -15,6 +15,7 @@ const {
 } = require("./push_notification_request.js");
 const {
   getMonthlyChallengeStateCallable,
+  getMonthlyChallengesStateCallable,
   adminGetMonthlyChallengeConfigCallable,
   adminUpsertMonthlyChallengeCallable,
   adminGetMonthlyChallengeStatsCallable,
@@ -6128,6 +6129,7 @@ exports.generateInstantWinnersForGame = generateInstantWinnersForGameCallable;
 exports.getPrizeWinnerContactForMerchant =
   getPrizeWinnerContactForMerchantCallable;
 exports.getMonthlyChallengeState = getMonthlyChallengeStateCallable;
+exports.getMonthlyChallengesState = getMonthlyChallengesStateCallable;
 exports.adminGetMonthlyChallengeConfig =
   adminGetMonthlyChallengeConfigCallable;
 exports.adminUpsertMonthlyChallenge = adminUpsertMonthlyChallengeCallable;

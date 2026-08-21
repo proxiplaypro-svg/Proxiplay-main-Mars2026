@@ -65,8 +65,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   DateTime? _lastResumeRefresh;
   late Future<SharePromoStateViewModel?> _sharePromoFuture;
   SharePromoStateViewModel? _latestSharePromoState;
-  late Future<MonthlyChallengeStateViewModel?> _monthlyChallengeFuture;
-  MonthlyChallengeStateViewModel? _latestMonthlyChallengeState;
+  late Future<List<MonthlyChallengeStateViewModel>> _monthlyChallengeFuture;
+  List<MonthlyChallengeStateViewModel> _latestMonthlyChallengeStates = const [];
   final _monthlyChallengeService = MonthlyChallengeService();
   final Map<String, Future<EnseignesRecord>> _enseigneFutureCache = {};
   final Map<String, Future<Map<String, EnseignesRecord>>>
@@ -695,19 +695,21 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     }
   }
 
-  Future<MonthlyChallengeStateViewModel?> _loadMonthlyChallengeState() async {
+  Future<List<MonthlyChallengeStateViewModel>> _loadMonthlyChallengeState() async {
     if (isGuestOrAnonymous || currentUserUid.isEmpty) {
-      _latestMonthlyChallengeState = null;
-      return null;
+      _latestMonthlyChallengeStates = const [];
+      return const [];
     }
     try {
-      final state = await _monthlyChallengeService.getMonthlyChallengeState();
-      _latestMonthlyChallengeState = state;
-      if (state.showCard) {
+      final states = await _monthlyChallengeService.getMonthlyChallengesState();
+      _latestMonthlyChallengeStates = states;
+      for (final state in states.where((state) => state.showCard)) {
         logFirebaseEvent(
           'monthly_challenge_viewed',
           parameters: {
             'month': state.month,
+            'challenge_id': state.challengeId,
+            'type': state.type,
             'qualified': state.qualified,
             'active_days': state.activeDaysCount,
             'target_days': state.targetDays,
@@ -717,6 +719,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           'monthly_challenge_progress',
           parameters: {
             'month': state.month,
+            'challenge_id': state.challengeId,
+            'type': state.type,
             'active_days': state.activeDaysCount,
             'target_days': state.targetDays,
             'remaining_days': state.remainingDays,
@@ -727,15 +731,17 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
             'monthly_challenge_qualified',
             parameters: {
               'month': state.month,
+              'challenge_id': state.challengeId,
+              'type': state.type,
               'active_days': state.activeDaysCount,
             },
           );
         }
       }
-      return state;
+      return states;
     } catch (_) {
-      _latestMonthlyChallengeState = null;
-      return null;
+      _latestMonthlyChallengeStates = const [];
+      return const [];
     }
   }
 
@@ -825,16 +831,24 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   }
 
   Widget _buildMonthlyChallengeZone() {
-    return FutureBuilder<MonthlyChallengeStateViewModel?>(
+    return FutureBuilder<List<MonthlyChallengeStateViewModel>>(
       future: _monthlyChallengeFuture,
       builder: (context, snapshot) {
-        final state = snapshot.data ?? _latestMonthlyChallengeState;
-        if (state == null || !state.showCard) {
+        final states = snapshot.data ?? _latestMonthlyChallengeStates;
+        final visibleStates = states.where((state) => state.showCard).toList();
+        if (visibleStates.isEmpty) {
           return const SizedBox.shrink();
         }
         return Padding(
           padding: const EdgeInsets.only(bottom: 16.0),
-          child: MonthlyChallengeBannerWidget(state: state),
+          child: Column(
+            children: visibleStates
+                .map((state) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10.0),
+                      child: MonthlyChallengeBannerWidget(state: state),
+                    ))
+                .toList(),
+          ),
         );
       },
     );

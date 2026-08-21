@@ -14,6 +14,7 @@ const {
   drawWinnerForMonthlyChallenge,
   queueMonthlyChallengeNotifications,
   trackMonthlyChallengeParticipation,
+  trackMonthlyChallengesParticipation,
 } = require("../monthly_challenge.js");
 
 if (!admin.apps.length) {
@@ -63,6 +64,32 @@ async function seedConfig({
   });
 }
 
+async function seedChallenge({
+  type = "attendance",
+  month = "2026-08",
+  targetDays = 15,
+  drawDate = "2026-10-01T09:00:00.000Z",
+  enabled = true,
+  restaurantName = "La Cocotte",
+} = {}) {
+  const challengeId = type === "restaurant" ? `restaurant_${month}` : month;
+  await firestore.collection("monthly_challenges").doc(challengeId).set({
+    challenge_id: challengeId,
+    type,
+    enabled,
+    month,
+    title: type === "restaurant" ? "Resto du mois" : "Defi Proxiplay",
+    description: "Joue plusieurs jours differents pour participer au tirage.",
+    target_days: targetDays,
+    prize_title: type === "restaurant" ? `Un repas pour 2 chez ${restaurantName}` : "Une console",
+    prize_description: "Lot mensuel",
+    prize_value: 120,
+    restaurant_ref: type === "restaurant" ? firestore.doc("enseignes/resto-1") : null,
+    restaurant_name: type === "restaurant" ? restaurantName : "",
+    draw_date: timestampFromIso(drawDate),
+  });
+}
+
 async function track(uid, isoString) {
   const userRef = firestore.collection("users").doc(uid);
   const now = timestampFromIso(isoString);
@@ -73,6 +100,14 @@ async function track(uid, isoString) {
       now,
       transaction,
     }),
+  );
+}
+
+async function trackAll(uid, isoString) {
+  const userRef = firestore.collection("users").doc(uid);
+  const now = timestampFromIso(isoString);
+  return firestore.runTransaction(async (transaction) =>
+    trackMonthlyChallengesParticipation({uid, userRef, now, transaction}),
   );
 }
 
@@ -129,6 +164,70 @@ test("premiere participation de la journee -> +1", async () => {
   assert.equal(state.active_days_count, 1);
   assert.deepEqual(state.active_dates, ["2026-08-01"]);
   assert.equal(state.qualified, false);
+});
+
+test("deux challenges actifs -> une participation incremente les deux", async () => {
+  await seedChallenge({type: "attendance", targetDays: 10});
+  await seedChallenge({type: "restaurant", targetDays: 15});
+  await seedUser("u1");
+
+  await trackAll("u1", buildIsoDay("2026-08", 1));
+
+  const attendance = await getState("u1", "2026-08");
+  const restaurant = await getState("u1", "restaurant_2026-08");
+  assert.equal(attendance.active_days_count, 1);
+  assert.equal(restaurant.active_days_count, 1);
+  assert.equal(attendance.target_days, 10);
+  assert.equal(restaurant.target_days, 15);
+});
+
+test("deux challenges actifs -> seconde participation du jour n incremente aucun", async () => {
+  await seedChallenge({type: "attendance", targetDays: 10});
+  await seedChallenge({type: "restaurant", targetDays: 15});
+  await seedUser("u1");
+
+  await trackAll("u1", buildIsoDay("2026-08", 1));
+  await trackAll("u1", "2026-08-01T18:00:00.000Z");
+
+  const attendance = await getState("u1", "2026-08");
+  const restaurant = await getState("u1", "restaurant_2026-08");
+  assert.equal(attendance.active_days_count, 1);
+  assert.equal(restaurant.active_days_count, 1);
+});
+
+test("tirages attendance et restaurant restent independants", async () => {
+  await seedChallenge({
+    type: "attendance",
+    month: "2026-07",
+    targetDays: 1,
+    drawDate: "2026-08-01T09:00:00.000Z",
+  });
+  await seedChallenge({
+    type: "restaurant",
+    month: "2026-07",
+    targetDays: 1,
+    drawDate: "2026-08-01T09:00:00.000Z",
+  });
+  await seedUser("u1");
+  await trackAll("u1", buildIsoDay("2026-07", 1));
+
+  const attendanceResult = await drawWinnerForMonthlyChallenge({
+    ...buildConfigForDraw({month: "2026-07", targetDays: 1}),
+    challenge_id: "2026-07",
+    type: "attendance",
+  }, "test-attendance");
+  const restaurantResult = await drawWinnerForMonthlyChallenge({
+    ...buildConfigForDraw({month: "2026-07", targetDays: 1}),
+    challenge_id: "restaurant_2026-07",
+    type: "restaurant",
+    restaurant_name: "La Cocotte",
+  }, "test-restaurant");
+
+  assert.equal(attendanceResult.status, "completed");
+  assert.equal(restaurantResult.status, "completed");
+  assert.notEqual(attendanceResult.prizeId, restaurantResult.prizeId);
+  const prizesSnap = await firestore.collection("prizes").get();
+  assert.equal(prizesSnap.size, 2);
 });
 
 test("deuxieme participation le meme jour -> aucun increment", async () => {

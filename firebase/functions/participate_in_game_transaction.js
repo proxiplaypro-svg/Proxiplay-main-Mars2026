@@ -11,8 +11,8 @@ const {
   queuePushNotificationRequest,
 } = require("./push_notification_request.js");
 const {
-  trackMonthlyChallengeParticipation,
-  prefetchMonthlyChallengeParticipationState,
+  trackMonthlyChallengesParticipation,
+  prefetchActiveMonthlyChallenges,
   queueMonthlyChallengeNotifications,
 } = require("./monthly_challenge.js");
 
@@ -513,7 +513,7 @@ exports.participateInGameTransaction = functions.https.onCall(
         // its first write, and trackMonthlyChallengeParticipation() (called
         // further down, after the "already played" / "no remaining part"
         // guards) does its own reads unless handed this prefetch.
-        const monthlyChallengePrefetch = await prefetchMonthlyChallengeParticipationState({
+        const monthlyChallengePrefetch = await prefetchActiveMonthlyChallenges({
           uid,
           userRef,
           now,
@@ -920,7 +920,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           );
         }
 
-        monthlyChallengeResult = await trackMonthlyChallengeParticipation({
+        monthlyChallengeResult = await trackMonthlyChallengesParticipation({
           uid,
           userRef,
           now,
@@ -1301,7 +1301,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           await queueMonthlyChallengeNotifications(
             uid,
             monthlyChallengeResult.notifications,
-            monthlyChallengeResult.monthKey
+            ""
           );
         } catch (monthlyChallengeNotificationError) {
           console.error(

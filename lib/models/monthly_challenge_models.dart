@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MonthlyChallengeStateViewModel {
   const MonthlyChallengeStateViewModel({
+    required this.challengeId,
+    required this.type,
     required this.showCard,
     required this.enabled,
     required this.month,
@@ -13,6 +15,8 @@ class MonthlyChallengeStateViewModel {
     required this.prizeDescription,
     required this.prizeValue,
     required this.imageUrl,
+    required this.restaurantName,
+    required this.restaurantImageUrl,
     required this.drawDate,
     required this.activeDaysCount,
     required this.activeDates,
@@ -26,6 +30,8 @@ class MonthlyChallengeStateViewModel {
 
   factory MonthlyChallengeStateViewModel.fromMap(Map<String, dynamic> map) {
     return MonthlyChallengeStateViewModel(
+      challengeId: (map['challengeId'] as String?) ?? '',
+      type: (map['type'] as String?) ?? 'attendance',
       showCard: map['showCard'] == true,
       enabled: map['enabled'] == true,
       month: (map['month'] as String?) ?? '',
@@ -37,6 +43,8 @@ class MonthlyChallengeStateViewModel {
       prizeDescription: (map['prizeDescription'] as String?) ?? '',
       prizeValue: (map['prizeValue'] as num?)?.toInt() ?? 0,
       imageUrl: (map['imageUrl'] as String?) ?? '',
+      restaurantName: (map['restaurantName'] as String?) ?? '',
+      restaurantImageUrl: (map['restaurantImageUrl'] as String?) ?? '',
       drawDate: _readTimestamp(map['drawDate']),
       activeDaysCount: (map['activeDaysCount'] as num?)?.toInt() ?? 0,
       activeDates: (map['activeDates'] as List<dynamic>? ?? const [])
@@ -53,6 +61,8 @@ class MonthlyChallengeStateViewModel {
   }
 
   final bool showCard;
+  final String challengeId;
+  final String type;
   final bool enabled;
   final String month;
   final String monthLabel;
@@ -63,6 +73,8 @@ class MonthlyChallengeStateViewModel {
   final String prizeDescription;
   final int prizeValue;
   final String imageUrl;
+  final String restaurantName;
+  final String restaurantImageUrl;
   final Timestamp? drawDate;
   final int activeDaysCount;
   final List<String> activeDates;
@@ -76,6 +88,7 @@ class MonthlyChallengeStateViewModel {
 
 class MonthlyChallengeConfigModel {
   const MonthlyChallengeConfigModel({
+    required this.type,
     required this.enabled,
     required this.month,
     required this.title,
@@ -85,11 +98,15 @@ class MonthlyChallengeConfigModel {
     required this.prizeDescription,
     required this.prizeValue,
     required this.imageUrl,
+    required this.restaurantRef,
+    required this.restaurantName,
+    required this.restaurantImageUrl,
     required this.drawDate,
   });
 
   factory MonthlyChallengeConfigModel.fromMap(Map<String, dynamic> map) {
     return MonthlyChallengeConfigModel(
+      type: (map['type'] as String?) ?? 'attendance',
       enabled: map['enabled'] == true,
       month: (map['month'] as String?) ?? '',
       title: (map['title'] as String?) ?? '',
@@ -107,11 +124,17 @@ class MonthlyChallengeConfigModel {
           (map['prizeValue'] as num?)?.toInt() ??
           0,
       imageUrl: (map['image_url'] as String?) ?? (map['imageUrl'] as String?) ?? '',
+      restaurantRef: map['restaurant_ref'] is DocumentReference
+          ? (map['restaurant_ref'] as DocumentReference).path
+          : map['restaurant_ref']?.toString() ?? '',
+      restaurantName: (map['restaurant_name'] as String?) ?? '',
+      restaurantImageUrl: (map['restaurant_image_url'] as String?) ?? '',
       drawDate: _readTimestamp(map['draw_date'] ?? map['drawDate']),
     );
   }
 
   final bool enabled;
+  final String type;
   final String month;
   final String title;
   final String description;
@@ -120,11 +143,15 @@ class MonthlyChallengeConfigModel {
   final String prizeDescription;
   final int prizeValue;
   final String imageUrl;
+  final String restaurantRef;
+  final String restaurantName;
+  final String restaurantImageUrl;
   final Timestamp? drawDate;
 
   Map<String, dynamic> toCallableMap() {
     return {
       'enabled': enabled,
+      'type': type,
       'month': month,
       'title': title,
       'description': description,
@@ -133,11 +160,15 @@ class MonthlyChallengeConfigModel {
       'prize_description': prizeDescription,
       'prize_value': prizeValue,
       'image_url': imageUrl,
+      'restaurant_ref': restaurantRef,
+      'restaurant_name': restaurantName,
+      'restaurant_image_url': restaurantImageUrl,
       'draw_date': drawDate?.toDate().toIso8601String(),
     };
   }
 
   MonthlyChallengeConfigModel copyWith({
+    String? type,
     bool? enabled,
     String? month,
     String? title,
@@ -147,10 +178,14 @@ class MonthlyChallengeConfigModel {
     String? prizeDescription,
     int? prizeValue,
     String? imageUrl,
+    String? restaurantRef,
+    String? restaurantName,
+    String? restaurantImageUrl,
     Timestamp? drawDate,
   }) {
     return MonthlyChallengeConfigModel(
       enabled: enabled ?? this.enabled,
+      type: type ?? this.type,
       month: month ?? this.month,
       title: title ?? this.title,
       description: description ?? this.description,
@@ -159,12 +194,16 @@ class MonthlyChallengeConfigModel {
       prizeDescription: prizeDescription ?? this.prizeDescription,
       prizeValue: prizeValue ?? this.prizeValue,
       imageUrl: imageUrl ?? this.imageUrl,
+      restaurantRef: restaurantRef ?? this.restaurantRef,
+      restaurantName: restaurantName ?? this.restaurantName,
+      restaurantImageUrl: restaurantImageUrl ?? this.restaurantImageUrl,
       drawDate: drawDate ?? this.drawDate,
     );
   }
 
   static MonthlyChallengeConfigModel empty() => const MonthlyChallengeConfigModel(
-        enabled: false,
+    enabled: false,
+    type: 'attendance',
         month: '',
         title: '',
         description: '',
@@ -172,7 +211,10 @@ class MonthlyChallengeConfigModel {
         prizeTitle: '',
         prizeDescription: '',
         prizeValue: 0,
-        imageUrl: '',
+    imageUrl: '',
+    restaurantRef: '',
+    restaurantName: '',
+    restaurantImageUrl: '',
         drawDate: null,
       );
 }

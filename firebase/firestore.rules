@@ -322,6 +322,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /monthly_challenges/{challengeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /app_config/mobile_versioning {
       allow read: if true;
       allow write: if isAdmin();

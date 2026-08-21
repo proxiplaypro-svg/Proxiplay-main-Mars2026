@@ -26,8 +26,24 @@ class MonthlyChallengeService {
     return MonthlyChallengeStateViewModel.fromMap(data);
   }
 
-  Future<MonthlyChallengeConfigModel> adminGetMonthlyChallengeConfig() async {
-    final data = await _call('adminGetMonthlyChallengeConfig');
+  Future<List<MonthlyChallengeStateViewModel>> getMonthlyChallengesState() async {
+    final data = await _call('getMonthlyChallengesState');
+    return (data['challenges'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((item) => MonthlyChallengeStateViewModel.fromMap(
+              Map<String, dynamic>.from(item),
+            ))
+        .toList();
+  }
+
+  Future<MonthlyChallengeConfigModel> adminGetMonthlyChallengeConfig({
+    String type = 'attendance',
+    String month = '',
+  }) async {
+    final data = await _call('adminGetMonthlyChallengeConfig', {
+      'type': type,
+      'month': month,
+    });
     return MonthlyChallengeConfigModel.fromMap(data);
   }
 
@@ -37,12 +53,21 @@ class MonthlyChallengeService {
     await _call('adminUpsertMonthlyChallenge', config.toCallableMap());
   }
 
-  Future<MonthlyChallengeAdminStatsModel> adminGetMonthlyChallengeStats() async {
-    final data = await _call('adminGetMonthlyChallengeStats');
+  Future<MonthlyChallengeAdminStatsModel> adminGetMonthlyChallengeStats({
+    String type = 'attendance',
+    String month = '',
+  }) async {
+    final data = await _call('adminGetMonthlyChallengeStats', {
+      'type': type,
+      'month': month,
+    });
     return MonthlyChallengeAdminStatsModel.fromMap(data);
   }
 
-  Future<Map<String, dynamic>> adminRunMonthlyChallengeDraw() {
-    return _call('adminRunMonthlyChallengeDraw');
+  Future<Map<String, dynamic>> adminRunMonthlyChallengeDraw({
+    String type = 'attendance',
+    String month = '',
+  }) {
+    return _call('adminRunMonthlyChallengeDraw', {'type': type, 'month': month});
   }
 }

@@ -7,7 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MonthlyChallengeStatsAdminPageWidget extends StatefulWidget {
-  const MonthlyChallengeStatsAdminPageWidget({super.key});
+  const MonthlyChallengeStatsAdminPageWidget({
+    super.key,
+    this.challengeType = 'attendance',
+  });
+
+  final String challengeType;
 
   @override
   State<MonthlyChallengeStatsAdminPageWidget> createState() =>
@@ -29,7 +34,9 @@ class _MonthlyChallengeStatsAdminPageWidgetState
 
   Future<MonthlyChallengeAdminStatsModel> _loadStats() async {
     try {
-      final stats = await _service.adminGetMonthlyChallengeStats();
+      final stats = await _service.adminGetMonthlyChallengeStats(
+        type: widget.challengeType,
+      );
       _loadError = null;
       return stats;
     } catch (error) {
@@ -77,7 +84,9 @@ class _MonthlyChallengeStatsAdminPageWidgetState
   Future<void> _runDraw() async {
     setState(() => _drawing = true);
     try {
-      final result = await _service.adminRunMonthlyChallengeDraw();
+      final result = await _service.adminRunMonthlyChallengeDraw(
+        type: widget.challengeType,
+      );
       if (!mounted) {
         return;
       }
@@ -85,6 +94,8 @@ class _MonthlyChallengeStatsAdminPageWidgetState
         'monthly_challenge_draw_completed',
         parameters: {
           'month': result['month'],
+          'challenge_id': result['challengeId'],
+          'type': widget.challengeType,
           'status': result['status'],
           'eligible_count': result['eligibleCount'],
           'winner_uid': result['winnerUid'],

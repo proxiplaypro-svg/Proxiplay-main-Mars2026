@@ -7,7 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class CampaignMonthlyChallengeAdminPageWidget extends StatefulWidget {
-  const CampaignMonthlyChallengeAdminPageWidget({super.key});
+  const CampaignMonthlyChallengeAdminPageWidget({
+    super.key,
+    this.challengeType = 'attendance',
+  });
+
+  final String challengeType;
 
   @override
   State<CampaignMonthlyChallengeAdminPageWidget> createState() =>
@@ -27,6 +32,9 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
   late final TextEditingController _prizeDescriptionController;
   late final TextEditingController _prizeValueController;
   late final TextEditingController _imageUrlController;
+  late final TextEditingController _restaurantRefController;
+  late final TextEditingController _restaurantNameController;
+  late final TextEditingController _restaurantImageUrlController;
 
   bool _loading = true;
   bool _saving = false;
@@ -44,6 +52,9 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
     _prizeDescriptionController = TextEditingController();
     _prizeValueController = TextEditingController();
     _imageUrlController = TextEditingController();
+    _restaurantRefController = TextEditingController();
+    _restaurantNameController = TextEditingController();
+    _restaurantImageUrlController = TextEditingController();
     _loadConfig();
   }
 
@@ -57,11 +68,17 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
     _prizeDescriptionController.dispose();
     _prizeValueController.dispose();
     _imageUrlController.dispose();
+    _restaurantRefController.dispose();
+    _restaurantNameController.dispose();
+    _restaurantImageUrlController.dispose();
     super.dispose();
   }
 
   Future<void> _loadConfig() async {
-    final config = await _service.adminGetMonthlyChallengeConfig();
+    final config = await _service.adminGetMonthlyChallengeConfig(
+      type: widget.challengeType,
+      month: _monthController.text.trim(),
+    );
     if (!mounted) {
       return;
     }
@@ -76,6 +93,9 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
       _prizeDescriptionController.text = config.prizeDescription;
       _prizeValueController.text = config.prizeValue.toString();
       _imageUrlController.text = config.imageUrl;
+      _restaurantRefController.text = config.restaurantRef;
+      _restaurantNameController.text = config.restaurantName;
+      _restaurantImageUrlController.text = config.restaurantImageUrl;
       _loading = false;
     });
   }
@@ -165,6 +185,7 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
 
   MonthlyChallengeConfigModel _buildConfig() {
     return MonthlyChallengeConfigModel.empty().copyWith(
+      type: widget.challengeType,
       enabled: _enabled,
       month: _monthController.text.trim(),
       title: _titleController.text.trim(),
@@ -174,6 +195,9 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
       prizeDescription: _prizeDescriptionController.text.trim(),
       prizeValue: int.tryParse(_prizeValueController.text.trim()) ?? 0,
       imageUrl: _imageUrlController.text.trim(),
+      restaurantRef: _restaurantRefController.text.trim(),
+      restaurantName: _restaurantNameController.text.trim(),
+      restaurantImageUrl: _restaurantImageUrlController.text.trim(),
       drawDate: _drawDate == null ? null : Timestamp.fromDate(_drawDate!),
     );
   }
@@ -238,7 +262,7 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
       backgroundColor: theme.secondaryBackground,
       appBar: AppBar(
         title: Text(
-          'Défi mensuel',
+          widget.challengeType == 'restaurant' ? 'Resto du mois' : 'Défi d’assiduité',
           style: theme.titleLarge.override(
             font: GoogleFonts.interTight(),
             letterSpacing: 0.0,
@@ -273,6 +297,29 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
                           ? null
                           : 'Format attendu: YYYY-MM',
                     ),
+                    if (widget.challengeType == 'restaurant') ...[
+                      const SizedBox(height: 12.0),
+                      TextFormField(
+                        controller: _restaurantRefController,
+                        decoration: _inputDecoration('Référence restaurant (enseignes/{id})'),
+                        validator: (value) => (value == null || !value.trim().startsWith('enseignes/'))
+                            ? 'Sélectionne une référence enseigne valide'
+                            : null,
+                      ),
+                      const SizedBox(height: 12.0),
+                      TextFormField(
+                        controller: _restaurantNameController,
+                        decoration: _inputDecoration('Nom du restaurant'),
+                        validator: (value) => (value == null || value.trim().isEmpty)
+                            ? 'Champ requis'
+                            : null,
+                      ),
+                      const SizedBox(height: 12.0),
+                      TextFormField(
+                        controller: _restaurantImageUrlController,
+                        decoration: _inputDecoration('Image restaurant URL'),
+                      ),
+                    ],
                     const SizedBox(height: 12.0),
                     TextFormField(
                       controller: _titleController,
