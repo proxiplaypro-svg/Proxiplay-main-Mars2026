@@ -90,32 +90,85 @@ async function drawWinnerForReferralGame(gameRef, gameId, gameData) {
   const prizeDescription = getTrimmedString(gameData.prize_description);
   const gameTitle = getTrimmedString(gameData.title);
 
-  const entriesSnap = await gameRef.collection("entries").get();
-  if (entriesSnap.empty) {
-    functions.logger.info(
-      `drawReferralGameWinner: no entries for gameId=${gameId}`
+  // Le tirage (lecture des tickets + designation du gagnant) et la pose du
+  // garde-fou winner_uid se font dans la meme transaction Firestore : deux
+  // executions concurrentes de ce cron (retry Pub/Sub, etc.) ne peuvent donc
+  // jamais tirer deux gagnants pour le meme jeu. La seconde relit un
+  // winner_uid deja pose par la premiere et s'arrete la, sans creer de
+  // second prize ni renvoyer un second email.
+  const claimResult = await db.runTransaction(async (transaction) => {
+    const gameSnap = await transaction.get(gameRef);
+    if (getTrimmedString((gameSnap.data() || {}).winner_uid)) {
+      return { outcome: "already_drawn" };
+    }
+
+    const entriesSnap = await transaction.get(gameRef.collection("entries"));
+    const drawnAt = admin.firestore.Timestamp.now();
+
+    if (entriesSnap.empty) {
+      transaction.set(
+        gameRef,
+        { status: "ended", drawn_at: drawnAt },
+        { merge: true }
+      );
+      return { outcome: "no_entries" };
+    }
+
+    const drawResult = pickWinningTicket(
+      entriesSnap.docs.map((doc) => doc.data() || {})
     );
-    await gameRef.set(
-      { status: "ended", drawn_at: admin.firestore.Timestamp.now() },
+    const winnerUid = drawResult ? drawResult.winnerUid : "";
+    if (!winnerUid) {
+      return { outcome: "invalid_winner" };
+    }
+
+    const winnerTicketCount = drawResult.winnerTicketCount;
+    const totalTicketCount = entriesSnap.docs.length;
+    const userRef = db.collection("users").doc(winnerUid);
+
+    transaction.set(
+      gameRef,
+      {
+        winner_uid: winnerUid,
+        winner_ref: userRef,
+        winner_ticket_count: winnerTicketCount,
+        total_ticket_count: totalTicketCount,
+        drawn_at: drawnAt,
+        status: "ended",
+      },
       { merge: true }
+    );
+
+    return {
+      outcome: "drawn",
+      winnerUid,
+      winnerTicketCount,
+      totalTicketCount,
+      drawnAt,
+    };
+  });
+
+  if (claimResult.outcome === "already_drawn") {
+    functions.logger.info(
+      `drawReferralGameWinner: gameId=${gameId} already drawn by a concurrent run, skipping`
     );
     return;
   }
-
-  const ticketDocs = entriesSnap.docs;
-  const drawResult = pickWinningTicket(
-    ticketDocs.map((doc) => doc.data() || {})
-  );
-  const winnerUid = drawResult ? drawResult.winnerUid : "";
-  const winnerTicketCount = drawResult ? drawResult.winnerTicketCount : 0;
-  const tickets = ticketDocs;
-
-  if (!winnerUid) {
+  if (claimResult.outcome === "no_entries") {
+    functions.logger.info(
+      `drawReferralGameWinner: no entries for gameId=${gameId}`
+    );
+    return;
+  }
+  if (claimResult.outcome === "invalid_winner") {
     functions.logger.error(
       `drawReferralGameWinner: winning ticket has no inviter_uid, gameId=${gameId}`
     );
     return;
   }
+
+  const { winnerUid, winnerTicketCount, totalTicketCount, drawnAt } = claimResult;
+  const claimCode = generateClaimCode();
 
   const userRef = db.collection("users").doc(winnerUid);
   const userSnap = await userRef.get();
@@ -130,22 +183,6 @@ async function drawWinnerForReferralGame(gameRef, gameId, gameData) {
       .join(" ") ||
     winnerEmail ||
     "Gagnant inconnu";
-
-  const drawnAt = admin.firestore.Timestamp.now();
-  const claimCode = generateClaimCode();
-
-  // winner_uid sur le document du jeu = garde-fou contre double tirage
-  await gameRef.set(
-    {
-      winner_uid: winnerUid,
-      winner_ref: userRef,
-      winner_ticket_count: winnerTicketCount,
-      total_ticket_count: tickets.length,
-      drawn_at: drawnAt,
-      status: "ended",
-    },
-    { merge: true }
-  );
 
   const denormalizedWinnerFirstName = winnerFirstName.split(/\s+/)[0] || "";
   const denormalizedWinnerCity = getTrimmedString(userData.city);
@@ -217,7 +254,7 @@ async function drawWinnerForReferralGame(gameRef, gameId, gameData) {
     winnerLabel,
     claimCode,
     winnerTicketCount,
-    totalTicketCount: tickets.length,
+    totalTicketCount,
   });
 }
 

@@ -32,6 +32,7 @@ class ReferralGameCard extends StatelessWidget {
         final gameDoc = snapshot.data!.docs.first;
         final gameData = gameDoc.data();
         final endDate = (gameData['end_date'] as Timestamp?)?.toDate();
+        final prizeValue = (gameData['prize_value'] as num?)?.toDouble() ?? 0;
 
         return GameCardWidget(
           title: (gameData['title'] as String?)?.trim().isNotEmpty == true
@@ -40,7 +41,7 @@ class ReferralGameCard extends StatelessWidget {
           imageUrl: (gameData['image_url'] as String?) ?? '',
           storeName: 'Programme de parrainage',
           city: '',
-          prizeText: (gameData['prize_description'] as String?) ?? '',
+          prizeText: prizeValue > 0 ? prizeValue.toStringAsFixed(2) : '',
           endDateText: endDate != null
               ? "Jusqu'au : ${dateTimeFormat('d/M/y', endDate, locale: FFLocalizations.of(context).languageCode)}"
               : "Jusqu'au : -",

@@ -360,8 +360,6 @@ class _GameCardState extends State<GameCard> {
               SizedBox(height: rowSpacing),
               _infoRow(Icons.place_sharp, widget.city, context),
             ],
-            if (!hasPrize) SizedBox(height: rowSpacing),
-            if (!hasPrize) _infoRow(Icons.euro, widget.prizeText, context),
             SizedBox(height: rowSpacing),
             _infoRow(Icons.date_range, widget.endDateText, context),
             if (widget.isFinished &&
