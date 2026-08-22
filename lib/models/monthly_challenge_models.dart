@@ -15,8 +15,8 @@ class MonthlyChallengeStateViewModel {
     required this.prizeDescription,
     required this.prizeValue,
     required this.imageUrl,
-    required this.restaurantName,
-    required this.restaurantImageUrl,
+    required this.merchantName,
+    required this.merchantImageUrl,
     required this.drawDate,
     required this.activeDaysCount,
     required this.activeDates,
@@ -43,8 +43,12 @@ class MonthlyChallengeStateViewModel {
       prizeDescription: (map['prizeDescription'] as String?) ?? '',
       prizeValue: (map['prizeValue'] as num?)?.toInt() ?? 0,
       imageUrl: (map['imageUrl'] as String?) ?? '',
-      restaurantName: (map['restaurantName'] as String?) ?? '',
-      restaurantImageUrl: (map['restaurantImageUrl'] as String?) ?? '',
+      merchantName: (map['merchantName'] as String?) ??
+          (map['restaurantName'] as String?) ??
+          '',
+      merchantImageUrl: (map['merchantImageUrl'] as String?) ??
+          (map['restaurantImageUrl'] as String?) ??
+          '',
       drawDate: _readTimestamp(map['drawDate']),
       activeDaysCount: (map['activeDaysCount'] as num?)?.toInt() ?? 0,
       activeDates: (map['activeDates'] as List<dynamic>? ?? const [])
@@ -73,8 +77,8 @@ class MonthlyChallengeStateViewModel {
   final String prizeDescription;
   final int prizeValue;
   final String imageUrl;
-  final String restaurantName;
-  final String restaurantImageUrl;
+  final String merchantName;
+  final String merchantImageUrl;
   final Timestamp? drawDate;
   final int activeDaysCount;
   final List<String> activeDates;
@@ -98,15 +102,17 @@ class MonthlyChallengeConfigModel {
     required this.prizeDescription,
     required this.prizeValue,
     required this.imageUrl,
-    required this.restaurantRef,
-    required this.restaurantName,
-    required this.restaurantImageUrl,
+    required this.enseigneRef,
+    required this.enseigneName,
+    required this.enseigneImage,
     required this.drawDate,
   });
 
   factory MonthlyChallengeConfigModel.fromMap(Map<String, dynamic> map) {
     return MonthlyChallengeConfigModel(
-      type: (map['type'] as String?) ?? 'attendance',
+      type: (map['type'] as String?) == 'restaurant'
+          ? 'merchant'
+          : (map['type'] as String?) ?? 'attendance',
       enabled: map['enabled'] == true,
       month: (map['month'] as String?) ?? '',
       title: (map['title'] as String?) ?? '',
@@ -124,11 +130,16 @@ class MonthlyChallengeConfigModel {
           (map['prizeValue'] as num?)?.toInt() ??
           0,
       imageUrl: (map['image_url'] as String?) ?? (map['imageUrl'] as String?) ?? '',
-      restaurantRef: map['restaurant_ref'] is DocumentReference
-          ? (map['restaurant_ref'] as DocumentReference).path
-          : map['restaurant_ref']?.toString() ?? '',
-      restaurantName: (map['restaurant_name'] as String?) ?? '',
-      restaurantImageUrl: (map['restaurant_image_url'] as String?) ?? '',
+      enseigneRef: _readDocumentPath(
+        map['enseigne_ref'] ?? map['restaurant_ref'],
+      ),
+      enseigneName: (map['enseigne_name'] as String?) ??
+          (map['restaurant_name'] as String?) ??
+          '',
+      enseigneImage: (map['enseigne_image'] as String?) ??
+          (map['restaurant_image'] as String?) ??
+          (map['restaurant_image_url'] as String?) ??
+          '',
       drawDate: _readTimestamp(map['draw_date'] ?? map['drawDate']),
     );
   }
@@ -143,9 +154,9 @@ class MonthlyChallengeConfigModel {
   final String prizeDescription;
   final int prizeValue;
   final String imageUrl;
-  final String restaurantRef;
-  final String restaurantName;
-  final String restaurantImageUrl;
+  final String enseigneRef;
+  final String enseigneName;
+  final String enseigneImage;
   final Timestamp? drawDate;
 
   Map<String, dynamic> toCallableMap() {
@@ -160,9 +171,9 @@ class MonthlyChallengeConfigModel {
       'prize_description': prizeDescription,
       'prize_value': prizeValue,
       'image_url': imageUrl,
-      'restaurant_ref': restaurantRef,
-      'restaurant_name': restaurantName,
-      'restaurant_image_url': restaurantImageUrl,
+      'enseigne_ref': enseigneRef,
+      'enseigne_name': enseigneName,
+      'enseigne_image': enseigneImage,
       'draw_date': drawDate?.toDate().toIso8601String(),
     };
   }
@@ -178,9 +189,9 @@ class MonthlyChallengeConfigModel {
     String? prizeDescription,
     int? prizeValue,
     String? imageUrl,
-    String? restaurantRef,
-    String? restaurantName,
-    String? restaurantImageUrl,
+    String? enseigneRef,
+    String? enseigneName,
+    String? enseigneImage,
     Timestamp? drawDate,
   }) {
     return MonthlyChallengeConfigModel(
@@ -194,9 +205,9 @@ class MonthlyChallengeConfigModel {
       prizeDescription: prizeDescription ?? this.prizeDescription,
       prizeValue: prizeValue ?? this.prizeValue,
       imageUrl: imageUrl ?? this.imageUrl,
-      restaurantRef: restaurantRef ?? this.restaurantRef,
-      restaurantName: restaurantName ?? this.restaurantName,
-      restaurantImageUrl: restaurantImageUrl ?? this.restaurantImageUrl,
+      enseigneRef: enseigneRef ?? this.enseigneRef,
+      enseigneName: enseigneName ?? this.enseigneName,
+      enseigneImage: enseigneImage ?? this.enseigneImage,
       drawDate: drawDate ?? this.drawDate,
     );
   }
@@ -212,9 +223,9 @@ class MonthlyChallengeConfigModel {
         prizeDescription: '',
         prizeValue: 0,
     imageUrl: '',
-    restaurantRef: '',
-    restaurantName: '',
-    restaurantImageUrl: '',
+    enseigneRef: '',
+    enseigneName: '',
+    enseigneImage: '',
         drawDate: null,
       );
 }
@@ -369,4 +380,11 @@ Timestamp? _readTimestamp(dynamic value) {
     }
   }
   return null;
+}
+
+String _readDocumentPath(dynamic value) {
+  if (value is DocumentReference) {
+    return value.path;
+  }
+  return value?.toString() ?? '';
 }

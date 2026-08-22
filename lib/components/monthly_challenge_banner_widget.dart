@@ -20,10 +20,10 @@ class MonthlyChallengeBannerWidget extends StatelessWidget {
     final accent = state.qualified
         ? const Color(0xFF1D8348)
         : const Color(0xFFC26A1B);
-    final isRestaurant = state.type == 'restaurant';
-    final defaultTitle = isRestaurant ? 'Resto du mois' : 'Défi du mois';
-    final defaultPrize = isRestaurant && state.restaurantName.isNotEmpty
-        ? 'Un repas pour 2 chez ${state.restaurantName}'
+    final isMerchant = state.type == 'merchant' || state.type == 'restaurant';
+    final defaultTitle = isMerchant ? 'Commerçant du mois' : 'Défi du mois';
+    final defaultPrize = isMerchant && state.merchantName.isNotEmpty
+        ? 'Lot chez ${state.merchantName}'
         : 'Lot à gagner';
 
     return Container(
