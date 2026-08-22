@@ -35,6 +35,7 @@
     "compile": "tsc --project tsconfig.json",
     "test:instant-winners": "node --test test/instant_winners_core.test.js",
     "test:referral-games": "node --test test/referral_games_core.test.js",
+    "test:referral-games:integration": "firebase emulators:exec --only firestore \"node --test test/referral_game_integration.test.js\"",
     "simulate:instant-winners": "node scripts/simulate_instant_winners.js",
     "simulate:due-instant-selection": "node scripts/simulate_due_instant_selection.js",
     "audit:instant-winners": "node scripts/audit_instant_winners.js --project=proxi-play-odzp2e",

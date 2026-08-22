@@ -32,7 +32,7 @@ import {
   ReferralRecord,
   SharePromoConfig,
 } from './types';
-import { addReferralGameTicket, findActiveReferralGame } from './referral_games';
+import { addReferralGameTicket, findActiveReferralGame, reconcileReferralGameTickets } from './referral_games';
 
 export { remindUsersWithRemainingDailyPlays } from './daily_plays_reminder';
 
@@ -420,11 +420,7 @@ export const registerReferralAcceptance = functions
     // jeu actif, pas une bascule definitive -- voir referral_games.ts).
     const activeReferralGame = await findActiveReferralGame();
     if (activeReferralGame) {
-      await addReferralGameTicket(
-        activeReferralGame.id,
-        acceptanceResult.inviterUid,
-        referralRef.id,
-      );
+      await addReferralGameTicket(activeReferralGame.id, referralRef.id);
     } else if (acceptanceResult.rewardStatus === 'available') {
       await grantReferralRewardInternal(
         referralRef.id,
@@ -436,6 +432,18 @@ export const registerReferralAcceptance = functions
       success: true,
       referralId: referralRef.id,
     };
+  });
+
+export const adminReconcileReferralGameTickets = functions
+  .region(region)
+  .runWith({ timeoutSeconds: 540, memory: '512MB' })
+  .https.onCall(async (data, context) => {
+    await requireAdmin(context);
+    const gameId = normalizeString(data?.gameId);
+    if (!gameId || gameId.includes('/')) {
+      throw new functions.https.HttpsError('invalid-argument', 'gameId is required.');
+    }
+    return reconcileReferralGameTickets(gameId);
   });
 
 export const grantReferralReward = functions

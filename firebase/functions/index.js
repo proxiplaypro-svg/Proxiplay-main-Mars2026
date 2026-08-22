@@ -6230,3 +6230,43 @@ try {
   console.log("drawReferralGameWinner not loaded yet:", error.message);
 }
 
+const {drawReferralGame, repairReferralGameDraw} = require("./referral_game_engine");
+
+exports.adminDrawReferralGameWinner = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 120, memory: "512MB"})
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "Authentification requise.");
+    }
+    await assertIsAdmin(context.auth.uid);
+    const gameId = getTrimmedString(data && data.gameId);
+    if (!gameId || gameId.includes("/")) {
+      throw new functions.https.HttpsError("invalid-argument", "gameId invalide.");
+    }
+    try {
+      return await drawReferralGame(gameId, {allowEarly: data && data.allowEarly === true});
+    } catch (error) {
+      throw new functions.https.HttpsError("failed-precondition", error.message || "Tirage impossible.");
+    }
+  });
+
+exports.adminRepairReferralGameDraw = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 120, memory: "512MB"})
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "Authentification requise.");
+    }
+    await assertIsAdmin(context.auth.uid);
+    const gameId = getTrimmedString(data && data.gameId);
+    if (!gameId || gameId.includes("/")) {
+      throw new functions.https.HttpsError("invalid-argument", "gameId invalide.");
+    }
+    try {
+      return await repairReferralGameDraw(gameId);
+    } catch (error) {
+      throw new functions.https.HttpsError("failed-precondition", error.message || "Reparation impossible.");
+    }
+  });
+

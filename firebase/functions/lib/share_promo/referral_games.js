@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.findActiveReferralGame = findActiveReferralGame;
 exports.addReferralGameTicket = addReferralGameTicket;
+exports.reconcileReferralGameTickets = reconcileReferralGameTickets;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("./firestore");
 const referralGamesCollection = () => firestore_1.db.collection('referral_games');
@@ -54,19 +55,65 @@ async function findActiveReferralGame(now = admin.firestore.Timestamp.now()) {
     if (active.length === 0) {
         return null;
     }
-    if (active.length > 1) {
-        console.warn(`[referral_games] ${active.length} jeux de parrainage actifs simultanement, utilisation du premier (${active[0].id}).`);
-    }
+    if (active.length > 1)
+        throw new Error('Multiple referral games are active simultaneously.');
     return { id: active[0].id, data: active[0].data() };
 }
-async function addReferralGameTicket(gameId, inviterUid, referralId) {
+async function addReferralGameTicket(gameId, referralId, now = admin.firestore.Timestamp.now()) {
     const gameRef = referralGamesCollection().doc(gameId);
-    await firestore_1.db.runTransaction(async (transaction) => {
-        transaction.set(gameRef.collection('entries').doc(), {
-            inviter_uid: inviterUid,
+    const referralRef = firestore_1.refs.referral(referralId);
+    const entryRef = gameRef.collection('entries').doc(referralId);
+    return firestore_1.db.runTransaction(async (transaction) => {
+        const [gameSnap, referralSnap, entrySnap] = await Promise.all([
+            transaction.get(gameRef),
+            transaction.get(referralRef),
+            transaction.get(entryRef),
+        ]);
+        if (entrySnap.exists)
+            return 'already_exists';
+        if (!gameSnap.exists || !referralSnap.exists)
+            return 'ineligible';
+        const game = gameSnap.data();
+        const referral = referralSnap.data();
+        const startMs = game.start_date?.toMillis?.();
+        const endMs = game.end_date?.toMillis?.();
+        if (game.status !== 'active' || startMs == null || endMs == null || startMs > now.toMillis() || endMs < now.toMillis())
+            return 'ineligible';
+        if (referral.status !== 'accepted' || !referral.inviterUid?.trim())
+            return 'ineligible';
+        const inviterRef = firestore_1.refs.user(referral.inviterUid);
+        const inviterSnap = await transaction.get(inviterRef);
+        const inviter = inviterSnap.data();
+        const accountStatus = String(inviter?.account_status ?? '').trim().toLowerCase();
+        const playerStatus = String(inviter?.player_status_cached ?? '').trim().toLowerCase();
+        if (!inviterSnap.exists || inviter?.auto_deleted === true || inviter?.deleted === true || accountStatus === 'rejected' || accountStatus === 'suspended' || playerStatus === 'suspended' || playerStatus === 'suspendu')
+            return 'ineligible';
+        transaction.set(entryRef, {
+            inviter_uid: referral.inviterUid,
             referral_id: referralId,
+            inviter_ref: inviterRef,
             created_at: admin.firestore.FieldValue.serverTimestamp(),
         });
         transaction.set(gameRef, { ticket_count: admin.firestore.FieldValue.increment(1) }, { merge: true });
+        return 'created';
     });
+}
+async function reconcileReferralGameTickets(gameId) {
+    const gameSnap = await referralGamesCollection().doc(gameId).get();
+    if (!gameSnap.exists)
+        throw new Error('Referral game not found.');
+    const game = gameSnap.data();
+    const startMs = game.start_date?.toMillis?.();
+    const endMs = game.end_date?.toMillis?.();
+    if (startMs == null || endMs == null)
+        throw new Error('Referral game has invalid dates.');
+    const acceptedSnap = await firestore_1.refs.referrals().where('status', '==', 'accepted').get();
+    const results = { created: 0, already_exists: 0, ineligible: 0 };
+    for (const referralDoc of acceptedSnap.docs) {
+        const referral = referralDoc.data();
+        if (!referral.acceptedAt || referral.acceptedAt.toMillis() < startMs || referral.acceptedAt.toMillis() > endMs)
+            continue;
+        results[await addReferralGameTicket(gameId, referralDoc.id, referral.acceptedAt)] += 1;
+    }
+    return results;
 }

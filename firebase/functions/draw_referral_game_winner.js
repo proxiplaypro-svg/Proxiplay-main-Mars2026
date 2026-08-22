@@ -6,6 +6,7 @@ const {
   queuePushNotificationRequest,
 } = require("./push_notification_request.js");
 const { pickWinningTicket } = require("./lib/referral_games_core");
+const { drawReferralGame, repairReferralGameDraw } = require("./referral_game_engine");
 
 const db = admin.firestore();
 
@@ -284,7 +285,7 @@ exports.drawReferralGameWinner = functions.pubsub
 
     for (const doc of eligible) {
       try {
-        await drawWinnerForReferralGame(doc.ref, doc.id, doc.data() || {});
+        await drawReferralGame(doc.id);
       } catch (error) {
         functions.logger.error(
           `drawReferralGameWinner: failed for gameId=${doc.id}`,
@@ -297,3 +298,5 @@ exports.drawReferralGameWinner = functions.pubsub
   });
 
 exports.drawWinnerForReferralGame = drawWinnerForReferralGame;
+exports.drawReferralGame = drawReferralGame;
+exports.repairReferralGameDraw = repairReferralGameDraw;

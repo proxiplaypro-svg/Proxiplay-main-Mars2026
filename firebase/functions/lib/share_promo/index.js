@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.expireOldReferrals = exports.grantReferralReward = exports.registerReferralAcceptance = exports.createReferral = exports.getSharePromoState = exports.remindUsersWithRemainingDailyPlays = void 0;
+exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.expireOldReferrals = exports.grantReferralReward = exports.adminReconcileReferralGameTickets = exports.registerReferralAcceptance = exports.createReferral = exports.getSharePromoState = exports.remindUsersWithRemainingDailyPlays = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const firestore_1 = require("./firestore");
@@ -334,7 +334,7 @@ exports.registerReferralAcceptance = functions
     // jeu actif, pas une bascule definitive -- voir referral_games.ts).
     const activeReferralGame = await (0, referral_games_1.findActiveReferralGame)();
     if (activeReferralGame) {
-        await (0, referral_games_1.addReferralGameTicket)(activeReferralGame.id, acceptanceResult.inviterUid, referralRef.id);
+        await (0, referral_games_1.addReferralGameTicket)(activeReferralGame.id, referralRef.id);
     }
     else if (acceptanceResult.rewardStatus === 'available') {
         await grantReferralRewardInternal(referralRef.id, 'system/registerReferralAcceptance');
@@ -343,6 +343,17 @@ exports.registerReferralAcceptance = functions
         success: true,
         referralId: referralRef.id,
     };
+});
+exports.adminReconcileReferralGameTickets = functions
+    .region(firestore_1.region)
+    .runWith({ timeoutSeconds: 540, memory: '512MB' })
+    .https.onCall(async (data, context) => {
+    await requireAdmin(context);
+    const gameId = (0, firestore_1.normalizeString)(data?.gameId);
+    if (!gameId || gameId.includes('/')) {
+        throw new functions.https.HttpsError('invalid-argument', 'gameId is required.');
+    }
+    return (0, referral_games_1.reconcileReferralGameTickets)(gameId);
 });
 exports.grantReferralReward = functions
     .region(firestore_1.region)
