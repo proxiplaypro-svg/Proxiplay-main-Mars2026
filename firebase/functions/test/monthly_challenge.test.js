@@ -15,6 +15,8 @@ const {
   queueMonthlyChallengeNotifications,
   trackMonthlyChallengeParticipation,
   trackMonthlyChallengesParticipation,
+  normalizeMonthlyChallengeConfig,
+  validateMonthlyChallengeConfig,
 } = require("../monthly_challenge.js");
 
 if (!admin.apps.length) {
@@ -70,23 +72,39 @@ async function seedChallenge({
   targetDays = 15,
   drawDate = "2026-10-01T09:00:00.000Z",
   enabled = true,
-  restaurantName = "La Cocotte",
+  merchantName = "La Cocotte",
+  startDate = null,
+  endDate = null,
 } = {}) {
-  const challengeId = type === "restaurant" ? `restaurant_${month}` : month;
+  const isMerchant = type === "merchant";
+  const isLegacyRestaurant = type === "restaurant";
+  const challengeId = isMerchant ?
+    `merchant_${month}` :
+    (isLegacyRestaurant ? `restaurant_${month}` : month);
   await firestore.collection("monthly_challenges").doc(challengeId).set({
     challenge_id: challengeId,
     type,
     enabled,
     month,
-    title: type === "restaurant" ? "Resto du mois" : "Defi Proxiplay",
+    title: isMerchant || isLegacyRestaurant ? "Commercant du mois" : "Defi Proxiplay",
     description: "Joue plusieurs jours differents pour participer au tirage.",
     target_days: targetDays,
-    prize_title: type === "restaurant" ? `Un repas pour 2 chez ${restaurantName}` : "Une console",
+    prize_title: isMerchant || isLegacyRestaurant ? `Lot chez ${merchantName}` : "Une console",
     prize_description: "Lot mensuel",
     prize_value: 120,
-    restaurant_ref: type === "restaurant" ? firestore.doc("enseignes/resto-1") : null,
-    restaurant_name: type === "restaurant" ? restaurantName : "",
+    ...(isMerchant ? {
+      enseigne_ref: firestore.doc("enseignes/merchant-1"),
+      enseigne_name: merchantName,
+      enseigne_image: "https://example.test/merchant.png",
+    } : {}),
+    ...(isLegacyRestaurant ? {
+      restaurant_ref: firestore.doc("enseignes/resto-1"),
+      restaurant_name: merchantName,
+      restaurant_image: "https://example.test/restaurant.png",
+    } : {}),
     draw_date: timestampFromIso(drawDate),
+    ...(startDate ? {start_date: timestampFromIso(startDate)} : {}),
+    ...(endDate ? {end_date: timestampFromIso(endDate)} : {}),
   });
 }
 
@@ -152,6 +170,124 @@ function buildConfigForDraw({
 
 test.beforeEach(async () => {
   await clearFirestore();
+});
+
+test("config legacy month-only conserve month et draw_date", () => {
+  const config = normalizeMonthlyChallengeConfig({
+    month: "2026-09",
+    target_days: 1,
+    draw_date: timestampFromIso("2026-10-01T00:00:00.000Z"),
+  });
+  assert.equal(config.month, "2026-09");
+  assert.equal(config.start_date, null);
+  assert.equal(config.end_date, null);
+  assert.equal(config.draw_date.toMillis(), timestampFromIso("2026-10-01T00:00:00.000Z").toMillis());
+});
+
+test("periode explicite derive month et draw_date Paris", () => {
+  const config = normalizeMonthlyChallengeConfig({
+    type: "attendance",
+    start_date: timestampFromIso("2026-09-01T00:00:00.000+02:00"),
+    end_date: timestampFromIso("2026-09-30T00:00:00.000+02:00"),
+    draw_date: timestampFromIso("2020-01-01T00:00:00.000Z"),
+    target_days: 30,
+  });
+  assert.equal(config.month, "2026-09");
+  assert.equal(config.draw_date.toDate().toISOString(), "2026-09-30T22:00:00.000Z");
+});
+
+test("periode explicite compte uniquement les bornes inclusives Europe Paris", async () => {
+  await seedChallenge({
+    month: "2026-09", targetDays: 2,
+    startDate: "2026-09-05T00:00:00.000+02:00",
+    endDate: "2026-09-06T00:00:00.000+02:00",
+  });
+  await seedUser("period-user");
+  assert.equal((await trackAll("period-user", "2026-09-04T21:30:00.000Z")).tracked, false);
+  assert.equal((await trackAll("period-user", "2026-09-05T21:30:00.000Z")).tracked, true);
+  assert.equal((await trackAll("period-user", "2026-09-06T21:30:00.000Z")).tracked, true);
+  assert.equal((await trackAll("period-user", "2026-09-07T00:30:00.000Z")).tracked, false);
+  assert.equal((await getState("period-user", "2026-09")).active_days_count, 2);
+});
+
+test("E2E periode moderne : attendance et merchant comptent tout jeu, tirent et creent les gains", async () => {
+  const startDate = "2026-08-05T00:00:00.000+02:00";
+  const endDate = "2026-08-06T00:00:00.000+02:00";
+  await seedChallenge({type: "attendance", month: "2026-08", targetDays: 2, startDate, endDate});
+  await seedChallenge({type: "merchant", month: "2026-08", targetDays: 2, startDate, endDate, merchantName: "La Cocotte"});
+  await seedUser("winner-attendance");
+  await seedUser("winner-merchant");
+  await seedUser("not-qualified");
+
+  assert.equal((await trackAll("winner-attendance", "2026-08-04T21:30:00.000Z")).tracked, false);
+  await trackAll("winner-attendance", "2026-08-05T12:00:00.000Z");
+  await trackAll("winner-attendance", "2026-08-05T18:00:00.000Z");
+  await trackAll("winner-attendance", "2026-08-06T21:30:00.000Z");
+  await trackAll("winner-merchant", "2026-08-05T12:00:00.000Z");
+  await trackAll("winner-merchant", "2026-08-06T21:30:00.000Z");
+  assert.equal((await trackAll("winner-attendance", "2026-08-07T00:30:00.000Z")).tracked, false);
+
+  const attendanceState = await getState("winner-attendance", "2026-08");
+  const merchantState = await getState("winner-attendance", "merchant_2026-08");
+  assert.equal(attendanceState.active_days_count, 2);
+  assert.equal(merchantState.active_days_count, 2);
+  assert.equal(attendanceState.qualified, true);
+  assert.equal(merchantState.qualified, true);
+
+  const attendance = {
+    ...buildConfigForDraw({month: "2026-08", targetDays: 2, drawDate: "2026-08-06T22:00:00.000Z"}),
+    start_date: timestampFromIso(startDate),
+    end_date: timestampFromIso(endDate),
+  };
+  const merchant = {
+    ...attendance,
+    challenge_id: "merchant_2026-08",
+    type: "merchant",
+    enseigne_ref: firestore.doc("enseignes/merchant-1"),
+    enseigne_name: "La Cocotte",
+    prize_title: "Lot La Cocotte",
+  };
+  const now = timestampFromIso("2026-09-06T22:00:00.000Z");
+  const attendanceResult = await drawWinnerForMonthlyChallenge(attendance, "test");
+  const merchantResult = await drawWinnerForMonthlyChallenge(merchant, "test");
+  assert.equal(attendanceResult.status, "completed");
+  assert.equal(merchantResult.status, "completed");
+  assert.notEqual(attendanceResult.prizeId, merchantResult.prizeId);
+  assert.equal((await firestore.collection("prizes").doc(merchantResult.prizeId).get()).data()?.name, "Lot La Cocotte");
+  assert.equal((await firestore.collection("users").doc(merchantResult.winnerUid).collection("my_lots").doc(merchantResult.prizeId).get()).exists, true);
+  assert.equal((await drawWinnerForMonthlyChallenge(attendance, "retry")).status, "already_completed");
+  assert.equal((await drawWinnerForMonthlyChallenge(merchant, "retry")).status, "already_completed");
+});
+
+test("config restaurant legacy est lue comme merchant avec les champs enseigne", () => {
+  const config = normalizeMonthlyChallengeConfig({
+    challenge_id: "restaurant_2026-09",
+    type: "restaurant",
+    month: "2026-09",
+    target_days: 1,
+    restaurant_ref: "enseignes/resto-1",
+    restaurant_name: "La Cocotte",
+    restaurant_image: "https://example.test/restaurant.png",
+    draw_date: timestampFromIso("2026-10-01T00:00:00.000Z"),
+  });
+  assert.equal(config.type, "merchant");
+  assert.equal(config.challenge_id, "restaurant_2026-09");
+  assert.equal(config.enseigne_ref.path, "enseignes/resto-1");
+  assert.equal(config.enseigne_name, "La Cocotte");
+  assert.equal(config.enseigne_image, "https://example.test/restaurant.png");
+});
+
+test("validation periode explicite refuse les bornes et objectifs invalides", () => {
+  const base = {
+    type: "attendance", enabled: true, title: "Defi", prize_title: "Lot", target_days: 1,
+    start_date: timestampFromIso("2026-09-05T00:00:00.000+02:00"),
+    end_date: timestampFromIso("2026-09-06T00:00:00.000+02:00"),
+  };
+  assert.doesNotThrow(() => validateMonthlyChallengeConfig(normalizeMonthlyChallengeConfig(base), {requireExplicitPeriod: true, requireCompleteWhenEnabled: true}));
+  assert.throws(() => validateMonthlyChallengeConfig(normalizeMonthlyChallengeConfig({...base, start_date: timestampFromIso("2026-09-07T00:00:00.000+02:00")}), {requireExplicitPeriod: true}), /periode/);
+  assert.throws(() => validateMonthlyChallengeConfig(normalizeMonthlyChallengeConfig({...base, start_date: timestampFromIso("2026-09-30T00:00:00.000+02:00"), end_date: timestampFromIso("2026-10-01T00:00:00.000+02:00")}), {requireExplicitPeriod: true}), /periode/);
+  assert.throws(() => validateMonthlyChallengeConfig(normalizeMonthlyChallengeConfig({...base, target_days: 3}), {requireExplicitPeriod: true}), /duree/);
+  assert.throws(() => validateMonthlyChallengeConfig(normalizeMonthlyChallengeConfig({...base, target_days: 0}), {requireExplicitPeriod: true}), /target_days/);
 });
 
 test("premiere participation de la journee -> +1", async () => {

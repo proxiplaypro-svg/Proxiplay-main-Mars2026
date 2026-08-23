@@ -15,7 +15,8 @@ const kMonthlyChallengesCollection = "monthly_challenges";
 const kPushNotificationsCollection = "ff_push_notifications";
 const kDefaultTargetDays = 15;
 const kAttendanceChallengeType = "attendance";
-const kRestaurantChallengeType = "restaurant";
+const kMerchantChallengeType = "merchant";
+const kLegacyRestaurantChallengeType = "restaurant";
 
 function getTrimmedString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -148,22 +149,54 @@ function getParisDayKeyFromTimestamp(value) {
   return timestamp ? getParisDayKey(timestamp.toDate()) : "";
 }
 
+function getParisMidnightTimestamp(dayKey) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return null;
+  const [year, month, day] = dayKey.split("-").map(Number);
+  const utcGuess = Date.UTC(year, month - 1, day);
+  const offsetPart = new Intl.DateTimeFormat("en-US", {
+    timeZone: kTimeZone,
+    timeZoneName: "longOffset",
+  }).formatToParts(new Date(utcGuess)).find((part) => part.type === "timeZoneName")?.value || "GMT";
+  const offsetMatch = /GMT([+-])(\d{2}):(\d{2})/.exec(offsetPart);
+  const offsetMs = offsetMatch ?
+    (Number(offsetMatch[2]) * 60 + Number(offsetMatch[3])) * 60000 * (offsetMatch[1] === "+" ? 1 : -1) : 0;
+  return admin.firestore.Timestamp.fromMillis(utcGuess - offsetMs);
+}
+
+function getNextParisDayKey(dayKey) {
+  const [year, month, day] = dayKey.split("-").map(Number);
+  return getParisDayKey(new Date(Date.UTC(year, month - 1, day + 1, 12)));
+}
+
+function getInclusivePeriodDays(startDayKey, endDayKey) {
+  const [startYear, startMonth, startDay] = startDayKey.split("-").map(Number);
+  const [endYear, endMonth, endDay] = endDayKey.split("-").map(Number);
+  return Math.floor((Date.UTC(endYear, endMonth - 1, endDay) - Date.UTC(startYear, startMonth - 1, startDay)) / 86400000) + 1;
+}
+
 function normalizeMonthlyChallengeConfig(raw) {
-  const month = getTrimmedString(raw?.month);
-  const type = raw?.type === kRestaurantChallengeType ?
-    kRestaurantChallengeType :
+  const startDate = toTimestamp(raw?.start_date ?? raw?.startDate);
+  const endDate = toTimestamp(raw?.end_date ?? raw?.endDate);
+  const startDayKey = startDate ? getParisDayKey(startDate.toDate()) : "";
+  const endDayKey = endDate ? getParisDayKey(endDate.toDate()) : "";
+  const hasExplicitPeriod = Boolean(startDate && endDate);
+  const month = hasExplicitPeriod ? startDayKey.slice(0, 7) : getTrimmedString(raw?.month);
+  const type = raw?.type === kMerchantChallengeType ||
+    raw?.type === kLegacyRestaurantChallengeType ?
+    kMerchantChallengeType :
     kAttendanceChallengeType;
   const challengeId = getTrimmedString(raw?.challenge_id) ||
     getChallengeId(type, month);
-  const targetDays = Math.max(
-    1,
-    normalizeNumber(raw?.target_days ?? raw?.targetDays, kDefaultTargetDays),
+  const targetDays = normalizeNumber(
+    raw?.target_days ?? raw?.targetDays,
+    kDefaultTargetDays,
   );
-  const rawRestaurantRef = raw?.restaurant_ref ?? raw?.restaurantRef;
-  const restaurantRef = typeof rawRestaurantRef === "string" &&
-    rawRestaurantRef.trim().startsWith("enseignes/") ?
-    db.doc(rawRestaurantRef.trim()) :
-    rawRestaurantRef || null;
+  const rawEnseigneRef = raw?.enseigne_ref ?? raw?.enseigneRef ??
+    raw?.restaurant_ref ?? raw?.restaurantRef;
+  const enseigneRef = typeof rawEnseigneRef === "string" &&
+    rawEnseigneRef.trim().startsWith("enseignes/") ?
+    db.doc(rawEnseigneRef.trim()) :
+    rawEnseigneRef || null;
   return {
     challenge_id: challengeId,
     type,
@@ -178,19 +211,26 @@ function normalizeMonthlyChallengeConfig(raw) {
     ),
     prize_value: normalizeNumber(raw?.prize_value ?? raw?.prizeValue, 0),
     image_url: getTrimmedString(raw?.image_url ?? raw?.imageUrl),
-    restaurant_ref: restaurantRef,
-    restaurant_name: getTrimmedString(raw?.restaurant_name ?? raw?.restaurantName),
-    restaurant_image_url: getTrimmedString(
+    enseigne_ref: enseigneRef,
+    enseigne_name: getTrimmedString(
+      raw?.enseigne_name ?? raw?.enseigneName ??
+      raw?.restaurant_name ?? raw?.restaurantName,
+    ),
+    enseigne_image: getTrimmedString(
+      raw?.enseigne_image ?? raw?.enseigneImage ??
+      raw?.restaurant_image ?? raw?.restaurantImage ??
       raw?.restaurant_image_url ?? raw?.restaurantImageUrl,
     ),
-    draw_date: toTimestamp(raw?.draw_date ?? raw?.drawDate),
+    start_date: startDate,
+    end_date: endDate,
+    draw_date: hasExplicitPeriod ? getParisMidnightTimestamp(getNextParisDayKey(endDayKey)) : toTimestamp(raw?.draw_date ?? raw?.drawDate),
     updated_at: raw?.updated_at || null,
   };
 }
 
 function getChallengeId(type, monthKey) {
   const month = getTrimmedString(monthKey);
-  return type === kRestaurantChallengeType ? `restaurant_${month}` : month;
+  return type === kMerchantChallengeType ? `merchant_${month}` : month;
 }
 
 function getMonthlyChallengeConfigRef() {
@@ -206,6 +246,14 @@ async function getChallengeConfigForType(type, monthKey) {
   const configSnap = await getMonthlyChallengeConfigDocRef(challengeId).get();
   if (configSnap.exists) {
     return normalizeMonthlyChallengeConfig(configSnap.data() || {});
+  }
+  if (type === kMerchantChallengeType) {
+    const legacyMerchantSnap = await getMonthlyChallengeConfigDocRef(
+      `restaurant_${monthKey}`,
+    ).get();
+    if (legacyMerchantSnap.exists) {
+      return normalizeMonthlyChallengeConfig(legacyMerchantSnap.data() || {});
+    }
   }
   if (type === kAttendanceChallengeType) {
     const legacySnap = await getMonthlyChallengeConfigRef().get();
@@ -578,7 +626,7 @@ function isFinalDrawStatus(status) {
 
 function validateMonthlyChallengeConfig(
   config,
-  {requireCompleteWhenEnabled = false} = {},
+  {requireCompleteWhenEnabled = false, requireExplicitPeriod = false} = {},
 ) {
   if (!config || typeof config !== "object") {
     throw new functions.https.HttpsError(
@@ -592,6 +640,28 @@ function validateMonthlyChallengeConfig(
       "invalid-argument",
       "Le mois doit etre un YYYY-MM valide.",
     );
+  }
+
+  const hasStartDate = Boolean(config.start_date);
+  const hasEndDate = Boolean(config.end_date);
+  if (requireExplicitPeriod && !hasStartDate) {
+    throw new functions.https.HttpsError("invalid-argument", "start_date et end_date sont obligatoires.");
+  }
+  if (hasStartDate !== hasEndDate) {
+    throw new functions.https.HttpsError("invalid-argument", "start_date et end_date sont obligatoires ensemble.");
+  }
+  if (hasStartDate) {
+    const startDayKey = getParisDayKey(config.start_date.toDate());
+    const endDayKey = getParisDayKey(config.end_date.toDate());
+    if (endDayKey < startDayKey || startDayKey.slice(0, 7) !== endDayKey.slice(0, 7)) {
+      throw new functions.https.HttpsError("invalid-argument", "La periode doit etre ordonnee et rester dans le meme mois.");
+    }
+    if (config.month !== startDayKey.slice(0, 7)) {
+      throw new functions.https.HttpsError("invalid-argument", "month doit correspondre a start_date.");
+    }
+    if (config.target_days > getInclusivePeriodDays(startDayKey, endDayKey)) {
+      throw new functions.https.HttpsError("invalid-argument", "target_days ne peut pas depasser la duree de la periode.");
+    }
   }
 
   const daysInMonth = getDaysInMonth(config.month);
@@ -609,8 +679,14 @@ function validateMonthlyChallengeConfig(
     );
   }
 
+  const explicitPeriodDrawDate = hasStartDate && hasEndDate ?
+    getParisMidnightTimestamp(
+      getNextParisDayKey(getParisDayKey(config.end_date.toDate())),
+    ) :
+    null;
   const periodEnd = getChallengePeriodEnd(config.month);
-  if (!periodEnd || config.draw_date.toDate().getTime() <= periodEnd.getTime()) {
+  const earliestDrawDate = explicitPeriodDrawDate?.toDate() || periodEnd;
+  if (!earliestDrawDate || config.draw_date.toDate().getTime() < earliestDrawDate.getTime()) {
     throw new functions.https.HttpsError(
       "invalid-argument",
       "La date de tirage doit etre posterieure a la fin du mois du defi.",
@@ -685,10 +761,8 @@ function buildChallengeStateResponse(config, userState) {
     prizeDescription: config.prize_description,
     prizeValue: config.prize_value,
     imageUrl: config.image_url,
-    restaurantName: config.restaurant_name,
-    restaurantImageUrl: config.restaurant_image_url,
-    restaurantName: config.restaurant_name,
-    restaurantImageUrl: config.restaurant_image_url,
+    merchantName: config.enseigne_name,
+    merchantImageUrl: config.enseigne_image,
     drawDate: config.draw_date,
     activeDaysCount,
     activeDates: sanitizeStringArray(userState?.active_dates),
@@ -906,6 +980,14 @@ async function trackMonthlyChallengeParticipation({
     };
   }
 
+  if (config.start_date && config.end_date) {
+    const startDayKey = getParisDayKey(config.start_date.toDate());
+    const endDayKey = getParisDayKey(config.end_date.toDate());
+    if (dayKey < startDayKey || dayKey > endDayKey) {
+      return {tracked: false, challengeId, config, notifications: []};
+    }
+  }
+
   const state = stateSnap.exists ? stateSnap.data() || {} : {};
   const activeDates = sanitizeStringArray(state.active_dates);
   const alreadyActiveToday = activeDates.includes(dayKey);
@@ -989,8 +1071,8 @@ async function trackMonthlyChallengeParticipation({
     notifications.push({
       key: "qualified",
       title: "Tu es qualifie !",
-      body: config.type === kRestaurantChallengeType ?
-        `Tu participes au tirage du Resto du mois${config.restaurant_name ? ` chez ${config.restaurant_name}` : ""}.` :
+      body: config.type === kMerchantChallengeType ?
+        `Tu participes au tirage du Commercant du mois${config.enseigne_name ? ` chez ${config.enseigne_name}` : ""}.` :
         "Tu participes maintenant au tirage Proxiplay du Defi du mois.",
     });
   } else {
@@ -1009,10 +1091,10 @@ async function trackMonthlyChallengeParticipation({
       notifications.push({
         key: reminderKey,
         title: remainingDays === 1 ? "Plus qu'un jour !" : "Plus que 3 jours",
-        body: config.type === kRestaurantChallengeType ?
+        body: config.type === kMerchantChallengeType ?
           (remainingDays === 1 ?
-            `Reviens jouer encore un jour pour tenter de gagner ton repas pour 2${config.restaurant_name ? ` chez ${config.restaurant_name}` : ""}.` :
-            "Encore 3 jours actifs pour participer au tirage du Resto du mois.") :
+            `Reviens jouer encore un jour pour participer au tirage du Commercant du mois${config.enseigne_name ? ` chez ${config.enseigne_name}` : ""}.` :
+            "Encore 3 jours actifs pour participer au tirage du Commercant du mois.") :
           (remainingDays === 1 ?
             "Plus qu'un jour pour participer au tirage du Defi Proxiplay." :
             "Encore 3 jours actifs ce mois-ci pour participer au tirage Proxiplay."),
@@ -1274,8 +1356,8 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
         `monthly_challenge_draw_${challengeId}_${result.winnerUid}`,
         {
           title: "Felicitations !",
-          body: config.type === kRestaurantChallengeType ?
-            `Tu as remporte le Resto du mois${config.restaurant_name ? ` chez ${config.restaurant_name}` : ""} !` :
+          body: config.type === kMerchantChallengeType ?
+            `Tu as remporte le Commercant du mois${config.enseigne_name ? ` chez ${config.enseigne_name}` : ""} !` :
             "Tu as remporte le Defi Proxiplay du mois.",
           userRefOrPath: `users/${result.winnerUid}`,
           createdBy: `system/monthly_challenge_draw/${challengeId}`,
@@ -1358,8 +1440,9 @@ const adminGetMonthlyChallengeConfigCallable = functions
   .runWith({timeoutSeconds: 30, memory: "256MB"})
   .https.onCall(async (data, context) => {
     await assertIsAdmin(context);
-    const type = data?.type === kRestaurantChallengeType ?
-      kRestaurantChallengeType : kAttendanceChallengeType;
+    const type = data?.type === kMerchantChallengeType ||
+      data?.type === kLegacyRestaurantChallengeType ?
+      kMerchantChallengeType : kAttendanceChallengeType;
     const month = getTrimmedString(data?.month) || getParisMonthKey();
     return getChallengeConfigForType(type, month);
   });
@@ -1370,10 +1453,14 @@ const adminUpsertMonthlyChallengeCallable = functions
   .https.onCall(async (data, context) => {
     await assertIsAdmin(context);
     const payload = normalizeMonthlyChallengeConfig(data || {});
+    const isModernWrite = Boolean(getTrimmedString(data?.type) || getTrimmedString(data?.challenge_id));
+    if (isModernWrite && payload.type === kMerchantChallengeType && !payload.enseigne_ref) {
+      throw new functions.https.HttpsError("invalid-argument", "Une enseigne est obligatoire pour le Commercant du mois.");
+    }
     if (payload.enabled) {
-      validateMonthlyChallengeConfig(payload, {requireCompleteWhenEnabled: true});
-    } else if (payload.month || payload.draw_date) {
-      validateMonthlyChallengeConfig(payload);
+      validateMonthlyChallengeConfig(payload, {requireCompleteWhenEnabled: true, requireExplicitPeriod: isModernWrite});
+    } else if (payload.month || payload.draw_date || payload.start_date || payload.end_date) {
+      validateMonthlyChallengeConfig(payload, {requireExplicitPeriod: isModernWrite});
     }
 
     const configRef = getMonthlyChallengeConfigDocRef(payload.challenge_id);
@@ -1425,8 +1512,9 @@ const adminGetMonthlyChallengeStatsCallable = functions
   .runWith({timeoutSeconds: 120, memory: "512MB"})
   .https.onCall(async (data, context) => {
     await assertIsAdmin(context);
-    const type = data?.type === kRestaurantChallengeType ?
-      kRestaurantChallengeType : kAttendanceChallengeType;
+    const type = data?.type === kMerchantChallengeType ||
+      data?.type === kLegacyRestaurantChallengeType ?
+      kMerchantChallengeType : kAttendanceChallengeType;
     const config = await getChallengeConfigForType(
       type,
       getTrimmedString(data?.month) || getParisMonthKey(),
@@ -1461,8 +1549,9 @@ const adminRunMonthlyChallengeDrawCallable = functions
   .runWith({timeoutSeconds: 180, memory: "512MB"})
   .https.onCall(async (data, context) => {
     await assertIsAdmin(context);
-    const type = data?.type === kRestaurantChallengeType ?
-      kRestaurantChallengeType : kAttendanceChallengeType;
+    const type = data?.type === kMerchantChallengeType ||
+      data?.type === kLegacyRestaurantChallengeType ?
+      kMerchantChallengeType : kAttendanceChallengeType;
     const config = await getChallengeConfigForType(
       type,
       getTrimmedString(data?.month) || getParisMonthKey(),
@@ -1525,4 +1614,7 @@ module.exports = {
   computeMonthlyChallengeStats,
   getParisMonthKey,
   getParisDayKey,
+  getParisMidnightTimestamp,
+  getInclusivePeriodDays,
+  validateMonthlyChallengeConfig,
 };
