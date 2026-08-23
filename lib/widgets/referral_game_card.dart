@@ -16,6 +16,27 @@ class ReferralGameCard extends StatelessWidget {
   final double? width;
   final double? height;
 
+  String _prizeBadgeText(Map<String, dynamic> gameData) {
+    final rawValue = gameData['prize_value'] ?? gameData['prizeValue'];
+    final prizeValue = rawValue is num
+        ? rawValue.toDouble()
+        : double.tryParse(rawValue?.toString().replaceAll(',', '.') ?? '');
+
+    if (prizeValue != null && prizeValue > 0) {
+      final decimals = prizeValue == prizeValue.roundToDouble()
+          ? ''
+          : prizeValue.toStringAsFixed(2).split('.').last.replaceFirst(
+                RegExp(r'0+$'),
+                '',
+              );
+      final euros = prizeValue.truncate();
+      return decimals.isEmpty ? '$euros \u20AC' : '$euros,$decimals \u20AC';
+    }
+
+    final description = (gameData['prize_description'] as String?)?.trim();
+    return description?.isNotEmpty == true ? description! : 'Lot \u00E0 gagner';
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -32,7 +53,6 @@ class ReferralGameCard extends StatelessWidget {
         final gameDoc = snapshot.data!.docs.first;
         final gameData = gameDoc.data();
         final endDate = (gameData['end_date'] as Timestamp?)?.toDate();
-        final prizeValue = (gameData['prize_value'] as num?)?.toDouble() ?? 0;
 
         return GameCardWidget(
           title: (gameData['title'] as String?)?.trim().isNotEmpty == true
@@ -41,7 +61,7 @@ class ReferralGameCard extends StatelessWidget {
           imageUrl: (gameData['image_url'] as String?) ?? '',
           storeName: 'Programme de parrainage',
           city: '',
-          prizeText: prizeValue > 0 ? prizeValue.toStringAsFixed(2) : '',
+          prizeText: _prizeBadgeText(gameData),
           endDateText: endDate != null
               ? "Jusqu'au : ${dateTimeFormat('d/M/y', endDate, locale: FFLocalizations.of(context).languageCode)}"
               : "Jusqu'au : -",
