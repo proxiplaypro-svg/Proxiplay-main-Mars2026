@@ -93,9 +93,9 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
       _prizeDescriptionController.text = config.prizeDescription;
       _prizeValueController.text = config.prizeValue.toString();
       _imageUrlController.text = config.imageUrl;
-      _restaurantRefController.text = config.restaurantRef;
-      _restaurantNameController.text = config.restaurantName;
-      _restaurantImageUrlController.text = config.restaurantImageUrl;
+      _restaurantRefController.text = config.enseigneRef;
+      _restaurantNameController.text = config.enseigneName;
+      _restaurantImageUrlController.text = config.enseigneImage;
       _loading = false;
     });
   }
@@ -185,7 +185,7 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
 
   MonthlyChallengeConfigModel _buildConfig() {
     return MonthlyChallengeConfigModel.empty().copyWith(
-      type: widget.challengeType,
+      type: widget.challengeType == 'restaurant' ? 'merchant' : widget.challengeType,
       enabled: _enabled,
       month: _monthController.text.trim(),
       title: _titleController.text.trim(),
@@ -195,9 +195,9 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
       prizeDescription: _prizeDescriptionController.text.trim(),
       prizeValue: int.tryParse(_prizeValueController.text.trim()) ?? 0,
       imageUrl: _imageUrlController.text.trim(),
-      restaurantRef: _restaurantRefController.text.trim(),
-      restaurantName: _restaurantNameController.text.trim(),
-      restaurantImageUrl: _restaurantImageUrlController.text.trim(),
+      enseigneRef: _restaurantRefController.text.trim(),
+      enseigneName: _restaurantNameController.text.trim(),
+      enseigneImage: _restaurantImageUrlController.text.trim(),
       drawDate: _drawDate == null ? null : Timestamp.fromDate(_drawDate!),
     );
   }
@@ -262,7 +262,9 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
       backgroundColor: theme.secondaryBackground,
       appBar: AppBar(
         title: Text(
-          widget.challengeType == 'restaurant' ? 'Resto du mois' : 'Défi d’assiduité',
+          widget.challengeType == 'merchant' || widget.challengeType == 'restaurant'
+              ? 'Commerçant du mois'
+              : 'Défi d’assiduité',
           style: theme.titleLarge.override(
             font: GoogleFonts.interTight(),
             letterSpacing: 0.0,
@@ -297,11 +299,11 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
                           ? null
                           : 'Format attendu: YYYY-MM',
                     ),
-                    if (widget.challengeType == 'restaurant') ...[
+                    if (widget.challengeType == 'merchant' || widget.challengeType == 'restaurant') ...[
                       const SizedBox(height: 12.0),
                       TextFormField(
                         controller: _restaurantRefController,
-                        decoration: _inputDecoration('Référence restaurant (enseignes/{id})'),
+                        decoration: _inputDecoration('Référence enseigne (enseignes/{id})'),
                         validator: (value) => (value == null || !value.trim().startsWith('enseignes/'))
                             ? 'Sélectionne une référence enseigne valide'
                             : null,
@@ -309,7 +311,7 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
                       const SizedBox(height: 12.0),
                       TextFormField(
                         controller: _restaurantNameController,
-                        decoration: _inputDecoration('Nom du restaurant'),
+                        decoration: _inputDecoration('Nom de l’enseigne'),
                         validator: (value) => (value == null || value.trim().isEmpty)
                             ? 'Champ requis'
                             : null,
@@ -317,7 +319,7 @@ class _CampaignMonthlyChallengeAdminPageWidgetState
                       const SizedBox(height: 12.0),
                       TextFormField(
                         controller: _restaurantImageUrlController,
-                        decoration: _inputDecoration('Image restaurant URL'),
+                        decoration: _inputDecoration('Image enseigne URL'),
                       ),
                     ],
                     const SizedBox(height: 12.0),
