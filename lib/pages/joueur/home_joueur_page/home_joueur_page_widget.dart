@@ -739,7 +739,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         }
       }
       return states;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('monthly_challenge_state_load_failed: $error\n$stackTrace');
       _latestMonthlyChallengeStates = const [];
       return const [];
     }
