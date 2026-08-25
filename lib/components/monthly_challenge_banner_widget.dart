@@ -1,9 +1,14 @@
-import '/components/game_card_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/models/monthly_challenge_models.dart';
 import '/widgets/proxiplay_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+/// Logique de présentation partagée pour le défi mensuel (attendance /
+/// merchant / fallback legacy restaurant) : copy compacte réutilisée par les
+/// cartes "Jeux bonus" de la Home, et la feuille de détail ouverte au tap.
+/// Pure UI — ne lit que [MonthlyChallengeStateViewModel], déjà normalisé côté
+/// service/Function.
 
 const _kShortMonths = [
   'janv.',
@@ -20,37 +25,40 @@ const _kShortMonths = [
   'déc.',
 ];
 
-String _formatShortDate(DateTime date, {bool withYear = false}) {
+String formatChallengeShortDate(DateTime date, {bool withYear = false}) {
   final month = _kShortMonths[date.month - 1];
   return withYear ? '${date.day} $month ${date.year}' : '${date.day} $month';
 }
 
-String _formatChallengePrizeValue(int value) {
+String formatChallengePrizeValue(int value) {
   if (value <= 0) return '';
   return '$value €';
 }
 
-bool _isMerchantChallenge(MonthlyChallengeStateViewModel state) {
+bool isMerchantChallenge(MonthlyChallengeStateViewModel state) {
   return state.type == 'merchant' || state.type == 'restaurant';
 }
 
-String _defaultPrizeLabel(MonthlyChallengeStateViewModel state, bool isMerchant) {
+String defaultChallengePrizeLabel(
+  MonthlyChallengeStateViewModel state,
+  bool isMerchant,
+) {
   return isMerchant && state.merchantName.isNotEmpty
       ? 'Lot chez ${state.merchantName}'
       : 'Lot à gagner';
 }
 
-/// Titre + sous-titre courts affiches sur la carte "façon jeu" — pure
+/// Titre + sous-titre courts affichés sur la carte "Jeux bonus" — pure
 /// présentation, aucune donnée nouvelle n'est introduite ici.
-class _ChallengeCardCopy {
-  const _ChallengeCardCopy({required this.title, required this.subtitle});
+class ChallengeCardCopy {
+  const ChallengeCardCopy({required this.title, required this.subtitle});
 
   final String title;
   final String subtitle;
 }
 
-_ChallengeCardCopy _buildCardCopy(MonthlyChallengeStateViewModel state) {
-  final isMerchant = _isMerchantChallenge(state);
+ChallengeCardCopy buildChallengeCardCopy(MonthlyChallengeStateViewModel state) {
+  final isMerchant = isMerchantChallenge(state);
   final title = state.title.isNotEmpty
       ? state.title
       : (isMerchant ? 'Commerçant du mois' : 'Défi du mois');
@@ -61,57 +69,25 @@ _ChallengeCardCopy _buildCardCopy(MonthlyChallengeStateViewModel state) {
   } else {
     subtitle = state.prizeTitle.isNotEmpty
         ? state.prizeTitle
-        : _defaultPrizeLabel(state, isMerchant);
+        : defaultChallengePrizeLabel(state, isMerchant);
   }
 
-  return _ChallengeCardCopy(title: title, subtitle: subtitle);
+  return ChallengeCardCopy(title: title, subtitle: subtitle);
 }
 
-class MonthlyChallengeBannerWidget extends StatelessWidget {
-  const MonthlyChallengeBannerWidget({
-    super.key,
-    required this.state,
-  });
-
-  final MonthlyChallengeStateViewModel state;
-
-  @override
-  Widget build(BuildContext context) {
-    final copy = _buildCardCopy(state);
-    final thumbnailUrl =
-        state.imageUrl.isNotEmpty ? state.imageUrl : state.merchantImageUrl;
-    final dateText = state.drawDate != null
-        ? 'Tirage ${_formatShortDate(state.drawDate!.toDate())}'
-        : 'Tirage à venir';
-
-    return GameCardWidget(
-      title: copy.title,
-      imageUrl: thumbnailUrl,
-      storeName: copy.subtitle,
-      city: '',
-      prizeText: state.prizeValue > 0 ? '${state.prizeValue}' : '',
-      endDateText: dateText,
-      badgeText: '${state.activeDaysCount}/${state.targetDays}',
-      imageHeight: 120.0,
-      width: double.infinity,
-      onTap: () => _showMonthlyChallengeDetails(context, state),
-    );
-  }
-}
-
-Future<void> _showMonthlyChallengeDetails(
+Future<void> showMonthlyChallengeDetails(
   BuildContext context,
   MonthlyChallengeStateViewModel state,
 ) {
   final theme = FlutterFlowTheme.of(context);
-  final copy = _buildCardCopy(state);
+  final copy = buildChallengeCardCopy(state);
   final thumbnailUrl =
       state.imageUrl.isNotEmpty ? state.imageUrl : state.merchantImageUrl;
-  final prizeValueText = _formatChallengePrizeValue(state.prizeValue);
-  final isMerchant = _isMerchantChallenge(state);
+  final prizeValueText = formatChallengePrizeValue(state.prizeValue);
+  final isMerchant = isMerchantChallenge(state);
   final prizeTitle = state.prizeTitle.isNotEmpty
       ? state.prizeTitle
-      : _defaultPrizeLabel(state, isMerchant);
+      : defaultChallengePrizeLabel(state, isMerchant);
   final progress = state.targetDays <= 0
       ? 0.0
       : (state.activeDaysCount / state.targetDays).clamp(0.0, 1.0);
@@ -302,7 +278,7 @@ Future<void> _showMonthlyChallengeDetails(
                           size: 14.0, color: Color(0xFFC26A1B)),
                       const SizedBox(width: 8.0),
                       Text(
-                        'Tirage le ${_formatShortDate(state.drawDate!.toDate(), withYear: true)}',
+                        'Tirage le ${formatChallengeShortDate(state.drawDate!.toDate(), withYear: true)}',
                         style: theme.bodySmall.override(
                           font: GoogleFonts.inter(fontWeight: FontWeight.w600),
                           color: const Color(0xFF5C627A),

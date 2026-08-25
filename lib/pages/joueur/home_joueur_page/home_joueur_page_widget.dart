@@ -1,7 +1,7 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/app_bar_joueur_widget.dart';
-import '/components/monthly_challenge_banner_widget.dart';
+import '/components/bonus_game_card_widget.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/game_card_widget.dart';
 import '/components/list_empty_component_widget.dart';
@@ -831,7 +831,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     return '${value.toStringAsFixed(2).replaceAll('.', ',')} €';
   }
 
-  Widget _buildMonthlyChallengeZone() {
+  /// Section "JEUX BONUS" : defis mensuels (attendance / merchant / fallback
+  /// legacy restaurant), affiches sous "JEUX A LA UNE" dans des cartes
+  /// dediees (BonusGameCardWidget) distinctes des jeux commerçants
+  /// classiques. Masquee entierement si aucun defi actif (pas de titre, pas
+  /// d'espace vide).
+  Widget _buildBonusGamesZone() {
     return FutureBuilder<List<MonthlyChallengeStateViewModel>>(
       future: _monthlyChallengeFuture,
       builder: (context, snapshot) {
@@ -840,15 +845,46 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         if (visibleStates.isEmpty) {
           return const SizedBox.shrink();
         }
+        final cardWidth = _computeHomeCardWidth(context);
         return Padding(
           padding: const EdgeInsets.only(bottom: 16.0),
           child: Column(
-            children: visibleStates
-                .map((state) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10.0),
-                      child: MonthlyChallengeBannerWidget(state: state),
-                    ))
-                .toList(),
+            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'JEUX BONUS',
+                style: FlutterFlowTheme.of(context).titleLarge.override(
+                      font: GoogleFonts.interTight(
+                        fontWeight:
+                            FlutterFlowTheme.of(context).titleLarge.fontWeight,
+                        fontStyle:
+                            FlutterFlowTheme.of(context).titleLarge.fontStyle,
+                      ),
+                      fontSize: 20.0,
+                      letterSpacing: 0.0,
+                      fontWeight:
+                          FlutterFlowTheme.of(context).titleLarge.fontWeight,
+                      fontStyle:
+                          FlutterFlowTheme.of(context).titleLarge.fontStyle,
+                    ),
+              ),
+              SizedBox(
+                height: AppStyles.gameCardHeight,
+                child: ListView.separated(
+                  padding: EdgeInsets.zero,
+                  primary: false,
+                  scrollDirection: Axis.horizontal,
+                  itemCount: visibleStates.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(width: _homeHorizontalCardGap),
+                  itemBuilder: (context, index) => BonusGameCardWidget(
+                    state: visibleStates[index],
+                    width: cardWidth,
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -2140,7 +2176,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                   children: [
                                                     _buildTopDynamicZone(
                                                         context),
-                                                    _buildMonthlyChallengeZone(),
+                                                    _buildBonusGamesZone(),
                                                     _buildRecentWinnersZone(),
                                                     _buildActiveAnimationsSection(
                                                       context,
