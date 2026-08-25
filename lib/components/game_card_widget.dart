@@ -468,17 +468,17 @@ class _GameCardState extends State<GameCard> {
   String _formatPriceText(String value) {
     final normalized = _normalizeText(value).trim();
     final match =
-        RegExp(r'^(\d+)(?:[.,](\d{1,2}))?\s*â‚¬?$').firstMatch(normalized);
+        RegExp(r'^(\d+)(?:[.,](\d{1,2}))?\s*€?$').firstMatch(normalized);
     if (match == null) {
       return normalized;
     }
     final euros = match.group(1)!;
     final decimals = match.group(2);
     if (decimals == null || int.tryParse(decimals) == 0) {
-      return '$euros â‚¬';
+      return '$euros €';
     }
     final trimmedDecimals = decimals.replaceFirst(RegExp(r'0+$'), '');
-    return '$euros,$trimmedDecimals â‚¬';
+    return '$euros,$trimmedDecimals €';
   }
 
   String _normalizeText(String value) {
