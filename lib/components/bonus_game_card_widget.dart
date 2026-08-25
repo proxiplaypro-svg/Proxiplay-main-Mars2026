@@ -25,6 +25,40 @@ class BonusGameCardWidget extends StatelessWidget {
   final MonthlyChallengeStateViewModel state;
   final double? width;
 
+  // Hauteurs de ligne figees (au lieu de laisser le texte determiner sa
+  // propre hauteur) afin que computeCardHeight() ci-dessous corresponde
+  // EXACTEMENT au rendu reel — c'est cette valeur que la Home utilise comme
+  // hauteur fixe du carrousel horizontal "Jeux bonus", donc tout ecart créé
+  // soit un overflow, soit l'espace blanc qu'on cherche justement a retirer.
+  static const double _titleRowHeight = 20.0;
+  static const double _subtitleRowHeight = 16.0;
+  static const double _dateRowHeight = 16.0;
+  static const double _rowGap = 4.0;
+  static const double _contentBottomPadding = 8.0;
+  static const double _contentTopPaddingWithBadge = 16.0;
+  static const double _contentTopPaddingNoBadge = 8.0;
+
+  /// Meme ratio image/largeur que GameCardWidget (responsiveImageHeight).
+  static double computeImageHeight(double cardWidth) {
+    return (cardWidth * 0.50).clamp(84.0, 116.0);
+  }
+
+  /// Hauteur totale exacte de la carte pour une largeur donnee — a utiliser
+  /// comme hauteur du SizedBox qui enveloppe le ListView horizontal cote
+  /// Home, pour eviter a la fois l'overflow et l'espace vide.
+  static double computeCardHeight(double cardWidth, {required bool hasPrizeBadge}) {
+    final contentTopPadding =
+        hasPrizeBadge ? _contentTopPaddingWithBadge : _contentTopPaddingNoBadge;
+    return computeImageHeight(cardWidth) +
+        contentTopPadding +
+        _titleRowHeight +
+        _rowGap +
+        _subtitleRowHeight +
+        _rowGap +
+        _dateRowHeight +
+        _contentBottomPadding;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
@@ -38,8 +72,7 @@ class BonusGameCardWidget extends StatelessWidget {
     final prizeValueText = formatChallengePrizeValue(state.prizeValue);
 
     final cardWidth = width ?? AppStyles.gameCardWidth;
-    // Meme ratio image/largeur que GameCardWidget (responsiveImageHeight).
-    final imageHeight = (cardWidth * 0.50).clamp(84.0, 116.0);
+    final imageHeight = computeImageHeight(cardWidth);
     final cardRadius = BorderRadius.circular(AppStyles.gameCardRadius);
 
     return SizedBox(
@@ -146,61 +179,75 @@ class BonusGameCardWidget extends StatelessWidget {
                   Padding(
                     padding: EdgeInsets.fromLTRB(
                       10.0,
-                      prizeValueText.isNotEmpty ? 12.0 : 8.0,
+                      prizeValueText.isNotEmpty
+                          ? _contentTopPaddingWithBadge
+                          : _contentTopPaddingNoBadge,
                       10.0,
-                      8.0,
+                      _contentBottomPadding,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          copy.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.bodyMedium.override(
-                            font: GoogleFonts.inter(fontWeight: FontWeight.w700),
-                            fontSize: AppStyles.gameCardTitleSize,
-                            color: const Color(0xFF2C2F5B),
-                            letterSpacing: 0.0,
-                          ),
-                        ),
-                        const SizedBox(height: 4.0),
-                        Text(
-                          copy.subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.bodySmall.override(
-                            font: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                            color: const Color(0xFF5C627A),
-                            fontSize: AppStyles.gameCardBodySize,
-                            letterSpacing: 0.0,
-                          ),
-                        ),
-                        const SizedBox(height: 4.0),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.only(top: 1.0),
-                              child: Icon(Icons.calendar_today_rounded,
-                                  size: 14.0, color: Color(0xFF5C627A)),
-                            ),
-                            const SizedBox(width: 6.0),
-                            Expanded(
-                              child: Text(
-                                dateText,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.bodySmall.override(
-                                  font: GoogleFonts.inter(fontWeight: FontWeight.w500),
-                                  color: const Color(0xFF5C627A),
-                                  fontSize: AppStyles.gameCardBodySize,
-                                  letterSpacing: 0.0,
-                                ),
+                        SizedBox(
+                          height: _titleRowHeight,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              copy.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.bodyMedium.override(
+                                font: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                                fontSize: AppStyles.gameCardTitleSize,
+                                color: const Color(0xFF2C2F5B),
+                                letterSpacing: 0.0,
                               ),
                             ),
-                          ],
+                          ),
+                        ),
+                        const SizedBox(height: _rowGap),
+                        SizedBox(
+                          height: _subtitleRowHeight,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              copy.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.bodySmall.override(
+                                font: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                                color: const Color(0xFF5C627A),
+                                fontSize: AppStyles.gameCardBodySize,
+                                letterSpacing: 0.0,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: _rowGap),
+                        SizedBox(
+                          height: _dateRowHeight,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.calendar_today_rounded,
+                                  size: 13.0, color: Color(0xFF5C627A)),
+                              const SizedBox(width: 6.0),
+                              Expanded(
+                                child: Text(
+                                  dateText,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.bodySmall.override(
+                                    font: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                                    color: const Color(0xFF5C627A),
+                                    fontSize: AppStyles.gameCardBodySize,
+                                    letterSpacing: 0.0,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),

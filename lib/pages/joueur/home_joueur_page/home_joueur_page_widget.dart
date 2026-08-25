@@ -846,6 +846,17 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           return const SizedBox.shrink();
         }
         final cardWidth = _computeHomeCardWidth(context);
+        // Hauteur exacte de la carte la plus haute parmi celles affichees
+        // (badge valeur present ou non), calculee par le composant lui-meme —
+        // pas AppStyles.gameCardHeight, qui correspond aux cartes de jeux
+        // classiques (plus de contenu) et laissait un grand vide sous la
+        // carte bonus, plus compacte.
+        final cardHeight = visibleStates
+            .map((state) => BonusGameCardWidget.computeCardHeight(
+                  cardWidth,
+                  hasPrizeBadge: state.prizeValue > 0,
+                ))
+            .fold<double>(0.0, (max, height) => height > max ? height : max);
         return Padding(
           padding: const EdgeInsets.only(bottom: 16.0),
           child: Column(
@@ -870,7 +881,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                     ),
               ),
               SizedBox(
-                height: AppStyles.gameCardHeight,
+                height: cardHeight,
                 child: ListView.separated(
                   padding: EdgeInsets.zero,
                   primary: false,
@@ -2176,11 +2187,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                   children: [
                                                     _buildTopDynamicZone(
                                                         context),
-                                                    _buildBonusGamesZone(),
                                                     _buildRecentWinnersZone(),
-                                                    _buildActiveAnimationsSection(
-                                                      context,
-                                                    ),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -2392,6 +2399,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         ].divide(const SizedBox(
                                                             height: 5.0)),
                                                       ),
+                                                    ),
+                                                    _buildBonusGamesZone(),
+                                                    _buildActiveAnimationsSection(
+                                                      context,
                                                     ),
                                                     Container(
                                                       width: double.infinity,
