@@ -351,17 +351,17 @@ class _GameCardState extends State<GameCard> {
             ),
             SizedBox(height: rowSpacing),
             _infoRow(
-              Icons.store_sharp,
+              Icons.storefront_outlined,
               widget.storeName,
               context,
               fontWeight: FontWeight.w700,
             ),
             if (hasCity) ...[
               SizedBox(height: rowSpacing),
-              _infoRow(Icons.place_sharp, widget.city, context),
+              _infoRow(Icons.location_on_outlined, widget.city, context),
             ],
             SizedBox(height: rowSpacing),
-            _infoRow(Icons.date_range, widget.endDateText, context),
+            _infoRow(Icons.calendar_today_outlined, widget.endDateText, context),
             if (widget.isFinished &&
                 (widget.winnerText == null || widget.winnerText!.isEmpty))
               Padding(

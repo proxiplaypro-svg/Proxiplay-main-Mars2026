@@ -11,6 +11,10 @@ import 'package:google_fonts/google_fonts.dart';
 /// Pure UI — ne lit que [MonthlyChallengeStateViewModel], déjà normalisé côté
 /// service/Function.
 
+/// Meme bleu nuit que les pictogrammes des cartes de jeux classiques
+/// (`game_card_widget.dart`), pour une identite visuelle cohérente.
+const _navy = Color(0xFF26235C);
+
 const _kShortMonths = [
   'janv.',
   'févr.',
@@ -133,7 +137,7 @@ Future<void> showMonthlyChallengeDetails(
                     child: ProxiplayNetworkImage(
                       imageUrl: thumbnailUrl,
                       width: double.infinity,
-                      height: 150.0,
+                      height: 130.0,
                     ),
                   ),
                   const SizedBox(height: 14.0),
@@ -146,10 +150,19 @@ Future<void> showMonthlyChallengeDetails(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                const SizedBox(height: 6.0),
+                Text(
+                  'Jouez ${state.targetDays} jours différents pour participer au tirage.',
+                  style: theme.bodySmall.override(
+                    font: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                    color: const Color(0xFF5C627A),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(height: 16.0),
                 if (state.qualified) ...[
                   Text(
-                    'Vous participez au tirage 🎉',
+                    'Votre participation est validée 🎉',
                     style: theme.bodyMedium.override(
                       font: GoogleFonts.interTight(fontWeight: FontWeight.w700),
                       color: accent,
@@ -179,8 +192,8 @@ Future<void> showMonthlyChallengeDetails(
                   const SizedBox(height: 8.0),
                   Text(
                     state.remainingDays > 0
-                        ? 'Encore ${state.remainingDays} jour${state.remainingDays > 1 ? 's' : ''} actif${state.remainingDays > 1 ? 's' : ''} pour participer'
-                        : 'Encore une participation pour valider',
+                        ? 'Jouez encore ${state.remainingDays} jour${state.remainingDays > 1 ? 's' : ''} pour valider votre participation.'
+                        : 'Encore une participation pour valider.',
                     style: theme.bodySmall.override(
                       font: GoogleFonts.inter(fontWeight: FontWeight.w600),
                       color: const Color(0xFF5C627A),
@@ -202,7 +215,7 @@ Future<void> showMonthlyChallengeDetails(
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Text('🎁', style: TextStyle(fontSize: 16.0)),
+                          const Icon(Icons.card_giftcard, size: 18.0, color: _navy),
                           const SizedBox(width: 8.0),
                           Expanded(
                             child: Text(
@@ -287,8 +300,8 @@ Future<void> showMonthlyChallengeDetails(
                   const SizedBox(height: 16.0),
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today_rounded,
-                          size: 14.0, color: Color(0xFFC26A1B)),
+                      const Icon(Icons.confirmation_number_outlined,
+                          size: 15.0, color: _navy),
                       const SizedBox(width: 8.0),
                       Text(
                         'Tirage le ${formatChallengeShortDate(state.drawDate!.toDate(), withYear: true)}',
