@@ -878,10 +878,13 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
         final selected = visibleStates.first;
 
-        // Espacement inter-sections controle uniquement par le divide() de
-        // la Column parente (_homeSectionGap) : pas de marge externe ici,
-        // pour eviter un double espace apres la carte Bonus.
-        return Column(
+        // Le bloc gere lui-meme son espacement AVANT son contenu (au lieu
+        // d'un divide() uniforme sur la Column parente) : quand la section
+        // est masquee (SizedBox.shrink() ci-dessus), aucun espace n'est
+        // consomme entre ses voisins visibles.
+        return Padding(
+          padding: const EdgeInsets.only(top: _homeSectionGap),
+          child: Column(
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -915,6 +918,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
               },
             ),
           ],
+          ),
         );
       },
     );
@@ -1143,7 +1147,29 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     );
   }
 
-  Widget _buildActiveAnimationsSection(BuildContext context) {
+  /// [leadingGap] : quand fourni, le bloc gere lui-meme son espacement
+  /// AVANT son contenu (aucun gap consomme s'il n'y a pas d'animation
+  /// active) au lieu de l'ancienne marge fixe APRES son contenu. Reserve
+  /// au nouvel appel de la Home "adult_standard" ; les autres appelants
+  /// (variantes de Home non couvertes par ce chantier) gardent le
+  /// comportement d'origine tant qu'ils ne passent pas ce parametre.
+  Widget _buildActiveAnimationsSection(
+    BuildContext context, {
+    double? leadingGap,
+  }) {
+    Widget wrap(Widget child) {
+      if (leadingGap != null) {
+        return Padding(
+          padding: EdgeInsets.only(top: leadingGap),
+          child: child,
+        );
+      }
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 15.0),
+        child: child,
+      );
+    }
+
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
           .collection('animations')
@@ -1151,9 +1177,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 15.0),
-            child: _buildHomeCarouselError(
+          return wrap(
+            _buildHomeCarouselError(
               error: snapshot.error,
               onRetry: () => setState(() {}),
             ),
@@ -1161,9 +1186,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         }
 
         if (!snapshot.hasData) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 15.0),
-            child: _buildHomeCarouselLoading(
+          return wrap(
+            _buildHomeCarouselLoading(
               message: 'Chargement des animations...',
             ),
           );
@@ -1192,9 +1216,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           return const SizedBox.shrink();
         }
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 15.0),
-          child: Container(
+        return wrap(
+          Container(
             width: double.infinity,
             decoration: const BoxDecoration(),
             child: Column(
@@ -1329,7 +1352,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     if (messages.isEmpty) {
       return const SizedBox.shrink();
     }
-    return RecentWinnersTicker(messages: messages);
+    // Espacement AVANT le bloc, gere ici (pas de gap consomme quand la
+    // section est masquee ci-dessus).
+    return Padding(
+      padding: const EdgeInsets.only(top: _homeSectionGap),
+      child: RecentWinnersTicker(messages: messages),
+    );
   }
 
   String _buildRandomShareMessage({
@@ -2201,6 +2229,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                   children: [
                                                     _buildTopDynamicZone(
                                                         context),
+                                                    const SizedBox(
+                                                        height:
+                                                            _homeSectionGap),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -2420,7 +2451,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                     _buildRecentWinnersZone(),
                                                     _buildActiveAnimationsSection(
                                                       context,
+                                                      leadingGap:
+                                                          _homeSectionGap,
                                                     ),
+                                                    const SizedBox(
+                                                        height:
+                                                            _homeSectionGap),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -2668,6 +2704,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             height: 5.0)),
                                                       ),
                                                     ),
+                                                    const SizedBox(
+                                                        height:
+                                                            _homeSectionGap),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -3261,9 +3300,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             height: 5.0)),
                                                       ),
                                                     ),
-                                                  ].divide(const SizedBox(
-                                                      height:
-                                                          _homeSectionGap)),
+                                                  ],
                                                 ),
                                               ),
                                             );
