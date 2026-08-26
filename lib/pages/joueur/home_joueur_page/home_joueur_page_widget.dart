@@ -854,6 +854,35 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   /// regle d'unicite), on n'affiche que le premier (tri par month puis
   /// challengeId, `start_date`/`created_at` ne sont pas exposes cote client)
   /// et on logge une anomalie au lieu de planter ou d'en afficher deux.
+  /// Titre de section Home standard : grand espace avant (separation avec
+  /// ce qui precede), petit espace apres (colle a son propre contenu). A
+  /// utiliser pour tout nouveau titre de section plutot que de repeter le
+  /// pattern SizedBox/Text/SizedBox a la main.
+  List<Widget> _sectionHeader(
+    BuildContext context,
+    String title,
+    Widget content,
+  ) {
+    return [
+      const SizedBox(height: _homeSpaceBeforeTitle),
+      Text(
+        title,
+        style: FlutterFlowTheme.of(context).titleLarge.override(
+              font: GoogleFonts.interTight(
+                fontWeight: FlutterFlowTheme.of(context).titleLarge.fontWeight,
+                fontStyle: FlutterFlowTheme.of(context).titleLarge.fontStyle,
+              ),
+              fontSize: 20.0,
+              letterSpacing: 0.0,
+              fontWeight: FlutterFlowTheme.of(context).titleLarge.fontWeight,
+              fontStyle: FlutterFlowTheme.of(context).titleLarge.fontStyle,
+            ),
+      ),
+      const SizedBox(height: _homeSpaceAfterTitle),
+      content,
+    ];
+  }
+
   Widget _buildBonusGamesZone() {
     return FutureBuilder<List<MonthlyChallengeStateViewModel>>(
       future: _monthlyChallengeFuture,
@@ -882,34 +911,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
         final selected = visibleStates.first;
 
-        // Le bloc gere lui-meme son espacement AVANT son titre (au lieu
-        // d'un divide() uniforme sur la Column parente) : quand la section
-        // est masquee (SizedBox.shrink() ci-dessus), aucun espace n'est
-        // consomme entre ses voisins visibles.
-        return Padding(
-          padding: const EdgeInsets.only(top: _homeSpaceBeforeTitle),
-          child: Column(
+        // Le helper _sectionHeader gere l'espacement AVANT/APRES le
+        // titre : quand la section est masquee (SizedBox.shrink()
+        // ci-dessus), aucun espace n'est consomme entre ses voisins
+        // visibles.
+        return Column(
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'BONUS FIDÉLITÉ',
-              style: FlutterFlowTheme.of(context).titleLarge.override(
-                    font: GoogleFonts.interTight(
-                      fontWeight:
-                          FlutterFlowTheme.of(context).titleLarge.fontWeight,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                    ),
-                    fontSize: 20.0,
-                    letterSpacing: 0.0,
-                    fontWeight:
-                        FlutterFlowTheme.of(context).titleLarge.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                  ),
-            ),
-            const SizedBox(height: _homeSpaceAfterTitle),
+          children: _sectionHeader(
+            context,
+            'BONUS FIDÉLITÉ',
             BonusGameCardWidget(
               state: selected,
               onTap: () {
@@ -921,7 +932,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                 showMonthlyChallengeDetails(context, selected);
               },
             ),
-          ],
           ),
         );
       },
@@ -1160,6 +1170,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   Widget _buildActiveAnimationsSection(
     BuildContext context, {
     double? leadingGap,
+    double? titleGap,
   }) {
     Widget wrap(Widget child) {
       if (leadingGap != null) {
@@ -1229,9 +1240,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding: const EdgeInsetsDirectional.only(
+                  padding: EdgeInsetsDirectional.only(
                     start: _homeSectionTitleLeftInset,
-                    bottom: 16.0,
+                    bottom: titleGap ?? 16.0,
                   ),
                   child: Text(
                     'ANIMATIONS EN COURS',
@@ -2236,9 +2247,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                   children: [
                                                     _buildTopDynamicZone(
                                                         context),
-                                                    const SizedBox(
-                                                        height:
-                                                            _homeSpaceBeforeTitle),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -2249,41 +2257,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         crossAxisAlignment:
                                                             CrossAxisAlignment
                                                                 .stretch,
-                                                        children: [
-                                                          Text(
-                                                            'JEUX \u00C0 LA UNE',
-                                                            style: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .titleLarge
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .interTight(
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleLarge
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleLarge
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  fontSize:
-                                                                      20.0,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleLarge
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleLarge
-                                                                      .fontStyle,
-                                                                ),
-                                                          ),
-                                                          const SizedBox(
-                                                              height:
-                                                                  _homeSpaceAfterTitle),
+                                                        children: _sectionHeader(
+                                                          context,
+                                                          'JEUX \u00C0 LA UNE',
                                                           Builder(
                                                             builder: (context) {
                                                               _logHomeQueryBranch(
@@ -2450,8 +2426,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               );
                                                             },
                                                           ),
-                                                        ].divide(const SizedBox(
-                                                            height: 5.0)),
+                                                        ),
                                                       ),
                                                     ),
                                                     _buildBonusGamesZone(),
@@ -2460,10 +2435,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                       context,
                                                       leadingGap:
                                                           _homeSpaceBeforeTitle,
+                                                      titleGap:
+                                                          _homeSpaceAfterTitle,
                                                     ),
-                                                    const SizedBox(
-                                                        height:
-                                                            _homeSpaceBeforeTitle),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -2474,39 +2448,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         crossAxisAlignment:
                                                             CrossAxisAlignment
                                                                 .stretch,
-                                                        children: [
-                                                          Text(
-                                                            'BIENT\u00D4T FINIS',
-                                                            style: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .titleLarge
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .interTight(
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleLarge
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleLarge
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleLarge
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleLarge
-                                                                      .fontStyle,
-                                                                ),
-                                                          ),
-                                                          const SizedBox(
-                                                              height:
-                                                                  _homeSpaceAfterTitle),
+                                                        children: _sectionHeader(
+                                                          context,
+                                                          'BIENT\u00D4T FINIS',
                                                           Builder(
                                                             builder: (context) {
                                                               _logHomeQueryBranch(
@@ -2707,13 +2651,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               );
                                                             },
                                                           ),
-                                                        ].divide(const SizedBox(
-                                                            height: 5.0)),
+                                                        ),
                                                       ),
                                                     ),
-                                                    const SizedBox(
-                                                        height:
-                                                            _homeSpaceBeforeTitle),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -2725,39 +2665,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             CrossAxisAlignment
                                                                 .stretch,
                                                         children: [
-                                                          Text(
+                                                          ..._sectionHeader(
+                                                            context,
                                                             'NOUVEAUT\u00C9S',
-                                                            style: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .titleLarge
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .interTight(
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleLarge
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleLarge
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleLarge
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleLarge
-                                                                      .fontStyle,
-                                                                ),
-                                                          ),
-                                                          const SizedBox(
-                                                              height:
-                                                                  _homeSpaceAfterTitle),
-                                                          Builder(
+                                                            Builder(
                                                             builder: (context) {
                                                               _logHomeQueryBranch(
                                                                 sectionName:
@@ -2969,44 +2880,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               );
                                                             },
                                                           ),
-                                                          Padding(
-                                                            padding:
-                                                                const EdgeInsetsDirectional
-                                                                    .only(
-                                                              start:
-                                                                  _homeSectionTitleLeftInset,
-                                                            ),
-                                                            child: Text(
-                                                              'JEUX TERMIN\u00C9S',
-                                                              style: FlutterFlowTheme
-                                                                      .of(context)
-                                                                  .titleLarge
-                                                                  .override(
-                                                                    font: GoogleFonts
-                                                                        .interTight(
-                                                                      fontWeight: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .titleLarge
-                                                                          .fontWeight,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .titleLarge
-                                                                          .fontStyle,
-                                                                    ),
-                                                                    letterSpacing:
-                                                                        0.0,
-                                                                    fontWeight: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleLarge
-                                                                        .fontWeight,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleLarge
-                                                                        .fontStyle,
-                                                                  ),
-                                                            ),
                                                           ),
-                                                          StreamBuilder<
+                                                          ..._sectionHeader(
+                                                            context,
+                                                            'JEUX TERMIN\u00C9S',
+                                                            StreamBuilder<
                                                               List<
                                                                   GamesRecord>>(
                                                             stream:
@@ -3303,8 +3181,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               );
                                                             },
                                                           ),
-                                                        ].divide(const SizedBox(
-                                                            height: 5.0)),
+                                                          ),
+                                                        ],
                                                       ),
                                                     ),
                                                   ],
