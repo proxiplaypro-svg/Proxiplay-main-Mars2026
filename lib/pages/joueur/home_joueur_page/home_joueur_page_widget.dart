@@ -2,6 +2,7 @@ import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/app_bar_joueur_widget.dart';
 import '/components/bonus_game_card_widget.dart';
+import '/components/monthly_challenge_banner_widget.dart' show showMonthlyChallengeDetails;
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/game_card_widget.dart';
 import '/components/list_empty_component_widget.dart';
@@ -836,6 +837,13 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   /// dediees (BonusGameCardWidget) distinctes des jeux commerçants
   /// classiques. Masquee entierement si aucun defi actif (pas de titre, pas
   /// d'espace vide).
+  /// Section "Bonus" : un seul mecanisme (assiduite, enseigne partenaire
+  /// optionnelle) — plus de carrousel. La regle produit + la validation
+  /// admin garantissent normalement un seul Bonus actif a la fois ; si un
+  /// etat historique en base en expose plusieurs simultanement (avant la
+  /// regle d'unicite), on n'affiche que le premier (tri par month puis
+  /// challengeId, `start_date`/`created_at` ne sont pas exposes cote client)
+  /// et on logge une anomalie au lieu de planter ou d'en afficher deux.
   Widget _buildBonusGamesZone() {
     return FutureBuilder<List<MonthlyChallengeStateViewModel>>(
       future: _monthlyChallengeFuture,
@@ -845,18 +853,25 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         if (visibleStates.isEmpty) {
           return const SizedBox.shrink();
         }
-        final cardWidth = _computeHomeCardWidth(context);
-        // Hauteur exacte de la carte la plus haute parmi celles affichees
-        // (badge valeur present ou non), calculee par le composant lui-meme —
-        // pas AppStyles.gameCardHeight, qui correspond aux cartes de jeux
-        // classiques (plus de contenu) et laissait un grand vide sous la
-        // carte bonus, plus compacte.
-        final cardHeight = visibleStates
-            .map((state) => BonusGameCardWidget.computeCardHeight(
-                  cardWidth,
-                  hasPrizeBadge: state.prizeValue > 0,
-                ))
-            .fold<double>(0.0, (max, height) => height > max ? height : max);
+
+        if (visibleStates.length > 1) {
+          final sorted = [...visibleStates]
+            ..sort((a, b) {
+              final byMonth = a.month.compareTo(b.month);
+              return byMonth != 0 ? byMonth : a.challengeId.compareTo(b.challengeId);
+            });
+          logFirebaseEvent('bonus_multiple_active_anomaly', parameters: {
+            'count': visibleStates.length,
+            'challenge_ids': sorted.map((state) => state.challengeId).join(','),
+            'selected_challenge_id': sorted.first.challengeId,
+          });
+          visibleStates
+            ..clear()
+            ..add(sorted.first);
+        }
+
+        final selected = visibleStates.first;
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 16.0),
           child: Column(
@@ -864,7 +879,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'JEUX BONUS',
+                'Bonus',
                 style: FlutterFlowTheme.of(context).titleLarge.override(
                       font: GoogleFonts.interTight(
                         fontWeight:
@@ -880,20 +895,17 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                           FlutterFlowTheme.of(context).titleLarge.fontStyle,
                     ),
               ),
-              SizedBox(
-                height: cardHeight,
-                child: ListView.separated(
-                  padding: EdgeInsets.zero,
-                  primary: false,
-                  scrollDirection: Axis.horizontal,
-                  itemCount: visibleStates.length,
-                  separatorBuilder: (_, __) =>
-                      const SizedBox(width: _homeHorizontalCardGap),
-                  itemBuilder: (context, index) => BonusGameCardWidget(
-                    state: visibleStates[index],
-                    width: cardWidth,
-                  ),
-                ),
+              const SizedBox(height: 10.0),
+              BonusGameCardWidget(
+                state: selected,
+                onTap: () {
+                  logFirebaseEvent('bonus_card_tap', parameters: {
+                    'challenge_id': selected.challengeId,
+                    'month': selected.month,
+                    'qualified': selected.qualified,
+                  });
+                  showMonthlyChallengeDetails(context, selected);
+                },
               ),
             ],
           ),
@@ -2187,7 +2199,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                   children: [
                                                     _buildTopDynamicZone(
                                                         context),
-                                                    _buildRecentWinnersZone(),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -2401,6 +2412,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                       ),
                                                     ),
                                                     _buildBonusGamesZone(),
+                                                    _buildRecentWinnersZone(),
                                                     _buildActiveAnimationsSection(
                                                       context,
                                                     ),
