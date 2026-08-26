@@ -16,6 +16,10 @@ import 'package:google_fonts/google_fonts.dart';
 /// Hierarchie : l'objectif d'assiduite est le message principal (jouer
 /// regulierement qualifie automatiquement au tirage), le lot n'est que la
 /// recompense de cette assiduite — jamais presente comme le nom du jeu.
+/// Mise en page en deux colonnes (texte a gauche, image du lot/commercant
+/// en bande verticale a droite) plutot qu'une bande photo en haut : la
+/// carte reste large, mais l'image identifie visuellement le lot sans
+/// pousser le contenu textuel vers le bas.
 /// Pictogrammes vectoriels alignes sur ceux des cartes de jeux classiques
 /// (meme couleur bleu nuit, meme famille outline) : `Icons.card_giftcard`
 /// pour la recompense, `Icons.local_fire_department_outlined` pour la
@@ -33,6 +37,7 @@ class BonusGameCardWidget extends StatelessWidget {
   final VoidCallback? onTap;
 
   static const _navy = Color(0xFF26235C);
+  static const _imageColumnWidth = 110.0;
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +58,121 @@ class BonusGameCardWidget extends StatelessWidget {
         ? 'Tirage le ${formatChallengeShortDate(state.drawDate!.toDate())}'
         : null;
 
+    final textColumn = Padding(
+      padding: EdgeInsets.fromLTRB(16.0, 14.0, thumbnailUrl.isNotEmpty ? 12.0 : 16.0, 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Jouez ${state.targetDays} jours pour participer',
+            style: theme.titleMedium.override(
+              font: GoogleFonts.interTight(fontWeight: FontWeight.w800),
+              color: const Color(0xFF2C2F5B),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 14.0),
+          Row(
+            children: [
+              const Icon(Icons.local_fire_department_outlined,
+                  size: 17.0, color: _navy),
+              const SizedBox(width: 6.0),
+              Text(
+                '${state.activeDaysCount}/${state.targetDays} jours',
+                style: theme.bodyMedium.override(
+                  font: GoogleFonts.interTight(fontWeight: FontWeight.w800),
+                  color: const Color(0xFF2C2F5B),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8.0),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999.0),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8.0,
+              backgroundColor: const Color(0xFFEFEFEF),
+              color: accent,
+            ),
+          ),
+          const SizedBox(height: 14.0),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(Icons.card_giftcard, size: 17.0, color: _navy),
+              const SizedBox(width: 6.0),
+              Expanded(
+                child: Text(
+                  lotTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.bodyMedium.override(
+                    font: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                    color: const Color(0xFF2C2F5B),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (prizeValueText.isNotEmpty) ...[
+            const SizedBox(height: 8.0),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                padding: AppStyles.gameCardPriceBadgePadding,
+                decoration: BoxDecoration(
+                  color: AppStyles.gameCardPriceBadgeColor,
+                  borderRadius: BorderRadius.circular(16.0),
+                ),
+                child: Text(
+                  prizeValueText,
+                  style: theme.bodyMedium.override(
+                    font: GoogleFonts.inter(fontWeight: FontWeight.w800),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: AppStyles.gameCardPriceBadgeSize,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          if (hasMerchant) ...[
+            const SizedBox(height: 4.0),
+            Text(
+              'Offert par ${state.merchantName}',
+              style: theme.bodySmall.override(
+                font: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                color: const Color(0xFF5C627A),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+          if (dateText != null) ...[
+            const SizedBox(height: 8.0),
+            Row(
+              children: [
+                const Icon(Icons.calendar_today_outlined,
+                    size: 15.0, color: _navy),
+                const SizedBox(width: 6.0),
+                Text(
+                  dateText,
+                  style: theme.bodySmall.override(
+                    font: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                    color: const Color(0xFF5C627A),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(18.0),
@@ -72,131 +192,22 @@ class BonusGameCardWidget extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (thumbnailUrl.isNotEmpty)
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(18.0)),
-                  child: ProxiplayNetworkImage(
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: textColumn),
+                if (thumbnailUrl.isNotEmpty)
+                  ProxiplayNetworkImage(
                     imageUrl: thumbnailUrl,
-                    width: double.infinity,
-                    height: 56.0,
+                    width: _imageColumnWidth,
+                    height: double.infinity,
+                    borderRadius: const BorderRadius.horizontal(
+                      right: Radius.circular(18.0),
+                    ),
                   ),
-                ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 14.0, 16.0, 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Jouez ${state.targetDays} jours pour participer',
-                      style: theme.titleMedium.override(
-                        font: GoogleFonts.interTight(fontWeight: FontWeight.w800),
-                        color: const Color(0xFF2C2F5B),
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 14.0),
-                    Row(
-                      children: [
-                        const Icon(Icons.local_fire_department_outlined,
-                            size: 17.0, color: _navy),
-                        const SizedBox(width: 6.0),
-                        Text(
-                          '${state.activeDaysCount}/${state.targetDays} jours',
-                          style: theme.bodyMedium.override(
-                            font: GoogleFonts.interTight(fontWeight: FontWeight.w800),
-                            color: const Color(0xFF2C2F5B),
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8.0),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999.0),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 8.0,
-                        backgroundColor: const Color(0xFFEFEFEF),
-                        color: accent,
-                      ),
-                    ),
-                    const SizedBox(height: 14.0),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.card_giftcard, size: 17.0, color: _navy),
-                        const SizedBox(width: 6.0),
-                        Expanded(
-                          child: Text(
-                            lotTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.bodyMedium.override(
-                              font: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                              color: const Color(0xFF2C2F5B),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (prizeValueText.isNotEmpty) ...[
-                          const SizedBox(width: 8.0),
-                          Container(
-                            padding: AppStyles.gameCardPriceBadgePadding,
-                            decoration: BoxDecoration(
-                              color: AppStyles.gameCardPriceBadgeColor,
-                              borderRadius: BorderRadius.circular(16.0),
-                            ),
-                            child: Text(
-                              prizeValueText,
-                              style: theme.bodyMedium.override(
-                                font: GoogleFonts.inter(fontWeight: FontWeight.w800),
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: AppStyles.gameCardPriceBadgeSize,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (hasMerchant) ...[
-                      const SizedBox(height: 4.0),
-                      Text(
-                        'Offert par ${state.merchantName}',
-                        style: theme.bodySmall.override(
-                          font: GoogleFonts.inter(fontWeight: FontWeight.w500),
-                          color: const Color(0xFF5C627A),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                    if (dateText != null) ...[
-                      const SizedBox(height: 8.0),
-                      Row(
-                        children: [
-                          const Icon(Icons.calendar_today_outlined,
-                              size: 15.0, color: _navy),
-                          const SizedBox(width: 6.0),
-                          Text(
-                            dateText,
-                            style: theme.bodySmall.override(
-                              font: GoogleFonts.inter(fontWeight: FontWeight.w500),
-                              color: const Color(0xFF5C627A),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
