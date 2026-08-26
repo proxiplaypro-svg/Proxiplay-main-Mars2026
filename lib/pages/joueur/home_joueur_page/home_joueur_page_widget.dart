@@ -879,7 +879,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Bonus',
+                'Bonus fidélité',
                 style: FlutterFlowTheme.of(context).titleLarge.override(
                       font: GoogleFonts.interTight(
                         fontWeight:

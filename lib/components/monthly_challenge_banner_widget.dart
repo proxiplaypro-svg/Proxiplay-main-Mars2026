@@ -80,14 +80,14 @@ Future<void> showMonthlyChallengeDetails(
   MonthlyChallengeStateViewModel state,
 ) {
   final theme = FlutterFlowTheme.of(context);
-  final copy = buildChallengeCardCopy(state);
   final thumbnailUrl =
       state.imageUrl.isNotEmpty ? state.imageUrl : state.merchantImageUrl;
   final prizeValueText = formatChallengePrizeValue(state.prizeValue);
-  final isMerchant = isMerchantChallenge(state);
-  final prizeTitle = state.prizeTitle.isNotEmpty
-      ? state.prizeTitle
-      : defaultChallengePrizeLabel(state, isMerchant);
+  final hasMerchant = state.merchantName.isNotEmpty;
+  // Le titre du popup est le nom du lot : le bloc lot ci-dessous ne le
+  // répète pas, il ne montre que montant / enseigne / description.
+  final prizeTitle =
+      state.prizeTitle.isNotEmpty ? state.prizeTitle : 'Un lot à gagner';
   final progress = state.targetDays <= 0
       ? 0.0
       : (state.activeDaysCount / state.targetDays).clamp(0.0, 1.0);
@@ -138,20 +138,11 @@ Future<void> showMonthlyChallengeDetails(
                   const SizedBox(height: 14.0),
                 ],
                 Text(
-                  copy.title,
+                  prizeTitle,
                   style: theme.titleMedium.override(
                     font: GoogleFonts.interTight(fontWeight: FontWeight.w800),
                     color: const Color(0xFF2C2F5B),
                     fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 3.0),
-                Text(
-                  copy.subtitle,
-                  style: theme.bodySmall.override(
-                    font: GoogleFonts.inter(fontWeight: FontWeight.w500),
-                    color: const Color(0xFF5C627A),
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 16.0),
@@ -214,16 +205,18 @@ Future<void> showMonthlyChallengeDetails(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              prizeTitle,
+                              prizeValueText.isNotEmpty
+                                  ? 'Valeur : $prizeValueText'
+                                  : (hasMerchant ? 'Offert par ${state.merchantName}' : 'Lot à gagner'),
                               style: theme.bodyMedium.override(
                                 font: GoogleFonts.inter(fontWeight: FontWeight.w700),
                                 color: const Color(0xFF2C2F5B),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            if (prizeValueText.isNotEmpty)
+                            if (prizeValueText.isNotEmpty && hasMerchant)
                               Text(
-                                'Valeur : $prizeValueText',
+                                'Offert par ${state.merchantName}',
                                 style: theme.bodySmall.override(
                                   font: GoogleFonts.inter(fontWeight: FontWeight.w600),
                                   color: const Color(0xFF5C627A),

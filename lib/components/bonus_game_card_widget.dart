@@ -24,7 +24,11 @@ class BonusGameCardWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
-    final title = state.title.isNotEmpty ? state.title : 'Bonus du mois';
+    // Le titre de carte est le nom du lot (jamais le nom de l'enseigne
+    // partenaire) : c'est le lot qui identifie le Bonus, l'enseigne n'est
+    // qu'une information secondaire optionnelle.
+    final lotTitle =
+        state.prizeTitle.isNotEmpty ? state.prizeTitle : 'Un lot à gagner';
     final thumbnailUrl =
         state.imageUrl.isNotEmpty ? state.imageUrl : state.merchantImageUrl;
     final progress = state.targetDays <= 0
@@ -35,11 +39,14 @@ class BonusGameCardWidget extends StatelessWidget {
         : const Color(0xFFC26A1B);
     final hasMerchant = state.merchantName.isNotEmpty;
     final prizeValueText = formatChallengePrizeValue(state.prizeValue);
-    final lotText = hasMerchant
-        ? (prizeValueText.isNotEmpty
-            ? '$prizeValueText à gagner chez ${state.merchantName}'
-            : 'À gagner chez ${state.merchantName}')
-        : (state.prizeTitle.isNotEmpty ? state.prizeTitle : 'Un lot à gagner');
+    // Le montant s'affiche toujours quand il est disponible, avec ou sans
+    // enseigne associée — l'enseigne n'est qu'une mention secondaire ajoutée
+    // au montant, jamais une condition pour l'afficher.
+    final amountText = prizeValueText.isNotEmpty
+        ? (hasMerchant
+            ? '$prizeValueText · Offert par ${state.merchantName}'
+            : prizeValueText)
+        : (hasMerchant ? 'Offert par ${state.merchantName}' : 'Un lot à gagner');
     final dateText = state.drawDate != null
         ? 'Tirage le ${formatChallengeShortDate(state.drawDate!.toDate(), withYear: true)}'
         : null;
@@ -73,7 +80,7 @@ class BonusGameCardWidget extends StatelessWidget {
                   child: ProxiplayNetworkImage(
                     imageUrl: thumbnailUrl,
                     width: double.infinity,
-                    height: 120.0,
+                    height: 70.0,
                   ),
                 ),
               Padding(
@@ -83,7 +90,7 @@ class BonusGameCardWidget extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      title,
+                      lotTitle,
                       style: theme.titleMedium.override(
                         font: GoogleFonts.interTight(fontWeight: FontWeight.w800),
                         color: const Color(0xFF2C2F5B),
@@ -92,7 +99,7 @@ class BonusGameCardWidget extends StatelessWidget {
                     ),
                     const SizedBox(height: 4.0),
                     Text(
-                      'Jouez ${state.targetDays} jours pendant la période pour participer au tirage',
+                      'Jouez ${state.targetDays} jours pour participer',
                       style: theme.bodySmall.override(
                         font: GoogleFonts.inter(fontWeight: FontWeight.w500),
                         color: const Color(0xFF5C627A),
@@ -132,7 +139,7 @@ class BonusGameCardWidget extends StatelessWidget {
                         const SizedBox(width: 6.0),
                         Expanded(
                           child: Text(
-                            lotText,
+                            amountText,
                             style: theme.bodyMedium.override(
                               font: GoogleFonts.inter(fontWeight: FontWeight.w600),
                               color: const Color(0xFF2C2F5B),
