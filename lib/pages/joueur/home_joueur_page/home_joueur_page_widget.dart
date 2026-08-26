@@ -57,11 +57,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   static const double _homeHorizontalCardGap = 10.0;
   static const double _homePageHorizontalPadding = 20.0;
 
-  /// Rythme vertical harmonise de la Home (section "adult_standard" —
-  /// celle qui affiche Bonus fidelite) : petit espace = titre -> contenu
-  /// d'un meme bloc, grand espace = separation entre deux sections.
-  static const double _homeSectionTitleGap = 8.0;
-  static const double _homeSectionGap = 3.0;
+  /// Rythme vertical de la Home (section "adult_standard" — celle qui
+  /// affiche Bonus fidelite) : chaque titre de section colle a son propre
+  /// contenu (petit espace apres lui) et se detache nettement de ce qui
+  /// le precede (grand espace avant lui) — jamais l'inverse. Le ticker
+  /// "Ils ont gagne" n'a pas de titre propre : il joue le role de
+  /// "contenu" de la section qui le precede (petit espace avant lui), et
+  /// c'est le titre suivant qui porte le grand espace de separation.
+  static const double _homeSpaceBeforeTitle = 20.0;
+  static const double _homeSpaceAfterTitle = 3.0;
 
   late HomeJoueurPageModel _model;
   final _sharePromoService = SharePromoService();
@@ -878,12 +882,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
         final selected = visibleStates.first;
 
-        // Le bloc gere lui-meme son espacement AVANT son contenu (au lieu
+        // Le bloc gere lui-meme son espacement AVANT son titre (au lieu
         // d'un divide() uniforme sur la Column parente) : quand la section
         // est masquee (SizedBox.shrink() ci-dessus), aucun espace n'est
         // consomme entre ses voisins visibles.
         return Padding(
-          padding: const EdgeInsets.only(top: _homeSectionGap),
+          padding: const EdgeInsets.only(top: _homeSpaceBeforeTitle),
           child: Column(
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -905,7 +909,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                         FlutterFlowTheme.of(context).titleLarge.fontStyle,
                   ),
             ),
-            const SizedBox(height: _homeSectionTitleGap),
+            const SizedBox(height: _homeSpaceAfterTitle),
             BonusGameCardWidget(
               state: selected,
               onTap: () {
@@ -1297,8 +1301,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           return const SizedBox.shrink();
         }
 
-        // Espacement inter-sections controle uniquement par le divide() de
-        // la Column parente (_homeSectionGap) : pas de marge externe ici.
+        // Espacement AVANT le titre gere ici (pas de marge externe sur la
+        // Column parente) : quand la section est masquee, aucun espace
+        // n'est consomme entre ses voisins visibles.
         if (_hasActiveReferralBonus()) {
           return const SharePromoBanner(
             data: SharePromoData(
@@ -1352,12 +1357,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     if (messages.isEmpty) {
       return const SizedBox.shrink();
     }
-    // Espacement AVANT le bloc, gere ici (pas de gap consomme quand la
-    // section est masquee ci-dessus). Pas de marge propre APRES : la
-    // section suivante porte deja sa propre marge d'entree
-    // (_homeSectionGap), une seule source suffit.
+    // Le ticker n'a pas de titre propre : il joue le role de "contenu"
+    // de la section qui le precede, donc petit espace avant lui. Pas de
+    // marge propre APRES : c'est le prochain titre de section qui porte
+    // le grand espace de separation (_homeSpaceBeforeTitle).
     return Padding(
-      padding: const EdgeInsets.only(top: _homeSectionGap),
+      padding: const EdgeInsets.only(top: _homeSpaceAfterTitle),
       child: RecentWinnersTicker(messages: messages),
     );
   }
@@ -2233,7 +2238,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         context),
                                                     const SizedBox(
                                                         height:
-                                                            _homeSectionGap),
+                                                            _homeSpaceBeforeTitle),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -2278,7 +2283,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           ),
                                                           const SizedBox(
                                                               height:
-                                                                  _homeSectionTitleGap),
+                                                                  _homeSpaceAfterTitle),
                                                           Builder(
                                                             builder: (context) {
                                                               _logHomeQueryBranch(
@@ -2454,11 +2459,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                     _buildActiveAnimationsSection(
                                                       context,
                                                       leadingGap:
-                                                          _homeSectionGap,
+                                                          _homeSpaceBeforeTitle,
                                                     ),
                                                     const SizedBox(
                                                         height:
-                                                            _homeSectionGap),
+                                                            _homeSpaceBeforeTitle),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -2501,7 +2506,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           ),
                                                           const SizedBox(
                                                               height:
-                                                                  _homeSectionTitleGap),
+                                                                  _homeSpaceAfterTitle),
                                                           Builder(
                                                             builder: (context) {
                                                               _logHomeQueryBranch(
@@ -2708,7 +2713,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                     ),
                                                     const SizedBox(
                                                         height:
-                                                            _homeSectionGap),
+                                                            _homeSpaceBeforeTitle),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -2751,7 +2756,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           ),
                                                           const SizedBox(
                                                               height:
-                                                                  _homeSectionTitleGap),
+                                                                  _homeSpaceAfterTitle),
                                                           Builder(
                                                             builder: (context) {
                                                               _logHomeQueryBranch(
