@@ -57,6 +57,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   static const double _homeHorizontalCardGap = 10.0;
   static const double _homePageHorizontalPadding = 20.0;
 
+  /// Rythme vertical harmonise de la Home (section "adult_standard" —
+  /// celle qui affiche Bonus fidelite) : petit espace = titre -> contenu
+  /// d'un meme bloc, grand espace = separation entre deux sections.
+  static const double _homeSectionTitleGap = 8.0;
+  static const double _homeSectionGap = 24.0;
+
   late HomeJoueurPageModel _model;
   final _sharePromoService = SharePromoService();
 
@@ -872,43 +878,43 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
         final selected = visibleStates.first;
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'BONUS FIDÉLITÉ',
-                style: FlutterFlowTheme.of(context).titleLarge.override(
-                      font: GoogleFonts.interTight(
-                        fontWeight:
-                            FlutterFlowTheme.of(context).titleLarge.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                      ),
-                      fontSize: 20.0,
-                      letterSpacing: 0.0,
+        // Espacement inter-sections controle uniquement par le divide() de
+        // la Column parente (_homeSectionGap) : pas de marge externe ici,
+        // pour eviter un double espace apres la carte Bonus.
+        return Column(
+          mainAxisSize: MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'BONUS FIDÉLITÉ',
+              style: FlutterFlowTheme.of(context).titleLarge.override(
+                    font: GoogleFonts.interTight(
                       fontWeight:
                           FlutterFlowTheme.of(context).titleLarge.fontWeight,
                       fontStyle:
                           FlutterFlowTheme.of(context).titleLarge.fontStyle,
                     ),
-              ),
-              const SizedBox(height: 10.0),
-              BonusGameCardWidget(
-                state: selected,
-                onTap: () {
-                  logFirebaseEvent('bonus_card_tap', parameters: {
-                    'challenge_id': selected.challengeId,
-                    'month': selected.month,
-                    'qualified': selected.qualified,
-                  });
-                  showMonthlyChallengeDetails(context, selected);
-                },
-              ),
-            ],
-          ),
+                    fontSize: 20.0,
+                    letterSpacing: 0.0,
+                    fontWeight:
+                        FlutterFlowTheme.of(context).titleLarge.fontWeight,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).titleLarge.fontStyle,
+                  ),
+            ),
+            const SizedBox(height: _homeSectionTitleGap),
+            BonusGameCardWidget(
+              state: selected,
+              onTap: () {
+                logFirebaseEvent('bonus_card_tap', parameters: {
+                  'challenge_id': selected.challengeId,
+                  'month': selected.month,
+                  'qualified': selected.qualified,
+                });
+                showMonthlyChallengeDetails(context, selected);
+              },
+            ),
+          ],
         );
       },
     );
@@ -1268,51 +1274,47 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           return const SizedBox.shrink();
         }
 
+        // Espacement inter-sections controle uniquement par le divide() de
+        // la Column parente (_homeSectionGap) : pas de marge externe ici.
         if (_hasActiveReferralBonus()) {
-          return const Padding(
-            padding: EdgeInsets.only(bottom: 16.0),
-            child: SharePromoBanner(
-              data: SharePromoData(
-                kind: SharePromoKind.specialCampaign,
-                title: 'Bonus parrainage actif',
-                subtitle: 'Tu peux jouer à tous les jeux jusqu\'à minuit.',
-                icon: Icons.auto_awesome_rounded,
-                primaryColor: Color(0xFFF5F6FB),
-                secondaryColor: Color(0xFF2C2F5B),
-                titleColor: Color(0xFF2C2F5B),
-                subtitleColor: Color(0xFF2C2F5B),
-                iconBackgroundColor: Color(0xFFEAEFFD),
-                iconColor: Color(0xFF2C2F5B),
-              ),
+          return const SharePromoBanner(
+            data: SharePromoData(
+              kind: SharePromoKind.specialCampaign,
+              title: 'Bonus parrainage actif',
+              subtitle: 'Tu peux jouer à tous les jeux jusqu\'à minuit.',
+              icon: Icons.auto_awesome_rounded,
+              primaryColor: Color(0xFFF5F6FB),
+              secondaryColor: Color(0xFF2C2F5B),
+              titleColor: Color(0xFF2C2F5B),
+              subtitleColor: Color(0xFF2C2F5B),
+              iconBackgroundColor: Color(0xFFEAEFFD),
+              iconColor: Color(0xFF2C2F5B),
             ),
           );
         }
 
         if (hasNoRemainingPart) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
-            child: SharePromoBanner(
-              data: SharePromoData(
-                kind: SharePromoKind.lowRemainingPlaysInvite,
-                title: '',
-                subtitle:
-                    'Aide un ami à découvrir Proxiplay et joue à tous les jeux jusqu\'à minuit.',
-                ctaLabel: 'Inviter un ami',
-                icon: Icons.volunteer_activism_rounded,
-                primaryColor: const Color(0xFFF5F6FB),
-                secondaryColor: const Color(0xFFA0134D),
-                titleColor: const Color(0xFF2C2F5B),
-                subtitleColor: const Color(0xFF2C2F5B),
-                buttonColor: const Color(0xFF2C2F5B),
-                buttonTextColor: Colors.white,
-                iconBackgroundColor: const Color(0xFFF7E6EE),
-                iconColor: const Color(0xFFA0134D),
-                animateCta: true,
-              ),
-              onTap: () {
-                _showSharePromoSheet();
-              },
+          return SharePromoBanner(
+            data: SharePromoData(
+              kind: SharePromoKind.lowRemainingPlaysInvite,
+              title: '',
+              subtitle:
+                  'Aide un ami à découvrir Proxiplay et joue à tous les jeux jusqu\'à minuit.',
+              ctaLabel: 'Inviter un ami',
+              icon: Icons.volunteer_activism_rounded,
+              primaryColor: const Color(0xFFF5F6FB),
+              secondaryColor: const Color(0xFFA0134D),
+              titleColor: const Color(0xFF2C2F5B),
+              subtitleColor: const Color(0xFF2C2F5B),
+              buttonColor: const Color(0xFF2C2F5B),
+              buttonTextColor: Colors.white,
+              iconBackgroundColor: const Color(0xFFF7E6EE),
+              iconColor: const Color(0xFFA0134D),
+              animateCta: true,
             ),
+            onTap: () {
+              _showSharePromoSheet();
+            },
           );
         }
 
@@ -2241,6 +2243,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .fontStyle,
                                                                 ),
                                                           ),
+                                                          const SizedBox(
+                                                              height:
+                                                                  _homeSectionTitleGap),
                                                           Builder(
                                                             builder: (context) {
                                                               _logHomeQueryBranch(
@@ -2456,6 +2461,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       .fontStyle,
                                                                 ),
                                                           ),
+                                                          const SizedBox(
+                                                              height:
+                                                                  _homeSectionTitleGap),
                                                           Builder(
                                                             builder: (context) {
                                                               _logHomeQueryBranch(
@@ -2671,32 +2679,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             CrossAxisAlignment
                                                                 .stretch,
                                                         children: [
-                                                          Padding(
-                                                            padding:
-                                                                const EdgeInsetsDirectional
-                                                                    .only(
-                                                              start:
-                                                                  _homeSectionTitleLeftInset,
-                                                            ),
-                                                            child: Text(
-                                                              'NOUVEAUT\u00C9S',
-                                                              style: FlutterFlowTheme
-                                                                      .of(context)
-                                                                  .titleLarge
-                                                                  .override(
-                                                                    font: GoogleFonts
-                                                                        .interTight(
-                                                                      fontWeight: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .titleLarge
-                                                                          .fontWeight,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .titleLarge
-                                                                          .fontStyle,
-                                                                    ),
-                                                                    letterSpacing:
-                                                                        0.0,
+                                                          Text(
+                                                            'NOUVEAUT\u00C9S',
+                                                            style: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .titleLarge
+                                                                .override(
+                                                                  font: GoogleFonts
+                                                                      .interTight(
                                                                     fontWeight: FlutterFlowTheme.of(
                                                                             context)
                                                                         .titleLarge
@@ -2706,8 +2696,21 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         .titleLarge
                                                                         .fontStyle,
                                                                   ),
-                                                            ),
+                                                                  letterSpacing:
+                                                                      0.0,
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleLarge
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleLarge
+                                                                      .fontStyle,
+                                                                ),
                                                           ),
+                                                          const SizedBox(
+                                                              height:
+                                                                  _homeSectionTitleGap),
                                                           Builder(
                                                             builder: (context) {
                                                               _logHomeQueryBranch(
@@ -3259,7 +3262,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                       ),
                                                     ),
                                                   ].divide(const SizedBox(
-                                                      height: 3.0)),
+                                                      height:
+                                                          _homeSectionGap)),
                                                 ),
                                               ),
                                             );
