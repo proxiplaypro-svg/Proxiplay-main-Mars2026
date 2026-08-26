@@ -1,4 +1,5 @@
 import '/flutter_flow/flutter_flow_theme.dart';
+import '/flutter_flow/app_styles.dart';
 import '/models/monthly_challenge_models.dart';
 import '/widgets/proxiplay_network_image.dart';
 import 'package:flutter/material.dart';
@@ -84,8 +85,8 @@ Future<void> showMonthlyChallengeDetails(
       state.imageUrl.isNotEmpty ? state.imageUrl : state.merchantImageUrl;
   final prizeValueText = formatChallengePrizeValue(state.prizeValue);
   final hasMerchant = state.merchantName.isNotEmpty;
-  // Le titre du popup est le nom du lot : le bloc lot ci-dessous ne le
-  // répète pas, il ne montre que montant / enseigne / description.
+  // Le titre de l'ecran est le mecanisme (Bonus fidelite), pas le lot : le
+  // lot n'est que la recompense, presentee plus bas dans le bloc dedie.
   final prizeTitle =
       state.prizeTitle.isNotEmpty ? state.prizeTitle : 'Un lot à gagner';
   final progress = state.targetDays <= 0
@@ -138,7 +139,7 @@ Future<void> showMonthlyChallengeDetails(
                   const SizedBox(height: 14.0),
                 ],
                 Text(
-                  prizeTitle,
+                  'Bonus fidélité',
                   style: theme.titleMedium.override(
                     font: GoogleFonts.interTight(fontWeight: FontWeight.w800),
                     color: const Color(0xFF2C2F5B),
@@ -191,54 +192,73 @@ Future<void> showMonthlyChallengeDetails(
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF4E3),
+                    color: theme.primaryBackground,
                     borderRadius: BorderRadius.circular(12.0),
                   ),
-                  child: Row(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.card_giftcard, color: Color(0xFFC26A1B), size: 20.0),
-                      const SizedBox(width: 10.0),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              prizeValueText.isNotEmpty
-                                  ? 'Valeur : $prizeValueText'
-                                  : (hasMerchant ? 'Offert par ${state.merchantName}' : 'Lot à gagner'),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Text('🎁', style: TextStyle(fontSize: 16.0)),
+                          const SizedBox(width: 8.0),
+                          Expanded(
+                            child: Text(
+                              prizeTitle,
                               style: theme.bodyMedium.override(
                                 font: GoogleFonts.inter(fontWeight: FontWeight.w700),
                                 color: const Color(0xFF2C2F5B),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            if (prizeValueText.isNotEmpty && hasMerchant)
-                              Text(
-                                'Offert par ${state.merchantName}',
-                                style: theme.bodySmall.override(
-                                  font: GoogleFonts.inter(fontWeight: FontWeight.w600),
-                                  color: const Color(0xFF5C627A),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12.0,
+                          ),
+                          if (prizeValueText.isNotEmpty) ...[
+                            const SizedBox(width: 8.0),
+                            Container(
+                              padding: AppStyles.gameCardPriceBadgePadding,
+                              decoration: BoxDecoration(
+                                color: AppStyles.gameCardPriceBadgeColor,
+                                borderRadius: BorderRadius.circular(16.0),
+                              ),
+                              child: Text(
+                                prizeValueText,
+                                style: theme.bodyMedium.override(
+                                  font: GoogleFonts.inter(fontWeight: FontWeight.w800),
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: AppStyles.gameCardPriceBadgeSize,
                                 ),
                               ),
-                            if (state.prizeDescription.isNotEmpty) ...[
-                              const SizedBox(height: 4.0),
-                              Text(
-                                state.prizeDescription,
-                                style: theme.bodySmall.override(
-                                  font: GoogleFonts.inter(fontWeight: FontWeight.w500),
-                                  color: const Color(0xFF5C627A),
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 12.0,
-                                ),
-                              ),
-                            ],
+                            ),
                           ],
-                        ),
+                        ],
                       ),
+                      if (state.prizeDescription.isNotEmpty) ...[
+                        const SizedBox(height: 6.0),
+                        Text(
+                          state.prizeDescription,
+                          style: theme.bodySmall.override(
+                            font: GoogleFonts.inter(fontWeight: FontWeight.w500),
+                            color: const Color(0xFF5C627A),
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12.0,
+                          ),
+                        ),
+                      ],
+                      if (hasMerchant) ...[
+                        const SizedBox(height: 4.0),
+                        Text(
+                          'Offert par ${state.merchantName}',
+                          style: theme.bodySmall.override(
+                            font: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                            color: const Color(0xFF5C627A),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12.0,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
