@@ -63,11 +63,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   static const double _homeSectionTitleGap = 8.0;
   static const double _homeSectionGap = 3.0;
 
-  /// Marge dediee sous le ticker "Ils ont gagne" : plus grande que
-  /// _homeSectionGap car la carte du ticker (fond, coins arrondis) colle
-  /// visuellement plus vite au bloc suivant qu'un simple carrousel.
-  static const double _homeSectionGapAfterTicker = 16.0;
-
   late HomeJoueurPageModel _model;
   final _sharePromoService = SharePromoService();
 
@@ -1357,15 +1352,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     if (messages.isEmpty) {
       return const SizedBox.shrink();
     }
-    // Espacement AVANT et APRES le bloc, gere ici (pas de gap consomme
-    // quand la section est masquee ci-dessus). La marge du dessous est
-    // volontairement plus grande : la section suivante ne doit jamais
-    // sembler collee au ticker.
+    // Espacement AVANT le bloc, gere ici (pas de gap consomme quand la
+    // section est masquee ci-dessus). Pas de marge propre APRES : la
+    // section suivante porte deja sa propre marge d'entree
+    // (_homeSectionGap), une seule source suffit.
     return Padding(
-      padding: const EdgeInsets.only(
-        top: _homeSectionGap,
-        bottom: _homeSectionGapAfterTicker,
-      ),
+      padding: const EdgeInsets.only(top: _homeSectionGap),
       child: RecentWinnersTicker(messages: messages),
     );
   }
