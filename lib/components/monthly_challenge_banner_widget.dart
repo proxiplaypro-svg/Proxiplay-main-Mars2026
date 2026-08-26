@@ -300,7 +300,7 @@ Future<void> showMonthlyChallengeDetails(
                   const SizedBox(height: 16.0),
                   Row(
                     children: [
-                      const Icon(Icons.confirmation_number_outlined,
+                      const Icon(Icons.calendar_today_outlined,
                           size: 15.0, color: _navy),
                       const SizedBox(width: 8.0),
                       Text(

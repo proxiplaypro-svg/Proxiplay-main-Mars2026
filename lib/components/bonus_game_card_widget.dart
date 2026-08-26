@@ -19,8 +19,9 @@ import 'package:google_fonts/google_fonts.dart';
 /// Pictogrammes vectoriels alignes sur ceux des cartes de jeux classiques
 /// (meme couleur bleu nuit, meme famille outline) : `Icons.card_giftcard`
 /// pour la recompense, `Icons.local_fire_department_outlined` pour la
-/// progression, `Icons.confirmation_number_outlined` pour le tirage (evite
-/// la confusion avec une icone calendrier de type "date limite").
+/// progression, `Icons.calendar_today_outlined` pour le tirage (meme
+/// pictogramme que "Jusqu'au" sur les cartes classiques — le texte donne
+/// le contexte).
 class BonusGameCardWidget extends StatelessWidget {
   const BonusGameCardWidget({
     super.key,
@@ -51,11 +52,6 @@ class BonusGameCardWidget extends StatelessWidget {
     final dateText = state.drawDate != null
         ? 'Tirage le ${formatChallengeShortDate(state.drawDate!.toDate())}'
         : null;
-    final String? progressMessage = state.qualified
-        ? 'Votre participation est validée 🎉'
-        : (state.remainingDays > 0
-            ? 'Jouez encore ${state.remainingDays} jour${state.remainingDays > 1 ? 's' : ''} pour valider votre participation.'
-            : null);
 
     return Material(
       color: Colors.transparent,
@@ -129,19 +125,6 @@ class BonusGameCardWidget extends StatelessWidget {
                         color: accent,
                       ),
                     ),
-                    if (progressMessage != null) ...[
-                      const SizedBox(height: 8.0),
-                      Text(
-                        progressMessage,
-                        style: theme.bodySmall.override(
-                          font: GoogleFonts.interTight(
-                            fontWeight: state.qualified ? FontWeight.w700 : FontWeight.w600,
-                          ),
-                          color: state.qualified ? accent : const Color(0xFF5C627A),
-                          fontWeight: state.qualified ? FontWeight.w700 : FontWeight.w600,
-                        ),
-                      ),
-                    ],
                     const SizedBox(height: 14.0),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -196,7 +179,7 @@ class BonusGameCardWidget extends StatelessWidget {
                       const SizedBox(height: 8.0),
                       Row(
                         children: [
-                          const Icon(Icons.confirmation_number_outlined,
+                          const Icon(Icons.calendar_today_outlined,
                               size: 15.0, color: _navy),
                           const SizedBox(width: 6.0),
                           Text(
