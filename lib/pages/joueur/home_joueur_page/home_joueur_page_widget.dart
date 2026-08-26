@@ -61,7 +61,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   /// celle qui affiche Bonus fidelite) : petit espace = titre -> contenu
   /// d'un meme bloc, grand espace = separation entre deux sections.
   static const double _homeSectionTitleGap = 8.0;
-  static const double _homeSectionGap = 16.0;
+  static const double _homeSectionGap = 12.0;
 
   late HomeJoueurPageModel _model;
   final _sharePromoService = SharePromoService();
