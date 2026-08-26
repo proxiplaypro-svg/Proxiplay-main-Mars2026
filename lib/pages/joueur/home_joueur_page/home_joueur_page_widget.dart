@@ -914,25 +914,30 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         // Le helper _sectionHeader gere l'espacement AVANT/APRES le
         // titre : quand la section est masquee (SizedBox.shrink()
         // ci-dessus), aucun espace n'est consomme entre ses voisins
-        // visibles.
+        // visibles. Marge dediee APRES la carte (avant le ticker "Ils
+        // ont gagne" qui suit) : propre a cette section, ne touche pas
+        // a _homeSpaceAfterTitle ni aux autres transitions.
         return Column(
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: _sectionHeader(
-            context,
-            'BONUS FIDÉLITÉ',
-            BonusGameCardWidget(
-              state: selected,
-              onTap: () {
-                logFirebaseEvent('bonus_card_tap', parameters: {
-                  'challenge_id': selected.challengeId,
-                  'month': selected.month,
-                  'qualified': selected.qualified,
-                });
-                showMonthlyChallengeDetails(context, selected);
-              },
+          children: [
+            ..._sectionHeader(
+              context,
+              'BONUS FIDÉLITÉ',
+              BonusGameCardWidget(
+                state: selected,
+                onTap: () {
+                  logFirebaseEvent('bonus_card_tap', parameters: {
+                    'challenge_id': selected.challengeId,
+                    'month': selected.month,
+                    'qualified': selected.qualified,
+                  });
+                  showMonthlyChallengeDetails(context, selected);
+                },
+              ),
             ),
-          ),
+            const SizedBox(height: _homeSpaceBeforeTitle),
+          ],
         );
       },
     );
