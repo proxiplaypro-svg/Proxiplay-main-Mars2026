@@ -317,9 +317,15 @@ class _GameCardState extends State<GameCard> {
     );
   }
 
+  // Bloc metadonnees (organisateur / lieu / date) : lignes compactes et
+  // groupees entre elles, nettement detachees du titre au-dessus. Meme
+  // valeurs sur toutes les cartes de jeu (carrousels "Jeux a la une",
+  // "Bientot finis", etc.) puisqu'elles partagent ce composant.
+  static const double _titleToMetaGap = 16.0;
+  static const double _metaRowGap = 8.0;
+
   Widget _buildContent(BuildContext context) {
     final effectiveWinnerMaxLines = widget.isFinished ? 2 : widget.winnerMaxLines;
-    final rowSpacing = widget.isFinished ? 6.0 : 4.0;
     final hasPrize = _hasVisibleText(widget.prizeText);
     final hasCity = _hasVisibleText(widget.city);
     final titleTopSpacing = hasPrize ? 8.0 : 0.0;
@@ -349,7 +355,7 @@ class _GameCardState extends State<GameCard> {
                     letterSpacing: 0.0,
                   ),
             ),
-            SizedBox(height: rowSpacing),
+            SizedBox(height: _titleToMetaGap),
             _infoRow(
               Icons.storefront_outlined,
               widget.storeName,
@@ -357,10 +363,10 @@ class _GameCardState extends State<GameCard> {
               fontWeight: FontWeight.w700,
             ),
             if (hasCity) ...[
-              SizedBox(height: rowSpacing),
+              SizedBox(height: _metaRowGap),
               _infoRow(Icons.location_on_outlined, widget.city, context),
             ],
-            SizedBox(height: rowSpacing),
+            SizedBox(height: _metaRowGap),
             _infoRow(Icons.calendar_today_outlined, widget.endDateText, context),
             if (widget.isFinished &&
                 (widget.winnerText == null || widget.winnerText!.isEmpty))
