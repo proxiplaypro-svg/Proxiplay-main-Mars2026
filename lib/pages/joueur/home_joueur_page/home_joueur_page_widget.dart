@@ -64,13 +64,18 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   /// "Ils ont gagne" n'a pas de titre propre : il joue le role de
   /// "contenu" de la section qui le precede (petit espace avant lui), et
   /// c'est le titre suivant qui porte le grand espace de separation.
-  static const double _homeSpaceBeforeTitle = 20.0;
+  static const double _homeSpaceBeforeTitle = 14.0;
   static const double _homeSpaceAfterTitle = 3.0;
 
   late HomeJoueurPageModel _model;
   final _sharePromoService = SharePromoService();
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  // Repere la section "Bonus fidelite" dans le corps scrollable pour que
+  // le badge de rappel du header puisse y faire defiler (voir
+  // _scrollToBonusFideliteSection). Attache a un KeyedSubtree stable,
+  // present que la section soit affichee ou masquee (SizedBox.shrink()).
+  final _bonusFideliteSectionKey = GlobalKey();
   bool _homeDataReady = false;
   bool _isRefreshingOnResume = false;
   DateTime? _lastResumeRefresh;
@@ -884,16 +889,93 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     ];
   }
 
+  /// Selectionne le defi "Bonus fidelite" actuellement actif parmi les
+  /// etats charges (`_monthlyChallengeFuture`) : le seul avec
+  /// `showCard == true`, ou le premier (trie par mois puis id) s'il y
+  /// en a plusieurs (anomalie). Reutilisee par la carte Bonus fidelite
+  /// (_buildBonusGamesZone) et le badge de rappel du header
+  /// (_buildBonusReminderBadge) — meme source de donnees, une seule
+  /// logique de selection, pas de nouvelle requete.
+  MonthlyChallengeStateViewModel? _selectedActiveBonusState(
+    List<MonthlyChallengeStateViewModel> states,
+  ) {
+    final visibleStates = states.where((state) => state.showCard).toList();
+    if (visibleStates.isEmpty) {
+      return null;
+    }
+    if (visibleStates.length == 1) {
+      return visibleStates.first;
+    }
+    final sorted = [...visibleStates]
+      ..sort((a, b) {
+        final byMonth = a.month.compareTo(b.month);
+        return byMonth != 0 ? byMonth : a.challengeId.compareTo(b.challengeId);
+      });
+    return sorted.first;
+  }
+
+  void _scrollToBonusFideliteSection() {
+    final sectionContext = _bonusFideliteSectionKey.currentContext;
+    if (sectionContext == null) return;
+    Scrollable.ensureVisible(
+      sectionContext,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+      alignment: 0.1,
+    );
+  }
+
+  Widget _buildBonusReminderBadge() {
+    return FutureBuilder<List<MonthlyChallengeStateViewModel>>(
+      future: _monthlyChallengeFuture,
+      builder: (context, snapshot) {
+        final states = snapshot.data ?? _latestMonthlyChallengeStates;
+        final selected = _selectedActiveBonusState(states);
+        if (selected == null) {
+          return const SizedBox.shrink();
+        }
+        return GestureDetector(
+          onTap: _scrollToBonusFideliteSection,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            decoration: BoxDecoration(
+              color: AppStyles.gameCardBadgeColor,
+              borderRadius: BorderRadius.circular(999.0),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 6.0,
+                  offset: const Offset(0.0, 2.0),
+                ),
+              ],
+            ),
+            child: Text(
+              '${selected.activeDaysCount}/${selected.targetDays} jours',
+              style: FlutterFlowTheme.of(context).bodyMedium.override(
+                    font: GoogleFonts.inter(fontWeight: FontWeight.w800),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 10.0,
+                    letterSpacing: 0.0,
+                  ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildBonusGamesZone() {
     return FutureBuilder<List<MonthlyChallengeStateViewModel>>(
       future: _monthlyChallengeFuture,
       builder: (context, snapshot) {
         final states = snapshot.data ?? _latestMonthlyChallengeStates;
-        final visibleStates = states.where((state) => state.showCard).toList();
-        if (visibleStates.isEmpty) {
+        final selected = _selectedActiveBonusState(states);
+        if (selected == null) {
           return const SizedBox.shrink();
         }
 
+        final visibleStates = states.where((state) => state.showCard).toList();
         if (visibleStates.length > 1) {
           final sorted = [...visibleStates]
             ..sort((a, b) {
@@ -905,19 +987,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
             'challenge_ids': sorted.map((state) => state.challengeId).join(','),
             'selected_challenge_id': sorted.first.challengeId,
           });
-          visibleStates
-            ..clear()
-            ..add(sorted.first);
         }
-
-        final selected = visibleStates.first;
 
         // Le helper _sectionHeader gere l'espacement AVANT/APRES le
         // titre : quand la section est masquee (SizedBox.shrink()
         // ci-dessus), aucun espace n'est consomme entre ses voisins
-        // visibles. Marge dediee APRES la carte (avant le ticker "Ils
-        // ont gagne" qui suit) : propre a cette section, ne touche pas
-        // a _homeSpaceAfterTitle ni aux autres transitions.
+        // visibles. Pas de marge dediee APRES la carte : c'est la
+        // section suivante (animations, ou a defaut "BIENTOT FINIS")
+        // qui porte son propre grand espace de separation.
         return Column(
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -937,7 +1014,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                 },
               ),
             ),
-            const SizedBox(height: _homeSpaceBeforeTitle),
           ],
         );
       },
@@ -1374,12 +1450,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     if (messages.isEmpty) {
       return const SizedBox.shrink();
     }
-    // Le ticker n'a pas de titre propre : il joue le role de "contenu"
-    // de la section qui le precede, donc petit espace avant lui. Pas de
-    // marge propre APRES : c'est le prochain titre de section qui porte
-    // le grand espace de separation (_homeSpaceBeforeTitle).
+    // Le ticker s'affiche tout en haut de la Home (avant "JEUX A LA
+    // UNE"), sous la zone dynamique (bonus de parrainage) qui est vide
+    // la plupart du temps : il porte donc lui-meme le grand espace de
+    // separation habituel avant son contenu. Pas de marge propre
+    // APRES : c'est le titre "JEUX A LA UNE" qui porte son propre grand
+    // espace de separation (_homeSpaceBeforeTitle).
     return Padding(
-      padding: const EdgeInsets.only(top: _homeSpaceAfterTitle),
+      padding: const EdgeInsets.only(top: _homeSpaceBeforeTitle),
       child: RecentWinnersTicker(messages: messages),
     );
   }
@@ -1812,13 +1890,28 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
               automaticallyImplyLeading: false,
               actions: const [],
               flexibleSpace: FlexibleSpaceBar(
-                title: Align(
-                  alignment: const AlignmentDirectional(0.0, 1.0),
-                  child: wrapWithModel(
-                    model: _model.appBarJoueurModel,
-                    updateCallback: () => safeSetState(() {}),
-                    child: const AppBarJoueurWidget(),
-                  ),
+                title: Stack(
+                  children: [
+                    Align(
+                      alignment: const AlignmentDirectional(0.0, 1.0),
+                      child: wrapWithModel(
+                        model: _model.appBarJoueurModel,
+                        updateCallback: () => safeSetState(() {}),
+                        child: const AppBarJoueurWidget(),
+                      ),
+                    ),
+                    // Rappel discret "Bonus fidelite" a cheval sur le
+                    // coin haut-droit du header (meme principe que les
+                    // pastilles de prix sur les cartes de jeu), au-dessus
+                    // du badge "chances" (aligne en bas). Ne s'affiche
+                    // que si un bonus est actif (voir
+                    // _buildBonusReminderBadge / _selectedActiveBonusState).
+                    Positioned(
+                      top: 0.0,
+                      right: 0.0,
+                      child: _buildBonusReminderBadge(),
+                    ),
+                  ],
                 ),
                 background: const SizedBox.shrink(),
                 centerTitle: true,
@@ -2253,6 +2346,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                   children: [
                                                     _buildTopDynamicZone(
                                                         context),
+                                                    _buildRecentWinnersZone(),
                                                     Container(
                                                       width: double.infinity,
                                                       decoration:
@@ -2436,8 +2530,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         ),
                                                       ),
                                                     ),
-                                                    _buildBonusGamesZone(),
-                                                    _buildRecentWinnersZone(),
                                                     _buildActiveAnimationsSection(
                                                       context,
                                                       leadingGap:
@@ -2887,6 +2979,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               );
                                                             },
                                                           ),
+                                                          ),
+                                                          KeyedSubtree(
+                                                            key:
+                                                                _bonusFideliteSectionKey,
+                                                            child:
+                                                                _buildBonusGamesZone(),
                                                           ),
                                                           ..._sectionHeader(
                                                             context,
