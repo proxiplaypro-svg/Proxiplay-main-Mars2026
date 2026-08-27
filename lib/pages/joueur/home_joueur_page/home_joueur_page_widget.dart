@@ -67,6 +67,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   static const double _homeSpaceBeforeTitle = 5.0;
   static const double _homeSpaceAfterTitle = 2.0;
 
+  /// Espace apres la carte "Bonus fidelite", pour egaler visuellement le
+  /// "matelas" dont beneficient gratuitement les carrousels de jeux
+  /// (Nouveautes, Jeux a la une...) : leur conteneur a une hauteur fixe
+  /// (AppStyles.gameCardHeight + 8.0) plus grande que le contenu reel des
+  /// cartes, ce qui laisse un espace visible avant le titre suivant. La
+  /// carte Bonus, elle, se dimensionne exactement sur son contenu — sans
+  /// ce SizedBox explicite, elle collerait a la section suivante.
+  static const double _bonusZoneTrailingSpace = 24.0;
+
   late HomeJoueurPageModel _model;
   final _sharePromoService = SharePromoService();
 
@@ -1001,14 +1010,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         // Le helper _sectionHeader gere l'espacement AVANT/APRES le
         // titre : quand la section est masquee (SizedBox.shrink()
         // ci-dessus), aucun espace n'est consomme entre ses voisins
-        // visibles. Marge dediee APRES la carte : contrairement aux
-        // carrousels de jeux (Nouveautes, Jeux a la une...), qui
-        // beneficient d'un "matelas" gratuit car leur conteneur a une
-        // hauteur fixe (AppStyles.gameCardHeight + 8.0) plus grande que
-        // le contenu reel des cartes, la carte Bonus se dimensionne
-        // exactement sur son contenu, sans aucune marge implicite —
-        // d'ou ce SizedBox explicite pour ne pas coller a la section
-        // suivante (confirme visuellement via un reperage temporaire).
+        // visibles. Voir _bonusZoneTrailingSpace pour la marge dediee
+        // APRES la carte.
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1028,7 +1031,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                 },
               ),
             ),
-            const SizedBox(height: 12.0),
+            const SizedBox(height: _bonusZoneTrailingSpace),
           ],
         );
       },
