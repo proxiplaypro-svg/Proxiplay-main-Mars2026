@@ -47,7 +47,7 @@ class MerchantOfferedByBubble extends StatefulWidget {
   /// `GameCard`). Volontairement inferieure a la moitie de `totalHeight`
   /// pour que la bulle repose davantage sur la zone blanche de la carte et
   /// empiete moins sur l'image du haut.
-  static const double topOffsetFromImageBottom = 14.0;
+  static const double topOffsetFromImageBottom = 11.0;
 
   /// Estimation de la hauteur totale de la bulle, utilisee par `GameCard`
   /// uniquement pour le positionnement (chevauchement avec l'image, espace

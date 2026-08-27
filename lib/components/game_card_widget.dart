@@ -344,7 +344,7 @@ class _GameCardState extends State<GameCard> {
   // groupees entre elles, nettement detachees du titre au-dessus. Meme
   // valeurs sur toutes les cartes de jeu (carrousels "Jeux a la une",
   // "Bientot finis", etc.) puisqu'elles partagent ce composant.
-  static const double _titleToMetaGap = 10.0;
+  static const double _titleToMetaGap = 7.0;
   static const double _metaRowGap = 8.0;
 
   Widget _buildContent(BuildContext context) {
