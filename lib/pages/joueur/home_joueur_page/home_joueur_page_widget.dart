@@ -870,9 +870,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     Widget content,
   ) {
     return [
-      // TEMP DEBUG — repere de mesure visuel, a retirer une fois le
-      // diagnostic de l'espace Bonus/Jeux termines confirme.
-      Container(height: _homeSpaceBeforeTitle, color: const Color(0xFF00FF00)),
+      const SizedBox(height: _homeSpaceBeforeTitle),
       Text(
         title,
         style: FlutterFlowTheme.of(context).titleLarge.override(
@@ -1003,9 +1001,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         // Le helper _sectionHeader gere l'espacement AVANT/APRES le
         // titre : quand la section est masquee (SizedBox.shrink()
         // ci-dessus), aucun espace n'est consomme entre ses voisins
-        // visibles. Pas de marge dediee APRES la carte : c'est la
-        // section suivante (animations, ou a defaut "BIENTOT FINIS")
-        // qui porte son propre grand espace de separation.
+        // visibles. Marge dediee APRES la carte : contrairement aux
+        // carrousels de jeux (Nouveautes, Jeux a la une...), qui
+        // beneficient d'un "matelas" gratuit car leur conteneur a une
+        // hauteur fixe (AppStyles.gameCardHeight + 8.0) plus grande que
+        // le contenu reel des cartes, la carte Bonus se dimensionne
+        // exactement sur son contenu, sans aucune marge implicite —
+        // d'ou ce SizedBox explicite pour ne pas coller a la section
+        // suivante (confirme visuellement via un reperage temporaire).
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1025,6 +1028,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                 },
               ),
             ),
+            const SizedBox(height: 12.0),
           ],
         );
       },
