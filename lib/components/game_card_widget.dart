@@ -279,13 +279,6 @@ class _GameCardState extends State<GameCard> {
             color: _isPressed ? const Color(0xFFA0134D) : Colors.transparent,
             width: 2.0,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: _isPressed ? 0.04 : 0.08),
-              blurRadius: _isPressed ? 6.0 : 16.0,
-              offset: Offset(0.0, _isPressed ? 2.0 : 6.0),
-            ),
-          ],
         ),
         child: AnimatedScale(
           scale: _isPressed ? 0.92 : 1.0,

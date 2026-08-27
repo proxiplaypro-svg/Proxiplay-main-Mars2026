@@ -124,13 +124,6 @@ class _SharePromoBannerState extends State<SharePromoBanner>
               color: accentColor.withValues(alpha: 0.14),
               width: 1.0,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF2C2F5B).withValues(alpha: 0.06),
-                blurRadius: 14.0,
-                offset: const Offset(0.0, 6.0),
-              ),
-            ],
           ),
           child: Container(
             constraints: const BoxConstraints(minHeight: 60.0),

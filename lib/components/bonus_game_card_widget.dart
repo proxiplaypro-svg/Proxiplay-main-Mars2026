@@ -184,13 +184,6 @@ class BonusGameCardWidget extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(18.0),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 16.0,
-                offset: const Offset(0.0, 6.0),
-              ),
-            ],
           ),
           child: IntrinsicHeight(
             child: Row(
