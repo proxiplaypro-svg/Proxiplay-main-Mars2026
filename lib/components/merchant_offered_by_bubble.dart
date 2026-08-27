@@ -30,23 +30,22 @@ class MerchantOfferedByBubble extends StatefulWidget {
   final String merchantName;
   final DocumentReference? enseigneRef;
 
-  /// Diametre de la photo ronde. Sert aussi de reference pour le
-  /// chevauchement avec l'image (le centre de la photo est aligne sur le
-  /// bord bas de l'image, voir `GameCard`).
+  /// Diametre de la photo ronde.
   static const double avatarSize = 40.0;
 
-  // Le nom du commerçant peut occuper jusqu'a 2 lignes (voir build()) : le
-  // cartouche reserve toujours la meme hauteur, qu'il tienne sur 1 ou 2
-  // lignes, pour que toutes les cartes d'une meme rangee restent alignees
-  // (pas de "grille en escalier"). Il est donc desormais l'element le plus
-  // haut de la bulle, devant la photo.
-  static const double _nameLineHeight = 18.4; // 16px * 1.15
-  static const double _capsuleHeight = 56.0;
+  /// Distance entre le haut de la bulle et le bord bas de l'image (voir
+  /// `GameCard`). Volontairement inferieure a la moitie de `totalHeight`
+  /// pour que la bulle repose davantage sur la zone blanche de la carte et
+  /// empiete moins sur l'image du haut.
+  static const double topOffsetFromImageBottom = 18.0;
 
-  /// Hauteur totale reservee par le composant. Utilisee par `GameCard` pour
-  /// calculer le chevauchement avec l'image et l'espace a reserver sous le
-  /// titre — c'est toujours le cartouche qui domine desormais.
-  static const double totalHeight = _capsuleHeight;
+  /// Estimation de la hauteur totale de la bulle, utilisee par `GameCard`
+  /// uniquement pour le positionnement (chevauchement avec l'image, espace
+  /// reserve avant le titre). La hauteur REELLE du cartouche est toujours
+  /// calculee par Flutter lui-meme (voir le texte fantome dans build()),
+  /// donc un ecart de quelques pixels ici n'a qu'un effet cosmetique mineur
+  /// sur le chevauchement — jamais de risque de superposition/coupure.
+  static const double totalHeight = 57.0;
 
   @override
   State<MerchantOfferedByBubble> createState() =>
@@ -87,85 +86,93 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
     }
     final theme = FlutterFlowTheme.of(context);
     const avatarSize = MerchantOfferedByBubble.avatarSize;
-    const capsuleHeight = MerchantOfferedByBubble._capsuleHeight;
     const capsuleLeftInset = avatarSize / 2;
-    // L'un ou l'autre peut devenir le plus haut selon les futurs reglages :
-    // on calcule la bulle a partir des deux plutot que de figer une valeur.
-    const bubbleHeight = capsuleHeight > avatarSize ? capsuleHeight : avatarSize;
 
-    return SizedBox(
-      height: bubbleHeight,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: capsuleLeftInset,
-            right: 0.0,
-            top: (bubbleHeight - capsuleHeight) / 2,
-            height: capsuleHeight,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(
-                capsuleLeftInset + 8.0,
-                4.0,
-                12.0,
-                4.0,
+    final labelStyle = theme.bodySmall.override(
+      font: GoogleFonts.inter(fontWeight: FontWeight.w500),
+      color: const Color(0xFF8A8A8A),
+      fontWeight: FontWeight.w500,
+      fontSize: 9.0,
+      lineHeight: 1.2,
+    );
+    final nameStyle = theme.bodyMedium.override(
+      font: GoogleFonts.inter(fontWeight: FontWeight.w600),
+      color: const Color(0xFFA0134D),
+      fontWeight: FontWeight.w600,
+      fontSize: 14.0,
+      lineHeight: 1.2,
+    );
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Enfant non positionne : c'est lui qui determine la hauteur de la
+        // bulle (le cartouche, decale a droite via sa marge gauche pour
+        // laisser la place a la photo qui le chevauche).
+        Container(
+          margin: const EdgeInsets.only(left: capsuleLeftInset),
+          padding: const EdgeInsets.fromLTRB(
+            capsuleLeftInset + 8.0,
+            5.0,
+            12.0,
+            5.0,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            // Rectangle a coins arrondis, coherent avec les pastilles de
+            // prix des cartes ("195 €"...) — plus une forme pilule.
+            borderRadius: BorderRadius.circular(14.0),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 8.0,
+                offset: const Offset(0.0, 2.0),
               ),
-              alignment: Alignment.centerLeft,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(999.0),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 8.0,
-                    offset: const Offset(0.0, 2.0),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Offert par', style: labelStyle),
+              const SizedBox(height: 2.0),
+              // Le bloc nom reserve toujours la hauteur de 2 lignes, meme
+              // si le nom tient sur 1 seule — via un texte fantome invisible
+              // mesure par Flutter avec le meme style (fiable quels que
+              // soient la police/l'echelle de texte, contrairement a une
+              // hauteur en pixels calculee a la main). Ainsi toutes les
+              // cartes d'une meme rangee gardent un cartouche de meme
+              // hauteur, quel que soit le nombre de lignes reellement
+              // utilisees.
+              Stack(
                 children: [
-                  Text(
-                    'Offert par',
-                    style: theme.bodySmall.override(
-                      font: GoogleFonts.inter(fontWeight: FontWeight.w500),
-                      color: const Color(0xFF8A8A8A),
-                      fontWeight: FontWeight.w500,
-                      fontSize: 9.0,
-                      lineHeight: 1.0,
-                    ),
+                  Visibility(
+                    visible: false,
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: Text('Ag\nAg', style: nameStyle),
                   ),
-                  const SizedBox(height: 2.0),
-                  // Hauteur toujours reservee pour 2 lignes (meme si le nom
-                  // tient sur 1 seule) afin que les cartes d'une meme
-                  // rangee restent alignees.
-                  SizedBox(
-                    height: MerchantOfferedByBubble._nameLineHeight * 2,
+                  Positioned.fill(
                     child: Text(
                       name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.bodyMedium.override(
-                        font: GoogleFonts.inter(fontWeight: FontWeight.w800),
-                        color: const Color(0xFFA0134D),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16.0,
-                        lineHeight: 1.15,
-                      ),
+                      style: nameStyle,
                     ),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
-          Positioned(
-            left: 0.0,
-            top: (bubbleHeight - avatarSize) / 2,
-            child: _buildAvatar(avatarSize),
-          ),
-        ],
-      ),
+        ),
+        Positioned(
+          left: 0.0,
+          top: 0.0,
+          bottom: 0.0,
+          child: Center(child: _buildAvatar(avatarSize)),
+        ),
+      ],
     );
   }
 
