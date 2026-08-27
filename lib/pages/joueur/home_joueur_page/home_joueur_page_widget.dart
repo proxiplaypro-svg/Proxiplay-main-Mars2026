@@ -870,7 +870,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     Widget content,
   ) {
     return [
-      const SizedBox(height: _homeSpaceBeforeTitle),
+      // TEMP DEBUG — repere de mesure visuel, a retirer une fois le
+      // diagnostic de l'espace Bonus/Jeux termines confirme.
+      Container(height: _homeSpaceBeforeTitle, color: const Color(0xFF00FF00)),
       Text(
         title,
         style: FlutterFlowTheme.of(context).titleLarge.override(
