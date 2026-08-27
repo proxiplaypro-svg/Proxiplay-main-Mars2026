@@ -136,11 +136,17 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
             child: Text('Ag\nAg', style: nameStyle),
           ),
           Positioned.fill(
-            child: Text(
-              name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: nameStyle,
+            // Centre verticalement le nom dans l'espace reserve de 2
+            // lignes : un nom d'une seule ligne ne doit pas rester colle
+            // en haut avec du vide en dessous.
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: nameStyle,
+              ),
             ),
           ),
         ],
