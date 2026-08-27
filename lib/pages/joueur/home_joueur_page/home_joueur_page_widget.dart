@@ -1075,7 +1075,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
   Widget _buildAnimationCard(
     BuildContext context, {
-    required String animationId,
+    required Future<void> Function() onTap,
     required String name,
     required String coverImage,
     required DateTime? endDate,
@@ -1085,7 +1085,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
       onTap: () async {
-        await _openAnimationDetails(animationId);
+        await onTap();
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18.0),
@@ -1271,6 +1271,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     BuildContext context, {
     double? leadingGap,
     double? titleGap,
+    bool restrictToAdultSafe = false,
   }) {
     Widget wrap(Widget child) {
       if (leadingGap != null) {
@@ -1324,80 +1325,128 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           if (endDate != null && !endDate.isAfter(now)) return false;
           if (startDate != null && startDate.isAfter(now)) return false;
           return true;
-        }).toList()
-          ..sort((a, b) {
-            final aDate = _readAnimationDate(a.data(), 'end_date') ??
-                DateTime.fromMillisecondsSinceEpoch(0);
-            final bDate = _readAnimationDate(b.data(), 'end_date') ??
-                DateTime.fromMillisecondsSinceEpoch(0);
-            return aDate.compareTo(bDate);
-          });
+        }).toList();
 
-        if (activeAnimations.isEmpty) {
-          return const SizedBox.shrink();
-        }
+        // Jeux "à scanner en boutique" (access_mode qr_only, un seul
+        // commerçant) : même rubrique que les animations multi-commerçants,
+        // simple filtre d'égalité sur `access_mode` donc pas besoin d'index
+        // composite Firestore supplémentaire — le reste (hasWinner, dates,
+        // visibilité mineur) est filtré côté client comme partout ailleurs
+        // dans cette page.
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance
+              .collection('games')
+              .where('access_mode', isEqualTo: 'qr_only')
+              .snapshots(),
+          builder: (context, qrGamesSnapshot) {
+            final activeQrGames = (qrGamesSnapshot.data?.docs ?? const [])
+                .map((doc) => GamesRecord.fromSnapshot(doc))
+                .where((game) {
+                  if (game.hasWinner) return false;
+                  if (!game.visiblePublic) return false;
+                  if (restrictToAdultSafe && game.prohibitedForMinors) {
+                    return false;
+                  }
+                  if (game.endDate != null && !game.endDate!.isAfter(now)) {
+                    return false;
+                  }
+                  if (game.startDate != null &&
+                      game.startDate!.isAfter(now)) {
+                    return false;
+                  }
+                  return _isGameVisibleForPlayer(game);
+                })
+                .toList();
 
-        return wrap(
-          Container(
-            width: double.infinity,
-            decoration: const BoxDecoration(),
-            child: Column(
-              mainAxisSize: MainAxisSize.max,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: EdgeInsetsDirectional.only(
-                    start: _homeSectionTitleLeftInset,
-                    bottom: titleGap ?? 16.0,
+            final entries = <_ActiveShowcaseEntry>[
+              ...activeAnimations.map((doc) {
+                final data = doc.data();
+                return _ActiveShowcaseEntry(
+                  sortDate: _readAnimationDate(data, 'end_date') ??
+                      DateTime.fromMillisecondsSinceEpoch(0),
+                  builder: () => _buildAnimationCard(
+                    context,
+                    name: _readAnimationText(data, 'name').isNotEmpty
+                        ? _readAnimationText(data, 'name')
+                        : 'Animation',
+                    coverImage: _readAnimationText(data, 'cover_image'),
+                    endDate: _readAnimationDate(data, 'end_date'),
+                    onTap: () => _openAnimationDetails(doc.id),
                   ),
-                  child: Text(
-                    'SCANS EN BOUTIQUE',
-                    style: FlutterFlowTheme.of(context).titleLarge.override(
-                          font: GoogleFonts.interTight(
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .titleLarge
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .titleLarge
-                                .fontStyle,
-                          ),
-                          fontSize: 20.0,
-                          letterSpacing: 0.0,
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .titleLarge
-                              .fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).titleLarge.fontStyle,
-                        ),
+                );
+              }),
+              ...activeQrGames.map((game) {
+                return _ActiveShowcaseEntry(
+                  sortDate: game.endDate ?? DateTime.fromMillisecondsSinceEpoch(0),
+                  builder: () => _buildAnimationCard(
+                    context,
+                    name: game.name.isNotEmpty ? game.name : 'Jeu',
+                    coverImage: game.photo,
+                    endDate: game.endDate,
+                    onTap: () => _openGameDetails(game),
                   ),
+                );
+              }),
+            ]..sort((a, b) => a.sortDate.compareTo(b.sortDate));
+
+            if (entries.isEmpty) {
+              return const SizedBox.shrink();
+            }
+
+            return wrap(
+              Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: EdgeInsetsDirectional.only(
+                        start: _homeSectionTitleLeftInset,
+                        bottom: titleGap ?? 16.0,
+                      ),
+                      child: Text(
+                        'SCANS EN BOUTIQUE',
+                        style: FlutterFlowTheme.of(context).titleLarge.override(
+                              font: GoogleFonts.interTight(
+                                fontWeight: FlutterFlowTheme.of(context)
+                                    .titleLarge
+                                    .fontWeight,
+                                fontStyle: FlutterFlowTheme.of(context)
+                                    .titleLarge
+                                    .fontStyle,
+                              ),
+                              fontSize: 20.0,
+                              letterSpacing: 0.0,
+                              fontWeight: FlutterFlowTheme.of(context)
+                                  .titleLarge
+                                  .fontWeight,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .titleLarge
+                                  .fontStyle,
+                            ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 160.0,
+                      child: ListView.separated(
+                        padding: EdgeInsets.zero,
+                        primary: false,
+                        scrollDirection: Axis.horizontal,
+                        itemCount: entries.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(width: 10.0),
+                        itemBuilder: (context, index) =>
+                            entries[index].builder(),
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(
-                  width: double.infinity,
-                  height: 160.0,
-                  child: ListView.separated(
-                    padding: EdgeInsets.zero,
-                    primary: false,
-                    scrollDirection: Axis.horizontal,
-                    itemCount: activeAnimations.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10.0),
-                    itemBuilder: (context, index) {
-                      final doc = activeAnimations[index];
-                      final data = doc.data();
-                      return _buildAnimationCard(
-                        context,
-                        animationId: doc.id,
-                        name: _readAnimationText(data, 'name').isNotEmpty
-                            ? _readAnimationText(data, 'name')
-                            : 'Animation',
-                        coverImage: _readAnimationText(data, 'cover_image'),
-                        endDate: _readAnimationDate(data, 'end_date'),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -3322,6 +3371,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                 children: [
                                                   _buildActiveAnimationsSection(
                                                     context,
+                                                    restrictToAdultSafe: true,
                                                   ),
                                                   Container(
                                                     width: double.infinity,
@@ -5113,4 +5163,17 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       ),
     );
   }
+}
+
+/// Une carte de la rubrique "Scans en boutique" (animation multi-commerçants
+/// ou jeu qr_only mono-commerçant), avec sa date de fin pour le tri
+/// chronologique commun aux deux types.
+class _ActiveShowcaseEntry {
+  const _ActiveShowcaseEntry({
+    required this.sortDate,
+    required this.builder,
+  });
+
+  final DateTime sortDate;
+  final Widget Function() builder;
 }
