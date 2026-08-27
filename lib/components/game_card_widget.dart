@@ -1,7 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '/flutter_flow/app_styles.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/backend/schema/enums/enums.dart';
 import '/widgets/proxiplay_network_image.dart';
+import '/components/merchant_offered_by_bubble.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -27,6 +29,7 @@ class GameCard extends StatefulWidget {
     this.winnerMaxLines = 1,
     this.isFinished = false,
     this.finishedInfoText = 'Jeu termin\u00E9',
+    this.enseigneRef,
   });
 
   final String title;
@@ -48,6 +51,10 @@ class GameCard extends StatefulWidget {
   final int winnerMaxLines;
   final bool isFinished;
   final String finishedInfoText;
+  /// Reference Firestore du commercant (`enseignes/{id}`), utilisee
+  /// uniquement pour recuperer sa premiere photo pour la bulle "Offert
+  /// par" \u2014 aucun impact sur la logique de jeu.
+  final DocumentReference? enseigneRef;
 
   @override
   State<GameCard> createState() => _GameCardState();
@@ -212,8 +219,13 @@ class _GameCardState extends State<GameCard> {
           ),
         if (hasPrize)
           Positioned(
-            left: 8.0,
-            top: effectiveImageHeight - 16.0,
+            left: 10.0,
+            // Le badge statut/"Jeu terminé" (effectiveBadge) occupe deja
+            // le coin haut-gauche (0,0) : quand il est present, on decale ce
+            // badge prix juste en dessous pour eviter tout chevauchement.
+            top: effectiveBadge != null && effectiveBadge.isNotEmpty
+                ? 42.0
+                : 10.0,
             child: Container(
               padding: AppStyles.gameCardPriceBadgePadding,
               decoration: BoxDecoration(
@@ -240,6 +252,18 @@ class _GameCardState extends State<GameCard> {
                       letterSpacing: 0.0,
                     ),
               ),
+            ),
+          ),
+        if (_hasVisibleText(widget.storeName))
+          Positioned(
+            left: 10.0,
+            right: 10.0,
+            top: effectiveImageHeight -
+                (MerchantOfferedByBubble.avatarSize / 2) -
+                2.0,
+            child: MerchantOfferedByBubble(
+              merchantName: widget.storeName,
+              enseigneRef: widget.enseigneRef,
             ),
           ),
       ],
@@ -533,6 +557,7 @@ class GameCardWidget extends GameCard {
     super.winnerMaxLines,
     super.isFinished,
     super.finishedInfoText,
+    super.enseigneRef,
   });
 }
 

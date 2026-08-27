@@ -672,6 +672,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         width: width ?? _computeHomeCardWidth(context),
         height: height,
         imageHeight: imageHeight,
+        enseigneRef: resolvedEnseigne?.reference,
         onTap: () async {
           await onTap();
         },
