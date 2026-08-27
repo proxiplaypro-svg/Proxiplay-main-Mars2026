@@ -25,10 +25,20 @@ class MerchantOfferedByBubble extends StatefulWidget {
     super.key,
     required this.merchantName,
     this.enseigneRef,
+    this.showOfferedByLabel = true,
   });
 
   final String merchantName;
   final DocumentReference? enseigneRef;
+
+  /// Quand false, masque la ligne "Offert par" et centre verticalement le
+  /// nom seul dans la bulle (meme hauteur totale reservee, juste un
+  /// contenu recentre) — utilise uniquement pour le jeu de parrainage sans
+  /// commercant partenaire ("Programme de parrainage" n'est pas un nom de
+  /// commercant, donc "Offert par" n'a pas de sens). Toutes les cartes
+  /// classiques utilisent la valeur par defaut (true) et gardent un rendu
+  /// strictement identique a avant.
+  final bool showOfferedByLabel;
 
   /// Diametre de la photo ronde.
   static const double avatarSize = 34.0;
@@ -103,6 +113,76 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
       lineHeight: 1.05,
     );
 
+    // Le bloc nom reserve toujours la hauteur de 2 lignes, meme si le nom
+    // tient sur 1 seule — via un texte fantome invisible mesure par
+    // Flutter avec le meme style (fiable quels que soient la police/
+    // l'echelle de texte, contrairement a une hauteur en pixels calculee a
+    // la main). Ainsi toutes les cartes d'une meme rangee gardent un
+    // cartouche de meme hauteur, quel que soit le nombre de lignes
+    // reellement utilisees.
+    // `width: double.infinity` : sans ca, le Stack se dimensionne sur la
+    // largeur naturelle du texte fantome ("Ag" = tres etroit) et le vrai
+    // nom se retrouve coince dans cette largeur minuscule au lieu de la
+    // largeur disponible de la pastille.
+    final nameBlock = SizedBox(
+      width: double.infinity,
+      child: Stack(
+        children: [
+          Visibility(
+            visible: false,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: Text('Ag\nAg', style: nameStyle),
+          ),
+          Positioned.fill(
+            child: Text(
+              name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: nameStyle,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    // Rendu classique (par defaut, cartes commercant) : label + nom,
+    // strictement identique a avant.
+    final offeredByColumn = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Offert par', style: labelStyle),
+        const SizedBox(height: 1.5),
+        nameBlock,
+      ],
+    );
+
+    // Sans label (parrainage sans commercant partenaire) : la bulle
+    // reserve exactement la meme hauteur totale (texte fantome de
+    // `offeredByColumn`, invisible), mais le nom seul est centre
+    // verticalement dedans plutot que colle en haut sous un espace vide.
+    final capsuleContent = widget.showOfferedByLabel
+        ? offeredByColumn
+        : Stack(
+            children: [
+              Visibility(
+                visible: false,
+                maintainSize: true,
+                maintainAnimation: true,
+                maintainState: true,
+                child: offeredByColumn,
+              ),
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: nameBlock,
+                ),
+              ),
+            ],
+          );
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -130,49 +210,7 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
               ),
             ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Offert par', style: labelStyle),
-              const SizedBox(height: 1.5),
-              // Le bloc nom reserve toujours la hauteur de 2 lignes, meme
-              // si le nom tient sur 1 seule — via un texte fantome invisible
-              // mesure par Flutter avec le meme style (fiable quels que
-              // soient la police/l'echelle de texte, contrairement a une
-              // hauteur en pixels calculee a la main). Ainsi toutes les
-              // cartes d'une meme rangee gardent un cartouche de meme
-              // hauteur, quel que soit le nombre de lignes reellement
-              // utilisees.
-              // `width: double.infinity` : sans ca, le Stack se
-              // dimensionne sur la largeur naturelle du texte fantome
-              // ("Ag" = tres etroit) et le vrai nom se retrouve coince
-              // dans cette largeur minuscule au lieu de la largeur
-              // disponible de la pastille.
-              SizedBox(
-                width: double.infinity,
-                child: Stack(
-                  children: [
-                    Visibility(
-                      visible: false,
-                      maintainSize: true,
-                      maintainAnimation: true,
-                      maintainState: true,
-                      child: Text('Ag\nAg', style: nameStyle),
-                    ),
-                    Positioned.fill(
-                      child: Text(
-                        name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: nameStyle,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          child: capsuleContent,
         ),
         Positioned(
           left: 0.0,

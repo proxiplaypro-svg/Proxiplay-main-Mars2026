@@ -21,7 +21,7 @@ class AppStyles {
   static const EdgeInsets gameCardContentPadding =
       EdgeInsets.fromLTRB(10.0, 10.0, 10.0, 10.0);
   static const EdgeInsets gameCardBadgePadding =
-      EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0);
+      EdgeInsets.symmetric(horizontal: 8.0, vertical: 5.0);
   static const EdgeInsets gameCardPriceBadgePadding =
       EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0);
   static const EdgeInsets gameCardWinnerPadding =
@@ -34,6 +34,6 @@ class AppStyles {
 
   static const double gameCardTitleSize = 16.0;
   static const double gameCardBodySize = 12.0;
-  static const double gameCardBadgeSize = 13.0;
+  static const double gameCardBadgeSize = 12.0;
   static const double gameCardPriceBadgeSize = 13.0;
 }

@@ -30,6 +30,7 @@ class GameCard extends StatefulWidget {
     this.isFinished = false,
     this.finishedInfoText = 'Jeu termin\u00E9',
     this.enseigneRef,
+    this.showOfferedByLabel = true,
   });
 
   final String title;
@@ -55,6 +56,9 @@ class GameCard extends StatefulWidget {
   /// uniquement pour recuperer sa premiere photo pour la bulle "Offert
   /// par" \u2014 aucun impact sur la logique de jeu.
   final DocumentReference? enseigneRef;
+  /// Voir `MerchantOfferedByBubble.showOfferedByLabel`. Par defaut a
+  /// true : toutes les cartes classiques gardent leur rendu actuel.
+  final bool showOfferedByLabel;
 
   @override
   State<GameCard> createState() => _GameCardState();
@@ -265,6 +269,7 @@ class _GameCardState extends State<GameCard> {
             child: MerchantOfferedByBubble(
               merchantName: widget.storeName,
               enseigneRef: widget.enseigneRef,
+              showOfferedByLabel: widget.showOfferedByLabel,
             ),
           ),
       ],
@@ -339,7 +344,7 @@ class _GameCardState extends State<GameCard> {
   // groupees entre elles, nettement detachees du titre au-dessus. Meme
   // valeurs sur toutes les cartes de jeu (carrousels "Jeux a la une",
   // "Bientot finis", etc.) puisqu'elles partagent ce composant.
-  static const double _titleToMetaGap = 16.0;
+  static const double _titleToMetaGap = 10.0;
   static const double _metaRowGap = 8.0;
 
   Widget _buildContent(BuildContext context) {
@@ -357,6 +362,15 @@ class _GameCardState extends State<GameCard> {
     final contentPadding = (!widget.isFinished && hasPrize)
         ? const EdgeInsets.fromLTRB(10.0, 8.0, 10.0, 4.0)
         : AppStyles.gameCardContentPadding;
+    final titleStyle = FlutterFlowTheme.of(context).bodyMedium.override(
+          font: GoogleFonts.inter(
+            fontWeight: FontWeight.w700,
+            fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+          ),
+          fontSize: AppStyles.gameCardTitleSize,
+          color: Colors.black,
+          letterSpacing: 0.0,
+        );
     return Container(
       color: widget.isFinished ? Colors.white : Colors.transparent,
       child: Padding(
@@ -365,20 +379,35 @@ class _GameCardState extends State<GameCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (bubbleClearance > 0.0) SizedBox(height: bubbleClearance),
-            Text(
-              _normalizeText(widget.title),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: FlutterFlowTheme.of(context).bodyMedium.override(
-                    font: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                    ),
-                    fontSize: AppStyles.gameCardTitleSize,
-                    color: Colors.black,
-                    letterSpacing: 0.0,
+            // Reserve toujours la hauteur de 2 lignes, meme si le titre
+            // tient sur 1 seule (texte fantome invisible, meme technique
+            // que MerchantOfferedByBubble pour le nom du commercant) : les
+            // cartes d'une meme rangee restent ainsi coherentes en hauteur,
+            // que leur titre fasse 1 ou 2 lignes. `width: double.infinity`
+            // : sans ca, le Stack se dimensionne sur la largeur naturelle
+            // du texte fantome au lieu de la largeur disponible de la
+            // carte.
+            SizedBox(
+              width: double.infinity,
+              child: Stack(
+                children: [
+                  Visibility(
+                    visible: false,
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: Text('Ag\nAg', style: titleStyle),
                   ),
+                  Positioned.fill(
+                    child: Text(
+                      _normalizeText(widget.title),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: titleStyle,
+                    ),
+                  ),
+                ],
+              ),
             ),
             SizedBox(height: _titleToMetaGap),
             if (hasCity) ...[
@@ -549,6 +578,7 @@ class GameCardWidget extends GameCard {
     super.isFinished,
     super.finishedInfoText,
     super.enseigneRef,
+    super.showOfferedByLabel,
   });
 }
 

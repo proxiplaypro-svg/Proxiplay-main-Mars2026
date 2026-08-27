@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '/backend/backend.dart';
 import '/components/game_card_widget.dart';
 import '/flutter_flow/app_styles.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -53,26 +54,65 @@ class ReferralGameCard extends StatelessWidget {
         final gameDoc = snapshot.data!.docs.first;
         final gameData = gameDoc.data();
         final endDate = (gameData['end_date'] as Timestamp?)?.toDate();
+        final title = (gameData['title'] as String?)?.trim().isNotEmpty == true
+            ? gameData['title'] as String
+            : 'Jeu de parrainage';
+        final imageUrl = (gameData['image_url'] as String?) ?? '';
+        final prizeText = _prizeBadgeText(gameData);
+        final endDateText = endDate != null
+            ? "Jusqu'au : ${dateTimeFormat('d/M/y', endDate, locale: FFLocalizations.of(context).languageCode)}"
+            : "Jusqu'au : -";
+        void onTap() => context.pushNamed(
+              ReferralGameDetailJoueurPageWidget.routeName,
+              queryParameters: {'gameId': gameDoc.id},
+              extra: <String, dynamic>{'gameId': gameDoc.id},
+            );
 
-        return GameCardWidget(
-          title: (gameData['title'] as String?)?.trim().isNotEmpty == true
-              ? gameData['title'] as String
-              : 'Jeu de parrainage',
-          imageUrl: (gameData['image_url'] as String?) ?? '',
-          storeName: 'Programme de parrainage',
-          city: '',
-          prizeText: _prizeBadgeText(gameData),
-          endDateText: endDate != null
-              ? "Jusqu'au : ${dateTimeFormat('d/M/y', endDate, locale: FFLocalizations.of(context).languageCode)}"
-              : "Jusqu'au : -",
-          badgeText: 'Parrainage',
-          width: width ?? AppStyles.gameCardWidth,
-          height: height,
-          onTap: () => context.pushNamed(
-            ReferralGameDetailJoueurPageWidget.routeName,
-            queryParameters: {'gameId': gameDoc.id},
-            extra: <String, dynamic>{'gameId': gameDoc.id},
-          ),
+        // Commercant partenaire optionnel : meme convention de champ que
+        // les jeux classiques (`enseigne_id`, voir GamesRecord). Aucun jeu
+        // de parrainage existant n'a ce champ renseigne aujourd'hui (le
+        // formulaire admin actuel ne le propose pas encore) — la carte
+        // bascule alors automatiquement sur la bulle generique "Programme
+        // de parrainage", sans badge "Parrainage" (redondant avec ce
+        // contexte, deja affiche sur la fiche detaillee).
+        final partnerEnseigneRef = gameData['enseigne_id'] as DocumentReference?;
+
+        if (partnerEnseigneRef == null) {
+          return GameCardWidget(
+            title: title,
+            imageUrl: imageUrl,
+            storeName: 'Programme de parrainage',
+            city: '',
+            prizeText: prizeText,
+            endDateText: endDateText,
+            showOfferedByLabel: false,
+            width: width ?? AppStyles.gameCardWidth,
+            height: height,
+            onTap: onTap,
+          );
+        }
+
+        // Avec partenaire : presentation strictement identique a celle
+        // d'un jeu classique (photo/logo + "Offert par" + nom).
+        return FutureBuilder<EnseignesRecord>(
+          future: EnseignesRecord.getDocumentOnce(partnerEnseigneRef),
+          builder: (context, enseigneSnapshot) {
+            final partnerName = enseigneSnapshot.data?.name.trim() ?? '';
+            return GameCardWidget(
+              title: title,
+              imageUrl: imageUrl,
+              storeName:
+                  partnerName.isNotEmpty ? partnerName : 'Programme de parrainage',
+              city: '',
+              prizeText: prizeText,
+              endDateText: endDateText,
+              enseigneRef: partnerName.isNotEmpty ? partnerEnseigneRef : null,
+              showOfferedByLabel: partnerName.isNotEmpty,
+              width: width ?? AppStyles.gameCardWidth,
+              height: height,
+              onTap: onTap,
+            );
+          },
         );
       },
     );
