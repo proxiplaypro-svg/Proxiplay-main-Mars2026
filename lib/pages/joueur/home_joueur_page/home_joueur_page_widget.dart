@@ -64,7 +64,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   /// "Ils ont gagne" n'a pas de titre propre : il joue le role de
   /// "contenu" de la section qui le precede (petit espace avant lui), et
   /// c'est le titre suivant qui porte le grand espace de separation.
-  static const double _homeSpaceBeforeTitle = 9.0;
+  static const double _homeSpaceBeforeTitle = 6.0;
   static const double _homeSpaceAfterTitle = 2.0;
 
   late HomeJoueurPageModel _model;
@@ -934,13 +934,21 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         if (selected == null) {
           return const SizedBox.shrink();
         }
+        // Pastille ronde (diametre 36 = 2x l'offset -18.0 applique par le
+        // Positioned parent) pour chevaucher symetriquement le bord haut
+        // du corps scrollable. Bordure blanche pour rester lisible quel
+        // que soit ce qu'il y a derriere (fond du header vs fond du
+        // corps), meme principe que la photo commercant des cartes.
         return GestureDetector(
           onTap: _scrollToBonusFideliteSection,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            width: 36.0,
+            height: 36.0,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: AppStyles.gameCardBadgeColor,
-              borderRadius: BorderRadius.circular(999.0),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2.0),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.18),
@@ -950,12 +958,13 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
               ],
             ),
             child: Text(
-              '${selected.activeDaysCount}/${selected.targetDays} jours',
+              '${selected.activeDaysCount}/${selected.targetDays}',
+              textAlign: TextAlign.center,
               style: FlutterFlowTheme.of(context).bodyMedium.override(
                     font: GoogleFonts.inter(fontWeight: FontWeight.w800),
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    fontSize: 10.0,
+                    fontSize: 11.0,
                     letterSpacing: 0.0,
                   ),
             ),
@@ -1890,28 +1899,13 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
               automaticallyImplyLeading: false,
               actions: const [],
               flexibleSpace: FlexibleSpaceBar(
-                title: Stack(
-                  children: [
-                    Align(
-                      alignment: const AlignmentDirectional(0.0, 1.0),
-                      child: wrapWithModel(
-                        model: _model.appBarJoueurModel,
-                        updateCallback: () => safeSetState(() {}),
-                        child: const AppBarJoueurWidget(),
-                      ),
-                    ),
-                    // Rappel discret "Bonus fidelite" a cheval sur le
-                    // coin haut-droit du header (meme principe que les
-                    // pastilles de prix sur les cartes de jeu), au-dessus
-                    // du badge "chances" (aligne en bas). Ne s'affiche
-                    // que si un bonus est actif (voir
-                    // _buildBonusReminderBadge / _selectedActiveBonusState).
-                    Positioned(
-                      top: 0.0,
-                      right: 0.0,
-                      child: _buildBonusReminderBadge(),
-                    ),
-                  ],
+                title: Align(
+                  alignment: const AlignmentDirectional(0.0, 1.0),
+                  child: wrapWithModel(
+                    model: _model.appBarJoueurModel,
+                    updateCallback: () => safeSetState(() {}),
+                    child: const AppBarJoueurWidget(),
+                  ),
                 ),
                 background: const SizedBox.shrink(),
                 centerTitle: true,
@@ -1921,8 +1915,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
               ),
             ),
           ),
-          body: SafeArea(
-            top: false,
+          body: Stack(
+            // Clip.none : la pastille de rappel "Bonus fidelite" doit
+            // pouvoir chevaucher le bord haut du corps scrollable pour
+            // etre "a cheval" entre le header (fixe) et le corps de l'app.
+            clipBehavior: Clip.none,
+            children: [
+              SafeArea(
+                top: false,
             child: Container(
               height: double.infinity,
               decoration: BoxDecoration(
@@ -5083,6 +5083,17 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                 ],
               ),
             ),
+              ),
+              // Rappel discret "Bonus fidelite", pastille ronde a cheval
+              // entre le header (fixe) et le corps de l'app, sous la
+              // pastille "chances". Ne s'affiche que si un bonus est actif
+              // (voir _buildBonusReminderBadge / _selectedActiveBonusState).
+              Positioned(
+                top: -18.0,
+                right: 24.0,
+                child: _buildBonusReminderBadge(),
+              ),
+            ],
           ),
         ),
       ),

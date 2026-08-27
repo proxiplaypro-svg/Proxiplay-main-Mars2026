@@ -191,10 +191,16 @@ class BonusGameCardWidget extends StatelessWidget {
               children: [
                 Expanded(child: textColumn),
                 if (thumbnailUrl.isNotEmpty)
+                  // Pas de `height` explicite ici : une valeur infinie ne
+                  // peut pas etre mesuree par IntrinsicHeight (qui a besoin
+                  // de connaitre la hauteur "naturelle" de chaque enfant
+                  // pour calculer celle de la Row) — ca cassait toute la
+                  // mise en page de la carte. CrossAxisAlignment.stretch
+                  // suffit deja a etirer l'image sur toute la hauteur
+                  // determinee par la colonne de texte.
                   ProxiplayNetworkImage(
                     imageUrl: thumbnailUrl,
                     width: _imageColumnWidth,
-                    height: double.infinity,
                     borderRadius: const BorderRadius.horizontal(
                       right: Radius.circular(18.0),
                     ),
