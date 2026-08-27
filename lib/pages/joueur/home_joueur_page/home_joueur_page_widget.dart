@@ -1911,7 +1911,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                 centerTitle: true,
                 expandedTitleScale: 1.0,
                 titlePadding:
-                    const EdgeInsetsDirectional.fromSTEB(20.0, 30.0, 20.0, 0.0),
+                    const EdgeInsetsDirectional.fromSTEB(20.0, 30.0, 20.0, 10.0),
               ),
             ),
           ),

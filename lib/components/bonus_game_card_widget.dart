@@ -59,7 +59,12 @@ class BonusGameCardWidget extends StatelessWidget {
         : null;
 
     final textColumn = Padding(
-      padding: EdgeInsets.fromLTRB(16.0, 14.0, thumbnailUrl.isNotEmpty ? 12.0 : 16.0, 16.0),
+      padding: EdgeInsets.fromLTRB(
+        16.0,
+        14.0,
+        thumbnailUrl.isNotEmpty ? _imageColumnWidth + 12.0 : 16.0,
+        16.0,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -185,28 +190,33 @@ class BonusGameCardWidget extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(18.0),
           ),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: textColumn),
-                if (thumbnailUrl.isNotEmpty)
-                  // Pas de `height` explicite ici : une valeur infinie ne
-                  // peut pas etre mesuree par IntrinsicHeight (qui a besoin
-                  // de connaitre la hauteur "naturelle" de chaque enfant
-                  // pour calculer celle de la Row) — ca cassait toute la
-                  // mise en page de la carte. CrossAxisAlignment.stretch
-                  // suffit deja a etirer l'image sur toute la hauteur
-                  // determinee par la colonne de texte.
-                  ProxiplayNetworkImage(
+          // Stack plutot que Row+IntrinsicHeight : IntrinsicHeight doit
+          // "deviner" la hauteur du texte avant la vraie passe de mise en
+          // page, et ce calcul s'est avere peu fiable pour ce contenu
+          // (overflow + carte visiblement surdimensionnee). Ici, le texte
+          // (non positionne) determine seul la hauteur du Stack, et
+          // l'image est etiree sur cette hauteur via un Positioned
+          // top/right/bottom (meme principe que la photo commercant dans
+          // MerchantOfferedByBubble) — sans mesure intrinseque fragile.
+          child: Stack(
+            children: [
+              textColumn,
+              if (thumbnailUrl.isNotEmpty)
+                Positioned(
+                  top: 0.0,
+                  right: 0.0,
+                  bottom: 0.0,
+                  width: _imageColumnWidth,
+                  child: ProxiplayNetworkImage(
                     imageUrl: thumbnailUrl,
                     width: _imageColumnWidth,
+                    fit: BoxFit.cover,
                     borderRadius: const BorderRadius.horizontal(
                       right: Radius.circular(18.0),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),
