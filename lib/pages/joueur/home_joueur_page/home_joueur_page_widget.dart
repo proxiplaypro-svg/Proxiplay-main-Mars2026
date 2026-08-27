@@ -64,7 +64,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   /// "Ils ont gagne" n'a pas de titre propre : il joue le role de
   /// "contenu" de la section qui le precede (petit espace avant lui), et
   /// c'est le titre suivant qui porte le grand espace de separation.
-  static const double _homeSpaceBeforeTitle = 6.0;
+  static const double _homeSpaceBeforeTitle = 5.0;
   static const double _homeSpaceAfterTitle = 2.0;
 
   late HomeJoueurPageModel _model;

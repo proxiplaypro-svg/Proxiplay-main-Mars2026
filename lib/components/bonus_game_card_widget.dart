@@ -75,9 +75,10 @@ class BonusGameCardWidget extends StatelessWidget {
               font: GoogleFonts.interTight(fontWeight: FontWeight.w800),
               color: const Color(0xFF2C2F5B),
               fontWeight: FontWeight.w800,
+              lineHeight: 1.15,
             ),
           ),
-          const SizedBox(height: 14.0),
+          const SizedBox(height: 10.0),
           Row(
             children: [
               const Icon(Icons.local_fire_department_outlined,
@@ -89,11 +90,12 @@ class BonusGameCardWidget extends StatelessWidget {
                   font: GoogleFonts.interTight(fontWeight: FontWeight.w800),
                   color: const Color(0xFF2C2F5B),
                   fontWeight: FontWeight.w800,
+                  lineHeight: 1.1,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8.0),
+          const SizedBox(height: 6.0),
           ClipRRect(
             borderRadius: BorderRadius.circular(999.0),
             child: LinearProgressIndicator(
@@ -103,7 +105,7 @@ class BonusGameCardWidget extends StatelessWidget {
               color: accent,
             ),
           ),
-          const SizedBox(height: 14.0),
+          const SizedBox(height: 10.0),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -118,13 +120,14 @@ class BonusGameCardWidget extends StatelessWidget {
                     font: GoogleFonts.inter(fontWeight: FontWeight.w600),
                     color: const Color(0xFF2C2F5B),
                     fontWeight: FontWeight.w600,
+                    lineHeight: 1.1,
                   ),
                 ),
               ),
             ],
           ),
           if (prizeValueText.isNotEmpty) ...[
-            const SizedBox(height: 8.0),
+            const SizedBox(height: 6.0),
             Align(
               alignment: Alignment.centerLeft,
               child: Container(
@@ -140,6 +143,7 @@ class BonusGameCardWidget extends StatelessWidget {
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
                     fontSize: AppStyles.gameCardPriceBadgeSize,
+                    lineHeight: 1.1,
                   ),
                 ),
               ),
@@ -153,11 +157,12 @@ class BonusGameCardWidget extends StatelessWidget {
                 font: GoogleFonts.inter(fontWeight: FontWeight.w500),
                 color: const Color(0xFF5C627A),
                 fontWeight: FontWeight.w500,
+                lineHeight: 1.1,
               ),
             ),
           ],
           if (dateText != null) ...[
-            const SizedBox(height: 8.0),
+            const SizedBox(height: 6.0),
             Row(
               children: [
                 const Icon(Icons.calendar_today_outlined,
@@ -169,6 +174,7 @@ class BonusGameCardWidget extends StatelessWidget {
                     font: GoogleFonts.inter(fontWeight: FontWeight.w500),
                     color: const Color(0xFF5C627A),
                     fontWeight: FontWeight.w500,
+                    lineHeight: 1.1,
                   ),
                 ),
               ],
