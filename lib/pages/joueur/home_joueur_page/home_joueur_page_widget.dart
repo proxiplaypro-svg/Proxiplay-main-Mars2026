@@ -1471,11 +1471,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     // Le ticker s'affiche tout en haut de la Home (avant "JEUX A LA
     // UNE"), sous la zone dynamique (bonus de parrainage) qui est vide
     // la plupart du temps : il porte donc lui-meme le grand espace de
-    // separation habituel avant son contenu. Pas de marge propre
-    // APRES : c'est le titre "JEUX A LA UNE" qui porte son propre grand
-    // espace de separation (_homeSpaceBeforeTitle).
+    // separation habituel avant son contenu. Petite marge dediee APRES
+    // (5px) en plus du _homeSpaceBeforeTitle porte par "JEUX A LA UNE".
     return Padding(
-      padding: const EdgeInsets.only(top: _homeSpaceBeforeTitle),
+      padding: const EdgeInsets.only(top: _homeSpaceBeforeTitle, bottom: 5.0),
       child: RecentWinnersTicker(messages: messages),
     );
   }
