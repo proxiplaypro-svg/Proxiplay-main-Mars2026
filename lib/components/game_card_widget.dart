@@ -399,11 +399,17 @@ class _GameCardState extends State<GameCard> {
                     child: Text('Ag\nAg', style: titleStyle),
                   ),
                   Positioned.fill(
-                    child: Text(
-                      _normalizeText(widget.title),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: titleStyle,
+                    // Centre verticalement le titre dans l'espace reserve
+                    // de 2 lignes : un titre d'une seule ligne ne doit pas
+                    // rester colle en haut avec du vide en dessous.
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _normalizeText(widget.title),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: titleStyle,
+                      ),
                     ),
                   ),
                 ],

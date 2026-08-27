@@ -15,7 +15,13 @@ class AppStyles {
   // reduire resserre l'espace visible sous les carrousels sans jamais
   // toucher la taille reelle des cartes elles-memes.
   static const double gameCardHeight = 230.0;
-  static const double finishedGameListHeight = 304.0;
+  // 304 -> 312 : le titre du lot reserve desormais toujours 2 lignes
+  // (voir game_card_widget.dart), ce qui a fait deborder de 1px les
+  // cartes "Jeux termines" (contenu le plus dense : badge + prix + bulle
+  // + titre + ville/date + bandeau gagnant). Marge de securite au-dela
+  // du strict necessaire pour ne pas re-deborder sur un texte legerement
+  // plus long.
+  static const double finishedGameListHeight = 312.0;
   static const double finishedGameImageHeight = 114.0;
 
   static const EdgeInsets gameCardContentPadding =
