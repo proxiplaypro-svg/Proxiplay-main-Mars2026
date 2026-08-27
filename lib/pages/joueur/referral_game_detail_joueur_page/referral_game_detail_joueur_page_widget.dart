@@ -6,6 +6,7 @@ import '/index.dart';
 import '/widgets/proxiplay_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Fiche complete du jeu de parrainage a la une (image, lot a gagner, regles
@@ -41,18 +42,16 @@ class ReferralGameDetailJoueurPageWidget extends StatelessWidget {
             context.safePop();
           },
         ),
-        title: Text(
-          'Parrainage',
-          style: FlutterFlowTheme.of(context).headlineMedium.override(
-                font: GoogleFonts.interTight(
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-                ),
-                fontSize: 22.0,
-                letterSpacing: 0.0,
-                fontWeight:
-                    FlutterFlowTheme.of(context).headlineMedium.fontWeight,
-              ),
+        // Logo plutot que le texte "Parrainage" : ce dernier est deja
+        // affiche par le badge sur l'image juste en dessous, pas besoin de
+        // le repeter deux fois en haut de la page.
+        title: ClipRRect(
+          borderRadius: BorderRadius.circular(8.0),
+          child: SvgPicture.asset(
+            'assets/images/logo_D_secondaire_sans_html_avec_couleurs.svg',
+            height: 36.0,
+            fit: BoxFit.contain,
+          ),
         ),
         centerTitle: true,
         elevation: 0.0,
