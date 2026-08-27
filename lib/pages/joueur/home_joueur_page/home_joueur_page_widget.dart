@@ -2759,7 +2759,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           const BoxDecoration(),
                                                       child: Column(
                                                         mainAxisSize:
-                                                            MainAxisSize.max,
+                                                            MainAxisSize.min,
                                                         crossAxisAlignment:
                                                             CrossAxisAlignment
                                                                 .stretch,
