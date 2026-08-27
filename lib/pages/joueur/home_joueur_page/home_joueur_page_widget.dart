@@ -1005,7 +1005,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         // section suivante (animations, ou a defaut "BIENTOT FINIS")
         // qui porte son propre grand espace de separation.
         return Column(
-          mainAxisSize: MainAxisSize.max,
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ..._sectionHeader(
