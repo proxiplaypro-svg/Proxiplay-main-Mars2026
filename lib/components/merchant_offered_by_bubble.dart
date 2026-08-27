@@ -124,34 +124,40 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
     // largeur naturelle du texte fantome ("Ag" = tres etroit) et le vrai
     // nom se retrouve coince dans cette largeur minuscule au lieu de la
     // largeur disponible de la pastille.
-    final nameBlock = SizedBox(
-      width: double.infinity,
-      child: Stack(
-        children: [
-          Visibility(
-            visible: false,
-            maintainSize: true,
-            maintainAnimation: true,
-            maintainState: true,
-            child: Text('Ag\nAg', style: nameStyle),
-          ),
-          Positioned.fill(
-            // Centre verticalement le nom dans l'espace reserve de 2
-            // lignes : un nom d'une seule ligne ne doit pas rester colle
-            // en haut avec du vide en dessous.
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: nameStyle,
-              ),
+    //
+    // `centerVertically` : rendu classique (avec "Offert par" juste
+    // au-dessus) garde le nom colle en haut de son propre espace reserve,
+    // pour rester adjacent au label — seul le vide restant descend en bas
+    // de la bulle. Rendu sans label (parrainage) centre le nom dans son
+    // propre espace ET (voir plus bas) dans la bulle entiere, pour un
+    // veritable centrage vertical complet.
+    Widget buildNameBlock({required bool centerVertically}) {
+      final nameText = Text(
+        name,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: nameStyle,
+      );
+      return SizedBox(
+        width: double.infinity,
+        child: Stack(
+          children: [
+            Visibility(
+              visible: false,
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
+              child: Text('Ag\nAg', style: nameStyle),
             ),
-          ),
-        ],
-      ),
-    );
+            Positioned.fill(
+              child: centerVertically
+                  ? Align(alignment: Alignment.centerLeft, child: nameText)
+                  : nameText,
+            ),
+          ],
+        ),
+      );
+    }
 
     // Rendu classique (par defaut, cartes commercant) : label + nom,
     // strictement identique a avant.
@@ -161,7 +167,7 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
       children: [
         Text('Offert par', style: labelStyle),
         const SizedBox(height: 1.5),
-        nameBlock,
+        buildNameBlock(centerVertically: false),
       ],
     );
 
@@ -183,7 +189,7 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
               Positioned.fill(
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: nameBlock,
+                  child: buildNameBlock(centerVertically: true),
                 ),
               ),
             ],
