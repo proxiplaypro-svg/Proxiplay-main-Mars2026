@@ -258,9 +258,9 @@ class _GameCardState extends State<GameCard> {
           Positioned(
             left: 10.0,
             right: 10.0,
-            top: effectiveImageHeight -
-                (MerchantOfferedByBubble.avatarSize / 2) -
-                2.0,
+            // Centre la bulle (photo comprise) sur le bord bas de l'image,
+            // quel que soit l'element le plus haut a l'interieur.
+            top: effectiveImageHeight - (MerchantOfferedByBubble.totalHeight / 2),
             child: MerchantOfferedByBubble(
               merchantName: widget.storeName,
               enseigneRef: widget.enseigneRef,
@@ -346,10 +346,11 @@ class _GameCardState extends State<GameCard> {
     final hasPrize = _hasVisibleText(widget.prizeText);
     final hasCity = _hasVisibleText(widget.city);
     final hasStoreName = _hasVisibleText(widget.storeName);
-    // La bulle "Offert par" (voir build()) chevauche le bas de l'image et
-    // deborde d'une vingtaine de pixels sous celle-ci : on reserve assez
-    // d'espace en haut du contenu pour qu'elle ne recouvre jamais le titre.
-    final bubbleClearance = hasStoreName ? 26.0 : 0.0;
+    // La bulle "Offert par" (voir build()) est centree sur le bord bas de
+    // l'image et deborde donc de MerchantOfferedByBubble.totalHeight/2 en
+    // dessous (28px) : on reserve assez d'espace en haut du contenu pour
+    // qu'elle ne recouvre jamais le titre.
+    final bubbleClearance = hasStoreName ? 38.0 : 0.0;
     final contentPadding = (!widget.isFinished && hasPrize)
         ? const EdgeInsets.fromLTRB(10.0, 8.0, 10.0, 4.0)
         : AppStyles.gameCardContentPadding;

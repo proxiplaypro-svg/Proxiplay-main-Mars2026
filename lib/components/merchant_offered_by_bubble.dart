@@ -30,14 +30,23 @@ class MerchantOfferedByBubble extends StatefulWidget {
   final String merchantName;
   final DocumentReference? enseigneRef;
 
-  /// Hauteur totale reservee par le composant (= diametre de la photo,
-  /// l'element le plus haut). Utilisee par `GameCard` pour calculer le
-  /// chevauchement avec l'image et l'espace a reserver sous le titre.
+  /// Diametre de la photo ronde. Sert aussi de reference pour le
+  /// chevauchement avec l'image (le centre de la photo est aligne sur le
+  /// bord bas de l'image, voir `GameCard`).
   static const double avatarSize = 40.0;
 
-  // Le cartouche est volontairement plus bas que la photo pour qu'elle
-  // depasse legerement au-dessus et en dessous, comme sur la maquette.
-  static const double _capsuleHeight = 32.0;
+  // Le nom du commerçant peut occuper jusqu'a 2 lignes (voir build()) : le
+  // cartouche reserve toujours la meme hauteur, qu'il tienne sur 1 ou 2
+  // lignes, pour que toutes les cartes d'une meme rangee restent alignees
+  // (pas de "grille en escalier"). Il est donc desormais l'element le plus
+  // haut de la bulle, devant la photo.
+  static const double _nameLineHeight = 18.4; // 16px * 1.15
+  static const double _capsuleHeight = 56.0;
+
+  /// Hauteur totale reservee par le composant. Utilisee par `GameCard` pour
+  /// calculer le chevauchement avec l'image et l'espace a reserver sous le
+  /// titre — c'est toujours le cartouche qui domine desormais.
+  static const double totalHeight = _capsuleHeight;
 
   @override
   State<MerchantOfferedByBubble> createState() =>
@@ -80,21 +89,26 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
     const avatarSize = MerchantOfferedByBubble.avatarSize;
     const capsuleHeight = MerchantOfferedByBubble._capsuleHeight;
     const capsuleLeftInset = avatarSize / 2;
+    // L'un ou l'autre peut devenir le plus haut selon les futurs reglages :
+    // on calcule la bulle a partir des deux plutot que de figer une valeur.
+    const bubbleHeight = capsuleHeight > avatarSize ? capsuleHeight : avatarSize;
 
     return SizedBox(
-      height: avatarSize,
+      height: bubbleHeight,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned(
             left: capsuleLeftInset,
             right: 0.0,
-            top: (avatarSize - capsuleHeight) / 2,
+            top: (bubbleHeight - capsuleHeight) / 2,
             height: capsuleHeight,
             child: Container(
-              padding: const EdgeInsets.only(
-                left: capsuleLeftInset + 8.0,
-                right: 12.0,
+              padding: const EdgeInsets.fromLTRB(
+                capsuleLeftInset + 8.0,
+                4.0,
+                12.0,
+                4.0,
               ),
               alignment: Alignment.centerLeft,
               decoration: BoxDecoration(
@@ -116,22 +130,29 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
                     'Offert par',
                     style: theme.bodySmall.override(
                       font: GoogleFonts.inter(fontWeight: FontWeight.w500),
-                      color: const Color(0xFF6B70A7),
+                      color: const Color(0xFF8A8A8A),
                       fontWeight: FontWeight.w500,
                       fontSize: 9.0,
                       lineHeight: 1.0,
                     ),
                   ),
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.bodyMedium.override(
-                      font: GoogleFonts.inter(fontWeight: FontWeight.w800),
-                      color: const Color(0xFFA0134D),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12.5,
-                      lineHeight: 1.1,
+                  const SizedBox(height: 2.0),
+                  // Hauteur toujours reservee pour 2 lignes (meme si le nom
+                  // tient sur 1 seule) afin que les cartes d'une meme
+                  // rangee restent alignees.
+                  SizedBox(
+                    height: MerchantOfferedByBubble._nameLineHeight * 2,
+                    child: Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.bodyMedium.override(
+                        font: GoogleFonts.inter(fontWeight: FontWeight.w800),
+                        color: const Color(0xFFA0134D),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16.0,
+                        lineHeight: 1.15,
+                      ),
                     ),
                   ),
                 ],
@@ -140,7 +161,7 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
           ),
           Positioned(
             left: 0.0,
-            top: 0.0,
+            top: (bubbleHeight - avatarSize) / 2,
             child: _buildAvatar(avatarSize),
           ),
         ],
