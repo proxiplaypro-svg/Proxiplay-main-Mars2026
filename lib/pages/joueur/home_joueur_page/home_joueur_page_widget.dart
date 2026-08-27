@@ -1274,8 +1274,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   }) {
     Widget wrap(Widget child) {
       if (leadingGap != null) {
+        // bottom: 20.0 — le bloc n'a aucune marge propre APRES son
+        // contenu (contrairement au titre suivant, qui porte bien son
+        // propre grand espace AVANT) : sans ca, la carte colle directement
+        // a la section suivante. Meme valeur que _bonusZoneTrailingSpace,
+        // pour un espacement coherent avec les autres blocs a carrousel
+        // sans matelas propre.
         return Padding(
-          padding: EdgeInsets.only(top: leadingGap),
+          padding: EdgeInsets.only(top: leadingGap, bottom: 20.0),
           child: child,
         );
       }
@@ -1345,7 +1351,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                     bottom: titleGap ?? 16.0,
                   ),
                   child: Text(
-                    'ANIMATIONS EN COURS',
+                    'SCANS EN BOUTIQUE',
                     style: FlutterFlowTheme.of(context).titleLarge.override(
                           font: GoogleFonts.interTight(
                             fontWeight: FlutterFlowTheme.of(context)
