@@ -6,12 +6,10 @@ class AppStyles {
   static const double gameCardRadius = 22.0;
   static const double gameCardWidth = 206.0;
   static const double gameCardImageHeight = 108.0;
-  // +30px (cumule) : la bulle "Offert par" reserve la hauteur de 2 lignes
-  // pour le nom du commercant (voir MerchantOfferedByBubble), meme quand il
-  // tient sur 1 seule ligne, pour aligner toutes les cartes d'une rangee ;
-  // elle repose aussi davantage sur la zone blanche (moins sur l'image), ce
-  // qui demande un peu plus de marge avant le titre du jeu.
-  static const double gameCardHeight = 256.0;
+  // +18px : la bulle "Offert par" reserve la hauteur de 2 lignes pour le nom
+  // du commercant (voir MerchantOfferedByBubble), meme quand il tient sur
+  // 1 seule ligne, pour aligner toutes les cartes d'une rangee.
+  static const double gameCardHeight = 244.0;
   static const double finishedGameListHeight = 304.0;
   static const double finishedGameImageHeight = 114.0;
 

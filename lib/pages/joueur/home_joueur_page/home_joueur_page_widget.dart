@@ -2313,7 +2313,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                       width: double
                                                                           .infinity,
                                                                       height: AppStyles
-                                                                          .gameCardHeight,
+                                                                              .gameCardHeight +
+                                                                          8.0,
                                                                       decoration:
                                                                           const BoxDecoration(),
                                                                       child:
@@ -2532,7 +2533,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                           width:
                                                                               double.infinity,
                                                                           height:
-                                                                              AppStyles.gameCardHeight,
+                                                                              AppStyles.gameCardHeight + 8.0,
                                                                           decoration:
                                                                               const BoxDecoration(
                                                                             color:
@@ -2741,7 +2742,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                           width:
                                                                               double.infinity,
                                                                           height:
-                                                                              AppStyles.gameCardHeight,
+                                                                              AppStyles.gameCardHeight + 8.0,
                                                                           decoration:
                                                                               const BoxDecoration(
                                                                             color:

@@ -31,13 +31,13 @@ class MerchantOfferedByBubble extends StatefulWidget {
   final DocumentReference? enseigneRef;
 
   /// Diametre de la photo ronde.
-  static const double avatarSize = 40.0;
+  static const double avatarSize = 34.0;
 
   /// Distance entre le haut de la bulle et le bord bas de l'image (voir
   /// `GameCard`). Volontairement inferieure a la moitie de `totalHeight`
   /// pour que la bulle repose davantage sur la zone blanche de la carte et
   /// empiete moins sur l'image du haut.
-  static const double topOffsetFromImageBottom = 18.0;
+  static const double topOffsetFromImageBottom = 14.0;
 
   /// Estimation de la hauteur totale de la bulle, utilisee par `GameCard`
   /// uniquement pour le positionnement (chevauchement avec l'image, espace
@@ -45,7 +45,7 @@ class MerchantOfferedByBubble extends StatefulWidget {
   /// calculee par Flutter lui-meme (voir le texte fantome dans build()),
   /// donc un ecart de quelques pixels ici n'a qu'un effet cosmetique mineur
   /// sur le chevauchement — jamais de risque de superposition/coupure.
-  static const double totalHeight = 57.0;
+  static const double totalHeight = 44.0;
 
   @override
   State<MerchantOfferedByBubble> createState() =>
@@ -92,15 +92,15 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
       font: GoogleFonts.inter(fontWeight: FontWeight.w500),
       color: const Color(0xFF8A8A8A),
       fontWeight: FontWeight.w500,
-      fontSize: 9.0,
-      lineHeight: 1.2,
+      fontSize: 8.5,
+      lineHeight: 1.1,
     );
     final nameStyle = theme.bodyMedium.override(
       font: GoogleFonts.inter(fontWeight: FontWeight.w600),
       color: const Color(0xFFA0134D),
       fontWeight: FontWeight.w600,
-      fontSize: 14.0,
-      lineHeight: 1.2,
+      fontSize: 13.0,
+      lineHeight: 1.05,
     );
 
     return Stack(
@@ -112,10 +112,10 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
         Container(
           margin: const EdgeInsets.only(left: capsuleLeftInset),
           padding: const EdgeInsets.fromLTRB(
-            capsuleLeftInset + 8.0,
-            5.0,
-            12.0,
-            5.0,
+            capsuleLeftInset + 6.0,
+            3.0,
+            10.0,
+            3.0,
           ),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -135,7 +135,7 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text('Offert par', style: labelStyle),
-              const SizedBox(height: 2.0),
+              const SizedBox(height: 1.5),
               // Le bloc nom reserve toujours la hauteur de 2 lignes, meme
               // si le nom tient sur 1 seule — via un texte fantome invisible
               // mesure par Flutter avec le meme style (fiable quels que
