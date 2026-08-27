@@ -6270,3 +6270,64 @@ exports.adminRepairReferralGameDraw = functions
     }
   });
 
+/**
+ * Demarre et termine automatiquement les jeux de parrainage, sans action
+ * admin :
+ * - un brouillon dont `start_date` est atteinte devient actif (le plus
+ *   ancien `start_date` d'abord si plusieurs sont eligibles), sauf si un
+ *   autre jeu est deja actif — meme regle que l'activation manuelle
+ *   (PATCH /api/admin/referral-games/[id]) : jamais deux jeux actifs a la
+ *   fois.
+ * - un jeu actif dont `end_date` est atteinte est tire au sort via le
+ *   meme moteur que le bouton admin "Tirer le gagnant"
+ *   (`referral_game_engine.drawReferralGame`).
+ *
+ * NOTE: Requires deployment. Toutes les 15 minutes (precision suffisante
+ * pour des dates de debut/fin au jour pres).
+ */
+exports.autoManageReferralGames = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 120, memory: "256MB"})
+  .pubsub.schedule("every 15 minutes")
+  .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+
+    const draftsSnap = await firestore
+      .collection("referral_games")
+      .where("status", "==", "draft")
+      .where("start_date", "<=", now)
+      .get();
+    if (!draftsSnap.empty) {
+      const activeSnap = await firestore
+        .collection("referral_games")
+        .where("status", "==", "active")
+        .limit(1)
+        .get();
+      if (activeSnap.empty) {
+        const sortedDrafts = draftsSnap.docs.sort(
+          (a, b) => a.data().start_date.toMillis() - b.data().start_date.toMillis(),
+        );
+        const toActivate = sortedDrafts[0];
+        await toActivate.ref.update({
+          status: "active",
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`[autoManageReferralGames] activated ${toActivate.id}`);
+      }
+    }
+
+    const endedSnap = await firestore
+      .collection("referral_games")
+      .where("status", "==", "active")
+      .where("end_date", "<=", now)
+      .get();
+    for (const doc of endedSnap.docs) {
+      try {
+        await drawReferralGame(doc.id, {now});
+        console.log(`[autoManageReferralGames] drew ${doc.id}`);
+      } catch (error) {
+        console.error(`[autoManageReferralGames] draw failed for ${doc.id}: ${error.message || error}`);
+      }
+    }
+  });
+
