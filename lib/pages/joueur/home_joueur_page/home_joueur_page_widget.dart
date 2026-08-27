@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/backend/schema/enums/enums.dart';
 import '/components/app_bar_joueur_widget.dart';
 import '/components/bonus_game_card_widget.dart';
 import '/components/monthly_challenge_banner_widget.dart' show showMonthlyChallengeDetails;
@@ -164,6 +165,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   }
 
   bool _isGameVisibleForPlayer(GamesRecord game) {
+    // Les jeux qr_only ne se jouent pas librement depuis l'app : ils ont
+    // leur propre rubrique dediee ("SCANS EN BOUTIQUE", voir
+    // _buildActiveAnimationsSection) et ne doivent pas apparaitre dans les
+    // carrousels generalistes (Nouveautes, Bientot finis, A la une...) qui
+    // utilisent tous ce filtre de visibilite commun.
+    if (game.accessMode == AccessMode.qr_only) {
+      return false;
+    }
     return isPlayerHomeGameVisible(
       now: getCurrentTimestamp,
       animationId: game.animationId,
@@ -1347,14 +1356,17 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                   if (restrictToAdultSafe && game.prohibitedForMinors) {
                     return false;
                   }
-                  if (game.endDate != null && !game.endDate!.isAfter(now)) {
-                    return false;
-                  }
-                  if (game.startDate != null &&
-                      game.startDate!.isAfter(now)) {
-                    return false;
-                  }
-                  return _isGameVisibleForPlayer(game);
+                  // Pas _isGameVisibleForPlayer ici : ce filtre exclut
+                  // désormais explicitement les jeux qr_only puisqu'il sert
+                  // aux carrousels généralistes. On applique directement la
+                  // même logique de visibilité date/animation, sans exclure
+                  // qr_only (c'est justement ce qu'on liste ici).
+                  return isPlayerHomeGameVisible(
+                    now: now,
+                    animationId: game.animationId,
+                    startDate: game.startDate,
+                    endDate: game.endDate,
+                  );
                 })
                 .toList();
 
