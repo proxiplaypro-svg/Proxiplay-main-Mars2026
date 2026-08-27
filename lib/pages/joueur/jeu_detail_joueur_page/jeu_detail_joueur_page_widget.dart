@@ -3323,18 +3323,29 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 CrossAxisAlignment
                                                                     .start,
                                                             children: [
-                                                              const Icon(
-                                                                Icons
-                                                                    .pan_tool_alt_rounded,
+                                                              Icon(
+                                                                widget.gameDoc
+                                                                            ?.accessMode ==
+                                                                        AccessMode
+                                                                            .qr_only
+                                                                    ? Icons
+                                                                        .qr_code_scanner_rounded
+                                                                    : Icons
+                                                                        .pan_tool_alt_rounded,
                                                                 size: 16.0,
-                                                                color: Color(
+                                                                color: const Color(
                                                                     0xFF6B7280),
                                                               ),
                                                               const SizedBox(
                                                                   width: 8.0),
                                                               Expanded(
                                                                 child: Text(
-                                                                  'Grattez la zone ci-dessus pour d\u00E9couvrir si vous avez gagn\u00E9',
+                                                                  widget.gameDoc
+                                                                              ?.accessMode ==
+                                                                          AccessMode
+                                                                              .qr_only
+                                                                      ? 'Scannez le QR code en boutique pour d\u00E9couvrir si vous avez gagn\u00E9'
+                                                                      : 'Grattez la zone ci-dessus pour d\u00E9couvrir si vous avez gagn\u00E9',
                                                                   style:
                                                                       detailBodyStyle,
                                                                 ),
@@ -3592,18 +3603,29 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 CrossAxisAlignment
                                                                     .start,
                                                             children: [
-                                                              const Icon(
-                                                                Icons
-                                                                    .pan_tool_alt_rounded,
+                                                              Icon(
+                                                                widget.gameDoc
+                                                                            ?.accessMode ==
+                                                                        AccessMode
+                                                                            .qr_only
+                                                                    ? Icons
+                                                                        .qr_code_scanner_rounded
+                                                                    : Icons
+                                                                        .pan_tool_alt_rounded,
                                                                 size: 16.0,
-                                                                color: Color(
+                                                                color: const Color(
                                                                     0xFF6B7280),
                                                               ),
                                                               const SizedBox(
                                                                   width: 8.0),
                                                               Expanded(
                                                                 child: Text(
-                                                                  'Grattez la zone ci-dessus pour découvrir si vous avez gagné',
+                                                                  widget.gameDoc
+                                                                              ?.accessMode ==
+                                                                          AccessMode
+                                                                              .qr_only
+                                                                      ? 'Scannez le QR code en boutique pour découvrir si vous avez gagné'
+                                                                      : 'Grattez la zone ci-dessus pour découvrir si vous avez gagné',
                                                                   style:
                                                                       detailBodyStyle,
                                                                 ),
