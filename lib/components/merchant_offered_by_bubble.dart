@@ -31,13 +31,13 @@ class MerchantOfferedByBubble extends StatefulWidget {
   final DocumentReference? enseigneRef;
 
   /// Diametre de la photo ronde.
-  static const double avatarSize = 34.0;
+  static const double avatarSize = 42.0;
 
   /// Distance entre le haut de la bulle et le bord bas de l'image (voir
   /// `GameCard`). Volontairement inferieure a la moitie de `totalHeight`
   /// pour que la bulle repose davantage sur la zone blanche de la carte et
   /// empiete moins sur l'image du haut.
-  static const double topOffsetFromImageBottom = 14.0;
+  static const double topOffsetFromImageBottom = 16.0;
 
   /// Estimation de la hauteur totale de la bulle, utilisee par `GameCard`
   /// uniquement pour le positionnement (chevauchement avec l'image, espace
@@ -45,7 +45,7 @@ class MerchantOfferedByBubble extends StatefulWidget {
   /// calculee par Flutter lui-meme (voir le texte fantome dans build()),
   /// donc un ecart de quelques pixels ici n'a qu'un effet cosmetique mineur
   /// sur le chevauchement — jamais de risque de superposition/coupure.
-  static const double totalHeight = 44.0;
+  static const double totalHeight = 52.0;
 
   @override
   State<MerchantOfferedByBubble> createState() =>
@@ -92,14 +92,14 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
       font: GoogleFonts.inter(fontWeight: FontWeight.w500),
       color: const Color(0xFF8A8A8A),
       fontWeight: FontWeight.w500,
-      fontSize: 8.5,
+      fontSize: 9.5,
       lineHeight: 1.1,
     );
     final nameStyle = theme.bodyMedium.override(
       font: GoogleFonts.inter(fontWeight: FontWeight.w600),
       color: const Color(0xFFA0134D),
       fontWeight: FontWeight.w600,
-      fontSize: 13.0,
+      fontSize: 14.5,
       lineHeight: 1.05,
     );
 
@@ -112,10 +112,10 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
         Container(
           margin: const EdgeInsets.only(left: capsuleLeftInset),
           padding: const EdgeInsets.fromLTRB(
-            capsuleLeftInset + 6.0,
-            3.0,
-            10.0,
-            3.0,
+            capsuleLeftInset + 8.0,
+            4.0,
+            12.0,
+            4.0,
           ),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -232,7 +232,7 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
       child: const Icon(
         Icons.storefront_outlined,
         color: Color(0xFF6B70A7),
-        size: 18.0,
+        size: 22.0,
       ),
     );
   }
