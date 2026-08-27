@@ -74,7 +74,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   /// cartes, ce qui laisse un espace visible avant le titre suivant. La
   /// carte Bonus, elle, se dimensionne exactement sur son contenu — sans
   /// ce SizedBox explicite, elle collerait a la section suivante.
-  static const double _bonusZoneTrailingSpace = 16.0;
+  static const double _bonusZoneTrailingSpace = 20.0;
 
   late HomeJoueurPageModel _model;
   final _sharePromoService = SharePromoService();
