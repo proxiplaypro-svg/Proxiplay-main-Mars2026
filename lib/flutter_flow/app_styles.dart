@@ -6,10 +6,15 @@ class AppStyles {
   static const double gameCardRadius = 22.0;
   static const double gameCardWidth = 206.0;
   static const double gameCardImageHeight = 108.0;
-  // +18px : la bulle "Offert par" reserve la hauteur de 2 lignes pour le nom
+  // +4px : la bulle "Offert par" reserve la hauteur de 2 lignes pour le nom
   // du commercant (voir MerchantOfferedByBubble), meme quand il tient sur
-  // 1 seule ligne, pour aligner toutes les cartes d'une rangee.
-  static const double gameCardHeight = 244.0;
+  // 1 seule ligne, pour aligner toutes les cartes d'une rangee. Valeur
+  // resserree (244 -> 230) : les cartes utilisent toutes fitContent:true
+  // (leur hauteur reelle ne depend pas de cette constante), qui sert
+  // uniquement de hauteur de conteneur pour les carrousels Home — la
+  // reduire resserre l'espace visible sous les carrousels sans jamais
+  // toucher la taille reelle des cartes elles-memes.
+  static const double gameCardHeight = 230.0;
   static const double finishedGameListHeight = 304.0;
   static const double finishedGameImageHeight = 114.0;
 
