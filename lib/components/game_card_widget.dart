@@ -345,7 +345,11 @@ class _GameCardState extends State<GameCard> {
     final effectiveWinnerMaxLines = widget.isFinished ? 2 : widget.winnerMaxLines;
     final hasPrize = _hasVisibleText(widget.prizeText);
     final hasCity = _hasVisibleText(widget.city);
-    final titleTopSpacing = hasPrize ? 8.0 : 0.0;
+    final hasStoreName = _hasVisibleText(widget.storeName);
+    // La bulle "Offert par" (voir build()) chevauche le bas de l'image et
+    // deborde d'une vingtaine de pixels sous celle-ci : on reserve assez
+    // d'espace en haut du contenu pour qu'elle ne recouvre jamais le titre.
+    final bubbleClearance = hasStoreName ? 26.0 : 0.0;
     final contentPadding = (!widget.isFinished && hasPrize)
         ? const EdgeInsets.fromLTRB(10.0, 8.0, 10.0, 4.0)
         : AppStyles.gameCardContentPadding;
@@ -356,7 +360,7 @@ class _GameCardState extends State<GameCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (titleTopSpacing > 0.0) SizedBox(height: titleTopSpacing),
+            if (bubbleClearance > 0.0) SizedBox(height: bubbleClearance),
             Text(
               _normalizeText(widget.title),
               maxLines: 1,
@@ -373,17 +377,10 @@ class _GameCardState extends State<GameCard> {
                   ),
             ),
             SizedBox(height: _titleToMetaGap),
-            _infoRow(
-              Icons.storefront_outlined,
-              widget.storeName,
-              context,
-              fontWeight: FontWeight.w700,
-            ),
             if (hasCity) ...[
-              SizedBox(height: _metaRowGap),
               _infoRow(Icons.location_on_outlined, widget.city, context),
+              SizedBox(height: _metaRowGap),
             ],
-            SizedBox(height: _metaRowGap),
             _infoRow(Icons.calendar_today_outlined, widget.endDateText, context),
             if (widget.isFinished &&
                 (widget.winnerText == null || widget.winnerText!.isEmpty))
@@ -427,17 +424,16 @@ class _GameCardState extends State<GameCard> {
   Widget _infoRow(
     IconData icon,
     String text,
-    BuildContext context, {
-    FontWeight? fontWeight,
-  }) {
+    BuildContext context,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 1.0),
-          child: Icon(icon, size: 18.0, color: const Color(0xFF26235C)),
+          child: Icon(icon, size: 16.0, color: const Color(0xFF26235C)),
         ),
-        const SizedBox(width: 8.0),
+        const SizedBox(width: 6.0),
         Expanded(
           child: Text(
             _normalizeText(text),
@@ -445,9 +441,7 @@ class _GameCardState extends State<GameCard> {
             overflow: TextOverflow.ellipsis,
             style: FlutterFlowTheme.of(context).bodySmall.override(
                   font: GoogleFonts.inter(
-                    fontWeight:
-                        fontWeight ??
-                            FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                    fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
                     fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
                   ),
                   color: const Color(0xFF26235C),
