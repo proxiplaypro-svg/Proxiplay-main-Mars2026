@@ -144,24 +144,32 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
               // cartes d'une meme rangee gardent un cartouche de meme
               // hauteur, quel que soit le nombre de lignes reellement
               // utilisees.
-              Stack(
-                children: [
-                  Visibility(
-                    visible: false,
-                    maintainSize: true,
-                    maintainAnimation: true,
-                    maintainState: true,
-                    child: Text('Ag\nAg', style: nameStyle),
-                  ),
-                  Positioned.fill(
-                    child: Text(
-                      name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: nameStyle,
+              // `width: double.infinity` : sans ca, le Stack se
+              // dimensionne sur la largeur naturelle du texte fantome
+              // ("Ag" = tres etroit) et le vrai nom se retrouve coince
+              // dans cette largeur minuscule au lieu de la largeur
+              // disponible de la pastille.
+              SizedBox(
+                width: double.infinity,
+                child: Stack(
+                  children: [
+                    Visibility(
+                      visible: false,
+                      maintainSize: true,
+                      maintainAnimation: true,
+                      maintainState: true,
+                      child: Text('Ag\nAg', style: nameStyle),
                     ),
-                  ),
-                ],
+                    Positioned.fill(
+                      child: Text(
+                        name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: nameStyle,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
