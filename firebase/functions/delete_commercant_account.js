@@ -1,6 +1,9 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
+// Migre depuis firebase/custom_cloud_functions/delete_commercant_account.js
+// (consolidation des codebases Functions) : nom et comportement inchanges.
+
 // Cette fonction auxiliaire permet de supprimer un lot de documents d'une collection
 async function deleteCollection(collectionRef) {
   const batch = admin.firestore().batch();

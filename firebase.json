@@ -6,6 +6,9 @@
   "functions": {
     "source": "firebase/functions"
   },
+  "storage": {
+    "rules": "firebase/storage.rules"
+  },
   "emulators": {
     "singleProjectMode": true,
     "hub": {

@@ -68,9 +68,7 @@ Desktop.ini
 firebase-debug.log
 
 # Firebase Admin & Service Account Keys (CRITICAL - Never commit!)
-firebase/custom_cloud_functions/node_modules/*
 admin-key.json
-firebase/custom_cloud_functions/admin-key.json
 firebase/**/*-key.json
 firebase/**/service-account.json
 firebase/**/serviceAccountKey.json
@@ -94,12 +92,9 @@ ios/**/*-GoogleService-Info.plist
 # Firebase Cloud Functions (environment variables, config)
 firebase/functions/.env*
 firebase/functions/.env
-firebase/custom_cloud_functions/.env*
-firebase/custom_cloud_functions/.env
 
 # Node modules in Firebase
 firebase/functions/node_modules/
-firebase/custom_cloud_functions/node_modules/
 
 # Firebase & Node Modules (CRITIQUE : Vu dans ton arborescence source 1206)
 **/node_modules/
@@ -115,8 +110,6 @@ ui-debug.log
 android/app/debug/
 android/app/release/
 android/app/profile/
-
-firebase/custom_cloud_functions/*.txt
 
 tree.txt
 

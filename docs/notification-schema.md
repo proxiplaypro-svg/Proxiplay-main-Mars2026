@@ -72,10 +72,10 @@ Cote `firebase/functions` (autres fichiers du meme codebase):
 - `participate_in_game_transaction.js`
 - `draw_animation_winner.js`
 
-Le codebase `firebase/custom_cloud_functions` est deploye separement (voir
-`firebase/firebase.json`) mais son `index.js` n'expose que
-`deleteEnseigneAndGames`, `deleteCommercantAccount` et
-`backfillPlayerStatusCached` — aucun producteur de notification.
+`deleteEnseigneAndGames` et `deleteCommercantAccount` vivent aussi dans
+`firebase/functions` (migrees depuis l'ancien codebase separe
+`firebase/custom_cloud_functions`, retire) — aucun producteur de
+notification.
 
 ## Regle pratique
 

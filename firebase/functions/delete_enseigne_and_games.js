@@ -1,6 +1,8 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
+// Migre depuis firebase/custom_cloud_functions/delete_enseigne_and_games.js
+// (consolidation des codebases Functions) : nom et comportement inchanges.
 exports.deleteEnseigneAndGames = functions.https.onCall(
   async (data, context) => {
     if (!context.auth) {

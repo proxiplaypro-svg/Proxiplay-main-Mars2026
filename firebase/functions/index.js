@@ -6331,3 +6331,12 @@ exports.autoManageReferralGames = functions
     }
   });
 
+// Migrees depuis l'ancien codebase firebase/custom_cloud_functions
+// (consolidation Firebase : un seul firebase.json, un seul codebase
+// Functions). Noms d'export et comportement strictement inchanges.
+const {deleteEnseigneAndGames} = require("./delete_enseigne_and_games");
+exports.deleteEnseigneAndGames = deleteEnseigneAndGames;
+
+const {deleteCommercantAccount} = require("./delete_commercant_account");
+exports.deleteCommercantAccount = deleteCommercantAccount;
+
