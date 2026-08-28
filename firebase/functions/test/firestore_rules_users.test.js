@@ -4,7 +4,13 @@
 // what it's supposed to, BEFORE it's deployed: a user can no longer read
 // another user's profile, self/admin reads still work, and public reads of
 // games/prizes (including the newly denormalized winner fields) are
-// unaffected. Run against the local Firestore emulator only:
+// unaffected. Also covers isSafeSelfUserUpdate()'s privileged-field guard:
+// it must use affectedKeys() (added+removed+changed), not changedKeys()
+// (changed-only) -- with changedKeys(), a player could self-write a
+// privileged field (remaining_part, account_status, ...) as long as it
+// wasn't already present on their doc, since adding a field isn't a
+// "change" of an existing value. Run against the local Firestore emulator
+// only:
 //
 //   firebase emulators:exec --only firestore \
 //     "node --test test/firestore_rules_users.test.js"
@@ -121,4 +127,57 @@ test("la lecture publique de prizes avec champs denormalises reste inchangee", a
     anon.firestore().collection("prizes").doc("prize1").get(),
   );
   assert.equal(snap.data().winnerFirstName, "Alice");
+});
+
+test("un joueur ne peut pas s'attribuer remaining_part quand le champ est absent", async () => {
+  // bob_uid n'a pas encore remaining_part (comme un profil fraichement cree,
+  // avant que initializeNewPlayerRemainingParts ne l'ait pose) : avec
+  // changedKeys() cet ajout passait, avec affectedKeys() il est bloque.
+  const bob = testEnv.authenticatedContext("bob_uid");
+  await assertFails(
+    bob.firestore().collection("users").doc("bob_uid").set(
+      {remaining_part: 999},
+      {merge: true},
+    ),
+  );
+});
+
+test("un joueur ne peut pas modifier un account_status deja present", async () => {
+  const alice = testEnv.authenticatedContext("alice_uid");
+  await assertFails(
+    alice.firestore().collection("users").doc("alice_uid").set(
+      {account_status: "rejected"},
+      {merge: true},
+    ),
+  );
+});
+
+test("un joueur ne peut pas s'attribuer allGamesAccessUntil quand le champ est absent", async () => {
+  const bob = testEnv.authenticatedContext("bob_uid");
+  await assertFails(
+    bob.firestore().collection("users").doc("bob_uid").set(
+      {allGamesAccessUntil: new Date(Date.now() + 86400000)},
+      {merge: true},
+    ),
+  );
+});
+
+test("un joueur peut toujours modifier un champ de profil autorise", async () => {
+  const bob = testEnv.authenticatedContext("bob_uid");
+  await assertSucceeds(
+    bob.firestore().collection("users").doc("bob_uid").set(
+      {phone_number: "0600000000"},
+      {merge: true},
+    ),
+  );
+});
+
+test("un admin peut toujours modifier un champ privilegie d'un autre utilisateur", async () => {
+  const admin = testEnv.authenticatedContext("admin_uid");
+  await assertSucceeds(
+    admin.firestore().collection("users").doc("bob_uid").set(
+      {remaining_part: 5},
+      {merge: true},
+    ),
+  );
 });

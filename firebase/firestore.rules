@@ -82,7 +82,15 @@ service cloud.firestore {
     }
 
     function isSafeSelfUserUpdate() {
-      return request.resource.data.diff(resource.data).changedKeys()
+      // affectedKeys(), pas changedKeys() : changedKeys() ne detecte que les
+      // champs deja presents dont la valeur change, pas ceux qu'on ajoute --
+      // un joueur dont le doc n'a pas encore remaining_part (avant que la
+      // Cloud Function initializeNewPlayerRemainingParts ne le pose) pouvait
+      // se l'ecrire lui-meme via un simple merge, puisque ce n'etait pas un
+      // champ "change" mais "ajoute". Verifie contre l'emulateur Firestore :
+      // avec changedKeys(), ajouter un champ absent passait ; avec
+      // affectedKeys(), c'est bloque comme prevu, sans rien casser d'autre.
+      return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly([
           'email',
           'phone_number',
