@@ -253,9 +253,8 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       return;
     }
 
-    UsersRecord? refreshedUserDoc;
     try {
-      refreshedUserDoc = await _ensureGooglePlayerProfileBootstrap();
+      await _ensureGooglePlayerProfileBootstrap();
     } catch (error) {
       debugPrint('Google signup Firestore bootstrap error: $error');
       debugPrintStack();
@@ -280,13 +279,12 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       return;
     }
 
-    final shouldOfferProfileCompletion = refreshedUserDoc != null &&
-        shouldOfferUserProfileCompletionPrompt(
-          isProfileComplete: isUserProfileComplete(refreshedUserDoc),
-          hasDismissedPrompt: FFAppState()
-              .hasDismissedProfileCompletionPromptForUid(firebaseUser.uid),
-        );
-
+    // Le rappel de completion de profil est decide de facon centralisee par
+    // resolveAuthenticatedHome (voir account_routing.dart) pour tous les
+    // providers -- plus de logique dupliquee ici : si le profil est
+    // incomplet et pas encore ecarte par ce joueur, la resolution renvoie
+    // deja target=pendingInfo, gere par le switch ci-dessous comme n'importe
+    // quel autre cas pendingInfo.
     final resolution = await resolveAuthenticatedHome(
       source: 'google_signup',
       preferServer: true,
@@ -295,27 +293,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       'navigationAfterGoogleSignup '
       'target=${resolution.target.name} '
       'reason=${resolution.reason} '
-      'firebaseUserStillPresent=${FirebaseAuth.instance.currentUser != null} '
-      'offerProfileCompletion=$shouldOfferProfileCompletion',
+      'firebaseUserStillPresent=${FirebaseAuth.instance.currentUser != null}',
     );
 
     if (!mounted) {
-      return;
-    }
-
-    if (shouldOfferProfileCompletion) {
-      FFAppState().update(() {
-        FFAppState().offerProfileCompletionAfterLogin = true;
-        FFAppState().profileCompletionReturnRouteName = resolution.routeName;
-      });
-      _logGoogleSignup(
-        'navigationAfterGoogleSignup destination=optionalProfileCompletion',
-      );
-      context.goNamedAuth(
-        InscriptionInformationsPageWidget.routeName,
-        mounted,
-        ignoreRedirect: true,
-      );
       return;
     }
 

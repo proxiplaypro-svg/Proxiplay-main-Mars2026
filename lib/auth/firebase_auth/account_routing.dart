@@ -2,8 +2,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import 'auth_util.dart';
+import '/app_state.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
+import '/auth/user_profile/user_profile_completion.dart';
 import 'account_routing_logic.dart';
 export 'account_routing_logic.dart' show AuthenticatedHomeTarget;
 
@@ -401,12 +403,41 @@ Future<AuthenticatedHomeResolution> resolveAuthenticatedHome({
 
   late final AuthenticatedHomeResolution resolution;
   final documentExists = snapshot != null && snapshot.exists;
-  final target = resolveTargetFromResolvedRole(
+  var target = resolveTargetFromResolvedRole(
     documentExists: documentExists,
     effectiveRole: effectiveRole,
     playerSignals: playerSignals,
     accountStatus: accountStatus,
   );
+
+  // Point d'entree unique pour le rappel de completion de profil, quel que
+  // soit le provider (email, Google, Apple, ...) : avant, seul le chemin de
+  // connexion Google le faisait (logique dupliquee dans
+  // inscription_page_widget.dart), donc un joueur inscrit par email qui
+  // abandonnait la completion n'etait plus jamais relance a une connexion
+  // suivante. On reutilise la cible/route existante `pendingInfo` (deja
+  // routee vers InscriptionInformationsPage par tous les appelants) plutot
+  // que d'ajouter une nouvelle cible a gerer partout.
+  var isProfileCompletionRedirect = false;
+  if (documentExists &&
+      (target == AuthenticatedHomeTarget.joueurHome ||
+          target == AuthenticatedHomeTarget.commercantHome) &&
+      shouldOfferUserProfileCompletionPrompt(
+        isProfileComplete:
+            isUserProfileCompleteFromData(data, role: effectiveRole),
+        hasDismissedPrompt: FFAppState()
+            .hasDismissedProfileCompletionPromptForUid(firebaseUser.uid),
+      )) {
+    isProfileCompletionRedirect = true;
+    FFAppState().update(() {
+      FFAppState().offerProfileCompletionAfterLogin = true;
+      FFAppState().profileCompletionReturnRouteName =
+          target == AuthenticatedHomeTarget.commercantHome
+              ? _kHomeCommercantRouteName
+              : _kHomeJoueurRouteName;
+    });
+    target = AuthenticatedHomeTarget.pendingInfo;
+  }
 
   if (!documentExists) {
     resolution = AuthenticatedHomeResolution(
@@ -452,6 +483,24 @@ Future<AuthenticatedHomeResolution> resolveAuthenticatedHome({
     resolution = AuthenticatedHomeResolution(
       target: AuthenticatedHomeTarget.routingIssue,
       reason: rawRole.isEmpty ? 'role_missing' : 'role_invalid',
+      uid: firebaseUser.uid,
+      rawRole: rawRole,
+      normalizedRole: effectiveRole,
+      claimRole: claimRole,
+      claimsSummary: summarizeClaims(claims),
+      hasEnseigne: hasEnseigne,
+      playerSignals: playerSignals,
+      merchantSignals: merchantSignals,
+      accountStatus: accountStatus,
+      documentExists: true,
+      usedRepair: usedRepair,
+      cachedRole: cachedRole,
+      rawRoleSources: roleSources,
+    );
+  } else if (isProfileCompletionRedirect) {
+    resolution = AuthenticatedHomeResolution(
+      target: target,
+      reason: 'profile_completion_required',
       uid: firebaseUser.uid,
       rawRole: rawRole,
       normalizedRole: effectiveRole,
