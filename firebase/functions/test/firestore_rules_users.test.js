@@ -3,8 +3,11 @@
 // Verifies the users/{document} rule tightening (Partie E of the plan) does
 // what it's supposed to, BEFORE it's deployed: a user can no longer read
 // another user's profile, self/admin reads still work, and public reads of
-// games/prizes (including the newly denormalized winner fields) are
-// unaffected. Also covers isSafeSelfUserUpdate()'s privileged-field guard:
+// games (including the newly denormalized winner fields) are unaffected.
+// prizes read access is now restricted too (see
+// firestore_rules_prizes_and_my_lots.test.js for that rule's own coverage) --
+// the one test here just checks the winner can still read their own prize
+// doc. Also covers isSafeSelfUserUpdate()'s privileged-field guard:
 // it must use affectedKeys() (added+removed+changed), not changedKeys()
 // (changed-only) -- with changedKeys(), a player could self-write a
 // privileged field (remaining_part, account_status, ...) as long as it
@@ -121,10 +124,13 @@ test("la lecture publique de games avec champs denormalises reste inchangee", as
   await assertSucceeds(anon.firestore().collection("games").doc("game1").get());
 });
 
-test("la lecture publique de prizes avec champs denormalises reste inchangee", async () => {
+test("prizes n'est plus lisible publiquement (voir firestore_rules_prizes_and_my_lots.test.js)", async () => {
   const anon = testEnv.unauthenticatedContext();
+  await assertFails(anon.firestore().collection("prizes").doc("prize1").get());
+
+  const alice = testEnv.authenticatedContext("alice_uid");
   const snap = await assertSucceeds(
-    anon.firestore().collection("prizes").doc("prize1").get(),
+    alice.firestore().collection("prizes").doc("prize1").get(),
   );
   assert.equal(snap.data().winnerFirstName, "Alice");
 });

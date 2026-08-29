@@ -157,11 +157,16 @@ service cloud.firestore {
       allow delete: if request.auth.uid == parent;
     }
 
+    // my_lots represente une attribution de lot decidee cote serveur (voir
+    // participate_in_game_transaction.js / pickMainPrizeWinners /
+    // drawWinnerForAnimation / referral_game_engine.js / monthly_challenge.js,
+    // qui ecrivent toujours my_lots dans la meme transaction que le prize
+    // correspondant). Le client n'a donc jamais besoin d'y ecrire ; l'ouvrir
+    // en ecriture permettrait a un client modifie de fabriquer une entree
+    // pointant vers le prize d'un autre joueur.
     match /users/{parent}/my_lots/{document} {
-      allow create: if request.auth.uid == parent;
       allow read: if request.auth.uid == parent;
-      allow write: if request.auth.uid == parent;
-      allow delete: if request.auth.uid == parent;
+      allow write: if false;
     }
 
     match /games/{parent}/participants/{document} {
@@ -261,7 +266,15 @@ service cloud.firestore {
           isMerchantOwnerOfEnseigne(resource.data.enseigne_id)
         )
       );
-      allow read: if true;
+      // prizes contient claim_code (et winner_id) : la lecture doit rester
+      // reservee au gagnant, au commercant proprietaire du lot/de l'enseigne,
+      // et a l'admin. Le fil d'actualite public des gagnants (ticker) lit
+      // stats/global, un document denormalise sans claim_code ni contact,
+      // pas cette collection.
+      allow read: if isAdmin() ||
+        isOwnerRef(resource.data.winner_id) ||
+        isOwnerRef(resource.data.owner_id) ||
+        isMerchantOwnerOfEnseigne(resource.data.enseigne_id);
     }
 
     match /users/{parent}/notifications/{document} {
