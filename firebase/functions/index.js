@@ -6215,8 +6215,28 @@ try {
 try {
   const {
     drawAnimationWinners,
+    repairAnimationDraw,
   } = require("./draw_animation_winner");
   exports.drawAnimationWinners = drawAnimationWinners;
+
+  exports.adminRepairAnimationDraw = functions
+    .region(kFunctionsRegion)
+    .runWith({timeoutSeconds: 120, memory: "512MB"})
+    .https.onCall(async (data, context) => {
+      if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Authentification requise.");
+      }
+      await assertIsAdmin(context.auth.uid);
+      const animationId = getTrimmedString(data && data.animationId);
+      if (!animationId || animationId.includes("/")) {
+        throw new functions.https.HttpsError("invalid-argument", "animationId invalide.");
+      }
+      try {
+        return await repairAnimationDraw(animationId);
+      } catch (error) {
+        throw new functions.https.HttpsError("failed-precondition", error.message || "Reparation impossible.");
+      }
+    });
 } catch (error) {
   console.log("drawAnimationWinners not loaded yet:", error.message);
 }
