@@ -6,6 +6,7 @@ import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'lots_joueur_page_model.dart';
@@ -50,19 +51,28 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
       return const <_LotListItem>[];
     }
 
-    final prizeSnaps = await Future.wait(
-      recordsWithPrizeRef.map((record) => record.prizeId!.get()),
-    );
-
     final items = <_LotListItem>[];
-    for (var i = 0; i < recordsWithPrizeRef.length; i++) {
-      final prizeSnap = prizeSnaps[i];
+    for (final record in recordsWithPrizeRef) {
+      final prizeRef = record.prizeId!;
+      DocumentSnapshot<Object?> prizeSnap;
+      try {
+        prizeSnap = await prizeRef.get();
+      } catch (error, stackTrace) {
+        debugPrint(
+          'Failed to load my_lots item. my_lots=${record.reference.path} '
+          'prize=${prizeRef.path} error=$error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+        continue;
+      }
+
       if (!prizeSnap.exists) {
         continue;
       }
+
       final prize = PrizesRecord.fromSnapshot(prizeSnap);
       items.add(_LotListItem(
-        myLot: recordsWithPrizeRef[i],
+        myLot: record,
         prize: prize,
       ));
     }
@@ -314,6 +324,26 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                   ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadErrorState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Text(
+          'Impossible de charger vos lots pour le moment.',
+          textAlign: TextAlign.center,
+          style: FlutterFlowTheme.of(context).bodyMedium.override(
+                font: GoogleFonts.inter(
+                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                ),
+                color: FlutterFlowTheme.of(context).secondaryText,
+                letterSpacing: 0.0,
+                fontWeight: FontWeight.w500,
+              ),
         ),
       ),
     );
@@ -637,6 +667,15 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                               parent: currentUserReference,
                             ),
                       builder: (context, myLotsSnapshot) {
+                        if (myLotsSnapshot.hasError) {
+                          debugPrint(
+                            'Failed to stream my_lots for user '
+                            '${currentUserReference?.path}: '
+                            '${myLotsSnapshot.error}',
+                          );
+                          return _buildLoadErrorState(context);
+                        }
+
                         if (!myLotsSnapshot.hasData) {
                           return const Center(
                             child: SizedBox(
@@ -651,6 +690,15 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                         return FutureBuilder<List<_LotListItem>>(
                           future: _loadLotItems(myLots),
                           builder: (context, lotItemsSnapshot) {
+                            if (lotItemsSnapshot.hasError) {
+                              debugPrint(
+                                'Failed to build my_lots items for user '
+                                '${currentUserReference?.path}: '
+                                '${lotItemsSnapshot.error}',
+                              );
+                              return _buildLoadErrorState(context);
+                            }
+
                             if (!lotItemsSnapshot.hasData) {
                               return const Center(
                                 child: SizedBox(

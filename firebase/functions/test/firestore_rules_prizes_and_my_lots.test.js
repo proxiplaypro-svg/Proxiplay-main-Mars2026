@@ -83,6 +83,12 @@ test.before(async () => {
     await db.collection("users").doc("winner_uid").collection("my_lots").doc("classic_prize").set({
       prize_id: db.doc("prizes/classic_prize"),
     });
+    await db.collection("users").doc("winner_uid").collection("my_lots").doc("delete_owner").set({
+      prize_id: db.doc("prizes/classic_prize"),
+    });
+    await db.collection("users").doc("winner_uid").collection("my_lots").doc("delete_other").set({
+      prize_id: db.doc("prizes/classic_prize"),
+    });
   });
 });
 
@@ -168,7 +174,7 @@ test("my_lots : un autre joueur ne peut pas lire les lots d'un joueur", async ()
   );
 });
 
-test("my_lots : le proprietaire ne peut plus s'ecrire une entree lui-meme", async () => {
+test("my_lots : le proprietaire ne peut pas creer une entree lui-meme", async () => {
   const winner = testEnv.authenticatedContext("winner_uid");
   await assertFails(
     winner.firestore().collection("users").doc("winner_uid")
@@ -189,10 +195,33 @@ test("my_lots : le proprietaire ne peut pas modifier une entree existante", asyn
   );
 });
 
-test("my_lots : le proprietaire ne peut pas supprimer une entree existante", async () => {
+test("my_lots : le proprietaire peut supprimer une entree existante", async () => {
   const winner = testEnv.authenticatedContext("winner_uid");
-  await assertFails(
+  await assertSucceeds(
     winner.firestore().collection("users").doc("winner_uid")
-      .collection("my_lots").doc("classic_prize").delete(),
+      .collection("my_lots").doc("delete_owner").delete(),
   );
+});
+
+test("my_lots : un autre joueur ne peut pas supprimer le lot d'un joueur", async () => {
+  const stranger = testEnv.authenticatedContext("stranger_uid");
+  await assertFails(
+    stranger.firestore().collection("users").doc("winner_uid")
+      .collection("my_lots").doc("delete_other").delete(),
+  );
+});
+
+test("my_lots : le comportement admin existant cote serveur n'est pas casse par les regles client", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await assertSucceeds(
+      context.firestore().collection("users").doc("winner_uid")
+        .collection("my_lots").doc("server_side_cleanup").set({
+          prize_id: context.firestore().doc("prizes/classic_prize"),
+        }),
+    );
+    await assertSucceeds(
+      context.firestore().collection("users").doc("winner_uid")
+        .collection("my_lots").doc("server_side_cleanup").delete(),
+    );
+  });
 });
