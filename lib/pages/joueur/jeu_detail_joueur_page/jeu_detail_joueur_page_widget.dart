@@ -1967,12 +1967,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                           AccessMode.qr_only) {
                                                         return _buildQrOnlyPrimaryButton();
                                                       }
+                                                      // Jeu classique (pas qr_only) : le texte etait
+                                                      // reste sur 'Scanner', copie-colle de la branche
+                                                      // qr_only ci-dessus jamais ajuste. onPressed est
+                                                      // deja correct (propose la creation de compte) ;
+                                                      // 'Jouer' est le libelle deja utilise pour ce
+                                                      // meme bouton une fois connecte (voir plus haut).
                                                       return FFButtonWidget(
                                                         onPressed: () async {
                                                           await showCreateAccountToPlayDialog(
                                                               context);
                                                         },
-                                                        text: 'Scanner',
+                                                        text: 'Jouer',
                                                         options:
                                                             FFButtonOptions(
                                                           width:
