@@ -102,14 +102,14 @@ class _MerchantOfferedByBubbleState extends State<MerchantOfferedByBubble> {
       font: GoogleFonts.inter(fontWeight: FontWeight.w500),
       color: const Color(0xFF8A8A8A),
       fontWeight: FontWeight.w500,
-      fontSize: 9.0,
+      fontSize: 8.5,
       lineHeight: 1.1,
     );
     final nameStyle = theme.bodyMedium.override(
       font: GoogleFonts.inter(fontWeight: FontWeight.w600),
       color: const Color(0xFFA0134D),
       fontWeight: FontWeight.w600,
-      fontSize: 14.0,
+      fontSize: 13.0,
       lineHeight: 1.05,
     );
 
