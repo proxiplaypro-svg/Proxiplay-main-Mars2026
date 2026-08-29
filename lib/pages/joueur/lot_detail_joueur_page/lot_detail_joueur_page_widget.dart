@@ -150,6 +150,189 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
     );
   }
 
+  // Utilise pour les lots sans jeu classique lie (animations, jeu de
+  // parrainage, defi mensuel) : ces moteurs de tirage n'ecrivent jamais
+  // game_id sur le prize (voir draw_animation_winner.js /
+  // referral_game_engine.js / monthly_challenge.js), donc
+  // GamesRecord.getDocument(widget.lot!.gameId!) plantait ici avant meme
+  // de commencer (null check operator sur un champ absent). Ce lot a
+  // toujours son propre nom/description/claim_code denormalises, donc pas
+  // besoin du jeu pour afficher l'essentiel.
+  Widget _buildGamelessLotContent(BuildContext context) {
+    final prize = widget.lot;
+    final name = prize?.name.trim() ?? '';
+    final conditions = _lotConditions();
+    final winDate = prize?.winDate;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 32.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionCard(
+            context: context,
+            title: name.isNotEmpty ? name : 'Votre lot',
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (winDate != null)
+                  Text(
+                    'Gagné le ${dateTimeFormat('d/M/y', winDate, locale: FFLocalizations.of(context).languageCode)}',
+                    style: FlutterFlowTheme.of(context).bodyMedium.override(
+                          font: GoogleFonts.inter(
+                            fontStyle:
+                                FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                          ),
+                          color: FlutterFlowTheme.of(context).secondaryText,
+                          letterSpacing: 0.0,
+                        ),
+                  ),
+                if (conditions != null) ...[
+                  const SizedBox(height: 12.0),
+                  Text(
+                    conditions,
+                    style: FlutterFlowTheme.of(context).bodyMedium.override(
+                          font: GoogleFonts.inter(
+                            fontStyle:
+                                FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                          ),
+                          color: FlutterFlowTheme.of(context).primaryText,
+                          letterSpacing: 0.0,
+                        ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16.0),
+          if (prize != null && !prize.claimed)
+            _buildSectionCard(
+              context: context,
+              title: 'Code de récupération',
+              child: Column(
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1F6),
+                      borderRadius: BorderRadius.circular(22.0),
+                      border: Border.all(
+                        color: const Color(0xFFA0134D),
+                        width: 2.0,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                          16.0, 24.0, 16.0, 24.0),
+                      child: Text(
+                        prize.claimCode,
+                        textAlign: TextAlign.center,
+                        style: FlutterFlowTheme.of(context)
+                            .displayMedium
+                            .override(
+                              font: GoogleFonts.interTight(
+                                fontWeight: FontWeight.w800,
+                                fontStyle: FlutterFlowTheme.of(context)
+                                    .displayMedium
+                                    .fontStyle,
+                              ),
+                              color: const Color(0xFFA0134D),
+                              fontSize: 34.0,
+                              letterSpacing: 1.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16.0),
+                  Text(
+                    'Présentez ce code au commerçant',
+                    textAlign: TextAlign.center,
+                    style: FlutterFlowTheme.of(context).bodyLarge.override(
+                          font: GoogleFonts.inter(
+                            fontWeight: FontWeight.w500,
+                            fontStyle:
+                                FlutterFlowTheme.of(context).bodyLarge.fontStyle,
+                          ),
+                          color: FlutterFlowTheme.of(context).secondaryText,
+                          letterSpacing: 0.0,
+                          fontWeight: FontWeight.w500,
+                        ),
+                  ),
+                  const SizedBox(height: 16.0),
+                  FFButtonWidget(
+                    onPressed: () async {
+                      await _copyClaimCode();
+                    },
+                    text: 'Copier le code',
+                    icon: const Icon(Icons.copy_rounded, size: 18.0),
+                    options: FFButtonOptions(
+                      width: 190.0,
+                      height: 44.0,
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                          18.0, 0.0, 18.0, 0.0),
+                      iconPadding: const EdgeInsetsDirectional.fromSTEB(
+                          0.0, 0.0, 0.0, 0.0),
+                      color: const Color(0xFFFFF1F6),
+                      textStyle: FlutterFlowTheme.of(context).bodyMedium.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              fontStyle:
+                                  FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                            ),
+                            color: const Color(0xFFA0134D),
+                            letterSpacing: 0.0,
+                            fontWeight: FontWeight.w600,
+                          ),
+                      elevation: 0.0,
+                      borderSide: const BorderSide(
+                        color: Color(0xFFF0C1D1),
+                        width: 1.0,
+                      ),
+                      borderRadius: BorderRadius.circular(16.0),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (prize != null)
+            _buildSectionCard(
+              context: context,
+              title: 'Code de récupération',
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF5FF),
+                  borderRadius: BorderRadius.circular(18.0),
+                ),
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(
+                      16.0, 18.0, 16.0, 18.0),
+                  child: Text(
+                    'Lot récupéré',
+                    textAlign: TextAlign.center,
+                    style: FlutterFlowTheme.of(context).titleMedium.override(
+                          font: GoogleFonts.interTight(
+                            fontWeight: FontWeight.w700,
+                            fontStyle:
+                                FlutterFlowTheme.of(context).titleMedium.fontStyle,
+                          ),
+                          color: const Color(0xFF2068B9),
+                          letterSpacing: 0.0,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   String? _lotConditions() {
     final conditions = widget.lot?.description.trim() ?? '';
     return conditions.isEmpty ? null : conditions;
@@ -255,7 +438,9 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      child: StreamBuilder<GamesRecord>(
+                      child: widget.lot?.gameId == null
+                          ? _buildGamelessLotContent(context)
+                          : StreamBuilder<GamesRecord>(
                         stream: GamesRecord.getDocument(widget.lot!.gameId!),
                         builder: (context, snapshot) {
                           // Customize what your widget looks like when it's loading.
@@ -417,10 +602,26 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                                           ),
                                         ),
                                         FutureBuilder<EnseignesRecord>(
+                                          // widget.lot!.enseigneId, pas
+                                          // columnGamesRecord.enseigneId : le
+                                          // jeu source d'un lot peut avoir ete
+                                          // supprime depuis (le commercant
+                                          // nettoie ses jeux termines), auquel
+                                          // cas GamesRecord.getDocument()
+                                          // renvoie quand meme un snapshot
+                                          // (exists=false, champs vides) et ce
+                                          // force-unwrap plantait toute la
+                                          // page (ecran blanc en release).
+                                          // enseigneId est deja denormalise
+                                          // sur le prize lui-meme (voir
+                                          // participate_in_game_transaction.js
+                                          // / pickMainPrizeWinners), donc
+                                          // toujours fiable meme jeu supprime
+                                          // -- deja utilise ainsi plus haut
+                                          // pour queryHorairesRecord.
                                           future:
                                               EnseignesRecord.getDocumentOnce(
-                                                  columnGamesRecord
-                                                      .enseigneId!),
+                                                  widget.lot!.enseigneId!),
                                           builder: (context, snapshot) {
                                             // Customize what your widget looks like when it's loading.
                                             if (!snapshot.hasData) {
