@@ -389,7 +389,15 @@ service cloud.firestore {
     }
 
     match /animations/{animationId} {
-      allow read: if request.auth != null;
+      // Meme regle de lecture publique que games/enseignes : la rubrique
+      // "Scans en boutique" de la Home affiche les animations actives a
+      // tout le monde, y compris en mode "Continuer sans compte" (aucune
+      // session Firebase, request.auth est reellement null -- ce n'est pas
+      // un login anonyme). Rien de sensible sur ce document (winner_uid
+      // seul, deja public sur games.main_prize_winner) ; les vraies
+      // donnees privees restent dans entries/{uid} ci-dessous et dans
+      // prizes/users.
+      allow read: if true;
       allow write: if isAdmin();
 
       match /entries/{uid} {
