@@ -4,6 +4,52 @@ const loginRoutePath = '/loginPage';
 const homeJoueurRoutePath = '/homeJoueurPage';
 const homeAdminRoutePath = '/homeAdminPage';
 
+/// Extrait l'id de jeu d'un deep link, sous ses deux formes :
+/// - lien https (https://.../j/<id> ou https://.../game/<id>) : "j"/"game"
+///   est le premier segment du CHEMIN ;
+/// - lien a schema personnalise (customScheme://game/<id>, voir
+///   buildGameDeepLink dans share_links.dart et l'intent-filter
+///   scheme=customScheme host="game" de AndroidManifest.xml) : "game" est
+///   le HOST de l'URI, pas un segment du chemin -- pathSegments ne contient
+///   alors que l'id seul. Les deux formes doivent etre traitees separement.
+String? extractDeepLinkGameId(Uri uri, {required String customScheme}) {
+  if (uri.scheme == customScheme && uri.host == 'game') {
+    final segments = uri.pathSegments;
+    if (segments.isEmpty) {
+      return null;
+    }
+    final gameId = segments.first.trim();
+    return gameId.isEmpty ? null : gameId;
+  }
+
+  final segments = uri.pathSegments;
+  if (segments.length >= 2 &&
+      (segments.first == 'j' || segments.first == 'game')) {
+    final gameId = segments[1].trim();
+    return gameId.isEmpty ? null : gameId;
+  }
+  return null;
+}
+
+/// Home de repli quand safePop() ne peut pas depiler (aucune route
+/// precedente dans la pile) pour un utilisateur connecte. HomeJoueurPage
+/// n'a qu'un garde requireAuth (pas de garde de role), donc y renvoyer
+/// systematiquement laisserait un commercant ou un admin atterrir sur le
+/// mauvais home.
+enum SafePopFallbackHome { joueur, commercant, admin }
+
+SafePopFallbackHome resolveSafePopFallbackHome(Roles? role) {
+  switch (role) {
+    case Roles.commercant:
+      return SafePopFallbackHome.commercant;
+    case Roles.admin:
+      return SafePopFallbackHome.admin;
+    case Roles.joueur:
+    case null:
+      return SafePopFallbackHome.joueur;
+  }
+}
+
 AuthenticatedHomeTarget resolveTargetFromResolvedRole({
   required bool documentExists,
   required Roles? effectiveRole,

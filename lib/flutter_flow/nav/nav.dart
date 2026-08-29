@@ -13,6 +13,7 @@ import '/auth/firebase_auth/account_routing.dart';
 import '/auth/firebase_auth/account_routing_logic.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/utils/share_links.dart';
 
 import '/index.dart';
 
@@ -83,15 +84,8 @@ class GlobalNavObserver extends NavigatorObserver {
   }
 }
 
-String? _extractDeepLinkGameId(Uri uri) {
-  final segments = uri.pathSegments;
-  if (segments.length >= 2 &&
-      (segments.first == 'j' || segments.first == 'game')) {
-    final gameId = segments[1].trim();
-    return gameId.isEmpty ? null : gameId;
-  }
-  return null;
-}
+String? _extractDeepLinkGameId(Uri uri) =>
+    extractDeepLinkGameId(uri, customScheme: proxiplayCustomScheme);
 
 class AppStateNotifier extends ChangeNotifier {
   static const Duration _authResolutionTimeout = Duration(seconds: 3);
@@ -875,9 +869,18 @@ extension NavigationExtensions on BuildContext {
     } else {
       final isLoggedIn =
           AppStateNotifier.instance.loggedIn && currentUserUid.isNotEmpty;
-      go(isLoggedIn
-          ? HomeJoueurPageWidget.routePath
-          : LoginPageWidget.routePath);
+      if (!isLoggedIn) {
+        go(LoginPageWidget.routePath);
+        return;
+      }
+      switch (resolveSafePopFallbackHome(currentUserDocument?.userRole)) {
+        case SafePopFallbackHome.commercant:
+          go(HomeCommercantPageWidget.routePath);
+        case SafePopFallbackHome.admin:
+          go(HomeAdminPageWidget.routePath);
+        case SafePopFallbackHome.joueur:
+          go(HomeJoueurPageWidget.routePath);
+      }
     }
   }
 }

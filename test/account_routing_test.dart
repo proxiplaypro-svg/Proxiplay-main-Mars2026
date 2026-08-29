@@ -262,4 +262,90 @@ void main() {
       );
     });
   });
+
+  group('extractDeepLinkGameId', () {
+    test('reads the id from a custom-scheme deep link (game is the host)', () {
+      final gameId = extractDeepLinkGameId(
+        Uri.parse('proxiplay://game/ABC123'),
+        customScheme: 'proxiplay',
+      );
+
+      expect(gameId, 'ABC123');
+    });
+
+    test('reads the id from a /j/<id> https link (j is the first path segment)', () {
+      final gameId = extractDeepLinkGameId(
+        Uri.parse('https://play.proxiplay.fr/j/ABC123'),
+        customScheme: 'proxiplay',
+      );
+
+      expect(gameId, 'ABC123');
+    });
+
+    test('reads the id from a /game/<id> https link', () {
+      final gameId = extractDeepLinkGameId(
+        Uri.parse('https://play.proxiplay.fr/game/ABC123'),
+        customScheme: 'proxiplay',
+      );
+
+      expect(gameId, 'ABC123');
+    });
+
+    test('returns null for a custom-scheme link with no id', () {
+      final gameId = extractDeepLinkGameId(
+        Uri.parse('proxiplay://game/'),
+        customScheme: 'proxiplay',
+      );
+
+      expect(gameId, isNull);
+    });
+
+    test('returns null for an unrelated https link', () {
+      final gameId = extractDeepLinkGameId(
+        Uri.parse('https://play.proxiplay.fr/about'),
+        customScheme: 'proxiplay',
+      );
+
+      expect(gameId, isNull);
+    });
+
+    test('returns null for a custom-scheme link with the wrong host', () {
+      final gameId = extractDeepLinkGameId(
+        Uri.parse('proxiplay://notgame/ABC123'),
+        customScheme: 'proxiplay',
+      );
+
+      expect(gameId, isNull);
+    });
+  });
+
+  group('resolveSafePopFallbackHome', () {
+    test('sends a merchant to the merchant home', () {
+      expect(
+        resolveSafePopFallbackHome(Roles.commercant),
+        SafePopFallbackHome.commercant,
+      );
+    });
+
+    test('sends an admin to the admin home', () {
+      expect(
+        resolveSafePopFallbackHome(Roles.admin),
+        SafePopFallbackHome.admin,
+      );
+    });
+
+    test('sends a player to the player home', () {
+      expect(
+        resolveSafePopFallbackHome(Roles.joueur),
+        SafePopFallbackHome.joueur,
+      );
+    });
+
+    test('defaults to the player home when the role is unknown', () {
+      expect(
+        resolveSafePopFallbackHome(null),
+        SafePopFallbackHome.joueur,
+      );
+    });
+  });
 }
