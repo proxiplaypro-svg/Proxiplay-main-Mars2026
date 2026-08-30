@@ -1,4 +1,16 @@
 rules_version = '2';
+// ATTENTION : deux repos deploient des regles Firestore sur ce MEME projet
+// (proxi-play-odzp2e) -- l'app Flutter (ce fichier) et la console admin
+// Next.js (repo proxiplay-admin). Firestore ne garde qu'un seul jeu de
+// regles actif : le dernier `firebase deploy --only firestore:rules`
+// remplace entierement l'autre, il n'y a pas de fusion automatique. Ce
+// fichier est donc le fichier canonique unique -- il integre les besoins
+// des deux apps (collections jeux/merchants, reconnaissance admin par
+// email). Si la console admin evolue, reporter les changements de regles
+// ICI, PAS dans proxiplay-admin/firestore.rules (qui ne doit plus etre
+// deploye independamment sous peine d'ecraser ce fichier et de rouvrir des
+// failles deja corrigees ici -- lecture publique de prizes/claim_code,
+// lecture publique de users/{userId} via un `|| true`).
 service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() {
@@ -9,8 +21,25 @@ service cloud.firestore {
       return isSignedIn() &&
         (
           request.auth.token.admin == true ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_role == 'admin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userRole == 'admin'
+          // Compte admin historique de la console proxiplay-admin (repo
+          // separe, meme projet Firebase) : ce repo a sa propre isAdmin()
+          // basee uniquement sur cet email, sans custom claim ni user_role.
+          // Fusionne ici pour que ce compte reste reconnu admin sous ce
+          // fichier de regles unique -- voir la note en tete de fichier.
+          request.auth.token.email in ['proxiplay.pro@gmail.com'] ||
+          // exists() d'abord : get() sur un users/{uid} absent leve une
+          // erreur qui fait echouer TOUTE l'evaluation isAdmin() (y compris
+          // le || qui suit), pas juste retourner false -- un commercant
+          // gerant son enseigne via la console admin par correspondance
+          // d'email (canManageRequestedGameAsMerchant) peut ne jamais avoir
+          // de document users/{uid} du tout.
+          (
+            exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+            (
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_role == 'admin' ||
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userRole == 'admin'
+            )
+          )
         );
     }
 
@@ -57,6 +86,48 @@ service cloud.firestore {
         enseigneRef != null &&
         get(enseigneRef).data.owner ==
           /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    // -- Fonctions requises par la console admin (repo proxiplay-admin),
+    // integrees ici pour /jeux et /merchants. Voir la note en tete de
+    // fichier.
+    function signedInEmail() {
+      return isSignedIn() && request.auth.token.email != null
+        ? request.auth.token.email
+        : null;
+    }
+
+    function ownsEnseigneById(merchantId) {
+      return merchantId != null &&
+        signedInEmail() != null &&
+        exists(/databases/$(database)/documents/enseignes/$(merchantId)) &&
+        get(/databases/$(database)/documents/enseignes/$(merchantId)).data.email == signedInEmail();
+    }
+
+    function ownsMerchantById(merchantId) {
+      return merchantId != null &&
+        signedInEmail() != null &&
+        exists(/databases/$(database)/documents/merchants/$(merchantId)) &&
+        get(/databases/$(database)/documents/merchants/$(merchantId)).data.email == signedInEmail();
+    }
+
+    function requestedGameMerchantId() {
+      // .get(cle, defaut), pas l'acces pointe : un champ totalement absent
+      // du document (jamais ecrit, ni merchantId ni merchant_id) leve une
+      // erreur en notation pointee plutot que de renvoyer null, ce qui
+      // ferait echouer toute la chaine || de canManageRequestedGameAsMerchant().
+      return request.resource.data.get('merchantId', null) != null
+        ? request.resource.data.get('merchantId', null)
+        : request.resource.data.get('merchant_id', null) != null
+          ? request.resource.data.get('merchant_id', null)
+          : resource.data.get('merchantId', null) != null
+            ? resource.data.get('merchantId', null)
+            : resource.data.get('merchant_id', null);
+    }
+
+    function canManageRequestedGameAsMerchant() {
+      let merchantId = requestedGameMerchantId();
+      return ownsEnseigneById(merchantId) || ownsMerchantById(merchantId);
     }
 
     function isPrizeClaimValidationUpdate() {
@@ -135,6 +206,17 @@ service cloud.firestore {
       allow delete: if isAdmin() || isOwnerRef(resource.data.owner);
     }
 
+    // Collection legacy utilisee par la console admin (repo proxiplay-admin)
+    // pour certains commercants pas encore migres vers /enseignes ;
+    // ownsMerchantById() en depend. Regle reprise telle quelle de ce repo
+    // (large : n'importe quel compte connecte peut ecrire) -- pas une
+    // regression introduite ici, mais a resserrer plus tard (voir note en
+    // tete de fichier).
+    match /merchants/{document=**} {
+      allow read: if isAdmin() || isSignedIn();
+      allow write: if isAdmin() || isSignedIn();
+    }
+
     match /games/{document} {
       allow create: if isAdmin() ||
         (
@@ -148,6 +230,18 @@ service cloud.firestore {
           isSafeMerchantGameUpdate());
       allow delete: if isAdmin() ||
         resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    // Collection legacy pour les jeux a scanner geres via la console admin
+    // (repo proxiplay-admin) -- pickCollectionName(["games", "jeux"]) y
+    // bascule quand /games est vide pour un commercant donne. Sans cette
+    // regle (absente par erreur du deploiement du 30/08), la console admin
+    // ne peut ni modifier, ni supprimer, ni activer/desactiver un jeu qui y
+    // vit encore : Firestore refuse tout par defaut sur une collection sans
+    // regle explicite.
+    match /jeux/{document} {
+      allow read: if true;
+      allow write: if isAdmin() || canManageRequestedGameAsMerchant();
     }
 
     match /users/{parent}/favorite_enseignes/{document} {
@@ -173,11 +267,17 @@ service cloud.firestore {
     match /games/{parent}/participants/{document} {
       // Les participations sont créées exclusivement via la Cloud Function
       // participateInGameTransaction afin d'empêcher plusieurs parties
-      // sur un même jeu le même jour.
+      // sur un même jeu le même jour. update/delete admin : moderation
+      // depuis la console admin (repo proxiplay-admin).
       allow create: if false;
       allow read: if true;
-      allow write: if false;
-      allow delete: if false;
+      allow update, delete: if isAdmin();
+    }
+
+    match /jeux/{parent}/participants/{document} {
+      allow create: if false;
+      allow read: if true;
+      allow update, delete: if isAdmin();
     }
 
     match /{path=**}/participants/{document} {
