@@ -6136,6 +6136,19 @@ try {
   console.log("share_promo TypeScript bundle not loaded yet:", error.message);
 }
 
+try {
+  const {
+    createSearchGooglePlacesCallable,
+  } = require("./google_places_search_callable");
+  exports.searchGooglePlaces = createSearchGooglePlacesCallable({
+    functions,
+    kFunctionsRegion,
+    getTrimmedString,
+  });
+} catch (error) {
+  console.log("searchGooglePlaces not loaded yet:", error.message);
+}
+
 exports.adminGetNotificationsConfig = adminGetNotificationsConfigCallable;
 exports.adminSetNotificationsConfig = adminSetNotificationsConfigCallable;
 exports.adminSendPrizeReminderPushTest = adminSendPrizeReminderPushTestCallable;

@@ -71,7 +71,13 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).changedKeys().hasOnly([
         'name', 'address', 'city', 'area_code', 'phone_number',
         'description', 'site_web_url', 'instagram_link', 'twitter_link',
-        'facebook_link', 'category'
+        'facebook_link', 'category',
+        // Association manuelle a une fiche Google (ajout/remplacement/
+        // suppression) : le commercant choisit toujours un resultat de
+        // recherche Google cote client, jamais une valeur devinee ; ce
+        // champ ne stocke qu'un identifiant, aucune donnee Google
+        // dynamique (note, avis, horaires...).
+        'google_place_id'
       ]);
     }
 

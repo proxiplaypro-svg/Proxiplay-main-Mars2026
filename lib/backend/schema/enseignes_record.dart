@@ -85,6 +85,13 @@ class EnseignesRecord extends FirestoreRecord {
   List<String> get category => _category ?? const [];
   bool hasCategory() => _category != null;
 
+  // "google_place_id" field.
+  // Association manuelle a une fiche Google (admin uniquement pour l'instant).
+  // Aucune autre donnee Google (avis, horaires, photos...) n'est stockee ici.
+  String? _googlePlaceId;
+  String? get googlePlaceId => _googlePlaceId;
+  bool hasGooglePlaceId() => _googlePlaceId != null;
+
   void _initializeFields() {
     _owner = snapshotData['owner'] as DocumentReference?;
     _createdTime = snapshotData['created_time'] as DateTime?;
@@ -100,6 +107,7 @@ class EnseignesRecord extends FirestoreRecord {
     _twitterLink = snapshotData['twitter_link'] as String?;
     _facebookLink = snapshotData['facebook_link'] as String?;
     _category = getDataList(snapshotData['category']);
+    _googlePlaceId = snapshotData['google_place_id'] as String?;
   }
 
   static CollectionReference get collection =>
@@ -152,6 +160,7 @@ Map<String, dynamic> createEnseignesRecordData({
   String? instagramLink,
   String? twitterLink,
   String? facebookLink,
+  String? googlePlaceId,
 }) {
   final firestoreData = mapToFirestore(
     <String, dynamic>{
@@ -168,6 +177,7 @@ Map<String, dynamic> createEnseignesRecordData({
       'instagram_link': instagramLink,
       'twitter_link': twitterLink,
       'facebook_link': facebookLink,
+      'google_place_id': googlePlaceId,
     }.withoutNulls,
   );
 
@@ -193,7 +203,8 @@ class EnseignesRecordDocumentEquality implements Equality<EnseignesRecord> {
         e1?.instagramLink == e2?.instagramLink &&
         e1?.twitterLink == e2?.twitterLink &&
         e1?.facebookLink == e2?.facebookLink &&
-        listEquality.equals(e1?.category, e2?.category);
+        listEquality.equals(e1?.category, e2?.category) &&
+        e1?.googlePlaceId == e2?.googlePlaceId;
   }
 
   @override
@@ -211,9 +222,18 @@ class EnseignesRecordDocumentEquality implements Equality<EnseignesRecord> {
         e?.instagramLink,
         e?.twitterLink,
         e?.facebookLink,
-        e?.category
+        e?.category,
+        e?.googlePlaceId,
       ]);
 
   @override
   bool isValidKey(Object? o) => o is EnseignesRecord;
+}
+
+/// Point d'entree pour les futures etapes d'integration Google Places.
+/// Ne fait aucun appel a l'API Google -- verifie seulement qu'une
+/// association manuelle a ete enregistree.
+bool hasGooglePlaceId(EnseignesRecord enseigne) {
+  final placeId = enseigne.googlePlaceId;
+  return placeId != null && placeId.trim().isNotEmpty;
 }

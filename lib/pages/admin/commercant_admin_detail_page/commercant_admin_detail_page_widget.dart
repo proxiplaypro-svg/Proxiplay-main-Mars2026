@@ -28,6 +28,7 @@ class _CommercantAdminDetailPageWidgetState
   final _cityController = TextEditingController();
   final _storeNameController = TextEditingController();
   final _addressController = TextEditingController();
+  final _googlePlaceIdController = TextEditingController();
 
   bool _isEditing = false;
   bool _isUnlocking = false;
@@ -42,6 +43,7 @@ class _CommercantAdminDetailPageWidgetState
     _cityController.dispose();
     _storeNameController.dispose();
     _addressController.dispose();
+    _googlePlaceIdController.dispose();
     super.dispose();
   }
 
@@ -57,6 +59,7 @@ class _CommercantAdminDetailPageWidgetState
       enseigne?.name ?? '',
       enseigne?.address ?? '',
       enseigne?.city ?? '',
+      enseigne?.googlePlaceId ?? '',
     ].join('|');
     if (_isEditing || _lastSeedKey == seedKey) {
       return;
@@ -70,6 +73,7 @@ class _CommercantAdminDetailPageWidgetState
     _cityController.text = user.city.isNotEmpty ? user.city : (enseigne?.city ?? '');
     _storeNameController.text = enseigne?.name ?? '';
     _addressController.text = enseigne?.address ?? '';
+    _googlePlaceIdController.text = enseigne?.googlePlaceId ?? '';
   }
 
   String _statusLabel(AccountStatus? status) {
@@ -360,14 +364,21 @@ class _CommercantAdminDetailPageWidgetState
       ),
     );
     if (enseigne != null) {
-      await enseigne.reference.update(
-        createEnseignesRecordData(
+      final trimmedPlaceId = _googlePlaceIdController.text.trim();
+      await enseigne.reference.update({
+        ...createEnseignesRecordData(
           name: _storeNameController.text.trim(),
           address: _addressController.text.trim(),
           city: _cityController.text.trim(),
           phoneNumber: _phoneController.text.trim(),
         ),
-      );
+        // Champ absent du document si non renseigne : createEnseignesRecordData
+        // (via withoutNulls) ne peut pas exprimer une suppression de champ
+        // existant, d'ou l'ecriture directe de FieldValue.delete() ici pour
+        // permettre de retirer une association Google deja enregistree.
+        'google_place_id':
+            trimmedPlaceId.isEmpty ? FieldValue.delete() : trimmedPlaceId,
+      });
     }
     setState(() {
       _isEditing = false;
@@ -722,6 +733,10 @@ class _CommercantAdminDetailPageWidgetState
                           ],
                         ),
                       ),
+                      if (enseigne != null) ...[
+                        const SizedBox(height: 16.0),
+                        _buildGoogleFicheCard(context, enseigne),
+                      ],
                       const SizedBox(height: 16.0),
                       _buildSectionCard(
                         context,
@@ -835,6 +850,64 @@ class _CommercantAdminDetailPageWidgetState
             },
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildGoogleFicheCard(BuildContext context, EnseignesRecord enseigne) {
+    final theme = FlutterFlowTheme.of(context);
+    final isLinked = hasGooglePlaceId(enseigne);
+    final statusColor =
+        isLinked ? const Color(0xFF12B76A) : const Color(0xFF98A2B3);
+    return _buildSectionCard(
+      context,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(
+            context,
+            title: 'Fiche Google',
+            subtitle:
+                'Association manuelle a une fiche Google via son Place ID. '
+                'Aucune donnee Google (avis, note, horaires, photos...) '
+                'n\'est recuperee automatiquement pour le moment.',
+          ),
+          const SizedBox(height: 14.0),
+          Container(
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(999.0),
+            ),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+            child: Text(
+              isLinked ? 'Google : associé' : 'Google : non associé',
+              style: theme.bodySmall.override(
+                font: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700,
+                  fontStyle: theme.bodySmall.fontStyle,
+                ),
+                color: statusColor,
+                letterSpacing: 0.0,
+                fontWeight: FontWeight.w700,
+                fontStyle: theme.bodySmall.fontStyle,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14.0),
+          if (_isEditing)
+            _buildEditField(
+              context,
+              label: 'Google Place ID (ex: ChIJ...)',
+              controller: _googlePlaceIdController,
+            )
+          else
+            _buildInfoRow(
+              context,
+              'Place ID',
+              enseigne.googlePlaceId ?? '',
+            ),
+        ],
       ),
     );
   }
