@@ -72,17 +72,16 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
     final merchantEnseigneRefs = await _loadMerchantEnseigneRefs();
     final prizeByPath = <String, PrizesRecord>{};
 
-    final exactMatchPrizes = await queryPrizesRecordOnce(
-      queryBuilder: (prizesRecord) => prizesRecord.where(
-        'claim_code',
-        isEqualTo: normalizedCode,
-      ),
-      limit: 10,
-    );
-    for (final prize in exactMatchPrizes) {
-      prizeByPath[prize.reference.path] = prize;
-    }
-
+    // Pas de requete where('claim_code', ...) seule ici : les regles
+    // Firestore n'autorisent une requete list() sur "prizes" que si un
+    // where() correspond a winner_id/owner_id/enseigne_id -- claim_code
+    // seul n'est prouvable par aucune de ces conditions et la requete
+    // echoue entierement (permission-denied). Les deux requetes qui suivent
+    // (owner_id, puis enseigne_id) couvrent deja tout ce que cette requete
+    // aurait pu apporter : le filtre final ci-dessous n'accepte de toute
+    // facon qu'un lot appartenant a ce commercant (belongsToMerchant /
+    // belongsToMerchantEnseigne), donc un lot trouve uniquement par son code
+    // mais n'appartenant pas a ce commercant aurait ete rejete quand meme.
     final merchantOwnedPrizes = await queryPrizesRecordOnce(
       queryBuilder: (prizesRecord) => prizesRecord.where(
         'owner_id',
@@ -595,10 +594,20 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                               );
                                               _model.textController.text =
                                                   normalizedCode;
-                                              _model.resultPrize =
-                                                  await _findPrizeForMerchantClaimCode(
-                                                normalizedCode,
-                                              );
+                                              try {
+                                                _model.resultPrize =
+                                                    await _findPrizeForMerchantClaimCode(
+                                                  normalizedCode,
+                                                );
+                                              } catch (error, stackTrace) {
+                                                debugPrint(
+                                                  'Failed to lookup prize by claim code '
+                                                  '"$normalizedCode": $error',
+                                                );
+                                                debugPrintStack(
+                                                    stackTrace: stackTrace);
+                                                _model.resultPrize = null;
+                                              }
                                               if (!context.mounted) return;
                                               if (_model.resultPrize != null) {
                                                 context.pushNamed(

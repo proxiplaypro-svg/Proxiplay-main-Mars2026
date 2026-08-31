@@ -136,6 +136,33 @@ test("prizes : le commercant proprietaire de l'enseigne (enseigne_id) peut le li
   );
 });
 
+test("prizes : le commercant peut retrouver un lot par claim_code via owner_id (pas via claim_code seul)", async () => {
+  // Regression : home_commercant_page_widget.dart cherchait auparavant un
+  // lot par where('claim_code', ...) seul, en plus des requetes owner_id/
+  // enseigne_id -- une requete claim_code seule est rejetee (voir le test
+  // suivant), mais elle n'apportait de toute facon rien que owner_id
+  // n'apporte pas deja, puisque le filtrage final exige que le lot
+  // appartienne au commercant. Ce test verifie que la requete owner_id
+  // seule suffit a retrouver le lot voulu par son claim_code.
+  const merchant = testEnv.authenticatedContext("merchant_owner_uid");
+  const snap = await assertSucceeds(
+    merchant.firestore().collection("prizes")
+      .where("owner_id", "==", merchant.firestore().doc("users/merchant_owner_uid"))
+      .get(),
+  );
+  const match = snap.docs.find((doc) => doc.data().claim_code === "SECRET1");
+  assert.ok(match, "le lot SECRET1 doit etre trouvable via owner_id seul");
+});
+
+test("prizes : une requete filtree uniquement sur claim_code reste rejetee (limite structurelle Firestore)", async () => {
+  const merchant = testEnv.authenticatedContext("merchant_owner_uid");
+  await assertFails(
+    merchant.firestore().collection("prizes")
+      .where("claim_code", "==", "SECRET1")
+      .get(),
+  );
+});
+
 test("prizes : un commercant sans lien avec le lot ne peut pas le lire", async () => {
   const merchant = testEnv.authenticatedContext("other_merchant_uid");
   await assertFails(
