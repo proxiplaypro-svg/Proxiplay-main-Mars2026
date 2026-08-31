@@ -48,18 +48,29 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
       return 0;
     }
 
-    final prizeSnaps = await Future.wait(
-      recordsWithPrizeRef.map((record) => record.prizeId!.get()),
-    );
-
+    // Un get() par lot, chacun avec son propre try/catch : Future.wait()
+    // echoue entierement des qu'un seul get() leve une erreur, ce qui
+    // ramenait le compteur a 0 meme quand la plupart des lots se chargeaient
+    // sans probleme (voir le meme correctif deja applique a
+    // lots_joueur_page_widget.dart::_loadLotItems).
     var unclaimedLots = 0;
-    for (final prizeSnap in prizeSnaps) {
-      if (!prizeSnap.exists) {
-        continue;
-      }
-      final prize = PrizesRecord.fromSnapshot(prizeSnap);
-      if (!prize.claimed) {
-        unclaimedLots++;
+    for (final record in recordsWithPrizeRef) {
+      final prizeRef = record.prizeId!;
+      try {
+        final prizeSnap = await prizeRef.get();
+        if (!prizeSnap.exists) {
+          continue;
+        }
+        final prize = PrizesRecord.fromSnapshot(prizeSnap);
+        if (!prize.claimed) {
+          unclaimedLots++;
+        }
+      } catch (error, stackTrace) {
+        debugPrint(
+          'Failed to load prize for unclaimed lots count. '
+          'my_lots=${record.reference.path} prize=${prizeRef.path} error=$error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
       }
     }
     return unclaimedLots;
