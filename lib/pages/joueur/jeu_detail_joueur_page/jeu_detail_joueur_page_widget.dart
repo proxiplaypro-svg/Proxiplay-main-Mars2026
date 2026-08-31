@@ -1661,28 +1661,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                         horizontal: 12.0,
                                                         vertical: 10.0,
                                                       ),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.white,
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(16.0),
-                                                        border: Border.all(
-                                                          color: const Color(
-                                                              0xFFA0134D),
-                                                          width: 1.0,
-                                                        ),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: Colors.black
-                                                                .withOpacity(
-                                                                    0.04),
-                                                            blurRadius: 10.0,
-                                                            offset:
-                                                                const Offset(
-                                                                    0, 2),
-                                                          ),
-                                                        ],
-                                                      ),
+                                                      decoration:
+                                                          detailCardDecoration,
                                                       child: Row(
                                                         crossAxisAlignment:
                                                             CrossAxisAlignment
@@ -1957,6 +1937,65 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                           ),
                                                           const SizedBox(
                                                               width: 8.0),
+                                                          // Deuxieme photo (si
+                                                          // l'enseigne en a
+                                                          // au moins 2) --
+                                                          // rien n'est
+                                                          // affiche/reserve
+                                                          // tant qu'elle n'est
+                                                          // pas confirmee
+                                                          // disponible.
+                                                          FutureBuilder<
+                                                              List<
+                                                                  ImagesRecord>>(
+                                                            future:
+                                                                queryImagesRecordOnce(
+                                                              parent: effectiveEnseigneDoc
+                                                                  .reference,
+                                                              limit: 2,
+                                                            ),
+                                                            builder: (context,
+                                                                snapshot) {
+                                                              final images =
+                                                                  snapshot
+                                                                          .data ??
+                                                                      const <
+                                                                          ImagesRecord>[];
+                                                              if (images
+                                                                      .length <
+                                                                  2) {
+                                                                return const SizedBox
+                                                                    .shrink();
+                                                              }
+                                                              return Padding(
+                                                                padding: const EdgeInsets
+                                                                    .only(
+                                                                    right:
+                                                                        8.0),
+                                                                child: ClipRRect(
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              12.0),
+                                                                  child:
+                                                                      SizedBox(
+                                                                    width:
+                                                                        56.0,
+                                                                    height:
+                                                                        56.0,
+                                                                    child:
+                                                                        ProxiplayNetworkImage(
+                                                                      imageUrl:
+                                                                          images[1]
+                                                                              .url,
+                                                                      fit: BoxFit
+                                                                          .cover,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              );
+                                                            },
+                                                          ),
                                                           const Icon(
                                                             Icons
                                                                 .chevron_right_rounded,
