@@ -6316,6 +6316,55 @@ exports.adminRepairReferralGameDraw = functions
     }
   });
 
+// Audit et reparation du lien users/{uid}/my_lots/{prizeId} manquant, tous
+// moteurs de lots confondus (gain instantane, grand tirage, parrainage, defi
+// mensuel/commercant du mois, animation) -- voir prize_my_lots_repair.js.
+// Strictement additif : lecture seule pour l'audit, creation uniquement (sans
+// jamais toucher a "prizes" ni ecraser une entree my_lots existante) pour la
+// reparation.
+const {
+  findMissingMyLotsLinks,
+  repairMissingMyLotsLink,
+} = require("./prize_my_lots_repair");
+
+exports.adminAuditMyLotsLinks = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 120, memory: "512MB"})
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "Authentification requise.");
+    }
+    await assertIsAdmin(context.auth.uid);
+    const pageSize = Number(data && data.pageSize) || 200;
+    const startAfterId = getTrimmedString(data && data.startAfterId);
+    try {
+      return await findMissingMyLotsLinks({pageSize, startAfterId});
+    } catch (error) {
+      console.error("[MY_LOTS_AUDIT_FAILED]", {startAfterId, error: error.message});
+      throw new functions.https.HttpsError("internal", error.message || "Audit impossible.");
+    }
+  });
+
+exports.adminRepairMissingMyLotsLink = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 120, memory: "512MB"})
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "Authentification requise.");
+    }
+    await assertIsAdmin(context.auth.uid);
+    const prizeId = getTrimmedString(data && data.prizeId);
+    if (!prizeId || prizeId.includes("/")) {
+      throw new functions.https.HttpsError("invalid-argument", "prizeId invalide.");
+    }
+    try {
+      return await repairMissingMyLotsLink(prizeId);
+    } catch (error) {
+      console.error("[MY_LOTS_REPAIR_FAILED]", {prizeId, error: error.message});
+      throw new functions.https.HttpsError("failed-precondition", error.message || "Reparation impossible.");
+    }
+  });
+
 /**
  * Demarre et termine automatiquement les jeux de parrainage, sans action
  * admin :

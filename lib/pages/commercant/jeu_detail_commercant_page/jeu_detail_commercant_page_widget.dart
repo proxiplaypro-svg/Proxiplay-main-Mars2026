@@ -1168,10 +1168,28 @@ class _JeuDetailCommercantPageWidgetState
                             const SizedBox(height: 10.0),
                             StreamBuilder<List<PrizesRecord>>(
                               stream: queryPrizesRecord(
-                                queryBuilder: (prizesRecord) => prizesRecord.where(
-                                  'game_id',
-                                  isEqualTo: game.reference,
-                                ),
+                                // Les regles Firestore ne peuvent autoriser une
+                                // requete en liste sur "prizes" que si un de
+                                // ses where() correspond exactement a une des
+                                // conditions de la regle de lecture (winner_id
+                                // / owner_id / enseigne_id) : un where() sur
+                                // game_id seul n'est prouvable par aucune de
+                                // ces conditions et la requete entiere est
+                                // rejetee (c'est ce qui rendait "tous les
+                                // gagnants" invisibles cote commercant). On
+                                // ajoute donc owner_id == currentUserReference,
+                                // deja utilise avec succes par
+                                // home_commercant_page_widget.dart pour la
+                                // meme collection.
+                                queryBuilder: (prizesRecord) => prizesRecord
+                                    .where(
+                                      'game_id',
+                                      isEqualTo: game.reference,
+                                    )
+                                    .where(
+                                      'owner_id',
+                                      isEqualTo: currentUserReference,
+                                    ),
                               ),
                               builder: (context, snapshot) {
                                 if (!snapshot.hasData) {

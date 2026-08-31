@@ -164,7 +164,11 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
           content: Text('Lot supprimé'),
         ),
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Failed to delete my_lots item ${item.myLot.reference.path}: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
       if (!mounted) {
         return;
       }

@@ -20,24 +20,46 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() &&
         (
-          request.auth.token.admin == true ||
+          // 'admin' in request.auth.token d'abord : sur un token sans ce
+          // custom claim (le cas de la quasi-totalite des utilisateurs),
+          // .admin leve "Property admin is undefined on object" qui, pour
+          // une requete list()/query (contrairement a un simple get()), fait
+          // echouer TOUTE la requete au lieu de simplement retourner false --
+          // c'est ce qui a rendu prizes.where('game_id', ...) et toute
+          // lecture en liste de prizes non couverte par un where() prouvable
+          // totalement invisible des que prizes a cesse d'etre en lecture
+          // publique (voir la lecture de prizes plus bas).
+          (('admin' in request.auth.token) && request.auth.token.admin == true) ||
           // Compte admin historique de la console proxiplay-admin (repo
           // separe, meme projet Firebase) : ce repo a sa propre isAdmin()
           // basee uniquement sur cet email, sans custom claim ni user_role.
           // Fusionne ici pour que ce compte reste reconnu admin sous ce
           // fichier de regles unique -- voir la note en tete de fichier.
-          request.auth.token.email in ['proxiplay.pro@gmail.com'] ||
+          // 'email' in request.auth.token d'abord : un utilisateur connecte
+          // par un moyen sans email (ex. numero de telephone) n'a pas ce
+          // champ sur son token -- meme piege que .admin ci-dessus.
+          (('email' in request.auth.token) &&
+            request.auth.token.email in ['proxiplay.pro@gmail.com']) ||
           // exists() d'abord : get() sur un users/{uid} absent leve une
           // erreur qui fait echouer TOUTE l'evaluation isAdmin() (y compris
           // le || qui suit), pas juste retourner false -- un commercant
           // gerant son enseigne via la console admin par correspondance
           // d'email (canManageRequestedGameAsMerchant) peut ne jamais avoir
-          // de document users/{uid} du tout.
+          // de document users/{uid} du tout. Meme precaution "champ present
+          // avant lecture" que .admin/.email ci-dessus pour user_role /
+          // userRole : un document users/{uid} existant peut n'avoir ni
+          // l'un ni l'autre (compte cree par un chemin plus ancien).
           (
             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
             (
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_role == 'admin' ||
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userRole == 'admin'
+              (
+                'user_role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_role == 'admin'
+              ) ||
+              (
+                'userRole' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userRole == 'admin'
+              )
             )
           )
         );

@@ -61,6 +61,8 @@ test.before(async () => {
       owner: db.doc("users/merchant_enseigne_uid"),
     });
 
+    await db.collection("games").doc("game1").set({name: "Jeu test"});
+
     // Lot classique (owner_id + enseigne_id, comme pickMainPrizeWinners /
     // participate_in_game_transaction.js).
     await db.collection("prizes").doc("classic_prize").set({
@@ -68,6 +70,7 @@ test.before(async () => {
       winner_id: db.doc("users/winner_uid"),
       owner_id: db.doc("users/merchant_owner_uid"),
       enseigne_id: db.doc("enseignes/enseigne1"),
+      game_id: db.doc("games/game1"),
       claim_code: "SECRET1",
       claimed: false,
     });
@@ -148,6 +151,56 @@ test("prizes : un admin peut lire n'importe quel lot", async () => {
   await assertSucceeds(
     admin.firestore().collection("prizes").doc("animation_prize").get(),
   );
+});
+
+test("prizes : le commercant proprietaire peut LISTER les lots de son jeu (game_id + owner_id)", async () => {
+  // Regression : requeter prizes en list() avec un seul where('game_id', ...)
+  // est rejete par Firestore des que la lecture n'est plus publique, car
+  // aucune des conditions de la regle (winner_id/owner_id/enseigne_id) ne
+  // porte sur game_id -- la requete entiere echoue, meme pour un commercant
+  // legitime (c'etait la cause exacte de "tous les gagnants ont disparu"
+  // cote commercant, sur JeuDetailCommercantPageWidget). Ajouter un second
+  // where('owner_id', ...) qui correspond a la regle rend la requete a
+  // nouveau prouvable et donc autorisee.
+  const merchant = testEnv.authenticatedContext("merchant_owner_uid");
+  const snap = await assertSucceeds(
+    merchant.firestore().collection("prizes")
+      .where("game_id", "==", merchant.firestore().doc("games/game1"))
+      .where("owner_id", "==", merchant.firestore().doc("users/merchant_owner_uid"))
+      .get(),
+  );
+  assert.equal(snap.size, 1);
+  assert.equal(snap.docs[0].id, "classic_prize");
+});
+
+test("prizes : lister par game_id seul (sans owner_id/enseigne_id) reste rejete par construction Firestore", async () => {
+  // Documente la limite structurelle (pas un bug applicatif) : Firestore ne
+  // peut autoriser une requete list() que si un where() correspond
+  // exactement a une branche de la regle -- ce test protege contre une
+  // regression du query builder cote app qui retirerait le where('owner_id').
+  const merchant = testEnv.authenticatedContext("merchant_owner_uid");
+  await assertFails(
+    merchant.firestore().collection("prizes")
+      .where("game_id", "==", merchant.firestore().doc("games/game1"))
+      .get(),
+  );
+});
+
+test("isAdmin() : un admin reconnu uniquement via user_role (sans custom claim ni email) peut faire une requete list()", async () => {
+  // Regression : request.auth.token.admin et request.auth.token.email ne
+  // sont jamais definis sur le token d'un compte admin_uid classique (pas de
+  // custom claim, connexion sans email) -- y accéder par un simple `.` levait
+  // "Property admin/email is undefined on object", ce qui pour une requete
+  // list() (contrairement a un get()) fait echouer TOUTE la requete, y
+  // compris pour un vrai admin. isAdmin() doit d'abord verifier la presence
+  // du champ ('admin' in request.auth.token) avant de le comparer.
+  const admin = testEnv.authenticatedContext("admin_uid");
+  const snap = await assertSucceeds(
+    admin.firestore().collection("prizes")
+      .where("game_id", "==", admin.firestore().doc("games/game1"))
+      .get(),
+  );
+  assert.equal(snap.size, 1);
 });
 
 test("prizes : un lot sans owner_id/enseigne_id (animation) reste lisible par son gagnant", async () => {
