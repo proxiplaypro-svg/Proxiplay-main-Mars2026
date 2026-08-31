@@ -179,7 +179,16 @@ service cloud.firestore {
           'city',
           'city_insee_code',
           'birthday',
-          'professional_category'
+          'professional_category',
+          // Ecrits par inscription_informations_page_widget.dart a la fin
+          // du parcours d'inscription -- absents de cette liste, ils
+          // faisaient echouer TOUTE la mise a jour (affectedKeys().hasOnly
+          // rejette l'ensemble des champs si un seul n'est pas autorise),
+          // avec pour symptome "Une erreur est survenue pendant la
+          // finalisation de votre inscription."
+          'profile_completed',
+          'profile_completed_at',
+          'profile_schema_version'
         ]);
     }
 

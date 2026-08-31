@@ -14,10 +14,8 @@
 // La cle doit etre restreinte cote Google Cloud Console a l'API
 // "Places API (New)".
 
-const {defineSecret} = require("firebase-functions/params");
 const {searchGooglePlacesText} = require("./google_places_search");
-
-const googlePlacesApiKey = defineSecret("GOOGLE_PLACES_API_KEY");
+const {googlePlacesApiKey} = require("./google_places_secret");
 
 /**
  * @param {object} deps

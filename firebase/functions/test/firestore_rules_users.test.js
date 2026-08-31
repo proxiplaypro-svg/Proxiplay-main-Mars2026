@@ -187,3 +187,29 @@ test("un admin peut toujours modifier un champ privilegie d'un autre utilisateur
     ),
   );
 });
+
+test("un utilisateur peut finaliser son inscription (profile_completed/_at/_schema_version)", async () => {
+  // Reproduit exactement l'ecriture faite par
+  // inscription_informations_page_widget.dart a la fin du parcours
+  // d'inscription -- ces 3 champs manquaient de la whitelist
+  // isSafeSelfUserUpdate(), ce qui faisait echouer l'ecriture ENTIERE
+  // (affectedKeys().hasOnly rejette tout des qu'une seule cle n'est pas
+  // autorisee), avec pour symptome cote app "Une erreur est survenue
+  // pendant la finalisation de votre inscription."
+  const bob = testEnv.authenticatedContext("bob_uid");
+  await assertSucceeds(
+    bob.firestore().collection("users").doc("bob_uid").set(
+      {
+        phone_number: "0600000000",
+        first_name: "Bob",
+        last_name: "Dupont",
+        display_name: "Bob Dupont",
+        city: "Dunkerque",
+        profile_completed: true,
+        profile_completed_at: new Date(),
+        profile_schema_version: 1,
+      },
+      {merge: true},
+    ),
+  );
+});

@@ -86,11 +86,29 @@ class EnseignesRecord extends FirestoreRecord {
   bool hasCategory() => _category != null;
 
   // "google_place_id" field.
-  // Association manuelle a une fiche Google (admin uniquement pour l'instant).
-  // Aucune autre donnee Google (avis, horaires, photos...) n'est stockee ici.
+  // Association manuelle a une fiche Google (admin ou commercant proprietaire).
   String? _googlePlaceId;
   String? get googlePlaceId => _googlePlaceId;
   bool hasGooglePlaceId() => _googlePlaceId != null;
+
+  // "google_rating" field.
+  // Ecrit uniquement par la Cloud Function refreshGooglePlaceRating (Admin
+  // SDK, contourne les regles Firestore) quand google_place_id est associe
+  // ou remplace -- jamais par le client, admin inclus. Voir
+  // firebase/functions/google_place_details.js.
+  double? _googleRating;
+  double? get googleRating => _googleRating;
+  bool hasGoogleRating() => _googleRating != null;
+
+  // "google_reviews_count" field.
+  int? _googleReviewsCount;
+  int get googleReviewsCount => _googleReviewsCount ?? 0;
+  bool hasGoogleReviewsCount() => _googleReviewsCount != null;
+
+  // "google_rating_updated_at" field.
+  DateTime? _googleRatingUpdatedAt;
+  DateTime? get googleRatingUpdatedAt => _googleRatingUpdatedAt;
+  bool hasGoogleRatingUpdatedAt() => _googleRatingUpdatedAt != null;
 
   void _initializeFields() {
     _owner = snapshotData['owner'] as DocumentReference?;
@@ -108,6 +126,11 @@ class EnseignesRecord extends FirestoreRecord {
     _facebookLink = snapshotData['facebook_link'] as String?;
     _category = getDataList(snapshotData['category']);
     _googlePlaceId = snapshotData['google_place_id'] as String?;
+    _googleRating = castToType<double>(snapshotData['google_rating']);
+    _googleReviewsCount =
+        castToType<int>(snapshotData['google_reviews_count']);
+    _googleRatingUpdatedAt =
+        snapshotData['google_rating_updated_at'] as DateTime?;
   }
 
   static CollectionReference get collection =>
@@ -204,7 +227,10 @@ class EnseignesRecordDocumentEquality implements Equality<EnseignesRecord> {
         e1?.twitterLink == e2?.twitterLink &&
         e1?.facebookLink == e2?.facebookLink &&
         listEquality.equals(e1?.category, e2?.category) &&
-        e1?.googlePlaceId == e2?.googlePlaceId;
+        e1?.googlePlaceId == e2?.googlePlaceId &&
+        e1?.googleRating == e2?.googleRating &&
+        e1?.googleReviewsCount == e2?.googleReviewsCount &&
+        e1?.googleRatingUpdatedAt == e2?.googleRatingUpdatedAt;
   }
 
   @override
@@ -224,6 +250,9 @@ class EnseignesRecordDocumentEquality implements Equality<EnseignesRecord> {
         e?.facebookLink,
         e?.category,
         e?.googlePlaceId,
+        e?.googleRating,
+        e?.googleReviewsCount,
+        e?.googleRatingUpdatedAt,
       ]);
 
   @override
@@ -236,4 +265,14 @@ class EnseignesRecordDocumentEquality implements Equality<EnseignesRecord> {
 bool hasGooglePlaceId(EnseignesRecord enseigne) {
   final placeId = enseigne.googlePlaceId;
   return placeId != null && placeId.trim().isNotEmpty;
+}
+
+/// Formate la note Google pour l'affichage joueur (ex: "4,6"), ou null si
+/// aucune note n'a encore ete recuperee. Ne fait aucun appel reseau -- lit
+/// uniquement google_rating, deja present sur le document si
+/// refreshGooglePlaceRating (Cloud Function) est passee.
+String? formattedGoogleRating(EnseignesRecord enseigne) {
+  final rating = enseigne.googleRating;
+  if (rating == null) return null;
+  return rating.toStringAsFixed(1).replaceAll('.', ',');
 }

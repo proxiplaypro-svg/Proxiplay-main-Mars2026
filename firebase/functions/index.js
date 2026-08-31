@@ -6149,6 +6149,19 @@ try {
   console.log("searchGooglePlaces not loaded yet:", error.message);
 }
 
+try {
+  const {
+    createRefreshGooglePlaceRatingTrigger,
+  } = require("./google_place_rating_refresh");
+  exports.refreshGooglePlaceRating = createRefreshGooglePlaceRatingTrigger({
+    functions,
+    admin,
+    kFunctionsRegion,
+  });
+} catch (error) {
+  console.log("refreshGooglePlaceRating not loaded yet:", error.message);
+}
+
 exports.adminGetNotificationsConfig = adminGetNotificationsConfigCallable;
 exports.adminSetNotificationsConfig = adminSetNotificationsConfigCallable;
 exports.adminSendPrizeReminderPushTest = adminSendPrizeReminderPushTestCallable;

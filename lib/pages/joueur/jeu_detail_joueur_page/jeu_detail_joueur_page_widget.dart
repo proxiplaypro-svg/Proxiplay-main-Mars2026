@@ -55,6 +55,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
   late JeuDetailJoueurPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  // Meme cle utilisee dans les deux branches mutuellement exclusives (avec/
+  // sans effectiveEnseigneDoc) de la carte "Regles du jeu" -- une seule est
+  // jamais montee a la fois, donc une seule GlobalKey suffit pour y faire
+  // defiler la page depuis le lien compact "voir les regles du jeu".
+  final _rulesCardKey = GlobalKey();
   bool _hasTrackedView = false;
   bool _isLaunchingGame = false;
   final GameLaunchCoordinator _launchCoordinator =
@@ -1619,6 +1624,353 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             ),
                                           ),
                                           const SizedBox(height: 24.0),
+                                              if (showShopCard &&
+                                                  effectiveEnseigneDoc !=
+                                                      null) ...[
+                                                const SizedBox(height: 12.0),
+                                                Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            16.0),
+                                                    onTap: () async {
+                                                      context.pushNamed(
+                                                        EnseigneDetailJoueurPageWidget
+                                                            .routeName,
+                                                        queryParameters: {
+                                                          'enseigneDoc':
+                                                              serializeParam(
+                                                            effectiveEnseigneDoc,
+                                                            ParamType.Document,
+                                                          ),
+                                                        }.withoutNulls,
+                                                        extra: <String,
+                                                            dynamic>{
+                                                          'enseigneDoc':
+                                                              effectiveEnseigneDoc,
+                                                        },
+                                                      );
+                                                    },
+                                                    child: Container(
+                                                      constraints:
+                                                          const BoxConstraints(
+                                                              minHeight: 72.0),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                        horizontal: 12.0,
+                                                        vertical: 10.0,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white,
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(16.0),
+                                                        border: Border.all(
+                                                          color: const Color(
+                                                              0xFFA0134D),
+                                                          width: 1.0,
+                                                        ),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.black
+                                                                .withOpacity(
+                                                                    0.04),
+                                                            blurRadius: 10.0,
+                                                            offset:
+                                                                const Offset(
+                                                                    0, 2),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: Row(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          ClipRRect(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        12.0),
+                                                            child: SizedBox(
+                                                              width: 52.0,
+                                                              height: 52.0,
+                                                              child: FutureBuilder<
+                                                                  List<
+                                                                      ImagesRecord>>(
+                                                                future:
+                                                                    queryImagesRecordOnce(
+                                                                  parent: effectiveEnseigneDoc
+                                                                      .reference,
+                                                                  singleRecord:
+                                                                      true,
+                                                                ),
+                                                                builder: (context,
+                                                                    snapshot) {
+                                                                  if (snapshot
+                                                                          .data
+                                                                          ?.isNotEmpty ==
+                                                                      true) {
+                                                                    return ProxiplayNetworkImage(
+                                                                      imageUrl: snapshot
+                                                                          .data!
+                                                                          .first
+                                                                          .url,
+                                                                      fit: BoxFit
+                                                                          .cover,
+                                                                    );
+                                                                  }
+
+                                                                  return Container(
+                                                                    color: const Color(
+                                                                        0xFFF5F6FB),
+                                                                    alignment:
+                                                                        Alignment
+                                                                            .center,
+                                                                    child:
+                                                                        const Icon(
+                                                                      Icons
+                                                                          .storefront_rounded,
+                                                                      color: Color(
+                                                                          0xFFA0134D),
+                                                                      size:
+                                                                          22.0,
+                                                                    ),
+                                                                  );
+                                                                },
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 12.0),
+                                                          Expanded(
+                                                            child: Column(
+                                                              mainAxisSize:
+                                                                  MainAxisSize
+                                                                      .min,
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment
+                                                                      .start,
+                                                              children: [
+                                                                Text(
+                                                                  'Offert par',
+                                                                  style: GoogleFonts
+                                                                      .inter(
+                                                                    fontSize:
+                                                                        11.0,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                    color: const Color(
+                                                                        0xFFA0134D),
+                                                                    letterSpacing:
+                                                                        0.2,
+                                                                  ),
+                                                                ),
+                                                                Text(
+                                                                  effectiveEnseigneDoc
+                                                                          .name
+                                                                          .trim()
+                                                                          .isNotEmpty
+                                                                      ? effectiveEnseigneDoc
+                                                                          .name
+                                                                      : 'Enseigne partenaire',
+                                                                  maxLines: 1,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  style:
+                                                                      GoogleFonts
+                                                                          .inter(
+                                                                    fontSize:
+                                                                        15.0,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w700,
+                                                                    color: const Color(
+                                                                        0xFF1F2937),
+                                                                    letterSpacing:
+                                                                        0.0,
+                                                                  ),
+                                                                ),
+                                                                if (effectiveEnseigneDoc.city.trim().isNotEmpty ||
+                                                                    effectiveEnseigneDoc
+                                                                        .hasGoogleRating())
+                                                                  Padding(
+                                                                    padding: const EdgeInsets
+                                                                        .only(
+                                                                        top:
+                                                                            4.0),
+                                                                    child: Row(
+                                                                      children: [
+                                                                        if (effectiveEnseigneDoc
+                                                                            .city
+                                                                            .trim()
+                                                                            .isNotEmpty) ...[
+                                                                          const Icon(
+                                                                            Icons
+                                                                                .location_on_sharp,
+                                                                            size:
+                                                                                14.0,
+                                                                            color:
+                                                                                Color(0xFF6B7280),
+                                                                          ),
+                                                                          const SizedBox(
+                                                                              width:
+                                                                                  4.0),
+                                                                          Text(
+                                                                            effectiveEnseigneDoc
+                                                                                .city,
+                                                                            maxLines:
+                                                                                1,
+                                                                            overflow:
+                                                                                TextOverflow.ellipsis,
+                                                                            style:
+                                                                                GoogleFonts.inter(
+                                                                              fontSize: 13.0,
+                                                                              fontWeight: FontWeight.w500,
+                                                                              color: const Color(0xFF6B7280),
+                                                                              letterSpacing: 0.0,
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                        if (effectiveEnseigneDoc.city.trim().isNotEmpty &&
+                                                                            effectiveEnseigneDoc.hasGoogleRating())
+                                                                          Padding(
+                                                                            padding: const EdgeInsets
+                                                                                .symmetric(
+                                                                                horizontal:
+                                                                                    6.0),
+                                                                            child:
+                                                                                Text(
+                                                                              '|',
+                                                                              style: GoogleFonts.inter(
+                                                                                fontSize: 13.0,
+                                                                                color: const Color(0xFFD1D5DB),
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                                        if (effectiveEnseigneDoc
+                                                                            .hasGoogleRating()) ...[
+                                                                          const Icon(
+                                                                            Icons
+                                                                                .star_rounded,
+                                                                            size:
+                                                                                15.0,
+                                                                            color:
+                                                                                Color(0xFFF59E0B),
+                                                                          ),
+                                                                          const SizedBox(
+                                                                              width:
+                                                                                  3.0),
+                                                                          Flexible(
+                                                                            child:
+                                                                                Text(
+                                                                              '${formattedGoogleRating(effectiveEnseigneDoc) ?? ''}'
+                                                                              '${effectiveEnseigneDoc.googleReviewsCount > 0 ? ' (${effectiveEnseigneDoc.googleReviewsCount} avis)' : ''}',
+                                                                              maxLines: 1,
+                                                                              overflow: TextOverflow.ellipsis,
+                                                                              style: GoogleFonts.inter(
+                                                                                fontSize: 13.0,
+                                                                                fontWeight: FontWeight.w500,
+                                                                                color: const Color(0xFF6B7280),
+                                                                                letterSpacing: 0.0,
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                      ],
+                                                                    ),
+                                                                  ),
+                                                                if (effectiveEnseigneDoc
+                                                                    .description
+                                                                    .trim()
+                                                                    .isNotEmpty)
+                                                                  Padding(
+                                                                    padding: const EdgeInsets
+                                                                        .only(
+                                                                        top:
+                                                                            6.0),
+                                                                    child: Text(
+                                                                      effectiveEnseigneDoc
+                                                                          .description,
+                                                                      maxLines:
+                                                                          2,
+                                                                      overflow:
+                                                                          TextOverflow
+                                                                              .ellipsis,
+                                                                      style: GoogleFonts
+                                                                          .inter(
+                                                                        fontSize:
+                                                                            12.5,
+                                                                        fontWeight:
+                                                                            FontWeight.w400,
+                                                                        color:
+                                                                            const Color(0xFF6B7280),
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                if (effectiveEnseigneDoc
+                                                                    .category
+                                                                    .isNotEmpty)
+                                                                  Padding(
+                                                                    padding: const EdgeInsets
+                                                                        .only(
+                                                                        top:
+                                                                            8.0),
+                                                                    child: Wrap(
+                                                                      spacing:
+                                                                          6.0,
+                                                                      runSpacing:
+                                                                          6.0,
+                                                                      children: effectiveEnseigneDoc
+                                                                          .category
+                                                                          .take(
+                                                                              3)
+                                                                          .map(
+                                                                            (tag) =>
+                                                                                Container(
+                                                                              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
+                                                                              decoration: BoxDecoration(
+                                                                                color: const Color(0xFFFCE9F1),
+                                                                                borderRadius: BorderRadius.circular(999.0),
+                                                                              ),
+                                                                              child: Text(
+                                                                                tag,
+                                                                                style: GoogleFonts.inter(
+                                                                                  fontSize: 11.0,
+                                                                                  fontWeight: FontWeight.w600,
+                                                                                  color: const Color(0xFFA0134D),
+                                                                                  letterSpacing: 0.0,
+                                                                                ),
+                                                                              ),
+                                                                            ),
+                                                                          )
+                                                                          .toList(),
+                                                                    ),
+                                                                  ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                              width: 8.0),
+                                                          const Icon(
+                                                            Icons
+                                                                .chevron_right_rounded,
+                                                            color: Color(
+                                                                0xFF9CA3AF),
+                                                            size: 22.0,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                          const SizedBox(height: 20.0),
                                           // Action Buttons Column
                                           Column(
                                             children: [
@@ -2026,218 +2378,82 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                 ),
                                               // if (leftActionVisible)
 
-                                              if (showShopCard &&
-                                                  effectiveEnseigneDoc !=
-                                                      null) ...[
-                                                const SizedBox(height: 12.0),
-                                                Material(
-                                                  color: Colors.transparent,
-                                                  child: InkWell(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            16.0),
-                                                    onTap: () async {
-                                                      context.pushNamed(
-                                                        EnseigneDetailJoueurPageWidget
-                                                            .routeName,
-                                                        queryParameters: {
-                                                          'enseigneDoc':
-                                                              serializeParam(
-                                                            effectiveEnseigneDoc,
-                                                            ParamType.Document,
-                                                          ),
-                                                        }.withoutNulls,
-                                                        extra: <String,
-                                                            dynamic>{
-                                                          'enseigneDoc':
-                                                              effectiveEnseigneDoc,
-                                                        },
-                                                      );
-                                                    },
-                                                    child: Container(
-                                                      constraints:
-                                                          const BoxConstraints(
-                                                              minHeight: 72.0),
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                        horizontal: 12.0,
-                                                        vertical: 10.0,
-                                                      ),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.white,
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(16.0),
-                                                        border: Border.all(
-                                                          color: const Color(
-                                                              0xFFA0134D),
-                                                          width: 1.0,
-                                                        ),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: Colors.black
-                                                                .withOpacity(
-                                                                    0.04),
-                                                            blurRadius: 10.0,
-                                                            offset:
-                                                                const Offset(
-                                                                    0, 2),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      child: Row(
-                                                        children: [
-                                                          ClipRRect(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        12.0),
-                                                            child: SizedBox(
-                                                              width: 52.0,
-                                                              height: 52.0,
-                                                              child: FutureBuilder<
-                                                                  List<
-                                                                      ImagesRecord>>(
-                                                                future:
-                                                                    queryImagesRecordOnce(
-                                                                  parent: effectiveEnseigneDoc
-                                                                      .reference,
-                                                                  singleRecord:
-                                                                      true,
-                                                                ),
-                                                                builder: (context,
-                                                                    snapshot) {
-                                                                  if (snapshot
-                                                                          .data
-                                                                          ?.isNotEmpty ==
-                                                                      true) {
-                                                                    return ProxiplayNetworkImage(
-                                                                      imageUrl: snapshot
-                                                                          .data!
-                                                                          .first
-                                                                          .url,
-                                                                      fit: BoxFit
-                                                                          .cover,
-                                                                    );
-                                                                  }
-
-                                                                  return Container(
-                                                                    color: const Color(
-                                                                        0xFFF5F6FB),
-                                                                    alignment:
-                                                                        Alignment
-                                                                            .center,
-                                                                    child:
-                                                                        const Icon(
-                                                                      Icons
-                                                                          .storefront_rounded,
-                                                                      color: Color(
-                                                                          0xFFA0134D),
-                                                                      size:
-                                                                          22.0,
-                                                                    ),
-                                                                  );
-                                                                },
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          const SizedBox(
-                                                              width: 12.0),
-                                                          Expanded(
-                                                            child: Column(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .min,
-                                                              crossAxisAlignment:
-                                                                  CrossAxisAlignment
-                                                                      .start,
-                                                              children: [
-                                                                Text(
-                                                                  effectiveEnseigneDoc
-                                                                          .name
-                                                                          .trim()
-                                                                          .isNotEmpty
-                                                                      ? effectiveEnseigneDoc
-                                                                          .name
-                                                                      : 'Enseigne partenaire',
-                                                                  maxLines: 1,
-                                                                  overflow:
-                                                                      TextOverflow
-                                                                          .ellipsis,
-                                                                  style:
-                                                                      GoogleFonts
-                                                                          .inter(
-                                                                    fontSize:
-                                                                        15.0,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w700,
-                                                                    color: const Color(
-                                                                        0xFF1F2937),
-                                                                    letterSpacing:
-                                                                        0.0,
-                                                                  ),
-                                                                ),
-                                                                if (effectiveEnseigneDoc
-                                                                    .city
-                                                                    .trim()
-                                                                    .isNotEmpty)
-                                                                  Padding(
-                                                                    padding: const EdgeInsets
-                                                                        .only(
-                                                                        top:
-                                                                            4.0),
-                                                                    child: Row(
-                                                                      children: [
-                                                                        const Icon(
-                                                                          Icons
-                                                                              .location_on_sharp,
-                                                                          size:
-                                                                              14.0,
-                                                                          color:
-                                                                              Color(0xFF6B7280),
-                                                                        ),
-                                                                        const SizedBox(
-                                                                            width:
-                                                                                4.0),
-                                                                        Expanded(
-                                                                          child:
-                                                                              Text(
-                                                                            effectiveEnseigneDoc.city,
-                                                                            maxLines:
-                                                                                1,
-                                                                            overflow:
-                                                                                TextOverflow.ellipsis,
-                                                                            style:
-                                                                                GoogleFonts.inter(
-                                                                              fontSize: 13.0,
-                                                                              fontWeight: FontWeight.w500,
-                                                                              color: const Color(0xFF6B7280),
-                                                                              letterSpacing: 0.0,
-                                                                            ),
-                                                                          ),
-                                                                        ),
-                                                                      ],
-                                                                    ),
-                                                                  ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                          const SizedBox(
-                                                              width: 8.0),
-                                                          const Icon(
-                                                            Icons
-                                                                .chevron_right_rounded,
-                                                            color: Color(
-                                                                0xFF9CA3AF),
-                                                            size: 22.0,
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 16.0),
+                                          // Date de fin + acces rapide aux
+                                          // regles (meme carte que plus bas,
+                                          // atteinte via _rulesCardKey).
+                                          Row(
+                                            children: [
+                                              if (widget.gameDoc?.endDate !=
+                                                  null) ...[
+                                                const Icon(
+                                                  Icons.access_time_rounded,
+                                                  size: 16.0,
+                                                  color: Color(0xFF6B7280),
+                                                ),
+                                                const SizedBox(width: 6.0),
+                                                Text(
+                                                  'Jusqu\'au ${dateTimeFormat("d/M/y", widget.gameDoc!.endDate, locale: FFLocalizations.of(context).languageCode)}',
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 13.0,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: const Color(
+                                                        0xFF6B7280),
+                                                    letterSpacing: 0.0,
                                                   ),
                                                 ),
+                                                const SizedBox(width: 8.0),
+                                                Text(
+                                                  '|',
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 13.0,
+                                                    color: const Color(
+                                                        0xFFD1D5DB),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8.0),
                                               ],
+                                              InkWell(
+                                                onTap: () {
+                                                  final rulesContext =
+                                                      _rulesCardKey
+                                                          .currentContext;
+                                                  if (rulesContext != null) {
+                                                    Scrollable.ensureVisible(
+                                                      rulesContext,
+                                                      duration: const Duration(
+                                                          milliseconds: 400),
+                                                      curve: Curves.easeInOut,
+                                                    );
+                                                  }
+                                                },
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      'voir les règles du jeu',
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 13.0,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: const Color(
+                                                            0xFFA0134D),
+                                                        letterSpacing: 0.0,
+                                                      ),
+                                                    ),
+                                                    const Icon(
+                                                      Icons
+                                                          .chevron_right_rounded,
+                                                      size: 16.0,
+                                                      color:
+                                                          Color(0xFFA0134D),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
                                             ],
                                           ),
                                           const SizedBox(height: 24.0),
@@ -3276,6 +3492,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                         ),
                                                       ),
                                                     Container(
+                                                      key: _rulesCardKey,
                                                       width: double.infinity,
                                                       margin:
                                                           const EdgeInsets.only(
@@ -3556,6 +3773,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                         ),
                                                       ),
                                                     Container(
+                                                      key: _rulesCardKey,
                                                       width: double.infinity,
                                                       margin:
                                                           const EdgeInsets.only(
