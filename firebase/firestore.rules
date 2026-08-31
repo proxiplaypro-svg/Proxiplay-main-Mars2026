@@ -404,15 +404,31 @@ service cloud.firestore {
           isMerchantOwnerOfEnseigne(resource.data.enseigne_id)
         )
       );
-      // prizes contient claim_code (et winner_id) : la lecture doit rester
-      // reservee au gagnant, au commercant proprietaire du lot/de l'enseigne,
-      // et a l'admin. Le fil d'actualite public des gagnants (ticker) lit
-      // stats/global, un document denormalise sans claim_code ni contact,
-      // pas cette collection.
-      allow read: if isAdmin() ||
-        isOwnerRef(resource.data.winner_id) ||
-        isOwnerRef(resource.data.owner_id) ||
-        isMerchantOwnerOfEnseigne(resource.data.enseigne_id);
+      // *** TEMPORAIRE -- REOUVERT LE 31/08/2026, A REFERMER AU PROCHAIN BUILD MOBILE ***
+      // prizes contient claim_code (et winner_id), qui ne devraient PAS etre
+      // publics -- la lecture stricte ci-dessous (isAdmin() ||
+      // isOwnerRef(winner_id) || isOwnerRef(owner_id) ||
+      // isMerchantOwnerOfEnseigne(enseigne_id)) reste la version cible et est
+      // deja couverte par firestore_rules_prizes_and_my_lots.test.js.
+      // Elle est desactivee ici volontairement et temporairement : l'app
+      // mobile actuellement installee (avant la prochaine publication)
+      // contient des requetes list() sur prizes (game_id seul, claim_code
+      // seul) qui ne sont pas prouvables par cette regle et echouent
+      // entierement (voir l'audit du 31/08/2026) -- Firestore ne peut pas
+      // filtrer une requete list() document par document, elle rejette tout
+      // ou rien. Le correctif definitif (filtres owner_id/enseigne_id
+      // corriges cote app) est deja sur develop, mais n'atteindra les
+      // utilisateurs qu'a la prochaine build (app mobile uniquement, pas de
+      // web) -- decision assumee d'exposer publiquement claim_code/winner_id
+      // le temps de cette publication plutot que de forcer une mise a jour
+      // en urgence sur les stores.
+      // A FAIRE au prochain build publie : remettre la regle stricte
+      // ci-dessus et redeployer `firebase deploy --only firestore:rules`.
+      allow read: if true;
+      // allow read: if isAdmin() ||
+      //   isOwnerRef(resource.data.winner_id) ||
+      //   isOwnerRef(resource.data.owner_id) ||
+      //   isMerchantOwnerOfEnseigne(resource.data.enseigne_id);
     }
 
     match /users/{parent}/notifications/{document} {

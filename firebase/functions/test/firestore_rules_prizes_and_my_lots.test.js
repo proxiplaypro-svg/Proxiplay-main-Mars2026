@@ -18,6 +18,15 @@
 //   read is now restricted to the winner, the merchant who owns the prize/
 //   enseigne, and admins.
 //
+// *** TEMPORARY, 2026-08-31 *** firestore.rules currently has `prizes` read
+// reopened to `allow read: if true` again (commented out: the strict rule
+// below) -- an assumed, temporary tradeoff to avoid an emergency mobile
+// store release while the already-fixed query bugs (game_id-only,
+// claim_code-only list queries, broken by the strict rule) wait for the
+// next regular build. The tests below marked "(TEMPORAIRE)" assert the
+// CURRENT reopened behavior, not the target one -- when the strict rule is
+// restored, restore these assertions too (git blame/diff this commit).
+//
 // Run against the local Firestore emulator only:
 //
 //   firebase emulators:exec --only firestore \
@@ -109,17 +118,33 @@ test("prizes : le gagnant peut lire son propre lot (et son claim_code)", async (
   assert.equal(snap.data().claim_code, "SECRET1");
 });
 
-test("prizes : un autre joueur ne peut pas lire le lot d'un gagnant", async () => {
-  const stranger = testEnv.authenticatedContext("stranger_uid");
-  await assertFails(
-    stranger.firestore().collection("prizes").doc("classic_prize").get(),
-  );
-});
+test(
+  "prizes : un autre joueur ne peut pas lire le lot d'un gagnant",
+  {skip: "TEMPORAIRE 2026-08-31 : prizes est en allow read: if true, a reactiver au prochain build (voir firestore.rules)"},
+  async () => {
+    const stranger = testEnv.authenticatedContext("stranger_uid");
+    await assertFails(
+      stranger.firestore().collection("prizes").doc("classic_prize").get(),
+    );
+  },
+);
 
-test("prizes : un utilisateur non authentifie ne peut lire aucun lot", async () => {
+test(
+  "prizes : un utilisateur non authentifie ne peut lire aucun lot",
+  {skip: "TEMPORAIRE 2026-08-31 : prizes est en allow read: if true, a reactiver au prochain build (voir firestore.rules)"},
+  async () => {
+    const anon = testEnv.unauthenticatedContext();
+    await assertFails(anon.firestore().collection("prizes").doc("classic_prize").get());
+    await assertFails(anon.firestore().collection("prizes").doc("animation_prize").get());
+  },
+);
+
+test("prizes : (TEMPORAIRE) un utilisateur non authentifie peut actuellement tout lire", async () => {
+  // Documente le comportement REEL actuel (assume, voir firestore.rules) --
+  // a supprimer quand la regle stricte ci-dessus sera reactivee et que les
+  // deux tests skip() au-dessus seront reactives.
   const anon = testEnv.unauthenticatedContext();
-  await assertFails(anon.firestore().collection("prizes").doc("classic_prize").get());
-  await assertFails(anon.firestore().collection("prizes").doc("animation_prize").get());
+  await assertSucceeds(anon.firestore().collection("prizes").doc("classic_prize").get());
 });
 
 test("prizes : le commercant proprietaire du lot (owner_id) peut le lire", async () => {
@@ -154,21 +179,29 @@ test("prizes : le commercant peut retrouver un lot par claim_code via owner_id (
   assert.ok(match, "le lot SECRET1 doit etre trouvable via owner_id seul");
 });
 
-test("prizes : une requete filtree uniquement sur claim_code reste rejetee (limite structurelle Firestore)", async () => {
-  const merchant = testEnv.authenticatedContext("merchant_owner_uid");
-  await assertFails(
-    merchant.firestore().collection("prizes")
-      .where("claim_code", "==", "SECRET1")
-      .get(),
-  );
-});
+test(
+  "prizes : une requete filtree uniquement sur claim_code reste rejetee (limite structurelle Firestore)",
+  {skip: "TEMPORAIRE 2026-08-31 : prizes est en allow read: if true, toute requete list() reussit trivialement -- a reactiver au prochain build"},
+  async () => {
+    const merchant = testEnv.authenticatedContext("merchant_owner_uid");
+    await assertFails(
+      merchant.firestore().collection("prizes")
+        .where("claim_code", "==", "SECRET1")
+        .get(),
+    );
+  },
+);
 
-test("prizes : un commercant sans lien avec le lot ne peut pas le lire", async () => {
-  const merchant = testEnv.authenticatedContext("other_merchant_uid");
-  await assertFails(
-    merchant.firestore().collection("prizes").doc("classic_prize").get(),
-  );
-});
+test(
+  "prizes : un commercant sans lien avec le lot ne peut pas le lire",
+  {skip: "TEMPORAIRE 2026-08-31 : prizes est en allow read: if true, a reactiver au prochain build (voir firestore.rules)"},
+  async () => {
+    const merchant = testEnv.authenticatedContext("other_merchant_uid");
+    await assertFails(
+      merchant.firestore().collection("prizes").doc("classic_prize").get(),
+    );
+  },
+);
 
 test("prizes : un admin peut lire n'importe quel lot", async () => {
   const admin = testEnv.authenticatedContext("admin_uid");
@@ -200,18 +233,22 @@ test("prizes : le commercant proprietaire peut LISTER les lots de son jeu (game_
   assert.equal(snap.docs[0].id, "classic_prize");
 });
 
-test("prizes : lister par game_id seul (sans owner_id/enseigne_id) reste rejete par construction Firestore", async () => {
-  // Documente la limite structurelle (pas un bug applicatif) : Firestore ne
-  // peut autoriser une requete list() que si un where() correspond
-  // exactement a une branche de la regle -- ce test protege contre une
-  // regression du query builder cote app qui retirerait le where('owner_id').
-  const merchant = testEnv.authenticatedContext("merchant_owner_uid");
-  await assertFails(
-    merchant.firestore().collection("prizes")
-      .where("game_id", "==", merchant.firestore().doc("games/game1"))
-      .get(),
-  );
-});
+test(
+  "prizes : lister par game_id seul (sans owner_id/enseigne_id) reste rejete par construction Firestore",
+  {skip: "TEMPORAIRE 2026-08-31 : prizes est en allow read: if true, toute requete list() reussit trivialement -- a reactiver au prochain build"},
+  async () => {
+    // Documente la limite structurelle (pas un bug applicatif) : Firestore ne
+    // peut autoriser une requete list() que si un where() correspond
+    // exactement a une branche de la regle -- ce test protege contre une
+    // regression du query builder cote app qui retirerait le where('owner_id').
+    const merchant = testEnv.authenticatedContext("merchant_owner_uid");
+    await assertFails(
+      merchant.firestore().collection("prizes")
+        .where("game_id", "==", merchant.firestore().doc("games/game1"))
+        .get(),
+    );
+  },
+);
 
 test("isAdmin() : un admin reconnu uniquement via user_role (sans custom claim ni email) peut faire une requete list()", async () => {
   // Regression : request.auth.token.admin et request.auth.token.email ne
