@@ -1166,6 +1166,35 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                                                             ],
                                                                                           ),
                                                                                         ),
+                                                                                        if (enseigneItem.hasGoogleRating())
+                                                                                          Row(
+                                                                                            mainAxisSize: MainAxisSize.max,
+                                                                                            children: [
+                                                                                              const Icon(
+                                                                                                Icons.star_rounded,
+                                                                                                color: Color(0xFFF59E0B),
+                                                                                                size: 16.0,
+                                                                                              ),
+                                                                                              const SizedBox(width: 3.0),
+                                                                                              Flexible(
+                                                                                                child: Text(
+                                                                                                  '${formattedGoogleRating(enseigneItem) ?? ''}'
+                                                                                                  '${enseigneItem.googleReviewsCount > 0 ? ' (${enseigneItem.googleReviewsCount})' : ''}',
+                                                                                                  maxLines: 1,
+                                                                                                  overflow: TextOverflow.ellipsis,
+                                                                                                  style: FlutterFlowTheme.of(context).bodySmall.override(
+                                                                                                        font: GoogleFonts.inter(
+                                                                                                          fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                                                                                                          fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                                                                                                        ),
+                                                                                                        letterSpacing: 0.0,
+                                                                                                        fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                                                                                                        fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                                                                                                      ),
+                                                                                                ),
+                                                                                              ),
+                                                                                            ],
+                                                                                          ),
                                                                                       ].divide(const SizedBox(height: 10.0)).addToStart(const SizedBox(height: 10.0)),
                                                                                     ),
                                                                                   ),
