@@ -1149,6 +1149,25 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             ),
           ],
         );
+        // Encart "Offert par" uniquement -- teinte rose tres claire (meme
+        // famille que les puces de categorie, 0xFFFCE9F1) pour le distinguer
+        // visuellement des cartes neutres (regles du jeu, lots) qui gardent
+        // detailCardDecoration.
+        final merchantCardDecoration = BoxDecoration(
+          color: const Color(0xFFFCE9F1),
+          borderRadius: BorderRadius.circular(20.0),
+          border: Border.all(
+            color: const Color(0xFFF6C9DC),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 12.0,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        );
         final detailSectionTitleStyle = GoogleFonts.inter(
           fontSize: 20.0,
           fontWeight: FontWeight.w700,
@@ -1623,11 +1642,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               letterSpacing: -0.5,
                                             ),
                                           ),
-                                          const SizedBox(height: 24.0),
+                                          const SizedBox(height: 12.0),
                                               if (showShopCard &&
                                                   effectiveEnseigneDoc !=
                                                       null) ...[
-                                                const SizedBox(height: 12.0),
+                                                const SizedBox(height: 4.0),
                                                 Material(
                                                   color: Colors.transparent,
                                                   child: InkWell(
@@ -1662,7 +1681,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                         vertical: 10.0,
                                                       ),
                                                       decoration:
-                                                          detailCardDecoration,
+                                                          merchantCardDecoration,
                                                       child: Row(
                                                         crossAxisAlignment:
                                                             CrossAxisAlignment
