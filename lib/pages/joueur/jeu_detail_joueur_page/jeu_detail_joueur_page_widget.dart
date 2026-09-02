@@ -1693,8 +1693,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     .circular(
                                                                         12.0),
                                                             child: SizedBox(
-                                                              width: 52.0,
-                                                              height: 52.0,
+                                                              width: 72.0,
+                                                              height: 72.0,
                                                               child: FutureBuilder<
                                                                   List<
                                                                       ImagesRecord>>(
@@ -1734,7 +1734,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       color: Color(
                                                                           0xFFA0134D),
                                                                       size:
-                                                                          22.0,
+                                                                          30.0,
                                                                     ),
                                                                   );
                                                                 },
@@ -1956,65 +1956,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                           ),
                                                           const SizedBox(
                                                               width: 8.0),
-                                                          // Deuxieme photo (si
-                                                          // l'enseigne en a
-                                                          // au moins 2) --
-                                                          // rien n'est
-                                                          // affiche/reserve
-                                                          // tant qu'elle n'est
-                                                          // pas confirmee
-                                                          // disponible.
-                                                          FutureBuilder<
-                                                              List<
-                                                                  ImagesRecord>>(
-                                                            future:
-                                                                queryImagesRecordOnce(
-                                                              parent: effectiveEnseigneDoc
-                                                                  .reference,
-                                                              limit: 2,
-                                                            ),
-                                                            builder: (context,
-                                                                snapshot) {
-                                                              final images =
-                                                                  snapshot
-                                                                          .data ??
-                                                                      const <
-                                                                          ImagesRecord>[];
-                                                              if (images
-                                                                      .length <
-                                                                  2) {
-                                                                return const SizedBox
-                                                                    .shrink();
-                                                              }
-                                                              return Padding(
-                                                                padding: const EdgeInsets
-                                                                    .only(
-                                                                    right:
-                                                                        8.0),
-                                                                child: ClipRRect(
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              12.0),
-                                                                  child:
-                                                                      SizedBox(
-                                                                    width:
-                                                                        56.0,
-                                                                    height:
-                                                                        56.0,
-                                                                    child:
-                                                                        ProxiplayNetworkImage(
-                                                                      imageUrl:
-                                                                          images[1]
-                                                                              .url,
-                                                                      fit: BoxFit
-                                                                          .cover,
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                              );
-                                                            },
-                                                          ),
                                                           const Icon(
                                                             Icons
                                                                 .chevron_right_rounded,
