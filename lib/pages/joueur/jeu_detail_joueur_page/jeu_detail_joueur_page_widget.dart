@@ -6,7 +6,6 @@ import '/backend/animation_utils.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
-import '/components/ticket_badge_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
@@ -419,10 +418,93 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     );
   }
 
-  // Le compteur de tickets ("Vos tickets pour ce tirage") est maintenant
-  // affiche via TicketBadgeWidget directement dans le bloc "Lot a gagner"
-  // (voir buildMainPrizeWidget plus bas), a cote du badge "Tirage au sort" --
-  // plus besoin de cette ligne texte separee dans le bloc Regles.
+  // Carte dediee "Vous avez deja X tickets", affichee dans le bloc "Regles
+  // du jeu" juste apres les explications du tirage (voir les deux usages
+  // plus bas). Un ticket = une participation validee un jour donne
+  // (games/{id}/participants, un doc par cle "{dayKey}_{uid}") -- toujours
+  // le compteur personnel du joueur connecte, jamais le total de
+  // participants au jeu.
+  Widget _buildYourTicketsCard(TextStyle bodyStyle) {
+    final gameDoc = widget.gameDoc;
+    final userRef = currentUserReference;
+    if (gameDoc == null || userRef == null) {
+      return const SizedBox.shrink();
+    }
+    return StreamBuilder<QuerySnapshot>(
+      stream: gameDoc.reference
+          .collection('participants')
+          .where('user_id', isEqualTo: userRef)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final ticketCount = snapshot.data?.docs.length ?? 0;
+        if (ticketCount <= 0) {
+          return const SizedBox.shrink();
+        }
+        final endDate = gameDoc.endDate;
+        final drawDateText = endDate != null
+            ? dateTimeFormat(
+                'dd/MM',
+                endDate,
+                locale: FFLocalizations.of(context).languageCode,
+              )
+            : null;
+        final ticketWord = ticketCount > 1 ? 'tickets' : 'ticket';
+        final chanceWord = ticketCount > 1 ? 'chances' : 'chance';
+        return Padding(
+          padding: const EdgeInsets.only(top: 12.0),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14.0),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3E2),
+              borderRadius: BorderRadius.circular(16.0),
+              border: Border.all(
+                color: const Color(0xFFF5A623).withOpacity(0.35),
+                width: 1.0,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('🎟️', style: TextStyle(fontSize: 18.0)),
+                    const SizedBox(width: 8.0),
+                    Expanded(
+                      child: Text(
+                        'Vous avez déjà $ticketCount $ticketWord',
+                        style: GoogleFonts.inter(
+                          fontSize: 15.0,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF92400E),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4.0),
+                Text(
+                  drawDateText != null
+                      ? '$ticketCount $chanceWord pour le tirage du $drawDateText'
+                      : '$ticketCount $chanceWord pour le tirage',
+                  style: bodyStyle,
+                ),
+                const SizedBox(height: 6.0),
+                Text(
+                  'Rejouez chaque jour pour augmenter vos chances',
+                  style: bodyStyle.copyWith(
+                    fontStyle: FontStyle.italic,
+                    color: const Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Widget _buildQrOnlyPrimaryButton() {
     if (widget.fromQr) {
@@ -1183,30 +1265,23 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                   ],
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10.0,
-                      vertical: 4.0,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFA0134D),
-                      borderRadius: BorderRadius.circular(20.0),
-                    ),
-                    child: Text(
-                      'Tirage au sort',
-                      style: GoogleFonts.inter(
-                        fontSize: 11.0,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10.0,
+                  vertical: 4.0,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFA0134D),
+                  borderRadius: BorderRadius.circular(20.0),
+                ),
+                child: Text(
+                  'Tirage au sort',
+                  style: GoogleFonts.inter(
+                    fontSize: 11.0,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
                   ),
-                  const SizedBox(height: 6.0),
-                  TicketBadgeWidget(gameRef: gameDoc.reference),
-                ],
+                ),
               ),
             ],
           );
@@ -3579,6 +3654,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         style:
                                                                             detailBodyStyle,
                                                                       ),
+                                                                      _buildYourTicketsCard(
+                                                                          detailBodyStyle),
                                                                     ],
                                                                   ),
                                                                 ),
@@ -3858,6 +3935,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         style:
                                                                             detailBodyStyle,
                                                                       ),
+                                                                      _buildYourTicketsCard(
+                                                                          detailBodyStyle),
                                                                     ],
                                                                   ),
                                                                 ),
