@@ -2006,7 +2006,25 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         _buildQrOnlyPrimaryButton(),
                                                                   );
                                                                 }
-                                                                return Visibility(
+                                                                return StreamBuilder<
+                                                                    QuerySnapshot>(
+                                                                  stream: widget
+                                                                      .gameDoc!
+                                                                      .reference
+                                                                      .collection(
+                                                                          'participants')
+                                                                      .where(
+                                                                        'user_id',
+                                                                        isEqualTo:
+                                                                            currentUserReference,
+                                                                      )
+                                                                      .snapshots(),
+                                                                  builder: (context,
+                                                                      ticketSnapshot) {
+                                                                    final ticketCount =
+                                                                        ticketSnapshot.data?.docs.length ??
+                                                                            0;
+                                                                    return Visibility(
                                                                   visible: widget
                                                                           .gameDoc!
                                                                           .endDate! >
@@ -2083,6 +2101,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                               .endDate! <
                                                                           getCurrentTimestamp) {
                                                                         return 'Le jeu est termin\u00E9';
+                                                                      } else if (hasPlayedToday &&
+                                                                          ticketCount >
+                                                                              0) {
+                                                                        return '\uD83C\uDF9F\uFE0F $ticketCount ${ticketCount > 1 ? 'tickets valid\u00E9s' : 'ticket valid\u00E9'}';
                                                                       } else if (hasPlayedToday) {
                                                                         return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
                                                                       } else if (hasPlayedBefore) {
@@ -2182,7 +2204,25 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     currentUserDocument,
                                                                     getCurrentTimestamp,
                                                                   );
-                                                                  return FFButtonWidget(
+                                                                  return StreamBuilder<
+                                                                      QuerySnapshot>(
+                                                                    stream: widget
+                                                                        .gameDoc!
+                                                                        .reference
+                                                                        .collection(
+                                                                            'participants')
+                                                                        .where(
+                                                                          'user_id',
+                                                                          isEqualTo:
+                                                                              currentUserReference,
+                                                                        )
+                                                                        .snapshots(),
+                                                                    builder: (context,
+                                                                        ticketSnapshot) {
+                                                                      final ticketCount =
+                                                                          ticketSnapshot.data?.docs.length ??
+                                                                              0;
+                                                                      return FFButtonWidget(
                                                                     showLoadingIndicator:
                                                                         false,
                                                                     onPressed: ((widget.gameDoc!.endDate! <
@@ -2245,6 +2285,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                               .endDate! <
                                                                           getCurrentTimestamp) {
                                                                         return 'Le jeu est termin\u00E9';
+                                                                      } else if (hasPlayedToday &&
+                                                                          ticketCount >
+                                                                              0) {
+                                                                        return '\uD83C\uDF9F\uFE0F $ticketCount ${ticketCount > 1 ? 'tickets valid\u00E9s' : 'ticket valid\u00E9'}';
                                                                       } else if (hasPlayedToday) {
                                                                         return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
                                                                       } else if (hasPlayedBefore) {
@@ -2310,6 +2354,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                           .withValues(
                                                                               alpha: 0.7),
                                                                     ),
+                                                                  );
+                                                                    },
                                                                   );
                                                                 },
                                                               ),
