@@ -63,9 +63,35 @@ class _UpdateEnseigneCommercantPageWidgetState
       (_selectedGooglePlace != null ||
           (_persistedPlaceId != null && _persistedPlaceId!.isNotEmpty));
 
+  // Enregistre immediatement en Firestore, independamment du bouton
+  // "Mettre a jour" plus bas : contrairement aux champs texte du
+  // formulaire, choisir/dissocier une fiche Google est une action
+  // complete en elle-meme -- l'ecran affiche aussitot "Etablissement
+  // Google associe (check)", donc l'attente n'aurait pas de sens et
+  // exposait a une perte silencieuse si le commercant quittait la page
+  // sans cliquer "Mettre a jour" ensuite (constate en production : la
+  // selection s'affichait comme associee sans jamais avoir ete
+  // persistee).
   Future<void> _pickGoogleEstablishment() async {
     final selected = await showGoogleEstablishmentPicker(context);
     if (selected == null) return;
+    final trimmedPlaceId = selected.placeId.trim();
+    try {
+      await widget.enseigneDocument!.reference.update({
+        'google_place_id': trimmedPlaceId,
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Impossible d\'enregistrer cet établissement Google. Réessayez.',
+          ),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
     safeSetState(() {
       _selectedGooglePlace = selected;
       _placeIdCleared = false;
@@ -95,6 +121,22 @@ class _UpdateEnseigneCommercantPageWidgetState
         ) ??
         false;
     if (!confirmed) return;
+    try {
+      await widget.enseigneDocument!.reference.update({
+        'google_place_id': FieldValue.delete(),
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Impossible de dissocier cet établissement Google. Réessayez.',
+          ),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
     safeSetState(() {
       _selectedGooglePlace = null;
       _placeIdCleared = true;
