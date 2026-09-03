@@ -1,4 +1,5 @@
-﻿import '/backend/backend.dart';
+﻿import '/auth/firebase_auth/auth_util.dart';
+import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
 import '/components/game_qr_code_card_widget.dart';
