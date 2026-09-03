@@ -696,7 +696,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         height: height,
         imageHeight: imageHeight,
         enseigneRef: resolvedEnseigne?.reference,
-        gameRef: game.reference,
+        // Les tickets ne comptent que pour le tirage au sort du lot
+        // principal (voir games/{id}/participants) : pas de badge sur un
+        // jeu qui n'a pas de lot principal configure.
+        gameRef: _hasVisibleMainPrizeForPlayer(game) ? game.reference : null,
         onTap: () async {
           await onTap();
         },
