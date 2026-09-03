@@ -4,6 +4,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/backend/schema/enums/enums.dart';
 import '/widgets/proxiplay_network_image.dart';
 import '/components/merchant_offered_by_bubble.dart';
+import '/components/ticket_badge_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -31,6 +32,7 @@ class GameCard extends StatefulWidget {
     this.finishedInfoText = 'Jeu termin\u00E9',
     this.enseigneRef,
     this.showOfferedByLabel = true,
+    this.gameRef,
   });
 
   final String title;
@@ -56,6 +58,11 @@ class GameCard extends StatefulWidget {
   /// uniquement pour recuperer sa premiere photo pour la bulle "Offert
   /// par" \u2014 aucun impact sur la logique de jeu.
   final DocumentReference? enseigneRef;
+  /// Reference Firestore du jeu (`games/{id}`), utilisee uniquement pour
+  /// afficher le badge "\ud83c\udfab X tickets" du joueur connecte sur ce jeu (voir
+  /// TicketBadgeWidget). Null (aucun badge affiche) sur les usages qui ne
+  /// le passent pas encore \u2014 aucun changement de comportement pour eux.
+  final DocumentReference? gameRef;
   /// Voir `MerchantOfferedByBubble.showOfferedByLabel`. Par defaut a
   /// true : toutes les cartes classiques gardent leur rendu actuel.
   final bool showOfferedByLabel;
@@ -257,6 +264,12 @@ class _GameCardState extends State<GameCard> {
                     ),
               ),
             ),
+          ),
+        if (widget.gameRef != null)
+          Positioned(
+            top: ribbon != null ? 42.0 : 10.0,
+            right: 10.0,
+            child: TicketBadgeWidget(gameRef: widget.gameRef!),
           ),
         if (_hasVisibleText(widget.storeName))
           Positioned(
@@ -585,6 +598,7 @@ class GameCardWidget extends GameCard {
     super.finishedInfoText,
     super.enseigneRef,
     super.showOfferedByLabel,
+    super.gameRef,
   });
 }
 

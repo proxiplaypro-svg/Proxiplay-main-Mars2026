@@ -696,6 +696,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         height: height,
         imageHeight: imageHeight,
         enseigneRef: resolvedEnseigne?.reference,
+        gameRef: game.reference,
         onTap: () async {
           await onTap();
         },
