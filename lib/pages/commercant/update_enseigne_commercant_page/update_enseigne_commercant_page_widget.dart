@@ -298,74 +298,97 @@ class _UpdateEnseigneCommercantPageWidgetState
                                           BorderRadius.circular(12.0),
                                     ),
                                     padding: const EdgeInsets.all(14.0),
-                                    child: Row(
+                                    child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        const Icon(
-                                          Icons.check_circle,
-                                          color: Color(0xFF12B76A),
-                                        ),
-                                        const SizedBox(width: 10.0),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Établissement Google associé ✓',
-                                                style: FlutterFlowTheme.of(
-                                                        context)
-                                                    .bodyMedium
-                                                    .override(
-                                                      font: GoogleFonts.inter(
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                      ),
-                                                      fontWeight:
-                                                          FontWeight.w700,
+                                        Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Icon(
+                                              Icons.check_circle,
+                                              color: Color(0xFF12B76A),
+                                            ),
+                                            const SizedBox(width: 10.0),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Établissement Google associé ✓',
+                                                    style:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .bodyMedium
+                                                            .override(
+                                                              font: GoogleFonts
+                                                                  .inter(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                              ),
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                            ),
+                                                  ),
+                                                  if (_selectedGooglePlace !=
+                                                      null) ...[
+                                                    const SizedBox(
+                                                        height: 4.0),
+                                                    Text(
+                                                      _selectedGooglePlace!
+                                                          .name,
+                                                      style:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodyMedium
+                                                              .override(
+                                                                font: GoogleFonts
+                                                                    .inter(),
+                                                              ),
                                                     ),
+                                                    Text(
+                                                      _selectedGooglePlace!
+                                                          .formattedAddress,
+                                                      style:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodySmall
+                                                              .override(
+                                                                font: GoogleFonts
+                                                                    .inter(),
+                                                                color: FlutterFlowTheme
+                                                                        .of(
+                                                                            context)
+                                                                    .secondaryText,
+                                                              ),
+                                                    ),
+                                                  ],
+                                                ],
                                               ),
-                                              if (_selectedGooglePlace !=
-                                                  null) ...[
-                                                const SizedBox(height: 4.0),
-                                                Text(
-                                                  _selectedGooglePlace!.name,
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font:
-                                                            GoogleFonts.inter(),
-                                                      ),
-                                                ),
-                                                Text(
-                                                  _selectedGooglePlace!
-                                                      .formattedAddress,
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .bodySmall
-                                                      .override(
-                                                        font:
-                                                            GoogleFonts.inter(),
-                                                        color: FlutterFlowTheme
-                                                                .of(context)
-                                                            .secondaryText,
-                                                      ),
-                                                ),
-                                              ],
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
-                                        TextButton(
-                                          onPressed: _pickGoogleEstablishment,
-                                          child:
-                                              const Text('Changer d\'établissement'),
-                                        ),
-                                        TextButton(
-                                          onPressed:
-                                              _dissociateGoogleEstablishment,
-                                          child: const Text('Dissocier'),
+                                        const SizedBox(height: 10.0),
+                                        Wrap(
+                                          spacing: 4.0,
+                                          runSpacing: 4.0,
+                                          children: [
+                                            TextButton(
+                                              onPressed:
+                                                  _pickGoogleEstablishment,
+                                              child: const Text(
+                                                  'Changer d\'établissement'),
+                                            ),
+                                            TextButton(
+                                              onPressed:
+                                                  _dissociateGoogleEstablishment,
+                                              child: const Text('Dissocier'),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
