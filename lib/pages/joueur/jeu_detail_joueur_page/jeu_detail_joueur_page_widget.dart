@@ -1846,84 +1846,78 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         .only(
                                                                         top:
                                                                             4.0),
-                                                                    child: Row(
+                                                                    child: Wrap(
+                                                                      crossAxisAlignment:
+                                                                          WrapCrossAlignment
+                                                                              .center,
+                                                                      spacing:
+                                                                          6.0,
+                                                                      runSpacing:
+                                                                          2.0,
                                                                       children: [
                                                                         if (effectiveEnseigneDoc
                                                                             .city
                                                                             .trim()
-                                                                            .isNotEmpty) ...[
-                                                                          const Icon(
-                                                                            Icons
-                                                                                .location_on_sharp,
-                                                                            size:
-                                                                                14.0,
-                                                                            color:
-                                                                                Color(0xFF6B7280),
+                                                                            .isNotEmpty)
+                                                                          Row(
+                                                                            mainAxisSize:
+                                                                                MainAxisSize.min,
+                                                                            children: [
+                                                                              const Icon(
+                                                                                Icons.location_on_sharp,
+                                                                                size: 14.0,
+                                                                                color: Color(0xFF6B7280),
+                                                                              ),
+                                                                              const SizedBox(width: 4.0),
+                                                                              Text(
+                                                                                effectiveEnseigneDoc.city,
+                                                                                maxLines: 1,
+                                                                                overflow: TextOverflow.ellipsis,
+                                                                                style: GoogleFonts.inter(
+                                                                                  fontSize: 13.0,
+                                                                                  fontWeight: FontWeight.w500,
+                                                                                  color: const Color(0xFF6B7280),
+                                                                                  letterSpacing: 0.0,
+                                                                                ),
+                                                                              ),
+                                                                            ],
                                                                           ),
-                                                                          const SizedBox(
-                                                                              width:
-                                                                                  4.0),
+                                                                        if (effectiveEnseigneDoc.city.trim().isNotEmpty &&
+                                                                            effectiveEnseigneDoc.hasGoogleRating())
                                                                           Text(
-                                                                            effectiveEnseigneDoc
-                                                                                .city,
-                                                                            maxLines:
-                                                                                1,
-                                                                            overflow:
-                                                                                TextOverflow.ellipsis,
+                                                                            '|',
                                                                             style:
                                                                                 GoogleFonts.inter(
                                                                               fontSize: 13.0,
-                                                                              fontWeight: FontWeight.w500,
-                                                                              color: const Color(0xFF6B7280),
-                                                                              letterSpacing: 0.0,
-                                                                            ),
-                                                                          ),
-                                                                        ],
-                                                                        if (effectiveEnseigneDoc.city.trim().isNotEmpty &&
-                                                                            effectiveEnseigneDoc.hasGoogleRating())
-                                                                          Padding(
-                                                                            padding: const EdgeInsets
-                                                                                .symmetric(
-                                                                                horizontal:
-                                                                                    6.0),
-                                                                            child:
-                                                                                Text(
-                                                                              '|',
-                                                                              style: GoogleFonts.inter(
-                                                                                fontSize: 13.0,
-                                                                                color: const Color(0xFFD1D5DB),
-                                                                              ),
+                                                                              color: const Color(0xFFD1D5DB),
                                                                             ),
                                                                           ),
                                                                         if (effectiveEnseigneDoc
-                                                                            .hasGoogleRating()) ...[
-                                                                          const Icon(
-                                                                            Icons
-                                                                                .star_rounded,
-                                                                            size:
-                                                                                15.0,
-                                                                            color:
-                                                                                Color(0xFFF59E0B),
-                                                                          ),
-                                                                          const SizedBox(
-                                                                              width:
-                                                                                  3.0),
-                                                                          Flexible(
-                                                                            child:
-                                                                                Text(
-                                                                              '${formattedGoogleRating(effectiveEnseigneDoc) ?? ''}'
-                                                                              '${effectiveEnseigneDoc.googleReviewsCount > 0 ? ' (${effectiveEnseigneDoc.googleReviewsCount} avis)' : ''}',
-                                                                              maxLines: 1,
-                                                                              overflow: TextOverflow.ellipsis,
-                                                                              style: GoogleFonts.inter(
-                                                                                fontSize: 13.0,
-                                                                                fontWeight: FontWeight.w500,
-                                                                                color: const Color(0xFF6B7280),
-                                                                                letterSpacing: 0.0,
+                                                                            .hasGoogleRating())
+                                                                          Row(
+                                                                            mainAxisSize:
+                                                                                MainAxisSize.min,
+                                                                            children: [
+                                                                              const Icon(
+                                                                                Icons.star_rounded,
+                                                                                size: 15.0,
+                                                                                color: Color(0xFFF59E0B),
                                                                               ),
-                                                                            ),
+                                                                              const SizedBox(width: 3.0),
+                                                                              Text(
+                                                                                '${formattedGoogleRating(effectiveEnseigneDoc) ?? ''}'
+                                                                                '${effectiveEnseigneDoc.googleReviewsCount > 0 ? ' (${effectiveEnseigneDoc.googleReviewsCount} avis)' : ''}',
+                                                                                maxLines: 1,
+                                                                                overflow: TextOverflow.ellipsis,
+                                                                                style: GoogleFonts.inter(
+                                                                                  fontSize: 13.0,
+                                                                                  fontWeight: FontWeight.w500,
+                                                                                  color: const Color(0xFF6B7280),
+                                                                                  letterSpacing: 0.0,
+                                                                                ),
+                                                                              ),
+                                                                            ],
                                                                           ),
-                                                                        ],
                                                                       ],
                                                                     ),
                                                                   ),
