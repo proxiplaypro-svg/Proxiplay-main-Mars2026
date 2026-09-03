@@ -111,7 +111,7 @@ class _TicketBadgeWidgetState extends State<TicketBadgeWidget>
               vertical: 5.0,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFFF5A623),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(20.0),
               boxShadow: [
                 BoxShadow(
@@ -131,7 +131,7 @@ class _TicketBadgeWidgetState extends State<TicketBadgeWidget>
                   style: GoogleFonts.inter(
                     fontSize: 12.0,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: const Color(0xFFB45309),
                   ),
                 ),
               ],

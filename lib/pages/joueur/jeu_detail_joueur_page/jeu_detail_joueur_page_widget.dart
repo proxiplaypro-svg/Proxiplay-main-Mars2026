@@ -1956,45 +1956,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       ),
                                                                     ),
                                                                   ),
-                                                                if (effectiveEnseigneDoc
-                                                                    .category
-                                                                    .isNotEmpty)
-                                                                  Padding(
-                                                                    padding: const EdgeInsets
-                                                                        .only(
-                                                                        top:
-                                                                            8.0),
-                                                                    child: Wrap(
-                                                                      spacing:
-                                                                          6.0,
-                                                                      runSpacing:
-                                                                          6.0,
-                                                                      children: effectiveEnseigneDoc
-                                                                          .category
-                                                                          .take(
-                                                                              3)
-                                                                          .map(
-                                                                            (tag) =>
-                                                                                Container(
-                                                                              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
-                                                                              decoration: BoxDecoration(
-                                                                                color: const Color(0xFFFCE9F1),
-                                                                                borderRadius: BorderRadius.circular(999.0),
-                                                                              ),
-                                                                              child: Text(
-                                                                                tag,
-                                                                                style: GoogleFonts.inter(
-                                                                                  fontSize: 11.0,
-                                                                                  fontWeight: FontWeight.w600,
-                                                                                  color: const Color(0xFFA0134D),
-                                                                                  letterSpacing: 0.0,
-                                                                                ),
-                                                                              ),
-                                                                            ),
-                                                                          )
-                                                                          .toList(),
-                                                                    ),
-                                                                  ),
                                                               ],
                                                             ),
                                                           ),
