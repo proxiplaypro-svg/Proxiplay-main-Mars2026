@@ -143,7 +143,6 @@ const generateInstantWinnersForGameCallable = functions
       );
     }
 
-    const gameAlreadyStarted = nowMs >= startDateMs;
     const transactionResult = await firestore.runTransaction(async (transaction) => {
       const [freshGameSnap, existingSnap] = await Promise.all([
         transaction.get(gameRef),
