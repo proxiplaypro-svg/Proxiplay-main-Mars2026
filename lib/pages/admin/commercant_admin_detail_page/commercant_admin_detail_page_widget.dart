@@ -31,6 +31,7 @@ class _CommercantAdminDetailPageWidgetState
   final _googlePlaceIdController = TextEditingController();
 
   bool _isEditing = false;
+  bool _isEditingGoogle = false;
   bool _isUnlocking = false;
   String? _lastSeedKey;
 
@@ -61,7 +62,7 @@ class _CommercantAdminDetailPageWidgetState
       enseigne?.city ?? '',
       enseigne?.googlePlaceId ?? '',
     ].join('|');
-    if (_isEditing || _lastSeedKey == seedKey) {
+    if (_isEditing || _isEditingGoogle || _lastSeedKey == seedKey) {
       return;
     }
     _lastSeedKey = seedKey;
@@ -387,6 +388,22 @@ class _CommercantAdminDetailPageWidgetState
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Informations commerçant mises à jour.')),
+    );
+  }
+
+  Future<void> _saveGooglePlaceId(EnseignesRecord enseigne) async {
+    final trimmedPlaceId = _googlePlaceIdController.text.trim();
+    await enseigne.reference.update({
+      'google_place_id':
+          trimmedPlaceId.isEmpty ? FieldValue.delete() : trimmedPlaceId,
+    });
+    setState(() {
+      _isEditingGoogle = false;
+      _lastSeedKey = null;
+    });
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Fiche Google mise à jour.')),
     );
   }
 
@@ -871,6 +888,27 @@ class _CommercantAdminDetailPageWidgetState
                 'Association manuelle a une fiche Google via son Place ID. '
                 'Aucune donnee Google (avis, note, horaires, photos...) '
                 'n\'est recuperee automatiquement pour le moment.',
+            trailing: _isEditingGoogle
+                ? null
+                : FilledButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _isEditingGoogle = true;
+                      });
+                    },
+                    icon: Icon(
+                      isLinked ? Icons.edit : Icons.add_link,
+                      size: 18.0,
+                    ),
+                    label: Text(
+                      isLinked ? 'Modifier l\'ID' : 'Associer un ID Google',
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor:
+                          isLinked ? theme.primary : const Color(0xFFF79009),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
           ),
           const SizedBox(height: 14.0),
           Container(
@@ -895,13 +933,33 @@ class _CommercantAdminDetailPageWidgetState
             ),
           ),
           const SizedBox(height: 14.0),
-          if (_isEditing)
+          if (_isEditingGoogle) ...[
             _buildEditField(
               context,
               label: 'Google Place ID (ex: ChIJ...)',
               controller: _googlePlaceIdController,
-            )
-          else
+            ),
+            const SizedBox(height: 12.0),
+            Row(
+              children: [
+                FilledButton(
+                  onPressed: () => _saveGooglePlaceId(enseigne),
+                  child: const Text('Enregistrer'),
+                ),
+                const SizedBox(width: 10.0),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _googlePlaceIdController.text =
+                          enseigne.googlePlaceId ?? '';
+                      _isEditingGoogle = false;
+                    });
+                  },
+                  child: const Text('Annuler'),
+                ),
+              ],
+            ),
+          ] else
             _buildInfoRow(
               context,
               'Place ID',
