@@ -1,4 +1,5 @@
-﻿import '/backend/backend.dart';
+﻿import '/auth/firebase_auth/auth_util.dart';
+import '/backend/backend.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -44,12 +45,22 @@ class PlayJoueurPageWidget extends StatefulWidget {
     this.source,
     this.attemptId,
     this.onGameScreenMounted,
+    this.alreadyParticipatedToday = false,
   });
 
   final GamesRecord? game;
   final ResultParticipationGameStruct? resultParticipation;
   final String? source;
   final String? attemptId;
+
+  /// True quand cet appel de participateInGameTransaction n'a pas cree de
+  /// nouvelle participation (le joueur a deja joue aujourd'hui) : le
+  /// resultat affiche est celui, deja connu, mis en cache cote serveur.
+  /// Sert a sauter l'interaction de grattage (voir isAlreadyPlayedStatus
+  /// plus bas) sans dependre d'une detection par texte du message, peu
+  /// fiable car le serveur renvoie generalement le vrai resultat en cache
+  /// plutot que le message generique "deja participe".
+  final bool alreadyParticipatedToday;
 
   /// Called once, after this screen has rendered its first frame. Used by
   /// launch callers (see `GameLaunchCoordinator`) as the closest available
@@ -538,9 +549,15 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     final rewardTextBonus = _resultMessageBonus ?? '';
     final lowerBackendMessage =
         (widget.resultParticipation?.message ?? '').trim().toLowerCase();
-    final isAlreadyPlayedStatus =
+    // Le flag explicite (transmis par l'appelant depuis la reponse de
+    // participateInGameTransaction) est la source de verite : le serveur
+    // renvoie generalement le vrai resultat en cache sur un replay, donc le
+    // message n'y contient PAS forcement "deja participe" -- la detection
+    // par texte ci-dessous ne sert que de filet de securite si jamais ce
+    // flag n'est pas transmis par un appelant.
+    final isAlreadyPlayedStatus = widget.alreadyParticipatedToday ||
         lowerBackendMessage.contains('dï¿½jï¿½ participï¿½') ||
-            lowerBackendMessage.contains('deja participe');
+        lowerBackendMessage.contains('deja participe');
     final hasMainPrizeGame =
         widget.game != null ? hasMainPrize(widget.game!) : false;
     final mainPrizeDescription = (widget.game?.description ?? '').trim();
@@ -705,7 +722,9 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                         Text(
                                           isGameEnded
                                               ? 'Jeu termin\u00E9'
-                                              : 'Grattez pour d\u00E9couvrir',
+                                              : isAlreadyPlayedStatus
+                                                  ? 'Votre r\u00E9sultat du jour'
+                                                  : 'Grattez pour d\u00E9couvrir',
                                           style: FlutterFlowTheme.of(context)
                                               .headlineSmall
                                               .override(
@@ -951,6 +970,78 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                   );
                                                 },
                                               ),
+                                            ),
+                                          )
+                                        else if (isAlreadyPlayedStatus)
+                                          // Rejouer aujourd'hui ne doit pas
+                                          // obliger a re-gratter : on bloque
+                                          // simplement l'interaction et on
+                                          // rappelle le nombre de tickets
+                                          // valides, sans reproduire l'UI de
+                                          // resultat du grattage.
+                                          Container(
+                                            width: MediaQuery.sizeOf(context)
+                                                    .width *
+                                                1.0,
+                                            padding:
+                                                const EdgeInsets.all(24.0),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF5F5F5),
+                                              borderRadius:
+                                                  BorderRadius.circular(12.0),
+                                            ),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Text(
+                                                  'Vous avez déjà joué aujourd\'hui',
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    fontSize: 16.0,
+                                                    fontWeight:
+                                                        FontWeight.w600,
+                                                    color: Colors.black87,
+                                                  ),
+                                                ),
+                                                if (widget.game != null)
+                                                  FutureBuilder<QuerySnapshot>(
+                                                    future: widget.game!
+                                                        .reference
+                                                        .collection(
+                                                            'participants')
+                                                        .where('user_id',
+                                                            isEqualTo:
+                                                                currentUserReference)
+                                                        .get(),
+                                                    builder:
+                                                        (context, snapshot) {
+                                                      final ticketCount =
+                                                          snapshot.data?.docs
+                                                                  .length ??
+                                                              0;
+                                                      if (ticketCount <= 0) {
+                                                        return const SizedBox
+                                                            .shrink();
+                                                      }
+                                                      return Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .only(
+                                                                top: 8.0),
+                                                        child: Text(
+                                                          '🎫 $ticketCount ${ticketCount > 1 ? 'tickets validés' : 'ticket validé'}',
+                                                          style: const TextStyle(
+                                                              fontSize: 15.0,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                              color: Colors
+                                                                  .black54),
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                              ],
                                             ),
                                           )
                                         else

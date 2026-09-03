@@ -344,6 +344,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                   ),
                   source: widget.source,
                   attemptId: attemptId,
+                  alreadyParticipatedToday: outcome.alreadyParticipatedToday,
                   onGameScreenMounted: () {
                     if (!mountedBy.isCompleted) {
                       mountedBy.complete();

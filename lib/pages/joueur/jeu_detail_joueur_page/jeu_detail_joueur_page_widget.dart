@@ -877,6 +877,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                 ),
                 source: widget.source,
                 attemptId: attemptId,
+                alreadyParticipatedToday: outcome.alreadyParticipatedToday,
                 onGameScreenMounted: () {
                   if (!mountedBy.isCompleted) {
                     mountedBy.complete();
