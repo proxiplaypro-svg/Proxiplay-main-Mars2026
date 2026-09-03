@@ -2176,6 +2176,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                 );
                                                               },
                                                             );
+                                                              },
+                                                            );
                                                           } else {
                                                             if (widget.gameDoc!
                                                                     .accessMode ==
