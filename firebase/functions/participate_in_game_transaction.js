@@ -1,15 +1,11 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
 const {
   pickDueInstantWinner,
   toMillis,
 } = require("./lib/instant_winners_core");
 
-const {
-  queuePushNotificationRequest,
-} = require("./push_notification_request.js");
 const {
   trackMonthlyChallengesParticipation,
   prefetchActiveMonthlyChallenges,
@@ -18,7 +14,6 @@ const {
 const {
   getEmulatorNowDate,
   getNowTimestamp,
-  isFunctionsEmulator,
 } = require("./lib/emulator_runtime");
 
 const db = admin.firestore();
@@ -77,98 +72,6 @@ function generateClaimCode() {
   const timePart = Date.now().toString(36).toUpperCase();
   const randomPart = crypto.randomBytes(2).toString("hex").toUpperCase();
   return `${timePart}${randomPart}`;
-}
-
-function toBoolean(value, fallback = false) {
-  if (typeof value === "boolean") {
-    return value;
-  }
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (["true", "1", "yes", "y", "on"].includes(normalized)) {
-      return true;
-    }
-    if (["false", "0", "no", "n", "off"].includes(normalized)) {
-      return false;
-    }
-  }
-  if (typeof value === "number") {
-    return value !== 0;
-  }
-  return fallback;
-}
-
-function getSmtpSettings() {
-  const smtpConfig = functions.config().smtp || {};
-  const host = getTrimmedString(smtpConfig.host);
-  const port = Number(smtpConfig.port || 587);
-  const secure = toBoolean(smtpConfig.secure, port === 465);
-  const user = getTrimmedString(smtpConfig.user);
-  const pass = typeof smtpConfig.pass === "string" ? smtpConfig.pass : "";
-  const fromEmail = getTrimmedString(smtpConfig.from_email);
-  const fromName = getTrimmedString(smtpConfig.from_name);
-  const replyTo = getTrimmedString(smtpConfig.reply_to);
-
-  const missing = [];
-  if (!host) missing.push("smtp.host");
-  if (!Number.isFinite(port) || port <= 0) missing.push("smtp.port");
-  if (!user) missing.push("smtp.user");
-  if (!pass) missing.push("smtp.pass");
-  if (!fromEmail) missing.push("smtp.from_email");
-  if (!fromName) missing.push("smtp.from_name");
-  if (missing.length > 0) {
-    throw new Error(`Missing SMTP config: ${missing.join(", ")}`);
-  }
-
-  return {
-    host,
-    port,
-    secure,
-    user,
-    pass,
-    fromEmail,
-    fromName,
-    replyTo,
-  };
-}
-
-function createSmtpMailer() {
-  if (isFunctionsEmulator()) {
-    return {
-      transporter: { sendMail: async () => ({ suppressed: true }) },
-      from: "Proxiplay Local <no-reply@proxiplay.local>",
-      replyTo: "",
-    };
-  }
-  const settings = getSmtpSettings();
-  return {
-    transporter: nodemailer.createTransport({
-      host: settings.host,
-      port: settings.port,
-      secure: settings.secure,
-      auth: {
-        user: settings.user,
-        pass: settings.pass,
-      },
-    }),
-    from: `${settings.fromName} <${settings.fromEmail}>`,
-    replyTo: settings.replyTo,
-  };
-}
-
-async function sendEmailNotification(mailer, to, subject, text, html = "") {
-  if (isFunctionsEmulator()) {
-    console.log(`[LOCAL_FIREBASE_EMULATORS] email suppressed to=${to} subject=${subject}`);
-    return;
-  }
-  await mailer.transporter.sendMail({
-    from: mailer.from,
-    to,
-    subject,
-    text,
-    ...(html ? { html } : {}),
-    ...(mailer.replyTo ? { replyTo: mailer.replyTo } : {}),
-  });
 }
 
 function getParisDayKey(date = new Date()) {
@@ -1238,79 +1141,13 @@ exports.participateInGameTransaction = functions.https.onCall(
         finalRemainingPartValue,
       });
 
-      if (lotGagne === true) {
-        try {
-          const mailer = createSmtpMailer();
-
-          if (userEmail) {
-            const playerMailSubject = `🎉 Vous avez gagné chez ${enseigneName} !`;
-            const playerMailHtml = `
-              <p>Félicitations ! Vous avez gagné : ${lotDetails}</p>
-              <p>Rendez-vous chez ${enseigneName} pour récupérer votre lot.</p>
-              <p>Code de retrait : ${claim_code}</p>
-            `;
-            const playerMailText = [
-              `Félicitations ! Vous avez gagné : ${lotDetails}`,
-              `Rendez-vous chez ${enseigneName} pour récupérer votre lot.`,
-              `Code de retrait : ${claim_code}`,
-            ].join("\n");
-
-            await sendEmailNotification(
-              mailer,
-              userEmail,
-              playerMailSubject,
-              playerMailText,
-              playerMailHtml
-            );
-          }
-
-          let merchantOwnerRef = null;
-          if (enseigneRef) {
-            const enseigneSnapshot = await enseigneRef.get();
-            if (enseigneSnapshot.exists) {
-              const enseigneData = enseigneSnapshot.data() || {};
-              if (enseigneData.owner) {
-                merchantOwnerRef = enseigneData.owner;
-                // Warning si owner et create_by divergent
-                if (ownerRef && enseigneData.owner.path !== ownerRef.path) {
-                  console.warn(
-                    `participateInGameTransaction: owner mismatch for gameId=${gameRef.id} — create_by=${ownerRef.path} vs enseigne.owner=${enseigneData.owner.path} — using enseigne.owner`
-                  );
-                }
-              } else {
-                // Fallback sur create_by si owner absent
-                console.warn(
-                  `participateInGameTransaction: enseigne.owner absent for enseigneId=${enseigneRef.id}, falling back to create_by`
-                );
-                merchantOwnerRef = ownerRef;
-              }
-            }
-          }
-
-          let merchantEmail = "";
-          if (merchantOwnerRef) {
-            const merchantUserSnap = await merchantOwnerRef.get();
-            if (merchantUserSnap.exists) {
-              const merchantUserData = merchantUserSnap.data() || {};
-              merchantEmail = getTrimmedString(merchantUserData.email);
-            }
-          }
-
-          if (merchantOwnerRef) {
-            await queuePushNotificationRequest(db, {
-              title: "🎉 Un joueur a gagné !",
-              body: `Un joueur vient de gagner : ${lotDetails}. Code : ${claim_code}. Jeu : ${gameName}`,
-              userRefOrPath: merchantOwnerRef,
-              createdBy: `system/participate_in_game_transaction/${gameRef.id}`,
-            });
-          }
-        } catch (postTransactionNotificationError) {
-          console.error(
-            `participateInGameTransaction: post-transaction notifications failed for gameId=${gameRef.id} uid=${uid}`,
-            postTransactionNotificationError
-          );
-        }
-      }
+      // Les notifications de gain (email + push, joueur + commercant) sont
+      // gerees exclusivement par notifyPrizeWon (declenchee automatiquement
+      // par la creation du document prizes/{id} ci-dessus, avec verrou
+      // anti-doublon par canal). Un envoi direct existait aussi ici avant --
+      // supprime : il faisait doublon avec notifyPrizeWon sur les 4 canaux
+      // (constate en production : le commercant recevait 2 notifications
+      // push pour un seul gain).
 
       if (monthlyChallengeResult?.tracked === true) {
         try {
