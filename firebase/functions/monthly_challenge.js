@@ -748,8 +748,6 @@ function buildChallengeStateResponse(config, userState) {
   return {
     challengeId: config.challenge_id,
     type: config.type,
-    challengeId: config.challenge_id,
-    type: config.type,
     showCard: config.enabled && isMonthKey(config.month),
     enabled: config.enabled,
     month: config.month,
