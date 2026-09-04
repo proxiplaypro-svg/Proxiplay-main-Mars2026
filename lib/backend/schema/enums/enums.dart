@@ -11,8 +11,6 @@ enum AccountStatus {
   rejected,
   pendingInfo,
   pendingValidation,
-  pendingIdentityCard,
-  pendingIdentityPhoto,
 }
 
 enum ClaimStatus {

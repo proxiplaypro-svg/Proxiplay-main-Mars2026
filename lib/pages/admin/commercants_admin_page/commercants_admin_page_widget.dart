@@ -65,8 +65,6 @@ class _CommercantsAdminPageWidgetState extends State<CommercantsAdminPageWidget>
         return 'rejected';
       case AccountStatus.pendingInfo:
       case AccountStatus.pendingValidation:
-      case AccountStatus.pendingIdentityCard:
-      case AccountStatus.pendingIdentityPhoto:
       case null:
         return 'pending';
     }

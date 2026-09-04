@@ -17,7 +17,6 @@ import 'schema/my_lots_record.dart';
 import 'schema/participants_record.dart';
 import 'schema/my_enseignes_record.dart';
 import 'schema/enseigne_game_record.dart';
-import 'schema/identity_documents_record.dart';
 import 'schema/horaires_record.dart';
 import 'schema/images_record.dart';
 import 'schema/winners_record.dart';
@@ -46,7 +45,6 @@ export 'schema/my_lots_record.dart';
 export 'schema/participants_record.dart';
 export 'schema/my_enseignes_record.dart';
 export 'schema/enseigne_game_record.dart';
-export 'schema/identity_documents_record.dart';
 export 'schema/horaires_record.dart';
 export 'schema/images_record.dart';
 export 'schema/winners_record.dart';
@@ -865,90 +863,6 @@ Future<FFFirestorePage<EnseigneGameRecord>> queryEnseigneGameRecordPage({
       }
       return page;
     });
-
-/// Functions to query IdentityDocumentsRecords (as a Stream and as a Future).
-Future<int> queryIdentityDocumentsRecordCount({
-  DocumentReference? parent,
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-}) =>
-    queryCollectionCount(
-      IdentityDocumentsRecord.collection(parent),
-      queryBuilder: queryBuilder,
-      limit: limit,
-    );
-
-Stream<List<IdentityDocumentsRecord>> queryIdentityDocumentsRecord({
-  DocumentReference? parent,
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollection(
-      IdentityDocumentsRecord.collection(parent),
-      IdentityDocumentsRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
-
-Future<List<IdentityDocumentsRecord>> queryIdentityDocumentsRecordOnce({
-  DocumentReference? parent,
-  Query Function(Query)? queryBuilder,
-  int limit = -1,
-  bool singleRecord = false,
-}) =>
-    queryCollectionOnce(
-      IdentityDocumentsRecord.collection(parent),
-      IdentityDocumentsRecord.fromSnapshot,
-      queryBuilder: queryBuilder,
-      limit: limit,
-      singleRecord: singleRecord,
-    );
-Future<FFFirestorePage<IdentityDocumentsRecord>>
-    queryIdentityDocumentsRecordPage({
-  DocumentReference? parent,
-  Query Function(Query)? queryBuilder,
-  DocumentSnapshot? nextPageMarker,
-  required int pageSize,
-  required bool isStream,
-  required PagingController<DocumentSnapshot?, IdentityDocumentsRecord>
-      controller,
-  List<StreamSubscription?>? streamSubscriptions,
-}) =>
-        queryCollectionPage(
-          IdentityDocumentsRecord.collection(parent),
-          IdentityDocumentsRecord.fromSnapshot,
-          queryBuilder: queryBuilder,
-          nextPageMarker: nextPageMarker,
-          pageSize: pageSize,
-          isStream: isStream,
-        ).then((page) {
-          controller.appendPage(
-            page.data,
-            page.nextPageMarker,
-          );
-          if (isStream) {
-            final streamSubscription =
-                (page.dataStream)?.listen((List<IdentityDocumentsRecord> data) {
-              for (var item in data) {
-                final itemIndexes = controller.itemList!
-                    .asMap()
-                    .map((k, v) => MapEntry(v.reference.id, k));
-                final index = itemIndexes[item.reference.id];
-                final items = controller.itemList!;
-                if (index != null) {
-                  items.replaceRange(index, index + 1, [item]);
-                  controller.itemList = {
-                    for (var item in items) item.reference: item
-                  }.values.toList();
-                }
-              }
-            });
-            streamSubscriptions?.add(streamSubscription);
-          }
-          return page;
-        });
 
 /// Functions to query HorairesRecords (as a Stream and as a Future).
 Future<int> queryHorairesRecordCount({

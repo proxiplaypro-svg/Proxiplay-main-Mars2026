@@ -84,8 +84,6 @@ class _CommercantAdminDetailPageWidgetState
       case AccountStatus.rejected:
         return 'Refusé';
       case AccountStatus.pendingValidation:
-      case AccountStatus.pendingIdentityCard:
-      case AccountStatus.pendingIdentityPhoto:
       case AccountStatus.pendingInfo:
       case null:
         return 'En attente';
@@ -99,8 +97,6 @@ class _CommercantAdminDetailPageWidgetState
       case AccountStatus.rejected:
         return const Color(0xFFEF4444);
       case AccountStatus.pendingValidation:
-      case AccountStatus.pendingIdentityCard:
-      case AccountStatus.pendingIdentityPhoto:
       case AccountStatus.pendingInfo:
       case null:
         return const Color(0xFFF79009);

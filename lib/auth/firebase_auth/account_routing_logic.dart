@@ -78,9 +78,7 @@ AuthenticatedHomeTarget resolveTargetFromResolvedRole({
     if (accountStatus == AccountStatus.rejected) {
       return AuthenticatedHomeTarget.rejected;
     }
-    if (accountStatus == AccountStatus.pendingValidation ||
-        accountStatus == AccountStatus.pendingIdentityCard ||
-        accountStatus == AccountStatus.pendingIdentityPhoto) {
+    if (accountStatus == AccountStatus.pendingValidation) {
       return AuthenticatedHomeTarget.waitingValidation;
     }
     return AuthenticatedHomeTarget.commercantHome;

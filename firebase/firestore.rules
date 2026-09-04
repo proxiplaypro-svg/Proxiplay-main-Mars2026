@@ -341,19 +341,6 @@ service cloud.firestore {
     }
 
 
-    match /users/{parent}/identity_documents/{document} {
-      allow create: if isSelf(parent) || isAdmin();
-      allow read: if isSelf(parent) || isAdmin();
-      allow update: if isSelf(parent) || isAdmin();
-      allow delete: if isSelf(parent) || isAdmin();
-    }
-
-    match /{path=**}/identity_documents/{document} {
-      allow read: if isAdmin();
-      allow create, update, delete: if false;
-    }
-
-
     match /enseignes/{parent}/horaires/{document} {
       allow create: if isAdmin() || isMerchantOwnerOfEnseigne(
         /databases/$(database)/documents/enseignes/$(parent)
