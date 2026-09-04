@@ -311,6 +311,20 @@
       ]
     },
     {
+      "collectionGroup": "animations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "end_date",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "referral_games",
       "queryScope": "COLLECTION",
       "fields": [
