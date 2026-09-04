@@ -165,7 +165,6 @@ bool hasCachedMerchantRoutingConflict(UsersRecord? user) {
     merchantSignals.add('professional_category');
   }
   if (user.accountStatus == AccountStatus.pendingValidation ||
-      user.accountStatus == AccountStatus.pendingInfo ||
       user.accountStatus == AccountStatus.rejected) {
     merchantSignals.add('account_status');
   }

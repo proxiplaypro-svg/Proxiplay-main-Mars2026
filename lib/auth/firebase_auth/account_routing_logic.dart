@@ -72,9 +72,6 @@ AuthenticatedHomeTarget resolveTargetFromResolvedRole({
     return AuthenticatedHomeTarget.adminHome;
   }
   if (effectiveRole == Roles.commercant) {
-    if (accountStatus == AccountStatus.pendingInfo) {
-      return AuthenticatedHomeTarget.pendingInfo;
-    }
     if (accountStatus == AccountStatus.rejected) {
       return AuthenticatedHomeTarget.rejected;
     }
@@ -82,9 +79,6 @@ AuthenticatedHomeTarget resolveTargetFromResolvedRole({
       return AuthenticatedHomeTarget.waitingValidation;
     }
     return AuthenticatedHomeTarget.commercantHome;
-  }
-  if (accountStatus == AccountStatus.pendingInfo) {
-    return AuthenticatedHomeTarget.pendingInfo;
   }
   if (accountStatus == AccountStatus.rejected) {
     return AuthenticatedHomeTarget.rejected;

@@ -15,17 +15,6 @@ void main() {
       expect(target, AuthenticatedHomeTarget.joueurHome);
     });
 
-    test('routes new Google player to player home', () {
-      final target = resolveTargetFromResolvedRole(
-        documentExists: true,
-        effectiveRole: Roles.joueur,
-        playerSignals: const ['remaining_part'],
-        accountStatus: AccountStatus.pendingInfo,
-      );
-
-      expect(target, AuthenticatedHomeTarget.pendingInfo);
-    });
-
     test('routes new Apple player to player home once profile is complete', () {
       final target = resolveTargetFromResolvedRole(
         documentExists: true,

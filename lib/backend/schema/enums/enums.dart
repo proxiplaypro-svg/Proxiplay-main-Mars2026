@@ -9,7 +9,6 @@ enum Roles {
 enum AccountStatus {
   approved,
   rejected,
-  pendingInfo,
   pendingValidation,
 }
 
