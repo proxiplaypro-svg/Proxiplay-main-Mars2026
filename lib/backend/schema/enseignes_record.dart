@@ -111,7 +111,18 @@ class EnseignesRecord extends FirestoreRecord {
   bool hasGoogleRatingUpdatedAt() => _googleRatingUpdatedAt != null;
 
   void _initializeFields() {
-    _owner = snapshotData['owner'] as DocumentReference?;
+    // New admin writes references; retain read compatibility with historical
+    // UID / users/UID / /users/UID values. This is display data, not authority.
+    final rawOwner = snapshotData['owner_id'] ?? snapshotData['owner'];
+    if (rawOwner is DocumentReference) {
+      _owner = rawOwner;
+    } else if (rawOwner is String && rawOwner.isNotEmpty) {
+      final path = rawOwner.replaceFirst(RegExp(r'^/'), '');
+      final userPath = path.contains('/') ? path : 'users/$path';
+      if (RegExp(r'^users/[^/]+$').hasMatch(userPath)) {
+        _owner = reference.firestore.doc(userPath);
+      }
+    }
     _createdTime = snapshotData['created_time'] as DateTime?;
     _name = snapshotData['name'] as String?;
     _address = snapshotData['address'] as String?;

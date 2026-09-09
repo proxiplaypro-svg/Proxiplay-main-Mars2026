@@ -1,3 +1,4 @@
+const {shopOwnerRef,userPath}=require('./merchant_ownership');
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
@@ -518,8 +519,8 @@ exports.participateInGameTransaction = functions.https.onCall(
           );
         }
         userEmail = getTrimmedString(userData.email);
-        ownerRef = gameData.owner_id?.path
-          ? db.doc(gameData.owner_id.path)
+        ownerRef = userPath(gameData.owner_id)
+          ? db.doc(userPath(gameData.owner_id))
           : null;
         const enseigneRefField = gameData.enseigne_id || gameData.enseigne_ref;
         enseigneRef = enseigneRefField?.path
@@ -543,11 +544,9 @@ exports.participateInGameTransaction = functions.https.onCall(
           );
         }
         const enseigneData = enseigneDoc.data();
-        if (!ownerRef && enseigneData?.owner?.path) {
-          ownerRef = db.doc(enseigneData.owner.path);
-        }
-        if (!/^users\/[^/]+$/.test(ownerRef?.path || '') ||
-            (enseigneData.owner?.path && ownerRef.path !== enseigneData.owner.path)) {
+        const trustedOwner = shopOwnerRef(db, enseigneData);
+        if (gameData.owner_id == null) ownerRef = trustedOwner;
+        if (!ownerRef || !trustedOwner || ownerRef.path !== trustedOwner.path) {
           throw new functions.https.HttpsError('failed-precondition', 'Proprietaire du jeu incoherent.');
         }
         enseigneName = getTrimmedString(enseigneData.name);

@@ -1,3 +1,4 @@
+import '/services/merchant_prizes_service.dart';
 import '/services/merchant_games_service.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
@@ -42,83 +43,11 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
     return rawValue.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
   }
 
-  Future<Set<DocumentReference>> _loadMerchantEnseigneRefs() async {
-    if (currentUserReference == null) {
-      return <DocumentReference>{};
-    }
-
-    final enseignes = await queryMyEnseignesRecordOnce(
-      parent: currentUserReference,
-    );
-
-    return enseignes.map((record) => record.enseigneId).nonNulls.toSet();
-  }
-
   Future<PrizesRecord?> _findPrizeForMerchantClaimCode(String rawCode) async {
-    final normalizedCode = _normalizeClaimCode(rawCode);
-    if (normalizedCode.isEmpty) {
-      return null;
-    }
-
-    if (currentUserReference == null) {
-      return null;
-    }
-
-    final merchantEnseigneRefs = await _loadMerchantEnseigneRefs();
-    final prizeByPath = <String, PrizesRecord>{};
-
-    // Pas de requete where('claim_code', ...) seule ici : les regles
-    // Firestore n'autorisent une requete list() sur "prizes" que si un
-    // where() correspond a winner_id/owner_id/enseigne_id -- claim_code
-    // seul n'est prouvable par aucune de ces conditions et la requete
-    // echoue entierement (permission-denied). Les deux requetes qui suivent
-    // (owner_id, puis enseigne_id) couvrent deja tout ce que cette requete
-    // aurait pu apporter : le filtre final ci-dessous n'accepte de toute
-    // facon qu'un lot appartenant a ce commercant (belongsToMerchant /
-    // belongsToMerchantEnseigne), donc un lot trouve uniquement par son code
-    // mais n'appartenant pas a ce commercant aurait ete rejete quand meme.
-    final merchantOwnedPrizes = await queryPrizesRecordOnce(
-      queryBuilder: (prizesRecord) => prizesRecord.where(
-        'owner_id',
-        isEqualTo: currentUserReference,
-      ),
-      limit: 200,
-    );
-    for (final prize in merchantOwnedPrizes) {
-      prizeByPath[prize.reference.path] = prize;
-    }
-
-    if (merchantEnseigneRefs.isNotEmpty) {
-      final enseignePrizeGroups = await Future.wait(
-        merchantEnseigneRefs.map(
-          (enseigneRef) => queryPrizesRecordOnce(
-            queryBuilder: (prizesRecord) => prizesRecord.where(
-              'enseigne_id',
-              isEqualTo: enseigneRef,
-            ),
-            limit: 200,
-          ),
-        ),
-      );
-
-      for (final prizes in enseignePrizeGroups) {
-        for (final prize in prizes) {
-          prizeByPath[prize.reference.path] = prize;
-        }
-      }
-    }
-
-    return prizeByPath.values.firstWhereOrNull((prize) {
-      final normalizedPrizeCode = _normalizeClaimCode(prize.claimCode);
-      if (normalizedPrizeCode != normalizedCode) {
-        return false;
-      }
-
-      final belongsToMerchant = prize.ownerId == currentUserReference;
-      final belongsToMerchantEnseigne = prize.enseigneId != null &&
-          merchantEnseigneRefs.contains(prize.enseigneId);
-      return belongsToMerchant || belongsToMerchantEnseigne;
-    });
+    final code = _normalizeClaimCode(rawCode);
+    if (code.isEmpty || currentUserReference == null) return null;
+    final prizes = await loadMerchantPrizes();
+    return prizes.firstWhereOrNull((prize) => _normalizeClaimCode(prize.claimCode) == code);
   }
 
   Widget _buildStatusBadge() {

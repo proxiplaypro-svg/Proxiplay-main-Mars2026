@@ -1,3 +1,4 @@
+import '/services/merchant_prizes_service.dart';
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -34,11 +35,19 @@ class _ValidationLotCommercantPageWidgetState
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isSubmitting = false;
+  bool _canClaim = false;
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => ValidationLotCommercantPageModel());
+    if (widget.prize != null) {
+      canClaimMerchantPrize(widget.prize!).then((allowed) {
+        if (mounted) setState(() => _canClaim = allowed);
+      }).catchError((Object error) {
+        if (mounted) setState(() => _canClaim = false);
+      });
+    }
 
     logFirebaseEvent('screen_view',
         parameters: {'screen_name': 'ValidationLotCommercantPage'});
@@ -572,7 +581,7 @@ class _ValidationLotCommercantPageWidgetState
                             ),
                             if (widget.prize!.isExpired && !widget.prize!.claimed)
                               const Text('Lot expiré : la date limite d’utilisation est dépassée.'),
-                            if (widget.prize!.isAvailable && widget.prize!.fulfillmentType == 'merchant')
+                            if (_canClaim && widget.prize!.isAvailable)
                               FFButtonWidget(
                                 showLoadingIndicator: _isSubmitting,
                                 onPressed: () async {
@@ -585,10 +594,7 @@ class _ValidationLotCommercantPageWidgetState
                                   });
 
                                   try {
-                                    await widget.prize!.reference
-                                        .update(createPrizesRecordData(
-                                      claimed: true,
-                                    ));
+                                    await claimMerchantPrize(widget.prize!);
                                     if (!context.mounted) return;
                                     context.safePop();
                                   } catch (error) {

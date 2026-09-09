@@ -146,9 +146,16 @@ test("prizes : le commercant proprietaire du lot (owner_id) peut le lire", async
 
 test("prizes : le commercant proprietaire de l'enseigne (enseigne_id) peut le lire", async () => {
   const merchant = testEnv.authenticatedContext("merchant_enseigne_uid");
+  await testEnv.withSecurityRulesDisabled(async context => {
+    const db = context.firestore();
+    await db.doc('prizes/historical_shop').set({
+      enseigne_id: db.doc('enseignes/enseigne1'), claimed: false,
+    });
+  });
   await assertSucceeds(
-    merchant.firestore().collection("prizes").doc("classic_prize").get(),
+    merchant.firestore().doc("prizes/historical_shop").get(),
   );
+  await assertFails(merchant.firestore().doc('prizes/classic_prize').get());
 });
 
 test("prizes : le commercant peut retrouver un lot par claim_code via owner_id (pas via claim_code seul)", async () => {

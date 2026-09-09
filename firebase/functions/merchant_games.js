@@ -1,3 +1,4 @@
+const {ownedShops,userPath}=require('./merchant_ownership');
 const admin=require('firebase-admin');
 const functions=require('firebase-functions');
 const db=admin.firestore();
@@ -7,7 +8,8 @@ async function merchantGamesPage(uid,{cursor='',pageSize=20}={}){
   if(typeof cursor!=='string'||cursor.includes('/')) throw new functions.https.HttpsError('invalid-argument','Invalid cursor');
   const size=Math.max(1,Math.min(50,Number(pageSize)||20));
   const user=db.doc(`users/${uid}`);
-  const shops=await db.collection('enseignes').where('owner','==',user).get();
+  const shopDocs=await ownedShops(db,uid);
+  const shops={docs:shopDocs};
   const shopPaths=new Set(shops.docs.map(d=>d.ref.path));
   const queries=[db.collection('games').where('owner_id','==',user), db.collection('games').where('owner_id','==',uid)];
   for(const shop of shops.docs) for(const field of ['enseigne_id','enseigne_ref']) queries.push(db.collection('games').where(field,'==',shop.ref));
@@ -20,7 +22,7 @@ async function merchantGamesPage(uid,{cursor='',pageSize=20}={}){
   // Never skip unexamined records from another query branch.
   const examined=docs.slice(0,size);
   const ids=examined.filter(d=>{
-    const g=d.data(); const owner=g.owner_id?.path||g.owner_id;
+    const g=d.data(); const owner=g.owner_id==null?null:userPath(g.owner_id)||'invalid';
     const shop=g.enseigne_id?.path||g.enseigne_ref?.path;
     return owner ? (owner===uid||owner===user.path) && (!shop || shopPaths.has(shop)) : shopPaths.has(shop);
   }).map(d=>d.id);

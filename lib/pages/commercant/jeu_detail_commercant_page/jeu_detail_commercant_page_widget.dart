@@ -1,4 +1,5 @@
-﻿import '/auth/firebase_auth/auth_util.dart';
+import '/services/merchant_prizes_service.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
@@ -41,6 +42,8 @@ class _JeuDetailCommercantPageWidgetState
     extends State<JeuDetailCommercantPageWidget> {
   late JeuDetailCommercantPageModel _model;
 
+  late Future<List<PrizesRecord>> _prizes;
+
   final scaffoldKey = GlobalKey<ScaffoldState>();
   final Set<String> _claimingPrizeIds = <String>{};
   final GlobalKey _winningCodesSectionKey = GlobalKey();
@@ -48,6 +51,7 @@ class _JeuDetailCommercantPageWidgetState
   @override
   void initState() {
     super.initState();
+    _prizes = loadMerchantPrizes(gameId: widget.gameDoc!.reference.id);
     _model = createModel(context, () => JeuDetailCommercantPageModel());
 
     logFirebaseEvent('screen_view',
@@ -385,7 +389,8 @@ class _JeuDetailCommercantPageWidgetState
     });
 
     try {
-      await prize.reference.update(createPrizesRecordData(claimed: true));
+      await claimMerchantPrize(prize);
+      if (mounted) setState(() => _prizes = loadMerchantPrizes(gameId: widget.gameDoc!.reference.id));
       if (!mounted) {
         return;
       }
@@ -521,7 +526,7 @@ class _JeuDetailCommercantPageWidgetState
               },
             ),
           ],
-          if (!isClaimed) ...[
+          if (prize.isAvailable && prize.fulfillmentType == 'merchant') ...[
             const SizedBox(height: 12.0),
             SizedBox(
               width: double.infinity,
@@ -1166,33 +1171,17 @@ class _JeuDetailCommercantPageWidgetState
                                     fontWeight: FontWeight.w700,
                                   ),
                             ),
-                            const SizedBox(height: 10.0),
-                            StreamBuilder<List<PrizesRecord>>(
-                              stream: queryPrizesRecord(
-                                // Les regles Firestore ne peuvent autoriser une
-                                // requete en liste sur "prizes" que si un de
-                                // ses where() correspond exactement a une des
-                                // conditions de la regle de lecture (winner_id
-                                // / owner_id / enseigne_id) : un where() sur
-                                // game_id seul n'est prouvable par aucune de
-                                // ces conditions et la requete entiere est
-                                // rejetee (c'est ce qui rendait "tous les
-                                // gagnants" invisibles cote commercant). On
-                                // ajoute donc owner_id == currentUserReference,
-                                // deja utilise avec succes par
-                                // home_commercant_page_widget.dart pour la
-                                // meme collection.
-                                queryBuilder: (prizesRecord) => prizesRecord
-                                    .where(
-                                      'game_id',
-                                      isEqualTo: game.reference,
-                                    )
-                                    .where(
-                                      'owner_id',
-                                      isEqualTo: currentUserReference,
-                                    ),
-                              ),
+                            TextButton.icon(
+                              onPressed: () => setState(() => _prizes = loadMerchantPrizes(gameId: game.reference.id)),
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Actualiser les lots'),
+                            ),
+                            FutureBuilder<List<PrizesRecord>>(
+                              future: _prizes,
                               builder: (context, snapshot) {
+                                if (snapshot.hasError) {
+                                  return TextButton(onPressed: () => setState(() => _prizes = loadMerchantPrizes(gameId: game.reference.id)), child: const Text('Chargement impossible. Réessayer'));
+                                }
                                 if (!snapshot.hasData) {
                                   return Container(
                                     width: double.infinity,

@@ -84,6 +84,18 @@ test("un autre commercant est refuse", async () => {
   );
 });
 
+test('legacy admin shop owner retains winner contact; conflicting prize owner takes priority', async () => {
+  const shop=firestore.doc('enseignes/legacy_contact');
+  await shop.set({owner:'/users/merchant_uid',owner_id:firestore.doc('users/merchant_uid')});
+  const prize=firestore.doc('prizes/legacy_contact');
+  await prize.set({winner_id:firestore.doc('users/alice_uid'),enseigne_id:shop});
+  assert.equal((await wrapped({prizeId:prize.id},{auth:{uid:'merchant_uid'}})).firstName,'Alice');
+  await assert.rejects(wrapped({prizeId:prize.id},{auth:{uid:'other_merchant_uid'}}),{code:'permission-denied'});
+  await prize.update({owner_id:firestore.doc('users/other_merchant_uid')});
+  await assert.rejects(wrapped({prizeId:prize.id},{auth:{uid:'merchant_uid'}}),{code:'permission-denied'});
+  assert.equal((await wrapped({prizeId:prize.id},{auth:{uid:'other_merchant_uid'}})).firstName,'Alice');
+});
+
 test("un appel non authentifie est refuse", async () => {
   await assert.rejects(
     () => wrapped({ prizeId: "prize1" }, {}),

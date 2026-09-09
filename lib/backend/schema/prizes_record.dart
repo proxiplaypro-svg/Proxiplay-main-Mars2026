@@ -60,12 +60,29 @@ class PrizesRecord extends FirestoreRecord {
         .contains(snapshotData['prize_type'])) {
       return 'platform';
     }
-    if (ownerId != null &&
-        enseigneId != null &&
+    if ((snapshotData['owner_id'] != null || enseigneId != null) &&
         (explicit == null || explicit == 'merchant')) {
       return 'merchant';
     }
     return 'review';
+  }
+
+  bool canBeClaimedBy(String merchantUid, Set<String> ownedShopPaths,
+      {String? expectedWinnerPath}) {
+    if (merchantUid.isEmpty ||
+        !isAvailable ||
+        fulfillmentType != 'merchant' ||
+        (expectedWinnerPath != null && winnerId?.path != expectedWinnerPath)) {
+      return false;
+    }
+    final owner = snapshotData['owner_id'];
+    if (owner != null) {
+      final value = owner is DocumentReference ? owner.path : owner;
+      return value == 'users/$merchantUid' ||
+          value == '/users/$merchantUid' ||
+          value == merchantUid;
+    }
+    return enseigneId != null && ownedShopPaths.contains(enseigneId!.path);
   }
 
   // "claim_code" field.
@@ -104,7 +121,9 @@ class PrizesRecord extends FirestoreRecord {
     _winnerId = snapshotData['winner_id'] as DocumentReference?;
     _gameId = snapshotData['game_id'] as DocumentReference?;
     _enseigneId = snapshotData['enseigne_id'] as DocumentReference?;
-    _ownerId = snapshotData['owner_id'] as DocumentReference?;
+    _ownerId = snapshotData['owner_id'] is DocumentReference
+        ? snapshotData['owner_id'] as DocumentReference
+        : null;
     _claimCode = snapshotData['claim_code'] as String?;
     _claimed = snapshotData['claimed'] as bool?;
     _winDate = snapshotData['win_date'] as DateTime?;

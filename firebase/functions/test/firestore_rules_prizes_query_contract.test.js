@@ -1,37 +1,10 @@
 #!/usr/bin/env node
 
-// "Contrat de requetes" pour la collection prizes : contrairement aux autres
-// tests de regles, qui verifient des permissions en abstrait ("qui a le
-// droit de lire quoi"), ce fichier reproduit les VRAIES requetes en liste
-// (.where(...).get()) que l'app Flutter envoie aujourd'hui, ecran par
-// ecran. C'est precisement l'angle mort qui a laisse passer 3 regressions
-// silencieuses le 29/08/2026 (commit 48cd073, prizes en lecture restreinte) :
-// les tests de regles existants ne testaient que des get() sur un document
-// precis, jamais les requetes list() reellement utilisees -- or Firestore
-// traite les deux tres differemment (une requete list() est rejetee en
-// bloc si un seul de ses where() ne correspond a aucune branche de la regle,
-// meme si le document concerne serait individuellement lisible).
-//
-// Chaque test ci-dessous correspond a UN site d'appel reel dans lib/ :
-//   - jeu_detail_commercant_page_widget.dart : where(game_id) + where(owner_id)
-//   - home_commercant_page_widget.dart : where(owner_id) seul (merchantOwnedPrizes)
-//   - home_commercant_page_widget.dart : where(enseigne_id) seul (par enseigne, dans Future.wait)
-// Si un site d'appel change de forme de requete, ou si un nouveau site
-// d'appel est ajoute ailleurs dans l'app, ce fichier doit etre mis a jour en
-// meme temps (grep `queryPrizesRecord` dans lib/ pour verifier la liste est
-// complete).
-//
-// NOTE 2026-08-31 : firestore.rules a temporairement `allow read: if true`
-// sur prizes (voir le commentaire TEMPORAIRE dans ce fichier) -- ces trois
-// requetes reussissent donc trivialement en ce moment. Ce n'est pas un
-// probleme : elles continueront a reussir exactement pareil une fois la
-// regle stricte reactivee (elles sont concues pour), donc ce fichier reste
-// la protection utile pour CE moment-la, sans rien avoir a changer ici.
-//
-// Run against the local Firestore emulator only:
-//
-//   firebase emulators:exec --only firestore \
-//     "node --test test/firestore_rules_prizes_query_contract.test.js"
+// Compatibility contract for OLD direct prize queries. Explicit owner queries
+// still work; raw enseigne queries are denied to preserve owner priority.
+// Current mobile listing uses getMerchantPrizes + individual reads: its positive
+// and negative end-to-end data path is covered by merchant_prizes.test.js.
+// Keep these checks as an explicit migration gate for distributed old clients.
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -40,6 +13,7 @@ const path = require("node:path");
 const {
   initializeTestEnvironment,
   assertSucceeds,
+  assertFails,
 } = require("@firebase/rules-unit-testing");
 
 let testEnv;
@@ -113,13 +87,16 @@ test("contrat : home_commercant_page_widget.dart -- where(owner_id) seul (mercha
   assert.equal(snap.docs[0].id, "prize_owner");
 });
 
-test("contrat : home_commercant_page_widget.dart -- where(enseigne_id) seul (par enseigne)", async () => {
+test("contrat : home_commercant_page_widget.dart -- ancienne requete enseigne seule refusee; lecture historique individuelle autorisee", async () => {
+  await testEnv.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    await db.doc('prizes/conflicting_owner').set({owner_id: db.doc('users/other'), enseigne_id: db.doc('enseignes/enseigne1')});
+  });
   const merchant = testEnv.authenticatedContext("merchant_uid");
-  const snap = await assertSucceeds(
+  await assertFails(
     merchant.firestore().collection("prizes")
       .where("enseigne_id", "==", merchant.firestore().doc("enseignes/enseigne1"))
       .get(),
   );
-  const ids = snap.docs.map((doc) => doc.id).sort();
-  assert.deepEqual(ids, ["prize_enseigne_only", "prize_owner"]);
+  await assertSucceeds(merchant.firestore().doc("prizes/prize_enseigne_only").get());
 });

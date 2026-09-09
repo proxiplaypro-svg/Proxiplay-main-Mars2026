@@ -4,6 +4,8 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const {isFunctionsEmulator} = require("./lib/emulator_runtime");
 admin.initializeApp();
+const {shopOwnerRef,ownsPrize}=require('./merchant_ownership');
+exports.getMerchantPrizes=require('./merchant_prizes').getMerchantPrizes;
 exports.syncPrizeLotSnapshot = require('./prize_lot_snapshot').syncPrizeLotSnapshot;
 exports.getMerchantGames = require('./merchant_games').getMerchantGames;
 exports.syncPublicPrizeWinner = require("./public_winners").syncPublicPrizeWinner;
@@ -105,7 +107,8 @@ const generateInstantWinnersForGameCallable = functions
     const isCallerAdmin = (await callerRef.get()).data()?.user_role === "admin";
     const shopRef = toDocRef(gameData.enseigne_id || gameData.enseigne_ref);
     const shop = shopRef ? await shopRef.get() : null;
-    const ownerRef = toDocRef(gameData.owner_id) || toDocRef(shop?.data()?.owner);
+    const ownerRef = gameData.owner_id != null
+      ? toDocRef(gameData.owner_id) : shopOwnerRef(firestore,shop?.data());
 
     if (
       !isCallerAdmin &&
@@ -300,12 +303,10 @@ const getPrizeWinnerContactForMerchantCallable = functions
     const enseigneData = enseigneRef
       ? (await getDocData(enseigneRef)) || {}
       : {};
-    const enseigneOwnerRef = toDocRef(enseigneData.owner);
-    const prizeOwnerRef = toDocRef(prizeData.owner_id);
-
-    const isOwner =
-      (enseigneOwnerRef && enseigneOwnerRef.path === callerRef.path) ||
-      (prizeOwnerRef && prizeOwnerRef.path === callerRef.path);
+    const enseigneOwnerRef = shopOwnerRef(firestore, enseigneData);
+    const ownedShopPaths = new Set(enseigneRef && enseigneOwnerRef?.path === callerRef.path
+      ? [enseigneRef.path] : []);
+    const isOwner = ownsPrize(prizeData, context.auth.uid, ownedShopPaths);
 
     if (!isCallerAdmin && !isOwner) {
       console.error("[GET_PRIZE_WINNER_CONTACT_BLOCKED]", {
@@ -5150,8 +5151,8 @@ exports.notifyPrizeWon = functions
     const winnerData = winnerDataRaw || {};
     const enseigneData = enseigneDataRaw || {};
 
-    if (!ownerRef && enseigneData.owner) {
-      ownerRef = toDocRef(enseigneData.owner);
+    if (!ownerRef) {
+      ownerRef = shopOwnerRef(firestore,enseigneData);
     }
 
     let ownerData = ownerDataRaw || {};
@@ -6231,4 +6232,3 @@ exports.deleteEnseigneAndGames = deleteEnseigneAndGames;
 
 const {deleteCommercantAccount} = require("./delete_commercant_account");
 exports.deleteCommercantAccount = deleteCommercantAccount;
-

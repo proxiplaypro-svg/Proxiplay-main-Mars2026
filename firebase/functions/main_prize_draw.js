@@ -1,3 +1,4 @@
+const {shopOwnerRef,userPath}=require('./merchant_ownership');
 const admin=require('firebase-admin');
 const functions=require('firebase-functions');
 const crypto=require('crypto');
@@ -33,8 +34,10 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
     const enseigneRef=game.enseigne_id||game.enseigne_ref;
     if(!/^enseignes\/[^/]+$/.test(enseigneRef?.path||'')) return review(gameId,'missing_enseigne');
     const shop=await tx.get(enseigneRef);
-    const ownerRef=game.owner_id?.path?game.owner_id:shop.data()?.owner;
-    if(!shop.exists||!/^users\/[^/]+$/.test(ownerRef?.path||'') || (shop.data().owner?.path && shop.data().owner.path!==ownerRef.path)) return review(gameId,'invalid_merchant_owner');
+    const trustedOwner=shopOwnerRef(db,shop.data());
+    const explicitOwner=userPath(game.owner_id);
+    const ownerRef=explicitOwner?db.doc(explicitOwner):game.owner_id==null?trustedOwner:null;
+    if(!shop.exists||!/^users\/[^/]+$/.test(ownerRef?.path||'') || (!trustedOwner || trustedOwner.path!==ownerRef.path)) return review(gameId,'invalid_merchant_owner');
     const winner=eligible[crypto.randomInt(eligible.length)];
     const prizeRef=db.collection('prizes').doc();
     const first=String(winner.data.first_name||winner.data.firstName||'').split(/\s+/)[0];

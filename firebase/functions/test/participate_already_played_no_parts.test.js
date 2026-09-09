@@ -51,6 +51,19 @@ const dayKey = getParisDayKey(new Date());
 const now = admin.firestore.Timestamp.now();
 const hourMs = 60 * 60 * 1000;
 
+test('admin legacy owner permits participation; contradictory ownership is rejected before spending a part', async () => {
+  await seedGame({gameId: 'legacy_admin', ownerUid: 'merchant', enseigneId: 'legacy_shop'});
+  await firestore.doc('games/legacy_admin').update({create_by: firestore.doc('users/admin')});
+  await firestore.doc('enseignes/legacy_shop').update({owner: '/users/merchant', owner_id: firestore.doc('users/merchant')});
+  await firestore.doc('users/player').set({user_role: 'joueur', remaining_part: 3});
+  const result = await wrapped({gameRef: 'legacy_admin', from_qr: false}, {auth: {uid: 'player'}});
+  assert.equal(result.alreadyParticipatedToday, false);
+  await firestore.doc('enseignes/legacy_shop').update({owner: '/users/other'});
+  await firestore.doc('users/second').set({user_role: 'joueur', remaining_part: 3});
+  await assert.rejects(wrapped({gameRef: 'legacy_admin', from_qr: false}, {auth: {uid: 'second'}}), {code: 'failed-precondition'});
+  assert.equal((await firestore.doc('users/second').get()).data().remaining_part, 3);
+});
+
 async function seedGame({ gameId, ownerUid, enseigneId }) {
   await firestore.collection("users").doc(ownerUid).set({
     user_role: "commercant",

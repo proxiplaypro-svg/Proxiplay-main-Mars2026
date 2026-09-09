@@ -112,8 +112,7 @@ service cloud.firestore {
     function isMerchantOwnerOfEnseigne(enseigneRef) {
       return isSignedIn() &&
         enseigneRef != null &&
-        get(enseigneRef).data.owner ==
-          /databases/$(database)/documents/users/$(request.auth.uid);
+        ownsShopData(get(enseigneRef).data);
     }
 
     // -- Fonctions requises par la console admin (repo proxiplay-admin),
@@ -123,6 +122,23 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.email != null
         ? request.auth.token.email
         : null;
+    }
+
+    function isUserIdentity(value) {
+      return isSignedIn() && (isOwnerRef(value) || value == request.auth.uid ||
+        value == 'users/' + request.auth.uid || value == '/users/' + request.auth.uid);
+    }
+    function ownsShopData(data) {
+      let owner = data.get('owner', null);
+      let primary = data.get('owner_id', null);
+      return (primary != null || owner != null) &&
+        (primary == null || isUserIdentity(primary)) &&
+        (owner == null || isUserIdentity(owner));
+    }
+    function ownsMerchantPrize(data) {
+      let owner = data.get('owner_id', null);
+      return (owner != null && isUserIdentity(owner)) ||
+        (owner == null && isMerchantOwnerOfEnseigne(data.get('enseigne_id', null)));
     }
 
     function ownsTrustedMerchant(data) {
@@ -137,7 +153,7 @@ service cloud.firestore {
       let shop = data.get('enseigne_id', data.get('enseigne_ref', null));
       let owner = data.get('owner_id', null);
       return isSignedIn() && isMerchantOwnerOfEnseigne(shop) &&
-        (owner == null || isOwnerRef(owner) || owner == request.auth.uid);
+        (owner == null || isUserIdentity(owner));
     }
 
     function canManageLegacyGame() {
@@ -152,7 +168,7 @@ service cloud.firestore {
 
     function isPrizeClaimValidationUpdate() {
       return isMerchantPrize(resource.data) &&
-        resource.data.claimed != true &&
+        resource.data.get('claimed', false) != true &&
         request.resource.data.claimed == true &&
         (resource.data.get('usage_deadline', null) == null ||
           (resource.data.usage_deadline is timestamp &&
@@ -393,16 +409,17 @@ service cloud.firestore {
       allow create, delete: if false;
       allow update: if isAdmin() || (
         isPrizeClaimValidationUpdate() &&
-        (
-          isOwnerRef(resource.data.get('owner_id', null)) ||
-          isMerchantOwnerOfEnseigne(resource.data.get('enseigne_id', null))
-        )
+        ownsMerchantPrize(resource.data)
       );
       // PRIZES_READ_POLICY: strict; rollout compatibility file is explicit and temporary.
-      allow read: if isAdmin() ||
+      allow get: if isAdmin() ||
         isOwnerRef(resource.data.get('winner_id', null)) ||
-        isOwnerRef(resource.data.get('owner_id', null)) ||
-        isMerchantOwnerOfEnseigne(resource.data.get('enseigne_id', null));
+        ownsMerchantPrize(resource.data);
+      // Historical fallback is resolved by getMerchantPrizes, followed by get.
+      // A broad enseigne query cannot guarantee explicit-owner priority.
+      allow list: if isAdmin() ||
+        isOwnerRef(resource.data.get('winner_id', null)) ||
+        isUserIdentity(resource.data.get('owner_id', null));
     }
 
     match /public_prize_winners/{document} {
