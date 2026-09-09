@@ -1,4 +1,5 @@
-﻿import '/auth/firebase_auth/auth_util.dart';
+import '/services/merchant_games_service.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
 import '/components/delete_confirmation_account_widget.dart';
@@ -57,21 +58,12 @@ class _ProfilCommercantPageWidgetState
       ),
     );
     if (_model.deleteRequestCountResult == 0) {
-      _model.resultEndGame = await queryGamesRecordCount(
-        queryBuilder: (gamesRecord) => gamesRecord
-            .where(
-              'create_by',
-              isEqualTo: currentUserReference,
-            )
-            .where(
-              'hasWinner',
-              isEqualTo: false,
-            )
-            .where(
-              'end_date',
-              isGreaterThan: getCurrentTimestamp,
-            ),
-      );
+      _model.resultEndGame = (await loadAllMerchantGames())
+          .where((g) =>
+              !g.hasWinner &&
+              g.endDate != null &&
+              g.endDate!.isAfter(getCurrentTimestamp))
+          .length;
       if (_model.resultEndGame == 0) {
         await showDialog(
           context: context,
@@ -90,11 +82,12 @@ class _ProfilCommercantPageWidgetState
                   },
                   child: DeleteConfirmationAccountWidget(
                     actions: () async {
-                      await AccountDeletionRequestsRecord.collection.doc().set(
-                          createAccountDeletionRequestsRecordData(
-                        merchantId: currentUserReference,
-                        requestedAt: getCurrentTimestamp,
-                      ));
+                      await AccountDeletionRequestsRecord.collection
+                          .doc()
+                          .set(createAccountDeletionRequestsRecordData(
+                            merchantId: currentUserReference,
+                            requestedAt: getCurrentTimestamp,
+                          ));
                       await showDialog(
                         context: context,
                         builder: (dialogContext) {
@@ -112,7 +105,8 @@ class _ProfilCommercantPageWidgetState
                                 },
                                 child: InformationalDialogCustomWidget(
                                   title: 'Suppression du compte',
-                                  body: 'Une demande de suppression a été faite.',
+                                  body:
+                                      'Une demande de suppression a été faite.',
                                   action: () async {},
                                 ),
                               ),
@@ -278,8 +272,8 @@ class _ProfilCommercantPageWidgetState
                 children: [
                   Expanded(
                     child: Padding(
-                      padding:
-                          const EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 0.0),
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                          20.0, 20.0, 20.0, 0.0),
                       child: SingleChildScrollView(
                         child: Column(
                           mainAxisSize: MainAxisSize.max,
@@ -343,9 +337,8 @@ class _ProfilCommercantPageWidgetState
                                         ),
                                         Expanded(
                                           child: Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 0.0, 0.0, 0.0),
+                                            padding: const EdgeInsetsDirectional
+                                                .fromSTEB(12.0, 0.0, 0.0, 0.0),
                                             child: Text(
                                               'Mes informations',
                                               style:
@@ -380,8 +373,8 @@ class _ProfilCommercantPageWidgetState
                                           ),
                                         ),
                                         Align(
-                                          alignment:
-                                              const AlignmentDirectional(0.9, 0.0),
+                                          alignment: const AlignmentDirectional(
+                                              0.9, 0.0),
                                           child: Icon(
                                             Icons.arrow_forward_ios,
                                             color: FlutterFlowTheme.of(context)
@@ -437,7 +430,8 @@ class _ProfilCommercantPageWidgetState
                                     );
                                   } else {
                                     context.pushNamed(
-                                      MesEnseignesCommercantPageWidget.routeName,
+                                      MesEnseignesCommercantPageWidget
+                                          .routeName,
                                     );
                                   }
                                 },
@@ -463,9 +457,8 @@ class _ProfilCommercantPageWidgetState
                                         ),
                                         Expanded(
                                           child: Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 0.0, 0.0, 0.0),
+                                            padding: const EdgeInsetsDirectional
+                                                .fromSTEB(12.0, 0.0, 0.0, 0.0),
                                             child: Text(
                                               'Mon point de vente',
                                               style:
@@ -500,8 +493,8 @@ class _ProfilCommercantPageWidgetState
                                           ),
                                         ),
                                         Align(
-                                          alignment:
-                                              const AlignmentDirectional(0.9, 0.0),
+                                          alignment: const AlignmentDirectional(
+                                              0.9, 0.0),
                                           child: Icon(
                                             Icons.arrow_forward_ios,
                                             color: FlutterFlowTheme.of(context)
@@ -545,8 +538,9 @@ class _ProfilCommercantPageWidgetState
                                     shape: BoxShape.rectangle,
                                   ),
                                   child: Padding(
-                                    padding: const EdgeInsetsDirectional.fromSTEB(
-                                        8.0, 8.0, 8.0, 8.0),
+                                    padding:
+                                        const EdgeInsetsDirectional.fromSTEB(
+                                            8.0, 8.0, 8.0, 8.0),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.max,
                                       children: [
@@ -557,39 +551,36 @@ class _ProfilCommercantPageWidgetState
                                         ),
                                         Expanded(
                                           child: Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 0.0, 12.0, 0.0),
+                                            padding: const EdgeInsetsDirectional
+                                                .fromSTEB(12.0, 0.0, 12.0, 0.0),
                                             child: Text(
                                               'Se déconnecter',
-                                              style:
-                                                  FlutterFlowTheme.of(context)
-                                                      .bodyLarge
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyLarge
-                                                                  .fontStyle,
-                                                        ),
-                                                        color:
-                                                            const Color(
-                                                                0xFFA0134D),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .fontStyle,
-                                                      ),
+                                              style: FlutterFlowTheme.of(
+                                                      context)
+                                                  .bodyLarge
+                                                  .override(
+                                                    font: GoogleFonts.inter(
+                                                      fontWeight:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodyLarge
+                                                              .fontWeight,
+                                                      fontStyle:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .bodyLarge
+                                                              .fontStyle,
+                                                    ),
+                                                    color:
+                                                        const Color(0xFFA0134D),
+                                                    letterSpacing: 0.0,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .bodyLarge
+                                                            .fontStyle,
+                                                  ),
                                             ),
                                           ),
                                         ),
@@ -662,9 +653,8 @@ class _ProfilCommercantPageWidgetState
                                         ),
                                         Expanded(
                                           child: Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 0.0, 0.0, 0.0),
+                                            padding: const EdgeInsetsDirectional
+                                                .fromSTEB(12.0, 0.0, 0.0, 0.0),
                                             child: Text(
                                               'Nous contacter',
                                               style:
@@ -699,8 +689,8 @@ class _ProfilCommercantPageWidgetState
                                           ),
                                         ),
                                         Align(
-                                          alignment:
-                                              const AlignmentDirectional(0.9, 0.0),
+                                          alignment: const AlignmentDirectional(
+                                              0.9, 0.0),
                                           child: Icon(
                                             Icons.arrow_forward_ios,
                                             color: FlutterFlowTheme.of(context)
@@ -752,9 +742,8 @@ class _ProfilCommercantPageWidgetState
                                         ),
                                         Expanded(
                                           child: Padding(
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 0.0, 0.0, 0.0),
+                                            padding: const EdgeInsetsDirectional
+                                                .fromSTEB(12.0, 0.0, 0.0, 0.0),
                                             child: Text(
                                               'Mentions légales',
                                               style:
@@ -805,7 +794,8 @@ class _ProfilCommercantPageWidgetState
                                 await _handleDeleteAccountTap();
                               },
                               child: const Padding(
-                                padding: EdgeInsets.only(top: 24.0, bottom: 16.0),
+                                padding:
+                                    EdgeInsets.only(top: 24.0, bottom: 16.0),
                                 child: Center(
                                   child: Text(
                                     'Supprimer mon compte',
@@ -839,5 +829,3 @@ class _ProfilCommercantPageWidgetState
     );
   }
 }
-
-

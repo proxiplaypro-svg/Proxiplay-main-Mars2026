@@ -77,7 +77,7 @@ async function addReferralGameTicket(gameId, referralId, now = admin.firestore.T
         const referral = referralSnap.data();
         const startMs = game.start_date?.toMillis?.();
         const endMs = game.end_date?.toMillis?.();
-        if (game.status !== 'active' || startMs == null || endMs == null || startMs > now.toMillis() || endMs < now.toMillis())
+        if (game.winner_uid || game.draw_status === 'completed' || game.draw_status === 'no_eligible_entries' || game.status !== 'active' || startMs == null || endMs == null || startMs > now.toMillis() || endMs < now.toMillis())
             return 'ineligible';
         if (referral.status !== 'accepted' || !referral.inviterUid?.trim())
             return 'ineligible';

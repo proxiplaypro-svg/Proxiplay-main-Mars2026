@@ -105,7 +105,8 @@ async function seedMyLot(prizeId) {
 }
 
 test("ancien lot instantane (pre-migration, sans lien my_lots) : invisible tant que non repare, puis visible", async () => {
-  await seedPrize("old_instant", {prize_type: "secondaire"});
+  await adminFirestore.doc('games/historical').set({});
+  await seedPrize("old_instant", {prize_type: "secondaire", game_id:adminFirestore.doc('games/historical')});
   // Pas de seedMyLot() ici : reproduit un lot cree avant le 2026-03-15.
 
   const player = testEnv.authenticatedContext("player1");

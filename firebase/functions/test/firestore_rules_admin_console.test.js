@@ -50,6 +50,7 @@ test.before(async () => {
 
     await db.collection("enseignes").doc("enseigne1").set({
       email: "merchant@example.test",
+      owner_id: db.doc("users/merchant_uid"),
     });
     await db.collection("merchants").doc("merchant1").set({
       email: "othermerchant@example.test",
@@ -157,9 +158,7 @@ test("games participants : un joueur ne peut pas moderer les participations", as
 });
 
 test(
-  "securite : prizes reste protege (claim_code non public) apres la fusion",
-  {skip: "TEMPORAIRE 2026-08-31 : prizes est en allow read: if true, a reactiver au prochain build (voir firestore.rules)"},
-  async () => {
+  "securite : prizes reste protege (claim_code non public) apres la fusion",  async () => {
     const anon = testEnv.unauthenticatedContext();
     await assertFails(anon.firestore().collection("prizes").doc("prize1").get());
   },

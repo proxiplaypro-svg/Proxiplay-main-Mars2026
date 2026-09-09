@@ -1,5 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const {runScheduledDraws} = require("./scheduled_draw_runner");
 const { drawReferralGame, repairReferralGameDraw } = require("./referral_game_engine");
 
 const db = admin.firestore();
@@ -21,33 +22,22 @@ exports.drawReferralGameWinner = functions.pubsub
   .onRun(async () => {
     const now = admin.firestore.Timestamp.now();
 
-    const gamesSnap = await db
-      .collection("referral_games")
-      .where("status", "==", "active")
-      .where("end_date", "<=", now)
-      .get();
+    return runScheduledDraws({
+      name: "drawReferralGameWinner",
+      logger: functions.logger,
+      load: async () => {
+        const gamesSnap = await db
+          .collection("referral_games")
+          .where("status", "in", ["active", "ended"])
+          .where("end_date", "<=", now)
+          .get();
 
-    const eligible = gamesSnap.docs.filter(
-      (doc) => !getTrimmedString((doc.data() || {}).winner_uid)
-    );
-
-    functions.logger.info("drawReferralGameWinner: run started", {
-      total: gamesSnap.size,
-      eligible: eligible.length,
-    });
-
-    for (const doc of eligible) {
-      try {
-        await drawReferralGame(doc.id);
-      } catch (error) {
-        functions.logger.error(
-          `drawReferralGameWinner: failed for gameId=${doc.id}`,
-          error
+        return gamesSnap.docs.filter(
+          (doc) => !getTrimmedString((doc.data() || {}).winner_uid)
         );
-      }
-    }
-
-    return null;
+      },
+      draw: (doc) => drawReferralGame(doc.id, {now}),
+    });
   });
 
 exports.drawReferralGame = drawReferralGame;

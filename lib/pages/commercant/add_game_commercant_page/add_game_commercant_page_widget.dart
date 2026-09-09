@@ -873,6 +873,7 @@ class _AddGameCommercantPageWidgetState
     final qrLink = buildGameQrLink(gamesRecordReference.id);
     debugPrint('[HAS_WINNER WRITE] {gameId: ${gamesRecordReference.id}, previousValue: null, newValue: false, sourceFunction: addGameCommercantPage, winnerType: creation-jeu, hasMainPrize: $shouldPersistMainPrize, endDate: ${_model.endDateTransformCopy?.toIso8601String()}, now: ${DateTime.now().toIso8601String()}}');
     await gamesRecordReference.set({
+      'owner_id': currentUserReference,
       ...createGamesRecordData(
         name: gameName,
         description:
@@ -912,6 +913,7 @@ class _AddGameCommercantPageWidgetState
       ),
     });
     _model.gameResult = GamesRecord.getDocumentFromData({
+      'owner_id': currentUserReference,
       ...createGamesRecordData(
         name: gameName,
         description:

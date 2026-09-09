@@ -1,3 +1,4 @@
+const {checkAwardLinks, review} = require("./prize_integrity");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const {pickWinningTicket} = require("./lib/referral_games_core");
@@ -20,6 +21,7 @@ function prizePayload(gameId, game, winnerRef, drawnAt) {
   const description = text(game.prize_description);
   return {
     prize_type: "referral_game",
+    fulfillment_type: "platform",
     name: description || text(game.title) || "Lot parrainage",
     description,
     prize_label: description,
@@ -41,24 +43,31 @@ async function drawReferralGame(gameId, {allowEarly = false, now = admin.firesto
     if (["completed", "no_eligible_entries"].includes(text(game.draw_status))) {
       return {status: "already_finalized", winnerUid: text(game.winner_uid)};
     }
-    if (game.status !== "active") throw new Error("Referral game is not active.");
+    if (!["active", "ended"].includes(game.status)) throw new Error("Referral game is not active.");
     if (!allowEarly && (!game.end_date || game.end_date.toMillis() > now.toMillis())) {
       throw new Error("Referral game has not ended yet.");
     }
+    const pendingRewards = await transaction.get(db.collection('referral_reward_pending')
+      .where('game_id', '==', gameId).where('status', 'in', ['pending', 'manual_review_required']));
+    if (!pendingRewards.empty) return review(gameId, 'unresolved_referral_rewards');
     const entriesSnap = await transaction.get(gameRef.collection("entries"));
     const eligible = [];
+    const excludedEntries = [];
     for (const entryDoc of entriesSnap.docs) {
       const entry = entryDoc.data() || {};
       const inviterUid = text(entry.inviter_uid);
       const userRef = inviterUid ? db.collection("users").doc(inviterUid) : null;
       const userSnap = userRef ? await transaction.get(userRef) : null;
       if (!userRef || !userSnap.exists || excluded(userSnap.data() || {})) {
-        transaction.set(entryDoc.ref, {eligibility_status: "excluded", updated_at: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+        excludedEntries.push(entryDoc.ref);
         continue;
       }
       eligible.push({...entry, inviter_uid: inviterUid, entryRef: entryDoc.ref, userRef});
     }
     if (eligible.length === 0) {
+      for (const ref of excludedEntries) {
+        transaction.set(ref, {eligibility_status: "excluded", updated_at: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+      }
       transaction.set(gameRef, {
         status: "ended", draw_status: "no_eligible_entries", drawn_at: now,
         total_ticket_count: entriesSnap.size, eligible_ticket_count: 0,
@@ -69,6 +78,11 @@ async function drawReferralGame(gameId, {allowEarly = false, now = admin.firesto
     const winnerRef = selected.winningTicket.userRef;
     const prizeRef = db.collection("prizes").doc(`referral_game_${gameId}`);
     const prizeSnap = await transaction.get(prizeRef);
+    const integrity = await checkAwardLinks(transaction, {prizeRef, winnerRef: winnerRef, sourceField: 'referral_game_id', sourceValue: gameId, prizeSnap});
+    if (integrity.status !== 'consistent') return integrity;
+    for (const ref of excludedEntries) {
+      transaction.set(ref, {eligibility_status: "excluded", updated_at: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
+    }
     if (!prizeSnap.exists) transaction.set(prizeRef, prizePayload(gameId, game, winnerRef, now));
     transaction.set(winnerRef.collection("my_lots").doc(prizeRef.id), {
       prize_id: prizeRef, updated_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -96,9 +110,11 @@ async function repairReferralGameDraw(gameId) {
     if (!winnerUid) return {status: "nothing_to_repair"};
     const winnerRef = db.collection("users").doc(winnerUid);
     const winnerSnap = await transaction.get(winnerRef);
-    if (!winnerSnap.exists) throw new Error("Winner no longer exists.");
+    if (!winnerSnap.exists) return review(gameId, 'missing_winner_account');
     const prizeRef = db.collection("prizes").doc(`referral_game_${gameId}`);
     const prizeSnap = await transaction.get(prizeRef);
+    const integrity = await checkAwardLinks(transaction, {prizeRef, winnerRef: winnerRef, sourceField: 'referral_game_id', sourceValue: gameId, prizeSnap});
+    if (integrity.status !== 'consistent') return integrity;
     const drawnAt = game.drawn_at || admin.firestore.Timestamp.now();
     if (!prizeSnap.exists) transaction.set(prizeRef, prizePayload(gameId, game, winnerRef, drawnAt));
     transaction.set(winnerRef.collection("my_lots").doc(prizeRef.id), {

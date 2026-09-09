@@ -1,0 +1,20 @@
+process.env.FIRESTORE_EMULATOR_HOST ||= '127.0.0.1:8080';
+process.env.GCLOUD_PROJECT='demo-proxiplay-lot-snapshot';
+const test=require('node:test'),assert=require('node:assert/strict'),admin=require('firebase-admin');
+if(!admin.apps.length) admin.initializeApp();
+const db=admin.firestore();const {syncLotSnapshot}=require('../prize_lot_snapshot');
+test.beforeEach(async()=>{for(const c of await db.listCollections()) await db.recursiveDelete(c);});
+test('snapshot reflects claim and expiry; retries never recreate player-deleted links or copy to wrong owner',async()=>{
+ await db.doc('prizes/p').set({winner_id:db.doc('users/u'),claimed:false,email:'secret'});
+ const link=db.doc('users/u/my_lots/p');
+ await link.set({prize_id:db.doc('prizes/p')});
+ await db.doc('users/other/my_lots/p').set({prize_id:db.doc('prizes/p')});
+ await syncLotSnapshot('p');
+ assert.equal((await link.get()).data().prize_snapshot.email,undefined);
+ await db.doc('prizes/p').update({claimed:true,usage_deadline:admin.firestore.Timestamp.fromMillis(1)});
+ await syncLotSnapshot('p');await syncLotSnapshot('p');
+ assert.equal((await link.get()).data().prize_snapshot.claimed,true);
+ assert.equal((await link.get()).data().prize_snapshot.usage_deadline.toMillis(),1);
+ assert.equal((await db.doc('users/other/my_lots/p').get()).data().prize_snapshot,undefined);
+ await link.delete();await syncLotSnapshot('p');assert.equal((await link.get()).exists,false);
+});

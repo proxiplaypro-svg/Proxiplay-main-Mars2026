@@ -3340,7 +3340,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                             DocumentSnapshot<Map<String, dynamic>>>(
                                                                           stream: FirebaseFirestore
                                                                               .instance
-                                                                              .doc('animations/${animation.id}/winner/current')
+                                                                              .doc('animations/${animation.id}/public_winner/current')
                                                                               .snapshots(),
                                                                           builder:
                                                                               (context, winnerSnapshot) {

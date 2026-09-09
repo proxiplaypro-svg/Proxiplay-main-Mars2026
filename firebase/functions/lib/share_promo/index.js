@@ -33,7 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.expireOldReferrals = exports.grantReferralReward = exports.adminReconcileReferralGameTickets = exports.registerReferralAcceptance = exports.createReferral = exports.getSharePromoState = exports.remindUsersWithRemainingDailyPlays = void 0;
+exports.retryReferralRewards = exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.expireOldReferrals = exports.grantReferralReward = exports.adminReconcileReferralGameTickets = exports.registerReferralAcceptance = exports.createReferral = exports.getSharePromoState = exports.remindUsersWithRemainingDailyPlays = void 0;
+const { prepareReferralReward, processReferralReward, retryPendingReferralRewards, pendingRef } = require('../../referral_reward_queue');
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const firestore_1 = require("./firestore");
@@ -80,6 +81,15 @@ async function grantReferralRewardInternal(referralId, grantedBy) {
         }
         if (referral.status !== 'accepted' || !referral.inviteeUid) {
             return { granted: false, reason: 'referral_not_eligible' };
+        }
+        const inviter = await transaction.get(firestore_1.refs.user(referral.inviterUid));
+        const account = inviter.data();
+        if (!inviter.exists || require('../../prize_integrity').excluded(account)) {
+            return { granted: false, reason: 'inviter_ineligible' };
+        }
+        const durableReward = await transaction.get(pendingRef(referralId));
+        if (durableReward.exists && durableReward.data()?.mode === 'game') {
+            return { granted: false, reason: 'game_reward_managed' };
         }
         const [inviterGrantedSnap, inviteeGrantedSnap, eventSnap] = await Promise.all([
             transaction.get(firestore_1.refs
@@ -305,6 +315,9 @@ exports.registerReferralAcceptance = functions
         if (referral.inviterUid === auth.uid) {
             throw new functions.https.HttpsError('failed-precondition', 'Self-referrals are not allowed.');
         }
+        if (referral.status === 'accepted' && referral.inviteeUid === auth.uid) {
+            return { inviterUid: referral.inviterUid, rewardStatus: referral.rewardStatus };
+        }
         if (!existingInviteeReferralSnap.empty) {
             throw new functions.https.HttpsError('already-exists', 'A referral has already been used for this account.');
         }
@@ -314,10 +327,13 @@ exports.registerReferralAcceptance = functions
         const rewardStatus = campaign.requireInviteeSignup && !inviteeUserSnap.exists
             ? 'blocked'
             : 'available';
+        const acceptedAt = admin.firestore.Timestamp.now();
+        const rewardEvent = await prepareReferralReward(transaction, referralRef.id, referral.inviterUid, acceptedAt);
+        transaction.create(pendingRef(referralRef.id), rewardEvent);
         transaction.update(referralRef, {
             inviteeUid: auth.uid,
             status: 'accepted',
-            acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
+            acceptedAt,
             acceptedFromDeviceId: (0, firestore_1.normalizeNullableString)(data?.acceptedFromDeviceId),
             rewardStatus,
         });
@@ -327,17 +343,12 @@ exports.registerReferralAcceptance = functions
         (0, firestore_1.recomputeShareState)(acceptanceResult.inviterUid),
         (0, firestore_1.recomputeAdminStats)(),
     ]);
-    // Le filleul vient d'utiliser le code pour creer son compte : c'est ce
-    // qui compte comme parrainage valide. S'il existe un jeu de parrainage
-    // actif, ce parrainage donne un ticket de tirage au sort a la place de
-    // la recompense classique (remplacement conditionne a l'existence d'un
-    // jeu actif, pas une bascule definitive -- voir referral_games.ts).
-    const activeReferralGame = await (0, referral_games_1.findActiveReferralGame)();
-    if (activeReferralGame) {
-        await (0, referral_games_1.addReferralGameTicket)(activeReferralGame.id, referralRef.id);
+    try {
+        await processReferralReward(referralRef.id, grantReferralRewardInternal);
     }
-    else if (acceptanceResult.rewardStatus === 'available') {
-        await grantReferralRewardInternal(referralRef.id, 'system/registerReferralAcceptance');
+    catch (error) {
+        // Acceptance is durable: the scheduled worker retries the pending event.
+        functions.logger.error('REFERRAL_REWARD_DEFERRED', { referralId: referralRef.id });
     }
     return {
         success: true,
@@ -487,3 +498,4 @@ exports.adminGetSharePromoStats = functions
             .slice(0, 10),
     };
 });
+exports.retryReferralRewards = functions.region(firestore_1.region).runWith({ timeoutSeconds: 540, memory: '512MB' }).pubsub.schedule('every 1 minutes').onRun(() => retryPendingReferralRewards(grantReferralRewardInternal));

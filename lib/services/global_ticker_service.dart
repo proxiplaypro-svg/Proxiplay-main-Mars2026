@@ -167,13 +167,13 @@ class GlobalTickerService {
   Future<GlobalTickerSnapshot?> _fetchLegacyFallback() async {
     try {
       final prizesSnapshot = await FirebaseFirestore.instance
-          .collection('prizes')
+          .collection('public_prize_winners')
           .orderBy('win_date', descending: true)
           .limit(12)
           .get();
 
       final messages = <String>[];
-      final userCache = <String, Map<String, dynamic>?>{};
+
 
       for (final prizeDoc in prizesSnapshot.docs) {
         if (messages.length >= 8) {
@@ -200,40 +200,6 @@ class GlobalTickerService {
 
         var firstName = _normalizeFirstName(denormalizedFirstName);
 
-        final winnerRef = prizeData['winner_id'];
-        if (firstName.isEmpty && winnerRef is DocumentReference) {
-          Map<String, dynamic>? winnerData = userCache[winnerRef.path];
-          if (!userCache.containsKey(winnerRef.path)) {
-            try {
-              final winnerSnap = await winnerRef.get();
-              winnerData = winnerSnap.data() as Map<String, dynamic>?;
-            } catch (error) {
-              // Anciennes donnees non re-tirees depuis ce correctif : pas de
-              // champ denormalise ET lecture refusee. On degrade sur "Un
-              // joueur" pour cette seule entree plutot que de faire echouer
-              // tout le fallback.
-              debugPrint(
-                '[GlobalTicker] legacy fallback winner read denied '
-                'ref=${winnerRef.path} error=$error',
-              );
-              winnerData = null;
-            }
-            userCache[winnerRef.path] = winnerData;
-          }
-
-          firstName = _normalizeFirstName(
-            [
-              winnerData?['first_name'],
-              winnerData?['firstName'],
-              winnerData?['display_name'],
-              winnerData?['displayName'],
-              winnerData?['pseudo'],
-            ]
-                .map((value) => value?.toString().trim() ?? '')
-                .firstWhere((value) => value.isNotEmpty, orElse: () => ''),
-          );
-        }
-
         final message = enseigneName.isNotEmpty
             ? _normalizeTickerText('${firstName.isNotEmpty ? firstName : 'Un joueur'} a gagné $prizeName chez $enseigneName')
             : _normalizeTickerText('${firstName.isNotEmpty ? firstName : 'Un joueur'} a gagné $prizeName');
@@ -242,7 +208,7 @@ class GlobalTickerService {
 
       debugPrint(
         '[GlobalTicker] legacy fallback loaded tickerMessages=${messages.length} '
-        'estimatedReads=${1 + userCache.length}',
+        'estimatedReads=${prizesSnapshot.size}',
       );
 
       return GlobalTickerSnapshot(

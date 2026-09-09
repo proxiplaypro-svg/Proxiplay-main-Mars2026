@@ -1,6 +1,8 @@
+const {checkAwardLinks, review} = require("./prize_integrity");
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const {runScheduledDraws} = require("./scheduled_draw_runner");
 const {getNowTimestamp} = require("./lib/emulator_runtime");
 
 if (admin.apps.length === 0) {
@@ -1202,6 +1204,9 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
       };
     }
 
+    const prizeRef = db.collection("prizes").doc(`monthly_challenge_${challengeId}`);
+    const prizeSnap = await transaction.get(prizeRef);
+    if (prizeSnap.exists) return review(prizeRef.id, 'prize_exists_without_final_draw');
     const evaluatedEntries = [];
     for (const entryDoc of entriesSnap.docs) {
       const entryData = entryDoc.data() || {};
@@ -1242,6 +1247,9 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
     const eligibleDocs = evaluatedEntries.filter(
       (entry) => !entry.exclusionStatus,
     );
+
+
+    if (eligibleDocs.length === 0) {
     for (const entry of evaluatedEntries) {
       if (!entry.exclusionStatus) {
         continue;
@@ -1251,8 +1259,6 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
-
-    if (eligibleDocs.length === 0) {
       transaction.set(drawRef, {
         month: monthKey,
         challenge_id: challengeId,
@@ -1273,7 +1279,13 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
     const winnerUid = selected.userRef.id;
     const winnerStateRef = getMonthlyChallengeUserStateRef(selected.userRef, challengeId);
     const claimCode = generateClaimCode();
-    const prizeRef = db.collection("prizes").doc(`monthly_challenge_${challengeId}`);
+    const integrity = await checkAwardLinks(transaction, {prizeRef, winnerRef:selected.userRef, sourceField:'monthly_challenge_draw_ref', sourceValue:drawRef, prizeSnap});
+    if (integrity.status !== 'consistent') return integrity;
+    for (const entry of evaluatedEntries) {
+      if (entry.exclusionStatus) transaction.update(entry.entryDoc.ref, {
+        status:entry.exclusionStatus, updated_at:admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
     const winnerFirstName = getTrimmedString(
       selected.userData.first_name || selected.userData.firstName,
     ).split(/\s+/)[0] || "";
@@ -1320,6 +1332,7 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
 
     transaction.set(prizeRef, {
       prize_type: "monthly_challenge",
+      fulfillment_type: "platform",
       name: config.prize_title || "Defi mensuel Proxiplay",
       description: buildChallengePrizeDescription(config),
       winner_id: selected.userRef,
@@ -1563,30 +1576,34 @@ const drawMonthlyChallengeWinnerScheduled = functions.pubsub
   .timeZone(kTimeZone)
   .onRun(async () => {
     const now = getNowTimestamp(admin);
-    const [configsSnap, legacySnap] = await Promise.all([
-      db.collection(kMonthlyChallengesCollection).where("enabled", "==", true).get(),
-      getMonthlyChallengeConfigRef().get(),
-    ]);
-    const configs = configsSnap.docs.map((snap) =>
-      normalizeMonthlyChallengeConfig(snap.data() || {}),
-    );
-    const legacy = normalizeMonthlyChallengeConfig(
-      legacySnap.exists ? legacySnap.data() || {} : {},
-    );
-    if (legacy.enabled && !configs.some((config) =>
-      config.type === kAttendanceChallengeType && config.month === legacy.month,
-    )) {
-      configs.push({...legacy, challenge_id: legacy.month, type: kAttendanceChallengeType});
-    }
-    await Promise.all(configs.map(async (config) => {
-      try {
-        validateDrawExecutionOrThrow(config, now);
-        await drawWinnerForMonthlyChallenge(config, "scheduled");
-      } catch (_error) {
-        // A draw is only eligible after its configured date.
-      }
-    }));
-    return null;
+    return runScheduledDraws({
+      name: "drawMonthlyChallengeWinner",
+      logger: functions.logger,
+      load: async () => {
+        const [configsSnap, legacySnap] = await Promise.all([
+          db.collection(kMonthlyChallengesCollection).where("enabled", "==", true).get(),
+          getMonthlyChallengeConfigRef().get(),
+        ]);
+        const configs = configsSnap.docs.map((snap) =>
+          normalizeMonthlyChallengeConfig(snap.data() || {}),
+        );
+        const legacy = normalizeMonthlyChallengeConfig(
+          legacySnap.exists ? legacySnap.data() || {} : {},
+        );
+        if (legacy.enabled && !configs.some((config) =>
+          config.type === kAttendanceChallengeType && config.month === legacy.month,
+        )) {
+          configs.push({...legacy, challenge_id: legacy.month, type: kAttendanceChallengeType});
+        }
+        return configs.map(config => ({id: config.challenge_id, config}));
+      },
+      draw: async ({config}) => {
+        // A future draw is expected; invalid configuration and runtime failures are not.
+        validateMonthlyChallengeConfig(config, {requireCompleteWhenEnabled: true});
+        if (config.draw_date.toMillis() > now.toMillis()) return {status: "not_due"};
+        return drawWinnerForMonthlyChallenge(config, "scheduled");
+      },
+    });
   });
 
 module.exports = {

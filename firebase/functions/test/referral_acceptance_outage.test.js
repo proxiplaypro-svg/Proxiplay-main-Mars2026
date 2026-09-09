@@ -1,0 +1,26 @@
+process.env.FIRESTORE_EMULATOR_HOST ||= '127.0.0.1:8080';
+process.env.GCLOUD_PROJECT='demo-proxiplay-acceptance-outage';
+const test=require('node:test'),assert=require('node:assert/strict'),admin=require('firebase-admin');
+if(!admin.apps.length) admin.initializeApp();
+const db=admin.firestore();
+const queue=require('../referral_reward_queue');
+const worker=queue.processReferralReward;
+queue.processReferralReward=async()=>{throw Error('simulated worker outage after commit');};
+const ft=require('firebase-functions-test')();
+const accept=ft.wrap(require('../lib/share_promo').registerReferralAcceptance);
+test.after(()=>ft.cleanup());
+test('real acceptance callable commits durable event despite worker outage and is idempotent',async()=>{
+ for(const c of await db.listCollections()) await db.recursiveDelete(c);
+ await db.doc('users/inviter').set({user_role:'joueur'});
+ await db.doc('users/invitee').set({user_role:'joueur'});
+ const now=Date.now();
+ await db.doc('referral_games/game').set({status:'active',start_date:admin.firestore.Timestamp.fromMillis(now-60000),end_date:admin.firestore.Timestamp.fromMillis(now+60000)});
+ await db.doc('referrals/r').set({status:'pending',inviterUid:'inviter',inviteCode:'code',rewardType:'all_games_until_midnight',rewardValue:1});
+ assert.equal((await accept({inviteCode:'code'},{auth:{uid:'invitee'}})).success,true);
+ assert.equal((await db.doc('referrals/r').get()).data().status,'accepted');
+ assert.equal((await db.doc('referral_reward_pending/r').get()).data().status,'pending');
+ assert.equal((await db.doc('referral_games/game/entries/r').get()).exists,false);
+ assert.equal((await accept({inviteCode:'code'},{auth:{uid:'invitee'}})).success,true);
+ assert.equal((await worker('r')).status,'granted');
+ assert.equal((await db.doc('referral_games/game').get()).data().ticket_count,1);
+});

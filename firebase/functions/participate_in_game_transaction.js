@@ -107,6 +107,7 @@ function resolveCachedLastResult(detailData) {
   }
   return {
     message,
+    ...(cached.animation ? {animation: {...cached.animation, newlyQualified:false}} : {}),
     messageBonus: getTrimmedString(cached.messageBonus),
     isWin: cached.isWin === true,
     prize_id:
@@ -517,8 +518,8 @@ exports.participateInGameTransaction = functions.https.onCall(
           );
         }
         userEmail = getTrimmedString(userData.email);
-        ownerRef = gameData.create_by?.path
-          ? db.doc(gameData.create_by.path)
+        ownerRef = gameData.owner_id?.path
+          ? db.doc(gameData.owner_id.path)
           : null;
         const enseigneRefField = gameData.enseigne_id || gameData.enseigne_ref;
         enseigneRef = enseigneRefField?.path
@@ -544,6 +545,10 @@ exports.participateInGameTransaction = functions.https.onCall(
         const enseigneData = enseigneDoc.data();
         if (!ownerRef && enseigneData?.owner?.path) {
           ownerRef = db.doc(enseigneData.owner.path);
+        }
+        if (!/^users\/[^/]+$/.test(ownerRef?.path || '') ||
+            (enseigneData.owner?.path && ownerRef.path !== enseigneData.owner.path)) {
+          throw new functions.https.HttpsError('failed-precondition', 'Proprietaire du jeu incoherent.');
         }
         enseigneName = getTrimmedString(enseigneData.name);
 
@@ -620,6 +625,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           gameConsistencyPatch.hasWinner = false;
           gameConsistencyPatch.main_prize_winner = null;
         }
+        let animationProgress = null;
         let animationEntryRef = null;
         let animationEntryDoc = null;
         let visitedMerchantIds = [];
@@ -671,25 +677,25 @@ exports.participateInGameTransaction = functions.https.onCall(
                   ? rawVisitedMerchantIds.map((merchantId) => merchantId.toString())
                   : [];
                 const merchantId = enseigneRef.id;
+                const previouslyQualified = animationEntryData.threshold_reached === true;
+                const threshold = Math.max(1, parseInt(animationData.threshold, 10) || 1);
 
                 if (merchantId && !visitedMerchantIds.includes(merchantId)) {
                   visitedMerchantIds.push(merchantId);
 
-                  const threshold = Number.isInteger(animationData.threshold)
-                    ? animationData.threshold
-                    : parseInt(animationData.threshold, 10) || 0;
                   const visitedCount = visitedMerchantIds.length;
                   thresholdReached = visitedCount >= threshold;
                   shouldUpdateAnimationEntry = true;
                 }
+                thresholdReached = previouslyQualified || visitedMerchantIds.length >= threshold;
+                animationProgress = {id: animationId, visitedCount: visitedMerchantIds.length,
+                  threshold, thresholdReached, newlyQualified: thresholdReached && !previouslyQualified};
               }
             }
           }
         } catch (animationError) {
-          console.error(
-            `participateInGameTransaction: animation tracking skipped for gameId=${gameRef.id} uid=${uid}`,
-            animationError
-          );
+          functions.logger.error('ANIMATION_PROGRESS_FAILED', {gameId:gameRef.id});
+          throw animationError;
         }
 
         if (!uniquePlayerDoc.exists) {
@@ -1010,6 +1016,7 @@ exports.participateInGameTransaction = functions.https.onCall(
 
           recordWrite("set", prizeRef, {
             prize_type: "secondaire",
+            fulfillment_type: "merchant",
             name: selectedSecondaryPrizeName,
             description: selectedSecondaryPrizePresentation,
             winner_id: userRef,
@@ -1023,6 +1030,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           });
           transaction.set(prizeRef, {
             prize_type: "secondaire",
+            fulfillment_type: "merchant",
             name: selectedSecondaryPrizeName,
             description: selectedSecondaryPrizePresentation,
             winner_id: userRef,
@@ -1069,6 +1077,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           : loseMessages[Math.floor(Math.random() * loseMessages.length)];
 
         responseData = {
+          animation: animationProgress,
           message,
           messageBonus,
           isWin: transactionLotGagne,
@@ -1085,6 +1094,7 @@ exports.participateInGameTransaction = functions.https.onCall(
         // remaining_part or any existing field.
         recordWrite("set", participantDetailRef, {
           last_result: {
+              animation: animationProgress,
             message,
             messageBonus,
             isWin: transactionLotGagne,
@@ -1096,6 +1106,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           participantDetailRef,
           {
             last_result: {
+              animation: animationProgress,
               message,
               messageBonus,
               isWin: transactionLotGagne,

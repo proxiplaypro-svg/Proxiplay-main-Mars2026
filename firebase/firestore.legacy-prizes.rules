@@ -1,0 +1,576 @@
+rules_version = '2';
+// ATTENTION : deux repos deploient des regles Firestore sur ce MEME projet
+// (proxi-play-odzp2e) -- l'app Flutter (ce fichier) et la console admin
+// Next.js (repo proxiplay-admin). Firestore ne garde qu'un seul jeu de
+// regles actif : le dernier `firebase deploy --only firestore:rules`
+// remplace entierement l'autre, il n'y a pas de fusion automatique. Ce
+// fichier est donc le fichier canonique unique -- il integre les besoins
+// des deux apps (collections jeux/merchants, reconnaissance admin par
+// email). Si la console admin evolue, reporter les changements de regles
+// ICI, PAS dans proxiplay-admin/firestore.rules (qui ne doit plus etre
+// deploye independamment sous peine d'ecraser ce fichier et de rouvrir des
+// failles deja corrigees ici -- lecture publique de prizes/claim_code,
+// lecture publique de users/{userId} via un `|| true`).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        (
+          // 'admin' in request.auth.token d'abord : sur un token sans ce
+          // custom claim (le cas de la quasi-totalite des utilisateurs),
+          // .admin leve "Property admin is undefined on object" qui, pour
+          // une requete list()/query (contrairement a un simple get()), fait
+          // echouer TOUTE la requete au lieu de simplement retourner false --
+          // c'est ce qui a rendu prizes.where('game_id', ...) et toute
+          // lecture en liste de prizes non couverte par un where() prouvable
+          // totalement invisible des que prizes a cesse d'etre en lecture
+          // publique (voir la lecture de prizes plus bas).
+          (('admin' in request.auth.token) && request.auth.token.admin == true) ||
+          // Compte admin historique de la console proxiplay-admin (repo
+          // separe, meme projet Firebase) : ce repo a sa propre isAdmin()
+          // basee uniquement sur cet email, sans custom claim ni user_role.
+          // Fusionne ici pour que ce compte reste reconnu admin sous ce
+          // fichier de regles unique -- voir la note en tete de fichier.
+          // 'email' in request.auth.token d'abord : un utilisateur connecte
+          // par un moyen sans email (ex. numero de telephone) n'a pas ce
+          // champ sur son token -- meme piege que .admin ci-dessus.
+          (('email' in request.auth.token) &&
+            request.auth.token.email in ['proxiplay.pro@gmail.com']) ||
+          // exists() d'abord : get() sur un users/{uid} absent leve une
+          // erreur qui fait echouer TOUTE l'evaluation isAdmin() (y compris
+          // le || qui suit), pas juste retourner false -- un commercant
+          // gerant son enseigne via la console admin par correspondance
+          // d'email (canManageRequestedGameAsMerchant) peut ne jamais avoir
+          // de document users/{uid} du tout. Meme precaution "champ present
+          // avant lecture" que .admin/.email ci-dessus pour user_role /
+          // userRole : un document users/{uid} existant peut n'avoir ni
+          // l'un ni l'autre (compte cree par un chemin plus ancien).
+          (
+            exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+            (
+              (
+                'user_role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_role == 'admin'
+              ) ||
+              (
+                'userRole' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userRole == 'admin'
+              )
+            )
+          )
+        );
+    }
+
+    function isSelf(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isCurrentUserRef(userRef) {
+      return isSignedIn() &&
+        userRef == /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function isOwnerRef(userRef) {
+      return isSignedIn() &&
+        userRef == /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function isApprovedMerchant() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.account_status == 'approved';
+    }
+
+    // Champs qu'un commerçant peut modifier lui-même sur son enseigne/jeu.
+    // Tout le reste (hasWinner, main_prize_winner, participations, owner,
+    // create_by, ...) doit rester réservé au serveur/admin : sans cette
+    // liste, un compte commerçant pourrait réécrire n'importe quel champ de
+    // son propre document, y compris fabriquer un statut "gagnant".
+    function isSafeMerchantEnseigneUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'name', 'address', 'city', 'area_code', 'phone_number',
+        'description', 'site_web_url', 'instagram_link', 'twitter_link',
+        'facebook_link', 'category',
+        // Association manuelle a une fiche Google (ajout/remplacement/
+        // suppression) : le commercant choisit toujours un resultat de
+        // recherche Google cote client, jamais une valeur devinee ; ce
+        // champ ne stocke qu'un identifiant, aucune donnee Google
+        // dynamique (note, avis, horaires...).
+        'google_place_id'
+      ]);
+    }
+
+    function isSafeMerchantGameUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'hidden_from_merchant_stats', 'updated_time'
+      ]);
+    }
+
+    function isMerchantOwnerOfEnseigne(enseigneRef) {
+      return isSignedIn() &&
+        enseigneRef != null &&
+        get(enseigneRef).data.owner ==
+          /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    // -- Fonctions requises par la console admin (repo proxiplay-admin),
+    // integrees ici pour /jeux et /merchants. Voir la note en tete de
+    // fichier.
+    function signedInEmail() {
+      return isSignedIn() && request.auth.token.email != null
+        ? request.auth.token.email
+        : null;
+    }
+
+    function ownsTrustedMerchant(data) {
+      return isSignedIn() && (
+        data.get('owner_uid', null) == request.auth.uid ||
+        data.get('owner_id', null) == request.auth.uid ||
+        isOwnerRef(data.get('owner_id', null)) || isOwnerRef(data.get('owner', null))
+      );
+    }
+
+    function ownsGame(data) {
+      let shop = data.get('enseigne_id', data.get('enseigne_ref', null));
+      let owner = data.get('owner_id', null);
+      return isSignedIn() && isMerchantOwnerOfEnseigne(shop) &&
+        (owner == null || isOwnerRef(owner) || owner == request.auth.uid);
+    }
+
+    function canManageLegacyGame() {
+      let merchantId = resource.data.get('merchantId', resource.data.get('merchant_id', null));
+      return ownsTrustedMerchant(resource.data) || (merchantId is string && (
+        (exists(/databases/$(database)/documents/enseignes/$(merchantId)) &&
+          ownsTrustedMerchant(get(/databases/$(database)/documents/enseignes/$(merchantId)).data)) ||
+        (exists(/databases/$(database)/documents/merchants/$(merchantId)) &&
+          ownsTrustedMerchant(get(/databases/$(database)/documents/merchants/$(merchantId)).data))
+      ));
+    }
+
+    function isPrizeClaimValidationUpdate() {
+      return isMerchantPrize(resource.data) &&
+        resource.data.claimed != true &&
+        request.resource.data.claimed == true &&
+        (resource.data.get('usage_deadline', null) == null ||
+          (resource.data.usage_deadline is timestamp &&
+            request.time <= resource.data.usage_deadline)) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed']);
+    }
+
+    function isAllowedSelfUserCreate(userId) {
+      return isSelf(userId) &&
+        request.resource.data.uid == request.auth.uid &&
+        (!('userRole' in request.resource.data) ||
+          request.resource.data.userRole in ['joueur', 'commercant']) &&
+        (
+          !('user_role' in request.resource.data) ||
+          request.resource.data.user_role in ['joueur', 'commercant']
+        ) &&
+        !('account_status' in request.resource.data) &&
+        !('remaining_part' in request.resource.data) &&
+        !('allGamesAccessUntil' in request.resource.data) &&
+        !('games_played_count' in request.resource.data) &&
+        !('player_status_cached' in request.resource.data) &&
+        !('last_inactive_relaunch_at' in request.resource.data) &&
+        !('last_real_activity_at' in request.resource.data);
+    }
+
+    function isSafeSelfUserUpdate() {
+      // affectedKeys(), pas changedKeys() : changedKeys() ne detecte que les
+      // champs deja presents dont la valeur change, pas ceux qu'on ajoute --
+      // un joueur dont le doc n'a pas encore remaining_part (avant que la
+      // Cloud Function initializeNewPlayerRemainingParts ne le pose) pouvait
+      // se l'ecrire lui-meme via un simple merge, puisque ce n'etait pas un
+      // champ "change" mais "ajoute". Verifie contre l'emulateur Firestore :
+      // avec changedKeys(), ajouter un champ absent passait ; avec
+      // affectedKeys(), c'est bloque comme prevu, sans rien casser d'autre.
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'email',
+          'phone_number',
+          'first_name',
+          'last_name',
+          'pseudo',
+          'display_name',
+          'photo_url',
+          'city',
+          'city_insee_code',
+          'birthday',
+          'professional_category',
+          // Ecrits par inscription_informations_page_widget.dart a la fin
+          // du parcours d'inscription -- absents de cette liste, ils
+          // faisaient echouer TOUTE la mise a jour (affectedKeys().hasOnly
+          // rejette l'ensemble des champs si un seul n'est pas autorise),
+          // avec pour symptome "Une erreur est survenue pendant la
+          // finalisation de votre inscription."
+          'profile_completed',
+          'profile_completed_at',
+          'profile_schema_version'
+        ]);
+    }
+
+    match /users/{document} {
+      allow create: if isAdmin() || isAllowedSelfUserCreate(document);
+      allow get: if isSelf(document) || isAdmin();
+      allow list: if isAdmin();
+      allow update: if isAdmin() || (isSelf(document) && isSafeSelfUserUpdate());
+      allow delete: if isSelf(document) || isAdmin();
+    }
+
+    match /users/{parent}/favorite_games/{document} {
+      allow create: if request.auth.uid == parent;
+      allow read: if request.auth.uid == parent;
+      allow write: if request.auth.uid == parent;
+      allow delete: if request.auth.uid == parent;
+    }
+
+    match /enseignes/{document} {
+      allow create: if isAdmin() ||
+        (
+          isSignedIn() &&
+          ('owner' in request.resource.data) &&
+          isOwnerRef(request.resource.data.owner) &&
+          isApprovedMerchant()
+        );
+      allow read: if true;
+      allow update: if isAdmin() ||
+        (isOwnerRef(resource.data.owner) && isSafeMerchantEnseigneUpdate());
+      allow delete: if isAdmin() || isOwnerRef(resource.data.owner);
+    }
+
+    // Ownership is assigned by admin/server, never by a client-supplied email.
+    match /merchants/{document} {
+      allow read: if isAdmin() || ownsTrustedMerchant(resource.data);
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (ownsTrustedMerchant(resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'description', 'address', 'city', 'phone_number', 'site_web_url'
+        ]));
+    }
+
+    function isMerchantPrize(data) {
+      return data.get('fulfillment_type', 'merchant') == 'merchant' &&
+        !(data.get('prize_type', '') in ['animation', 'referral_game', 'monthly_challenge']);
+    }
+
+    match /games/{document} {
+      allow create: if isAdmin() ||
+        (
+          request.auth != null &&
+          request.resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid) &&
+          ownsGame(request.resource.data) &&
+          isApprovedMerchant()
+        );
+      allow read: if true;
+      allow update: if isAdmin() ||
+        (ownsGame(resource.data) &&
+          isSafeMerchantGameUpdate());
+      allow delete: if isAdmin() ||
+        ownsGame(resource.data);
+    }
+
+    // Collection legacy pour les jeux a scanner geres via la console admin
+    // (repo proxiplay-admin) -- pickCollectionName(["games", "jeux"]) y
+    // bascule quand /games est vide pour un commercant donne. Sans cette
+    // regle (absente par erreur du deploiement du 30/08), la console admin
+    // ne peut ni modifier, ni supprimer, ni activer/desactiver un jeu qui y
+    // vit encore : Firestore refuse tout par defaut sur une collection sans
+    // regle explicite.
+    match /jeux/{document} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (canManageLegacyGame() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'title', 'description', 'active', 'updated_at'
+        ]));
+    }
+
+    match /users/{parent}/favorite_enseignes/{document} {
+      allow create: if request.auth.uid == parent;
+      allow read: if request.auth.uid == parent;
+      allow write: if request.auth.uid == parent;
+      allow delete: if request.auth.uid == parent;
+    }
+
+    // my_lots represente une attribution de lot decidee cote serveur (voir
+    // participate_in_game_transaction.js / pickMainPrizeWinners /
+    // drawWinnerForAnimation / referral_game_engine.js / monthly_challenge.js,
+    // qui ecrivent toujours my_lots dans la meme transaction que le prize
+    // correspondant). Le client n'a donc jamais besoin d'y ecrire ; l'ouvrir
+    // en ecriture permettrait a un client modifie de fabriquer une entree
+    // pointant vers le prize d'un autre joueur.
+    match /users/{parent}/my_lots/{document} {
+      allow read: if request.auth.uid == parent;
+      allow create, update: if false;
+      allow delete: if request.auth.uid == parent;
+    }
+
+    match /games/{parent}/participants/{document} {
+      // Les participations sont créées exclusivement via la Cloud Function
+      // participateInGameTransaction afin d'empêcher plusieurs parties
+      // sur un même jeu le même jour. update/delete admin : moderation
+      // depuis la console admin (repo proxiplay-admin).
+      allow create: if false;
+      allow read: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    match /jeux/{parent}/participants/{document} {
+      allow create: if false;
+      allow read: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    match /{path=**}/participants/{document} {
+      allow read: if true;
+    }
+
+
+    match /users/{parent}/my_enseignes/{document} {
+      allow create: if request.auth.uid == parent;
+      allow read: if request.auth.uid == parent;
+      allow write: if request.auth.uid == parent;
+      allow delete: if request.auth.uid == parent;
+    }
+
+    match /enseignes/{parent}/enseigne_game/{document} {
+      allow create: if get(/databases/$(database)/documents/enseignes/$(parent)).data.owner == /databases/$(database)/documents/users/$(request.auth.uid);
+      allow read: if true;
+      allow write: if get(/databases/$(database)/documents/enseignes/$(parent)).data.owner == /databases/$(database)/documents/users/$(request.auth.uid);
+      allow delete: if get(/databases/$(database)/documents/enseignes/$(parent)).data.owner == /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    match /{path=**}/enseigne_game/{document} {
+      allow read: if true;
+    }
+
+
+    match /enseignes/{parent}/horaires/{document} {
+      allow create: if isAdmin() || isMerchantOwnerOfEnseigne(
+        /databases/$(database)/documents/enseignes/$(parent)
+      );
+      allow read: if true;
+      allow update, delete: if isAdmin() || isMerchantOwnerOfEnseigne(
+        /databases/$(database)/documents/enseignes/$(parent)
+      );
+    }
+
+    match /{path=**}/horaires/{document} {
+      allow read: if true;
+    }
+
+
+    match /enseignes/{parent}/images/{document} {
+      allow create: if isAdmin() || isMerchantOwnerOfEnseigne(
+        /databases/$(database)/documents/enseignes/$(parent)
+      );
+      allow read: if true;
+      allow update, delete: if isAdmin() || isMerchantOwnerOfEnseigne(
+        /databases/$(database)/documents/enseignes/$(parent)
+      );
+    }
+
+    match /{path=**}/images/{document} {
+      allow read: if true;
+    }
+
+
+    match /games/{parent}/winners/{document} {
+      allow create, update, delete: if false;
+      allow read: if true;
+    }
+
+    match /{path=**}/winners/{document} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
+
+    match /prizes/{document} {
+      allow create, delete: if false;
+      allow update: if isAdmin() || (
+        isPrizeClaimValidationUpdate() &&
+        (
+          isOwnerRef(resource.data.get('owner_id', null)) ||
+          isMerchantOwnerOfEnseigne(resource.data.get('enseigne_id', null))
+        )
+      );
+      // PRIZES_READ_POLICY: temporary compatibility; sensitive prizes remain public.
+      // Use only during documented mobile migration, then switch to strict rules.
+      allow read: if true;
+    }
+
+    match /public_prize_winners/{document} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /animations/{animationId}/public_winner/{document} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /animations/{animationId}/winner/{document} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /users/{parent}/notifications/{document} {
+      allow create: if request.auth.uid == parent;
+      allow read: if request.auth.uid == parent;
+      allow write: if request.auth.uid == parent;
+      allow delete: if request.auth.uid == parent;
+    }
+
+    match /users/{parent}/fcm_tokens/{document} {
+      allow create: if request.auth.uid == parent;
+      allow read: if request.auth.uid == parent || isAdmin();
+      allow write: if request.auth.uid == parent || isAdmin();
+      allow delete: if request.auth.uid == parent || isAdmin();
+    }
+
+    match /games/{parent}/participants_details/{document} {
+      allow create, update, delete: if false;
+      allow read: if true;
+    }
+
+    match /{path=**}/participants_details/{document} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
+
+    match /games/{parent}/instant_winners/{document} {
+      allow create, update, delete: if false;
+      allow read: if isAdmin();
+    }
+
+    match /{path=**}/instant_winners/{document} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+
+    match /accountDeletionRequests/{document} {
+      allow create: if isAdmin() || (
+        isSignedIn() &&
+        isCurrentUserRef(request.resource.data.merchant_id) &&
+        request.resource.data.keys().hasOnly(['merchant_id', 'requested_at'])
+      );
+      allow read: if isAdmin() || (
+        isSignedIn() &&
+        (
+          isCurrentUserRef(resource.data.merchant_id) ||
+          isSelf(document)
+        )
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    match /ff_push_notifications/{document} {
+      allow create, read, update, delete: if isAdmin();
+    }
+
+    match /app_config/share_promo {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /app_config/monthly_challenge {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /monthly_challenges/{challengeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /app_config/mobile_versioning {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /referrals/{referralId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && (
+          resource.data.inviterUid == request.auth.uid ||
+          resource.data.inviteeUid == request.auth.uid
+        ));
+      allow create, update, delete: if false;
+    }
+
+    match /users/{uid}/private/share_state {
+      allow read: if isSelf(uid) || isAdmin();
+      allow write: if false;
+    }
+
+    match /users/{uid}/monthly_challenges/{document} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow write: if false;
+    }
+
+    match /monthly_challenge_entries/{document} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /monthly_challenge_draws/{document} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /reward_events/{eventId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /animations/{animationId} {
+      // Meme regle de lecture publique que games/enseignes : la rubrique
+      // "Scans en boutique" de la Home affiche les animations actives a
+      // tout le monde, y compris en mode "Continuer sans compte" (aucune
+      // session Firebase, request.auth est reellement null -- ce n'est pas
+      // un login anonyme). Rien de sensible sur ce document (winner_uid
+      // seul, deja public sur games.main_prize_winner) ; les vraies
+      // donnees privees restent dans entries/{uid} ci-dessous et dans
+      // prizes/users.
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /entries/{uid} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if false;
+      }
+    }
+
+    // Jeu de parrainage : cree par l'admin uniquement. Un ticket est cree
+    // uniquement par la Cloud Function registerReferralAcceptance (SDK admin,
+    // ignore ces regles) -- jamais par un client, meme le parrain lui-meme.
+    match /referral_games/{gameId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+
+      // Un joueur peut lire uniquement ses propres tickets (requete filtree
+      // sur inviter_uid == son uid) pour afficher son nombre de chances --
+      // jamais la liste complete ni les tickets d'un autre joueur.
+      match /entries/{document} {
+        allow read: if isAdmin() ||
+          (request.auth != null && resource.data.inviter_uid == request.auth.uid);
+        allow write: if false;
+      }
+    }
+
+    match /admin_stats/{document} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /stats/{document} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

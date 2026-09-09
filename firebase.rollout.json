@@ -1,0 +1,6 @@
+{
+  "firestore": {
+    "rules": "firebase/firestore.legacy-prizes.rules",
+    "indexes": "firebase/firestore.indexes.json"
+  }
+}

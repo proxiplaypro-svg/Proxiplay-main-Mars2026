@@ -1,8 +1,8 @@
+import '/backend/animation_progress.dart';
 import 'dart:async';
 
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
-import '/backend/animation_utils.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
@@ -263,21 +263,9 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
     final attemptId = outcome.attemptId ?? 'none';
     final gameId = widget.gameDoc?.reference.id ?? 'unknown';
 
-    var newlyQualified = false;
-    if (!outcome.alreadyParticipatedToday &&
-        widget.gameDoc != null &&
-        currentUserUid.isNotEmpty &&
-        widget.gameDoc!.animationId.trim().isNotEmpty) {
-      try {
-        newlyQualified =
-            await updateAnimationProgress(currentUserUid, widget.gameDoc!);
-      } catch (error) {
-        debugPrint(
-          '[ANIMATION_PROGRESS] update skipped gameId=${widget.gameDoc?.reference.id} '
-          'animationId=${widget.gameDoc?.animationId} error=$error',
-        );
-      }
-    }
+    final progress = AnimationProgress.fromResponse(response.jsonBody,
+        replay: outcome.alreadyParticipatedToday);
+    final newlyQualified = progress?.newlyQualified == true;
     if (!mounted) {
       _logParticipationTrace(
         stage: 'navigation_aborted_not_mounted',

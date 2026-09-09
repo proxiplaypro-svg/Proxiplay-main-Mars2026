@@ -1,6 +1,9 @@
+const {publicWinner} = require('./public_winners');
+const {checkAwardLinks, review} = require("./prize_integrity");
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
+const {runScheduledDraws} = require("./scheduled_draw_runner");
 const {
   queuePushNotificationRequest,
 } = require("./push_notification_request.js");
@@ -107,6 +110,7 @@ function buildPrizePayload(animationId, animationData, winnerRef, drawnAt, claim
 
   return {
     prize_type: "principal",
+    fulfillment_type: "platform",
     name: prizeDescription || animationName || "Gros lot",
     description: prizeDescription,
     prize_label: prizeDescription,
@@ -184,6 +188,8 @@ async function drawWinnerForAnimation(animationId, { now = admin.firestore.Times
     // meme animation reutilise le meme prize au lieu d'en creer un second.
     const prizeRef = db.collection("prizes").doc(`animation_${animationId}`);
     const prizeSnap = await transaction.get(prizeRef);
+    const integrity = await checkAwardLinks(transaction, {prizeRef, winnerRef: winner.userRef, sourceField: 'animation_id', sourceValue: animationId, prizeSnap});
+    if (integrity.status !== 'consistent') return integrity;
     if (!prizeSnap.exists) {
       transaction.set(
         prizeRef,
@@ -197,6 +203,7 @@ async function drawWinnerForAnimation(animationId, { now = admin.firestore.Times
       { merge: true },
     );
 
+    transaction.set(animationRef.collection('public_winner').doc('current'), publicWinner(winner.userData, now));
     // Format attendu par l'API admin /api/admin/animations/[id]/detail
     transaction.set(animationRef.collection("winner").doc("current"), {
       uid: winner.uid,
@@ -252,15 +259,18 @@ async function repairAnimationDraw(animationId) {
     const winnerRef = db.collection("users").doc(winnerUid);
     const winnerSnap = await transaction.get(winnerRef);
     if (!winnerSnap.exists) {
-      throw new Error("Winner no longer exists.");
+      return review(animationId, 'missing_winner_account');
     }
     const winnerData = winnerSnap.data() || {};
 
     const prizeRef = db.collection("prizes").doc(`animation_${animationId}`);
     const prizeSnap = await transaction.get(prizeRef);
+    const integrity = await checkAwardLinks(transaction, {prizeRef, winnerRef: winnerRef, sourceField: 'animation_id', sourceValue: animationId, prizeSnap});
+    if (integrity.status !== 'consistent') return integrity;
     const drawnAt = animationData.drawn_at || admin.firestore.Timestamp.now();
     const claimCode = generateClaimCode();
 
+    transaction.set(animationRef.collection('public_winner').doc('current'), publicWinner(winnerData, drawnAt));
     let prizeCreated = false;
     if (!prizeSnap.exists) {
       transaction.set(
@@ -338,8 +348,8 @@ async function notifyAnimationWinner(animationId, animationRef, drawResult) {
     });
   } catch (notificationError) {
     functions.logger.error(
-      `drawAnimationWinners: winner notification failure animationId=${animationId} winnerUid=${winnerUid}`,
-      notificationError,
+      'ANIMATION_NOTIFICATION_FAILED',
+      {animationId, code: notificationError.code || null},
     );
   }
 
@@ -375,18 +385,14 @@ async function notifyAnimationWinner(animationId, animationRef, drawResult) {
       });
     } catch (merchantNotifError) {
       functions.logger.error(
-        `drawAnimationWinners: merchant notification failure gameId=${gameDoc.id}`,
-        merchantNotifError,
+        'ANIMATION_MERCHANT_NOTIFICATION_FAILED',
+        {animationId, gameId: gameDoc.id, code: merchantNotifError.code || null},
       );
     }
   }
 
   functions.logger.info("drawAnimationWinners: winner drawn", {
     animationId,
-    winnerUid,
-    winnerEmail,
-    winnerLabel,
-    claimCode,
     merchantsNotified: ownerRefsSeen.size,
   });
 }
@@ -399,36 +405,22 @@ exports.drawAnimationWinners = functions.pubsub
   .onRun(async () => {
     const now = admin.firestore.Timestamp.now();
 
-    const animationsSnap = await db
-      .collection("animations")
-      .where("status", "==", "active")
-      .where("end_date", "<=", now)
-      .get();
+    return runScheduledDraws({
+      name: "drawAnimationWinners",
+      logger: functions.logger,
+      load: async () => {
+        const animationsSnap = await db
+          .collection("animations")
+          .where("status", "==", "active")
+          .where("end_date", "<=", now)
+          .get();
 
-    const eligible = animationsSnap.docs.filter(
-      (doc) => !getTrimmedString((doc.data() || {}).winner_uid)
-    );
-
-    functions.logger.info("drawAnimationWinners: run started", {
-      total: animationsSnap.size,
-      eligible: eligible.length,
+        return animationsSnap.docs.filter(
+          (doc) => !getTrimmedString((doc.data() || {}).winner_uid)
+        );
+      },
+      draw: (doc) => drawWinnerForAnimation(doc.id, {now}),
     });
-
-    for (const doc of eligible) {
-      try {
-        const result = await drawWinnerForAnimation(doc.id, { now });
-        functions.logger.info(
-          `drawAnimationWinners: ${result.status} animationId=${doc.id}`,
-        );
-      } catch (error) {
-        functions.logger.error(
-          `drawAnimationWinners: failed for animationId=${doc.id}`,
-          error
-        );
-      }
-    }
-
-    return null;
   });
 
 exports.drawWinnerForAnimation = drawWinnerForAnimation;

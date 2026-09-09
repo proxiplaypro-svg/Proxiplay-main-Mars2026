@@ -111,6 +111,37 @@ test("jeu sans ticket se termine sans gagnant", async () => {
   assert.equal((await firestore.doc("referral_games/empty-game").get()).data().draw_status, "no_eligible_entries");
 });
 
+test("tirage avec ticket exclu avant un eligible reste atomique", async () => {
+  await seedGame('mixed', {end_date: admin.firestore.Timestamp.fromDate(new Date('2026-06-10'))});
+  await seedUser('excluded', {deleted: true});
+  await seedUser('eligible');
+  await firestore.doc('referral_games/mixed/entries/a').set({inviter_uid: 'excluded'});
+  await firestore.doc('referral_games/mixed/entries/b').set({inviter_uid: 'eligible'});
+  const result = await drawReferralGame('mixed', {now: NOW});
+  assert.equal(result.winnerUid, 'eligible');
+  assert.equal((await firestore.doc('referral_games/mixed/entries/a').get()).data().eligibility_status, 'excluded');
+  assert.equal((await firestore.doc('users/eligible/my_lots/referral_game_mixed').get()).data().prize_id.path, 'prizes/referral_game_mixed');
+});
+
+test("deux tirages concurrents ne materialisent qu'un gagnant", async () => {
+  await seedGame('concurrent', {end_date: admin.firestore.Timestamp.fromDate(new Date('2026-06-10'))});
+  await seedUser('eligible');
+  await firestore.doc('referral_games/concurrent/entries/a').set({inviter_uid: 'eligible'});
+  const results = await Promise.all([drawReferralGame('concurrent', {now: NOW}), drawReferralGame('concurrent', {now: NOW})]);
+  assert.equal(results.filter(r => r.status === 'completed').length, 1);
+  assert.equal((await firestore.collection('prizes').get()).size, 1);
+});
+
+test("erreur de reference pendant le tirage ne laisse aucune exclusion ou attribution partielle", async () => {
+  await seedGame('failure', {end_date: admin.firestore.Timestamp.fromDate(new Date('2026-06-10'))});
+  await firestore.doc('referral_games/failure/entries/a').set({inviter_uid: 'missing'});
+  await firestore.doc('referral_games/failure/entries/b').set({inviter_uid: 'invalid/path'});
+  await assert.rejects(drawReferralGame('failure', {now: NOW}));
+  assert.equal((await firestore.doc('referral_games/failure/entries/a').get()).data().eligibility_status, undefined);
+  assert.equal((await firestore.doc('referral_games/failure').get()).data().status, 'active');
+  assert.equal((await firestore.collection('prizes').get()).size, 0);
+});
+
 test("reconciliation recree un ticket manquant et reparation restaure my_lots", async () => {
   await seedGame("repair-game", {end_date: admin.firestore.Timestamp.fromDate(new Date("2026-06-10T00:00:00.000Z"))});
   await seedUser("parrain");

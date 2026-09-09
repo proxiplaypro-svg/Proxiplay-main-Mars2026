@@ -125,9 +125,7 @@ test("la lecture publique de games avec champs denormalises reste inchangee", as
 });
 
 test(
-  "prizes n'est plus lisible publiquement (voir firestore_rules_prizes_and_my_lots.test.js)",
-  {skip: "TEMPORAIRE 2026-08-31 : prizes est en allow read: if true, a reactiver au prochain build (voir firestore.rules)"},
-  async () => {
+  "prizes n'est plus lisible publiquement (voir firestore_rules_prizes_and_my_lots.test.js)",  async () => {
     const anon = testEnv.unauthenticatedContext();
     await assertFails(anon.firestore().collection("prizes").doc("prize1").get());
   },

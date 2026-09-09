@@ -1,3 +1,4 @@
+import 'dart:async';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
@@ -6,7 +7,6 @@ import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'lots_joueur_page_model.dart';
@@ -26,12 +26,22 @@ class LotsJoueurPageWidget extends StatefulWidget {
 class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
   late LotsJoueurPageModel _model;
 
+  Timer? _expirationTimer;
+  List<MyLotsRecord>? _cachedRecords;
+  Future<List<_LotListItem>>? _cachedItems;
+  late final Stream<List<MyLotsRecord>> _myLotsStream;
   final scaffoldKey = GlobalKey<ScaffoldState>();
   final Set<String> _deletingLotRefs = <String>{};
 
   @override
   void initState() {
     super.initState();
+    _myLotsStream = currentUserReference == null
+        ? const Stream<List<MyLotsRecord>>.empty()
+        : queryMyLotsRecord(parent: currentUserReference);
+    _expirationTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
     _model = createModel(context, () => LotsJoueurPageModel());
 
     logFirebaseEvent('screen_view',
@@ -40,13 +50,15 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
 
   @override
   void dispose() {
+    _expirationTimer?.cancel();
     _model.dispose();
 
     super.dispose();
   }
 
   Future<List<_LotListItem>> _loadLotItems(List<MyLotsRecord> myLots) async {
-    final recordsWithPrizeRef = myLots.where((record) => record.prizeId != null).toList();
+    final recordsWithPrizeRef =
+        myLots.where((record) => record.prizeId != null).toList();
     if (recordsWithPrizeRef.isEmpty) {
       return const <_LotListItem>[];
     }
@@ -54,6 +66,15 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
     final items = <_LotListItem>[];
     for (final record in recordsWithPrizeRef) {
       final prizeRef = record.prizeId!;
+      if (record.snapshotData['prize_deleted'] == true) continue;
+      final cached = record.snapshotData['prize_snapshot'];
+      if (cached is Map) {
+        items.add(_LotListItem(
+            myLot: record,
+            prize: PrizesRecord.getDocumentFromData(
+                Map<String, dynamic>.from(cached), prizeRef)));
+        continue;
+      }
       DocumentSnapshot<Object?> prizeSnap;
       try {
         prizeSnap = await prizeRef.get();
@@ -63,7 +84,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
           'prize=${prizeRef.path} error=$error',
         );
         debugPrintStack(stackTrace: stackTrace);
-        continue;
+        rethrow;
       }
 
       if (!prizeSnap.exists) {
@@ -188,7 +209,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
 
   Widget _buildSummaryCard(BuildContext context, List<_LotListItem> items) {
     final totalLots = items.length;
-    final unclaimedLots = items.where((item) => !item.prize.claimed).length;
+    final unclaimedLots = items.where((item) => item.prize.isAvailable).length;
 
     return Material(
       color: Colors.transparent,
@@ -219,20 +240,21 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                   children: [
                     Text(
                       'Total des Lots',
-                      style: FlutterFlowTheme.of(context).headlineSmall.override(
-                            font: GoogleFonts.interTight(
-                              fontWeight: FontWeight.w700,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .headlineSmall
-                                  .fontStyle,
-                            ),
-                            fontSize: 21.0,
-                            letterSpacing: 0.0,
-                            color: const Color(0xFF2D2A72),
-                            fontWeight: FontWeight.w800,
-                          ),
+                      style:
+                          FlutterFlowTheme.of(context).headlineSmall.override(
+                                font: GoogleFonts.interTight(
+                                  fontWeight: FontWeight.w700,
+                                  fontStyle: FlutterFlowTheme.of(context)
+                                      .headlineSmall
+                                      .fontStyle,
+                                ),
+                                fontSize: 21.0,
+                                letterSpacing: 0.0,
+                                color: const Color(0xFF2D2A72),
+                                fontWeight: FontWeight.w800,
+                              ),
                     ),
-                      const SizedBox(height: 10.0),
+                    const SizedBox(height: 10.0),
                     Text(
                       totalLots > 0
                           ? '$totalLots lot${totalLots > 1 ? 's' : ''} gagné${totalLots > 1 ? 's' : ''}'
@@ -240,8 +262,9 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                       style: FlutterFlowTheme.of(context).bodyLarge.override(
                             font: GoogleFonts.inter(
                               fontWeight: FontWeight.w500,
-                              fontStyle:
-                                  FlutterFlowTheme.of(context).bodyLarge.fontStyle,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodyLarge
+                                  .fontStyle,
                             ),
                             fontSize: 18.0,
                             color: const Color(0xFF4E586E),
@@ -253,19 +276,20 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                       Padding(
                         padding: const EdgeInsets.only(top: 8.0),
                         child: Text(
-                          '$unclaimedLots non réclamé${unclaimedLots > 1 ? 's' : ''}',
-                          style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                font: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w700,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontStyle,
-                                ),
-                                fontSize: 16.0,
-                                color: const Color(0xFF6B5A80),
-                                letterSpacing: 0.0,
-                                fontWeight: FontWeight.w700,
-                              ),
+                          '$unclaimedLots disponible${unclaimedLots > 1 ? 's' : ''}',
+                          style:
+                              FlutterFlowTheme.of(context).bodyMedium.override(
+                                    font: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w700,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontStyle,
+                                    ),
+                                    fontSize: 16.0,
+                                    color: const Color(0xFF6B5A80),
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                         ),
                       ),
                   ],
@@ -391,7 +415,8 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
             ],
           ),
           child: Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(18.0, 18.0, 18.0, 18.0),
+            padding:
+                const EdgeInsetsDirectional.fromSTEB(18.0, 18.0, 18.0, 18.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -418,7 +443,9 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                         children: [
                           Text(
                             merchantLabel,
-                            style: FlutterFlowTheme.of(context).titleMedium.override(
+                            style: FlutterFlowTheme.of(context)
+                                .titleMedium
+                                .override(
                                   font: GoogleFonts.interTight(
                                     fontWeight: FontWeight.w700,
                                     fontStyle: FlutterFlowTheme.of(context)
@@ -434,17 +461,18 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                           const SizedBox(height: 6.0),
                           Text(
                             prize.name,
-                            style: FlutterFlowTheme.of(context).bodyLarge.override(
-                                  font: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w500,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyLarge
-                                        .fontStyle,
-                                  ),
-                                  color: const Color(0xFF5E667E),
-                                  letterSpacing: 0.0,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                            style:
+                                FlutterFlowTheme.of(context).bodyLarge.override(
+                                      font: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w500,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .bodyLarge
+                                            .fontStyle,
+                                      ),
+                                      color: const Color(0xFF5E667E),
+                                      letterSpacing: 0.0,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                           ),
                         ],
                       ),
@@ -458,7 +486,8 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                         borderRadius: BorderRadius.circular(18.0),
                       ),
                       child: IconButton(
-                        onPressed: isDeleting ? null : () => _confirmDeleteLot(item),
+                        onPressed:
+                            isDeleting ? null : () => _confirmDeleteLot(item),
                         icon: isDeleting
                             ? SizedBox(
                                 width: 18.0,
@@ -503,7 +532,9 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                       icon: prize.claimed
                           ? Icons.check_circle_outline_rounded
                           : Icons.schedule_rounded,
-                      label: prize.claimed ? 'Réclamé' : 'Non réclamé',
+                      label: prize.claimed
+                          ? 'Réclamé'
+                          : (prize.isExpired ? 'Expiré' : 'Non réclamé'),
                       backgroundColor: prize.claimed
                           ? const Color(0xFFE9F8F0)
                           : const Color(0xFFFFF1E8),
@@ -541,7 +572,9 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                         children: [
                           Text(
                             'Conditions',
-                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                            style: FlutterFlowTheme.of(context)
+                                .bodyMedium
+                                .override(
                                   font: GoogleFonts.inter(
                                     fontWeight: FontWeight.w700,
                                     fontStyle: FlutterFlowTheme.of(context)
@@ -558,7 +591,9 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                             conditions,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: FlutterFlowTheme.of(context).bodyMedium.override(
+                            style: FlutterFlowTheme.of(context)
+                                .bodyMedium
+                                .override(
                                   font: GoogleFonts.inter(
                                     fontWeight: FontWeight.w400,
                                     fontStyle: FlutterFlowTheme.of(context)
@@ -665,11 +700,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                     padding: const EdgeInsetsDirectional.fromSTEB(
                         20.0, 18.0, 20.0, 0.0),
                     child: StreamBuilder<List<MyLotsRecord>>(
-                      stream: currentUserReference == null
-                          ? const Stream<List<MyLotsRecord>>.empty()
-                          : queryMyLotsRecord(
-                              parent: currentUserReference,
-                            ),
+                      stream: _myLotsStream,
                       builder: (context, myLotsSnapshot) {
                         if (myLotsSnapshot.hasError) {
                           debugPrint(
@@ -690,9 +721,14 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                           );
                         }
 
-                        final myLots = myLotsSnapshot.data ?? const <MyLotsRecord>[];
+                        final myLots =
+                            myLotsSnapshot.data ?? const <MyLotsRecord>[];
+                        if (!identical(_cachedRecords, myLots)) {
+                          _cachedRecords = myLots;
+                          _cachedItems = _loadLotItems(myLots);
+                        }
                         return FutureBuilder<List<_LotListItem>>(
-                          future: _loadLotItems(myLots),
+                          future: _cachedItems,
                           builder: (context, lotItemsSnapshot) {
                             if (lotItemsSnapshot.hasError) {
                               debugPrint(
@@ -733,7 +769,8 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
                                           separatorBuilder: (_, __) =>
                                               const SizedBox(height: 18.0),
                                           itemBuilder: (context, index) =>
-                                              _buildLotCard(context, items[index]),
+                                              _buildLotCard(
+                                                  context, items[index]),
                                         ),
                                 ),
                               ],

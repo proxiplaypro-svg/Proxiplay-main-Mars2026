@@ -94,6 +94,9 @@ test("tirage : gagnant, prize, my_lots et winner/current ecrits ensemble", async
     .doc("current")
     .get();
   assert.equal(winnerCurrentSnap.data().uid, "player1");
+  const projection=await firestore.doc('animations/anim-1/public_winner/current').get();
+  assert.deepEqual(Object.keys(projection.data()).sort(),['city','label','selected_at']);
+  assert.equal(projection.data().label,'player1');
 });
 
 test("comptes supprimes/suspendus exclus du tirage", async () => {

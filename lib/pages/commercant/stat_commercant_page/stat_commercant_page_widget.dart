@@ -1,4 +1,5 @@
-﻿import '/auth/firebase_auth/auth_util.dart';
+import '/services/merchant_games_service.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
 import '/components/list_empty_component_widget.dart';
@@ -49,14 +50,7 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
   }
 
   Stream<List<GamesRecord>> _merchantGamesStream() {
-    return queryGamesRecord(
-      queryBuilder: (gamesRecord) => gamesRecord
-          .where(
-            'create_by',
-            isEqualTo: currentUserReference,
-          ),
-      limit: 500,
-    );
+    return loadAllMerchantGames().asStream();
   }
 
   int _readInt(dynamic value) {
@@ -161,7 +155,8 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
       ),
       limit: 100,
     ).map(
-      (enseignes) => enseignes.fold<int>(0, (sum, e) => sum + _readFollowers(e)),
+      (enseignes) =>
+          enseignes.fold<int>(0, (sum, e) => sum + _readFollowers(e)),
     );
   }
 
@@ -182,7 +177,8 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
             width: 28.0,
             height: 28.0,
             decoration: BoxDecoration(
-              color: FlutterFlowTheme.of(context).primary.withValues(alpha: 0.12),
+              color:
+                  FlutterFlowTheme.of(context).primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(9.0),
             ),
             child: Icon(
@@ -197,7 +193,8 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
             style: FlutterFlowTheme.of(context).titleMedium.override(
                   font: GoogleFonts.interTight(
                     fontWeight: FontWeight.w700,
-                    fontStyle: FlutterFlowTheme.of(context).titleMedium.fontStyle,
+                    fontStyle:
+                        FlutterFlowTheme.of(context).titleMedium.fontStyle,
                   ),
                   letterSpacing: 0.0,
                   fontWeight: FontWeight.w700,
@@ -211,8 +208,10 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
               overflow: TextOverflow.ellipsis,
               style: FlutterFlowTheme.of(context).bodySmall.override(
                     font: GoogleFonts.inter(
-                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                      fontWeight:
+                          FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                      fontStyle:
+                          FlutterFlowTheme.of(context).bodySmall.fontStyle,
                     ),
                     color: FlutterFlowTheme.of(context).secondaryText,
                     letterSpacing: 0.0,
@@ -225,8 +224,10 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
   }
 
   Widget _buildGameStatusBadge(bool isActive) {
-    final background = isActive ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0);
-    final textColor = isActive ? const Color(0xFF2E7D32) : const Color(0xFFE65100);
+    final background =
+        isActive ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0);
+    final textColor =
+        isActive ? const Color(0xFF2E7D32) : const Color(0xFFE65100);
     final label = isActive ? 'Actif' : 'Termin\u00E9';
 
     return Container(
@@ -265,8 +266,7 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                   font: GoogleFonts.inter(
                     fontWeight:
                         FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                    fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
                   ),
                   letterSpacing: 0.0,
                 ),
@@ -296,7 +296,8 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
       hoverColor: Colors.transparent,
       highlightColor: Colors.transparent,
       onTap: () async {
-        final enseigne = await EnseignesRecord.getDocumentOnce(game.enseigneId!);
+        final enseigne =
+            await EnseignesRecord.getDocumentOnce(game.enseigneId!);
         if (!mounted) return;
         context.pushNamed(
           JeuDetailCommercantPageWidget.routeName,
@@ -348,7 +349,9 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                             game.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: FlutterFlowTheme.of(context).titleSmall.override(
+                            style: FlutterFlowTheme.of(context)
+                                .titleSmall
+                                .override(
                                   font: GoogleFonts.inter(
                                     fontWeight: FontWeight.w700,
                                     fontStyle: FlutterFlowTheme.of(context)
@@ -371,10 +374,12 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                       overflow: TextOverflow.ellipsis,
                       style: FlutterFlowTheme.of(context).bodySmall.override(
                             font: GoogleFonts.inter(
-                              fontWeight:
-                                  FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                              fontStyle:
-                                  FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                              fontWeight: FlutterFlowTheme.of(context)
+                                  .bodySmall
+                                  .fontWeight,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodySmall
+                                  .fontStyle,
                             ),
                             color: FlutterFlowTheme.of(context).secondaryText,
                             letterSpacing: 0.0,
@@ -390,8 +395,8 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                         _statChip(Icons.sports_esports_rounded,
                             'Participations ${game.participations}'),
                         const SizedBox(height: 6.0),
-                        _statChip(Icons.star_rounded,
-                            'Favoris ${game.favorites}'),
+                        _statChip(
+                            Icons.star_rounded, 'Favoris ${game.favorites}'),
                         if (kShowUniquePlayersStat &&
                             _shouldShowUniquePlayers(game)) ...[
                           const SizedBox(height: 6.0),
@@ -412,9 +417,12 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                             text: 'Relancer',
                             options: FFButtonOptions(
                               height: 30.0,
-                              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12.0),
                               color: FlutterFlowTheme.of(context).primary,
-                              textStyle: FlutterFlowTheme.of(context).bodySmall.override(
+                              textStyle: FlutterFlowTheme.of(context)
+                                  .bodySmall
+                                  .override(
                                     font: GoogleFonts.inter(
                                       fontWeight: FontWeight.w700,
                                       fontStyle: FlutterFlowTheme.of(context)
@@ -436,9 +444,12 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                             text: 'Supprimer',
                             options: FFButtonOptions(
                               height: 30.0,
-                              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12.0),
                               color: const Color(0xFFFFF3E0),
-                              textStyle: FlutterFlowTheme.of(context).bodySmall.override(
+                              textStyle: FlutterFlowTheme.of(context)
+                                  .bodySmall
+                                  .override(
                                     font: GoogleFonts.inter(
                                       fontWeight: FontWeight.w700,
                                       fontStyle: FlutterFlowTheme.of(context)
@@ -628,30 +639,36 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                       children: [
                         Text(
                           'Statistiques',
-                          style:
-                              FlutterFlowTheme.of(context).headlineSmall.override(
-                                    font: GoogleFonts.interTight(
-                                      fontWeight: FontWeight.w700,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .headlineSmall
-                                          .fontStyle,
-                                    ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                          style: FlutterFlowTheme.of(context)
+                              .headlineSmall
+                              .override(
+                                font: GoogleFonts.interTight(
+                                  fontWeight: FontWeight.w700,
+                                  fontStyle: FlutterFlowTheme.of(context)
+                                      .headlineSmall
+                                      .fontStyle,
+                                ),
+                                letterSpacing: 0.0,
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                         const SizedBox(height: 2.0),
                         Text(
                           'Suivi de performance de vos jeux',
                           textAlign: TextAlign.center,
-                          style: FlutterFlowTheme.of(context).bodySmall.override(
+                          style: FlutterFlowTheme.of(context)
+                              .bodySmall
+                              .override(
                                 font: GoogleFonts.inter(
-                                  fontWeight:
-                                      FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                  fontStyle:
-                                      FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                                  fontWeight: FlutterFlowTheme.of(context)
+                                      .bodySmall
+                                      .fontWeight,
+                                  fontStyle: FlutterFlowTheme.of(context)
+                                      .bodySmall
+                                      .fontStyle,
                                 ),
-                                color: FlutterFlowTheme.of(context).secondaryText,
+                                color:
+                                    FlutterFlowTheme.of(context).secondaryText,
                                 letterSpacing: 0.0,
                               ),
                         ),
@@ -714,7 +731,9 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                               activeGames.length > 1
                                   ? 'Jeux en cours'
                                   : 'Jeu en cours',
-                              style: FlutterFlowTheme.of(context).titleMedium.override(
+                              style: FlutterFlowTheme.of(context)
+                                  .titleMedium
+                                  .override(
                                     font: GoogleFonts.interTight(
                                       fontWeight: FontWeight.w700,
                                       fontStyle: FlutterFlowTheme.of(context)
@@ -742,7 +761,9 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                             alignment: Alignment.centerLeft,
                             child: Text(
                               'Jeux termin\u00E9s',
-                              style: FlutterFlowTheme.of(context).titleMedium.override(
+                              style: FlutterFlowTheme.of(context)
+                                  .titleMedium
+                                  .override(
                                     font: GoogleFonts.interTight(
                                       fontWeight: FontWeight.w700,
                                       fontStyle: FlutterFlowTheme.of(context)
@@ -761,7 +782,8 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                               child: _buildEmptyState(),
                             )
                           else
-                            ...finishedGames.map((game) => _buildGameCard(game)),
+                            ...finishedGames
+                                .map((game) => _buildGameCard(game)),
                         ];
 
                         return ListView(
@@ -792,4 +814,3 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
     );
   }
 }
-

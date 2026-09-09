@@ -36,7 +36,9 @@ async function seedUser(uid) {
 }
 
 async function seedPrize(prizeId, overrides = {}) {
+  await firestore.doc('games/source').set({});
   await firestore.collection("prizes").doc(prizeId).set({
+    game_id: firestore.doc('games/source'),
     name: "Lot test",
     claim_code: "CODE",
     claimed: false,
@@ -49,6 +51,22 @@ async function myLotDoc(uid, prizeId) {
 }
 
 test.beforeEach(clearFirestore);
+
+for (const conflict of ['winner', 'canonical', 'duplicate', 'other_owner', 'missing_user', 'source']) {
+  test(`repair refuses ${conflict} contradiction without creating a link`, async () => {
+    await seedUser('u');
+    await seedPrize('p', {winner_id:firestore.doc('users/u')});
+    if(conflict==='winner') await firestore.doc('games/source').update({main_prize_winner:firestore.doc('users/other')});
+    if(conflict==='canonical') await firestore.doc('users/u/my_lots/p').set({prize_id:firestore.doc('prizes/other')});
+    if(conflict==='duplicate') await firestore.doc('users/u/my_lots/legacy').set({prize_id:firestore.doc('prizes/p')});
+    if(conflict==='other_owner') await firestore.doc('users/other/my_lots/p').set({prize_id:firestore.doc('prizes/p')});
+    if(conflict==='missing_user') await firestore.doc('users/u').delete();
+    if(conflict==='source') await firestore.doc('games/source').delete();
+    assert.equal((await repairMissingMyLotsLink('p')).status,'manual_review_required');
+    const link=await firestore.doc('users/u/my_lots/p').get();
+    assert.equal(link.exists,conflict==='canonical');
+  });
+}
 
 test("audit : detecte un lot instantane historique (avant migration my_lots) sans lien", async () => {
   await seedUser("winner1");

@@ -118,6 +118,18 @@ function fakeSecret(value) {
   return {value: () => value};
 }
 
+test('late B response cannot overwrite current C rating', async () => {
+  const afterData={google_place_id:'B'};
+  const {change,updateCalls}=fakeChange({beforeData:{google_place_id:'A'},afterData});
+  const handler=createRefreshGooglePlaceRatingTrigger({functions:fakeFunctionsModule(),admin:fakeAdmin(),
+    kFunctionsRegion:'us-central1',secret:fakeSecret('test'),fetchImpl:async()=>{
+      afterData.google_place_id='C';
+      return {ok:true,json:async()=>({rating:1,userRatingCount:2})};
+    }});
+  await handler(change,{params:{enseigneId:'e'}});
+  assert.deepEqual(updateCalls,[]);
+});
+
 function fakeChange({beforeData, afterData}) {
   const updateCalls = [];
   const afterExists = afterData !== null;
@@ -132,6 +144,10 @@ function fakeChange({beforeData, afterData}) {
         exists: afterExists,
         data: () => afterData ?? {},
         ref: {
+          firestore: {runTransaction: async callback => callback({
+            get: async () => ({exists:afterData !== null,data:()=>afterData || {}}),
+            update: (_ref, patch) => updateCalls.push(patch),
+          })},
           update: async (patch) => {
             updateCalls.push(patch);
           },

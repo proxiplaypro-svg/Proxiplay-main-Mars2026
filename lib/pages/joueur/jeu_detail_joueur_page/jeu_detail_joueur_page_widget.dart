@@ -1,8 +1,8 @@
+import '/backend/animation_progress.dart';
 import 'dart:async';
 
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
-import '/backend/animation_utils.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
@@ -799,21 +799,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     final attemptId = outcome.attemptId ?? 'none';
     final gameId = widget.gameDoc?.reference.id ?? 'unknown';
 
-    var newlyQualified = false;
-    if (!outcome.alreadyParticipatedToday &&
-        widget.gameDoc != null &&
-        currentUserUid.isNotEmpty &&
-        widget.gameDoc!.animationId.trim().isNotEmpty) {
-      try {
-        newlyQualified =
-            await updateAnimationProgress(currentUserUid, widget.gameDoc!);
-      } catch (error) {
-        debugPrint(
-          '[ANIMATION_PROGRESS] update skipped gameId=${widget.gameDoc?.reference.id} '
-          'animationId=${widget.gameDoc?.animationId} error=$error',
-        );
-      }
-    }
+    final progress = AnimationProgress.fromResponse(response.jsonBody,
+        replay: outcome.alreadyParticipatedToday);
+    final newlyQualified = progress?.newlyQualified == true;
     if (!mounted) {
       _logParticipationTrace(
         stage: 'navigation_aborted_not_mounted',
@@ -1688,139 +1676,266 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                             ),
                                           ),
                                           const SizedBox(height: 12.0),
-                                              if (showShopCard &&
-                                                  effectiveEnseigneDoc !=
-                                                      null) ...[
-                                                const SizedBox(height: 4.0),
-                                                Material(
-                                                  color: Colors.transparent,
-                                                  child: InkWell(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            16.0),
-                                                    onTap: () async {
-                                                      context.pushNamed(
-                                                        EnseigneDetailJoueurPageWidget
-                                                            .routeName,
-                                                        queryParameters: {
-                                                          'enseigneDoc':
-                                                              serializeParam(
-                                                            effectiveEnseigneDoc,
-                                                            ParamType.Document,
-                                                          ),
-                                                        }.withoutNulls,
-                                                        extra: <String,
-                                                            dynamic>{
-                                                          'enseigneDoc':
-                                                              effectiveEnseigneDoc,
-                                                        },
-                                                      );
-                                                    },
-                                                    child: Container(
-                                                      constraints:
-                                                          const BoxConstraints(
-                                                              minHeight: 72.0),
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                        horizontal: 12.0,
-                                                        vertical: 10.0,
+                                          if (showShopCard &&
+                                              effectiveEnseigneDoc != null) ...[
+                                            const SizedBox(height: 4.0),
+                                            Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                borderRadius:
+                                                    BorderRadius.circular(16.0),
+                                                onTap: () async {
+                                                  context.pushNamed(
+                                                    EnseigneDetailJoueurPageWidget
+                                                        .routeName,
+                                                    queryParameters: {
+                                                      'enseigneDoc':
+                                                          serializeParam(
+                                                        effectiveEnseigneDoc,
+                                                        ParamType.Document,
                                                       ),
-                                                      decoration:
-                                                          merchantCardDecoration,
-                                                      child: Row(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          ClipRRect(
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        12.0),
-                                                            child: SizedBox(
-                                                              width: 72.0,
-                                                              height: 72.0,
-                                                              child: FutureBuilder<
-                                                                  List<
-                                                                      ImagesRecord>>(
-                                                                future:
-                                                                    queryImagesRecordOnce(
-                                                                  parent: effectiveEnseigneDoc
+                                                    }.withoutNulls,
+                                                    extra: <String, dynamic>{
+                                                      'enseigneDoc':
+                                                          effectiveEnseigneDoc,
+                                                    },
+                                                  );
+                                                },
+                                                child: Container(
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                          minHeight: 72.0),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 12.0,
+                                                    vertical: 10.0,
+                                                  ),
+                                                  decoration:
+                                                      merchantCardDecoration,
+                                                  child: Row(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      ClipRRect(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(12.0),
+                                                        child: SizedBox(
+                                                          width: 72.0,
+                                                          height: 72.0,
+                                                          child: FutureBuilder<
+                                                              List<
+                                                                  ImagesRecord>>(
+                                                            future:
+                                                                queryImagesRecordOnce(
+                                                              parent:
+                                                                  effectiveEnseigneDoc
                                                                       .reference,
-                                                                  singleRecord:
-                                                                      true,
-                                                                ),
-                                                                builder: (context,
-                                                                    snapshot) {
-                                                                  if (snapshot
-                                                                          .data
-                                                                          ?.isNotEmpty ==
-                                                                      true) {
-                                                                    return ProxiplayNetworkImage(
-                                                                      imageUrl: snapshot
+                                                              singleRecord:
+                                                                  true,
+                                                            ),
+                                                            builder: (context,
+                                                                snapshot) {
+                                                              if (snapshot.data
+                                                                      ?.isNotEmpty ==
+                                                                  true) {
+                                                                return ProxiplayNetworkImage(
+                                                                  imageUrl:
+                                                                      snapshot
                                                                           .data!
                                                                           .first
                                                                           .url,
-                                                                      fit: BoxFit
-                                                                          .cover,
-                                                                    );
-                                                                  }
+                                                                  fit: BoxFit
+                                                                      .cover,
+                                                                );
+                                                              }
 
-                                                                  return Container(
-                                                                    color: const Color(
-                                                                        0xFFF5F6FB),
-                                                                    alignment:
-                                                                        Alignment
-                                                                            .center,
-                                                                    child:
-                                                                        const Icon(
-                                                                      Icons
-                                                                          .storefront_rounded,
-                                                                      color: Color(
-                                                                          0xFFA0134D),
-                                                                      size:
-                                                                          30.0,
-                                                                    ),
-                                                                  );
-                                                                },
+                                                              return Container(
+                                                                color: const Color(
+                                                                    0xFFF5F6FB),
+                                                                alignment:
+                                                                    Alignment
+                                                                        .center,
+                                                                child:
+                                                                    const Icon(
+                                                                  Icons
+                                                                      .storefront_rounded,
+                                                                  color: Color(
+                                                                      0xFFA0134D),
+                                                                  size: 30.0,
+                                                                ),
+                                                              );
+                                                            },
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(
+                                                          width: 12.0),
+                                                      Expanded(
+                                                        child: Column(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            Text(
+                                                              'Offert par',
+                                                              style: GoogleFonts
+                                                                  .inter(
+                                                                fontSize: 11.0,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                color: const Color(
+                                                                    0xFFA0134D),
+                                                                letterSpacing:
+                                                                    0.2,
                                                               ),
                                                             ),
-                                                          ),
-                                                          const SizedBox(
-                                                              width: 12.0),
-                                                          Expanded(
-                                                            child: Column(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .min,
-                                                              crossAxisAlignment:
-                                                                  CrossAxisAlignment
-                                                                      .start,
-                                                              children: [
-                                                                Text(
-                                                                  'Offert par',
-                                                                  style: GoogleFonts
-                                                                      .inter(
-                                                                    fontSize:
-                                                                        11.0,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
-                                                                    color: const Color(
-                                                                        0xFFA0134D),
-                                                                    letterSpacing:
-                                                                        0.2,
-                                                                  ),
+                                                            Text(
+                                                              effectiveEnseigneDoc
+                                                                      .name
+                                                                      .trim()
+                                                                      .isNotEmpty
+                                                                  ? effectiveEnseigneDoc
+                                                                      .name
+                                                                  : 'Enseigne partenaire',
+                                                              maxLines: 1,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              style: GoogleFonts
+                                                                  .inter(
+                                                                fontSize: 15.0,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                color: const Color(
+                                                                    0xFF1F2937),
+                                                                letterSpacing:
+                                                                    0.0,
+                                                              ),
+                                                            ),
+                                                            if (effectiveEnseigneDoc
+                                                                    .city
+                                                                    .trim()
+                                                                    .isNotEmpty ||
+                                                                effectiveEnseigneDoc
+                                                                    .hasGoogleRating())
+                                                              Padding(
+                                                                padding:
+                                                                    const EdgeInsets
+                                                                        .only(
+                                                                        top:
+                                                                            4.0),
+                                                                child: Wrap(
+                                                                  crossAxisAlignment:
+                                                                      WrapCrossAlignment
+                                                                          .center,
+                                                                  spacing: 6.0,
+                                                                  runSpacing:
+                                                                      2.0,
+                                                                  children: [
+                                                                    if (effectiveEnseigneDoc
+                                                                        .city
+                                                                        .trim()
+                                                                        .isNotEmpty)
+                                                                      Row(
+                                                                        mainAxisSize:
+                                                                            MainAxisSize.min,
+                                                                        children: [
+                                                                          const Icon(
+                                                                            Icons.location_on_sharp,
+                                                                            size:
+                                                                                14.0,
+                                                                            color:
+                                                                                Color(0xFF6B7280),
+                                                                          ),
+                                                                          const SizedBox(
+                                                                              width: 4.0),
+                                                                          Text(
+                                                                            effectiveEnseigneDoc.city,
+                                                                            maxLines:
+                                                                                1,
+                                                                            overflow:
+                                                                                TextOverflow.ellipsis,
+                                                                            style:
+                                                                                GoogleFonts.inter(
+                                                                              fontSize: 13.0,
+                                                                              fontWeight: FontWeight.w500,
+                                                                              color: const Color(0xFF6B7280),
+                                                                              letterSpacing: 0.0,
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                      ),
+                                                                    if (effectiveEnseigneDoc
+                                                                            .city
+                                                                            .trim()
+                                                                            .isNotEmpty &&
+                                                                        effectiveEnseigneDoc
+                                                                            .hasGoogleRating())
+                                                                      Text(
+                                                                        '|',
+                                                                        style: GoogleFonts
+                                                                            .inter(
+                                                                          fontSize:
+                                                                              13.0,
+                                                                          color:
+                                                                              const Color(0xFFD1D5DB),
+                                                                        ),
+                                                                      ),
+                                                                    if (effectiveEnseigneDoc
+                                                                        .hasGoogleRating())
+                                                                      Row(
+                                                                        mainAxisSize:
+                                                                            MainAxisSize.min,
+                                                                        children: [
+                                                                          const Icon(
+                                                                            Icons.star_rounded,
+                                                                            size:
+                                                                                15.0,
+                                                                            color:
+                                                                                Color(0xFFF59E0B),
+                                                                          ),
+                                                                          const SizedBox(
+                                                                              width: 3.0),
+                                                                          Text(
+                                                                            '${formattedGoogleRating(effectiveEnseigneDoc) ?? ''}'
+                                                                            '${effectiveEnseigneDoc.googleReviewsCount > 0 ? ' (${effectiveEnseigneDoc.googleReviewsCount} avis)' : ''}',
+                                                                            maxLines:
+                                                                                1,
+                                                                            overflow:
+                                                                                TextOverflow.ellipsis,
+                                                                            style:
+                                                                                GoogleFonts.inter(
+                                                                              fontSize: 13.0,
+                                                                              fontWeight: FontWeight.w500,
+                                                                              color: const Color(0xFF6B7280),
+                                                                              letterSpacing: 0.0,
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                      ),
+                                                                  ],
                                                                 ),
-                                                                Text(
+                                                              ),
+                                                            if (effectiveEnseigneDoc
+                                                                .description
+                                                                .trim()
+                                                                .isNotEmpty)
+                                                              Padding(
+                                                                padding:
+                                                                    const EdgeInsets
+                                                                        .only(
+                                                                        top:
+                                                                            6.0),
+                                                                child: Text(
                                                                   effectiveEnseigneDoc
-                                                                          .name
-                                                                          .trim()
-                                                                          .isNotEmpty
-                                                                      ? effectiveEnseigneDoc
-                                                                          .name
-                                                                      : 'Enseigne partenaire',
-                                                                  maxLines: 1,
+                                                                      .description,
+                                                                  maxLines: 2,
                                                                   overflow:
                                                                       TextOverflow
                                                                           .ellipsis,
@@ -1828,147 +1943,35 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       GoogleFonts
                                                                           .inter(
                                                                     fontSize:
-                                                                        15.0,
+                                                                        12.5,
                                                                     fontWeight:
                                                                         FontWeight
-                                                                            .w700,
+                                                                            .w400,
                                                                     color: const Color(
-                                                                        0xFF1F2937),
+                                                                        0xFF6B7280),
                                                                     letterSpacing:
                                                                         0.0,
                                                                   ),
                                                                 ),
-                                                                if (effectiveEnseigneDoc.city.trim().isNotEmpty ||
-                                                                    effectiveEnseigneDoc
-                                                                        .hasGoogleRating())
-                                                                  Padding(
-                                                                    padding: const EdgeInsets
-                                                                        .only(
-                                                                        top:
-                                                                            4.0),
-                                                                    child: Wrap(
-                                                                      crossAxisAlignment:
-                                                                          WrapCrossAlignment
-                                                                              .center,
-                                                                      spacing:
-                                                                          6.0,
-                                                                      runSpacing:
-                                                                          2.0,
-                                                                      children: [
-                                                                        if (effectiveEnseigneDoc
-                                                                            .city
-                                                                            .trim()
-                                                                            .isNotEmpty)
-                                                                          Row(
-                                                                            mainAxisSize:
-                                                                                MainAxisSize.min,
-                                                                            children: [
-                                                                              const Icon(
-                                                                                Icons.location_on_sharp,
-                                                                                size: 14.0,
-                                                                                color: Color(0xFF6B7280),
-                                                                              ),
-                                                                              const SizedBox(width: 4.0),
-                                                                              Text(
-                                                                                effectiveEnseigneDoc.city,
-                                                                                maxLines: 1,
-                                                                                overflow: TextOverflow.ellipsis,
-                                                                                style: GoogleFonts.inter(
-                                                                                  fontSize: 13.0,
-                                                                                  fontWeight: FontWeight.w500,
-                                                                                  color: const Color(0xFF6B7280),
-                                                                                  letterSpacing: 0.0,
-                                                                                ),
-                                                                              ),
-                                                                            ],
-                                                                          ),
-                                                                        if (effectiveEnseigneDoc.city.trim().isNotEmpty &&
-                                                                            effectiveEnseigneDoc.hasGoogleRating())
-                                                                          Text(
-                                                                            '|',
-                                                                            style:
-                                                                                GoogleFonts.inter(
-                                                                              fontSize: 13.0,
-                                                                              color: const Color(0xFFD1D5DB),
-                                                                            ),
-                                                                          ),
-                                                                        if (effectiveEnseigneDoc
-                                                                            .hasGoogleRating())
-                                                                          Row(
-                                                                            mainAxisSize:
-                                                                                MainAxisSize.min,
-                                                                            children: [
-                                                                              const Icon(
-                                                                                Icons.star_rounded,
-                                                                                size: 15.0,
-                                                                                color: Color(0xFFF59E0B),
-                                                                              ),
-                                                                              const SizedBox(width: 3.0),
-                                                                              Text(
-                                                                                '${formattedGoogleRating(effectiveEnseigneDoc) ?? ''}'
-                                                                                '${effectiveEnseigneDoc.googleReviewsCount > 0 ? ' (${effectiveEnseigneDoc.googleReviewsCount} avis)' : ''}',
-                                                                                maxLines: 1,
-                                                                                overflow: TextOverflow.ellipsis,
-                                                                                style: GoogleFonts.inter(
-                                                                                  fontSize: 13.0,
-                                                                                  fontWeight: FontWeight.w500,
-                                                                                  color: const Color(0xFF6B7280),
-                                                                                  letterSpacing: 0.0,
-                                                                                ),
-                                                                              ),
-                                                                            ],
-                                                                          ),
-                                                                      ],
-                                                                    ),
-                                                                  ),
-                                                                if (effectiveEnseigneDoc
-                                                                    .description
-                                                                    .trim()
-                                                                    .isNotEmpty)
-                                                                  Padding(
-                                                                    padding: const EdgeInsets
-                                                                        .only(
-                                                                        top:
-                                                                            6.0),
-                                                                    child: Text(
-                                                                      effectiveEnseigneDoc
-                                                                          .description,
-                                                                      maxLines:
-                                                                          2,
-                                                                      overflow:
-                                                                          TextOverflow
-                                                                              .ellipsis,
-                                                                      style: GoogleFonts
-                                                                          .inter(
-                                                                        fontSize:
-                                                                            12.5,
-                                                                        fontWeight:
-                                                                            FontWeight.w400,
-                                                                        color:
-                                                                            const Color(0xFF6B7280),
-                                                                        letterSpacing:
-                                                                            0.0,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                          const SizedBox(
-                                                              width: 8.0),
-                                                          const Icon(
-                                                            Icons
-                                                                .chevron_right_rounded,
-                                                            color: Color(
-                                                                0xFF9CA3AF),
-                                                            size: 22.0,
-                                                          ),
-                                                        ],
+                                                              ),
+                                                          ],
+                                                        ),
                                                       ),
-                                                    ),
+                                                      const SizedBox(
+                                                          width: 8.0),
+                                                      const Icon(
+                                                        Icons
+                                                            .chevron_right_rounded,
+                                                        color:
+                                                            Color(0xFF9CA3AF),
+                                                        size: 22.0,
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
-                                              ],
+                                              ),
+                                            ),
+                                          ],
                                           const SizedBox(height: 20.0),
                                           // Action Buttons Column
                                           Column(
@@ -2016,161 +2019,148 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       .snapshots(),
                                                                   builder: (context,
                                                                       ticketSnapshot) {
-                                                                    final ticketCount =
-                                                                        ticketSnapshot.data?.docs.length ??
-                                                                            0;
+                                                                    final ticketCount = ticketSnapshot
+                                                                            .data
+                                                                            ?.docs
+                                                                            .length ??
+                                                                        0;
                                                                     return Visibility(
-                                                                  visible: widget
-                                                                          .gameDoc!
-                                                                          .endDate! >
-                                                                      getCurrentTimestamp,
-                                                                  child:
-                                                                      FFButtonWidget(
-                                                                    showLoadingIndicator:
-                                                                        false,
-                                                                    onPressed: ((widget.gameDoc!.endDate! <
-                                                                                getCurrentTimestamp) ||
-                                                                            (noRemainingParts &&
-                                                                                !hasPlayedToday) ||
-                                                                            _isLaunchingGame)
-                                                                        ? null
-                                                                        : () async {
-                                                                            if (_isLaunchingGame) {
-                                                                              return;
-                                                                            }
-                                                                            if (isGuestOrAnonymous) {
-                                                                              await showCreateAccountToPlayDialog(context);
-                                                                              return;
-                                                                            }
-                                                                            if (!await _ensureMinorRestrictedGameEligibility()) {
-                                                                              return;
-                                                                            }
-                                                                            debugPrint(
-                                                                              '[GAME_FLOW_DEBUG] participate_start screen=JeuDetailJoueurPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
-                                                                            );
-                                                                            await _launchGame(
-                                                                              attemptId: _newAttemptId(),
-                                                                              participate: () async {
-                                                                                final attemptId = _currentAttemptId ??
-                                                                                    _createAttemptId(
-                                                                                      widget.gameDoc?.reference.id ?? 'unknown',
+                                                                      visible: widget
+                                                                              .gameDoc!
+                                                                              .endDate! >
+                                                                          getCurrentTimestamp,
+                                                                      child:
+                                                                          FFButtonWidget(
+                                                                        showLoadingIndicator:
+                                                                            false,
+                                                                        onPressed: ((widget.gameDoc!.endDate! < getCurrentTimestamp) ||
+                                                                                (noRemainingParts && !hasPlayedToday) ||
+                                                                                _isLaunchingGame)
+                                                                            ? null
+                                                                            : () async {
+                                                                                if (_isLaunchingGame) {
+                                                                                  return;
+                                                                                }
+                                                                                if (isGuestOrAnonymous) {
+                                                                                  await showCreateAccountToPlayDialog(context);
+                                                                                  return;
+                                                                                }
+                                                                                if (!await _ensureMinorRestrictedGameEligibility()) {
+                                                                                  return;
+                                                                                }
+                                                                                debugPrint(
+                                                                                  '[GAME_FLOW_DEBUG] participate_start screen=JeuDetailJoueurPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
+                                                                                );
+                                                                                await _launchGame(
+                                                                                  attemptId: _newAttemptId(),
+                                                                                  participate: () async {
+                                                                                    final attemptId = _currentAttemptId ??
+                                                                                        _createAttemptId(
+                                                                                          widget.gameDoc?.reference.id ?? 'unknown',
+                                                                                        );
+                                                                                    final lastPlay = _coerceDateTime(
+                                                                                      jeuDetailJoueurPageParticipantsDetailsRecord?.lastPlay,
                                                                                     );
-                                                                                final lastPlay = _coerceDateTime(
-                                                                                  jeuDetailJoueurPageParticipantsDetailsRecord?.lastPlay,
-                                                                                );
-                                                                                final now = DateTime.now();
-                                                                                final hasPlayedTodayNow = _computeHasPlayedToday(
-                                                                                  lastPlay,
-                                                                                  now,
-                                                                                );
-                                                                                _logParticipationTrace(
-                                                                                  stage: 'before_click_play',
-                                                                                  attemptId: attemptId,
-                                                                                  gameId: widget.gameDoc?.reference.id ?? 'unknown',
-                                                                                  lastPlay: lastPlay,
-                                                                                  hasPlayedToday: hasPlayedTodayNow,
-                                                                                  detail: 'source=${widget.source ?? 'unknown'} fromQr=${widget.fromQr}',
-                                                                                );
-                                                                                _model.cloudFunction3sn = await _callParticipateInGameTransaction(
-                                                                                  attemptId: attemptId,
-                                                                                  payload: {
-                                                                                    "gameRef": widget.gameDoc!.reference.id,
-                                                                                    "from_qr": widget.fromQr,
-                                                                                    "attemptId": attemptId,
+                                                                                    final now = DateTime.now();
+                                                                                    final hasPlayedTodayNow = _computeHasPlayedToday(
+                                                                                      lastPlay,
+                                                                                      now,
+                                                                                    );
+                                                                                    _logParticipationTrace(
+                                                                                      stage: 'before_click_play',
+                                                                                      attemptId: attemptId,
+                                                                                      gameId: widget.gameDoc?.reference.id ?? 'unknown',
+                                                                                      lastPlay: lastPlay,
+                                                                                      hasPlayedToday: hasPlayedTodayNow,
+                                                                                      detail: 'source=${widget.source ?? 'unknown'} fromQr=${widget.fromQr}',
+                                                                                    );
+                                                                                    _model.cloudFunction3sn = await _callParticipateInGameTransaction(
+                                                                                      attemptId: attemptId,
+                                                                                      payload: {
+                                                                                        "gameRef": widget.gameDoc!.reference.id,
+                                                                                        "from_qr": widget.fromQr,
+                                                                                        "attemptId": attemptId,
+                                                                                      },
+                                                                                    );
+                                                                                    return _model.cloudFunction3sn!;
                                                                                   },
                                                                                 );
-                                                                                return _model.cloudFunction3sn!;
                                                                               },
-                                                                            );
-                                                                          },
-                                                                    text: () {
-                                                                      final noRemainingPartsLive =
-                                                                          _hasNoRemainingParts(
-                                                                        currentUserDocument,
-                                                                        getCurrentTimestamp,
-                                                                      );
-                                                                      if (noRemainingPartsLive) {
-                                                                        return 'Vous n\'avez plus de parties';
-                                                                      } else if (widget
-                                                                              .gameDoc!
-                                                                              .endDate! <
-                                                                          getCurrentTimestamp) {
-                                                                        return 'Le jeu est termin\u00E9';
-                                                                      } else if (hasPlayedToday &&
-                                                                          ticketCount >
-                                                                              0) {
-                                                                        return '\uD83C\uDF9F\uFE0F $ticketCount ${ticketCount > 1 ? 'tickets valid\u00E9s' : 'ticket valid\u00E9'}';
-                                                                      } else if (hasPlayedToday) {
-                                                                        return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
-                                                                      } else if (hasPlayedBefore) {
-                                                                        return 'Rejouer';
-                                                                      } else if (_isLaunchingGame) {
-                                                                        return 'Chargement du jeu\u2026';
-                                                                      } else {
-                                                                        return 'Jouer';
-                                                                      }
-                                                                    }(),
-                                                                    icon: _isLaunchingGame
-                                                                        ? SizedBox(
-                                                                            width:
-                                                                                18.0,
-                                                                            height:
-                                                                                18.0,
-                                                                            child:
-                                                                                CircularProgressIndicator(
-                                                                              strokeWidth: 2.2,
-                                                                              color: Colors.white,
-                                                                            ),
-                                                                          )
-                                                                        : null,
-                                                                    options:
-                                                                        FFButtonOptions(
-                                                                      width: double
-                                                                          .infinity,
-                                                                      height:
-                                                                          56.0,
-                                                                      padding: const EdgeInsets
-                                                                          .all(
-                                                                          0.0),
-                                                                      iconPadding: const EdgeInsetsDirectional
-                                                                          .fromSTEB(
-                                                                          0.0,
-                                                                          0.0,
-                                                                          0.0,
-                                                                          0.0),
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primary,
-                                                                      textStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .titleMedium
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FontWeight.w600,
-                                                                            ),
-                                                                            color:
-                                                                                Colors.white,
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                          ),
-                                                                      borderRadius:
-                                                                          BorderRadius.circular(
-                                                                              16.0),
-                                                                      elevation:
-                                                                          4.0,
-                                                                      disabledColor: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primary
-                                                                          .withValues(
-                                                                            alpha:
-                                                                                0.7,
-                                                                          ),
-                                                                    ),
-                                                                  ),
+                                                                        text:
+                                                                            () {
+                                                                          final noRemainingPartsLive =
+                                                                              _hasNoRemainingParts(
+                                                                            currentUserDocument,
+                                                                            getCurrentTimestamp,
+                                                                          );
+                                                                          if (noRemainingPartsLive) {
+                                                                            return 'Vous n\'avez plus de parties';
+                                                                          } else if (widget.gameDoc!.endDate! <
+                                                                              getCurrentTimestamp) {
+                                                                            return 'Le jeu est termin\u00E9';
+                                                                          } else if (hasPlayedToday &&
+                                                                              ticketCount > 0) {
+                                                                            return '\uD83C\uDF9F\uFE0F $ticketCount ${ticketCount > 1 ? 'tickets valid\u00E9s' : 'ticket valid\u00E9'}';
+                                                                          } else if (hasPlayedToday) {
+                                                                            return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
+                                                                          } else if (hasPlayedBefore) {
+                                                                            return 'Rejouer';
+                                                                          } else if (_isLaunchingGame) {
+                                                                            return 'Chargement du jeu\u2026';
+                                                                          } else {
+                                                                            return 'Jouer';
+                                                                          }
+                                                                        }(),
+                                                                        icon: _isLaunchingGame
+                                                                            ? SizedBox(
+                                                                                width: 18.0,
+                                                                                height: 18.0,
+                                                                                child: CircularProgressIndicator(
+                                                                                  strokeWidth: 2.2,
+                                                                                  color: Colors.white,
+                                                                                ),
+                                                                              )
+                                                                            : null,
+                                                                        options:
+                                                                            FFButtonOptions(
+                                                                          width:
+                                                                              double.infinity,
+                                                                          height:
+                                                                              56.0,
+                                                                          padding: const EdgeInsets
+                                                                              .all(
+                                                                              0.0),
+                                                                          iconPadding: const EdgeInsetsDirectional
+                                                                              .fromSTEB(
+                                                                              0.0,
+                                                                              0.0,
+                                                                              0.0,
+                                                                              0.0),
+                                                                          color:
+                                                                              FlutterFlowTheme.of(context).primary,
+                                                                          textStyle: FlutterFlowTheme.of(context)
+                                                                              .titleMedium
+                                                                              .override(
+                                                                                font: GoogleFonts.inter(
+                                                                                  fontWeight: FontWeight.w600,
+                                                                                ),
+                                                                                color: Colors.white,
+                                                                                letterSpacing: 0.0,
+                                                                              ),
+                                                                          borderRadius:
+                                                                              BorderRadius.circular(16.0),
+                                                                          elevation:
+                                                                              4.0,
+                                                                          disabledColor: FlutterFlowTheme.of(context)
+                                                                              .primary
+                                                                              .withValues(
+                                                                                alpha: 0.7,
+                                                                              ),
+                                                                        ),
+                                                                      ),
+                                                                    );
+                                                                  },
                                                                 );
-                                                              },
-                                                            );
                                                               },
                                                             );
                                                           } else {
@@ -2214,144 +2204,130 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                               currentUserReference,
                                                                         )
                                                                         .snapshots(),
-                                                                    builder: (context,
-                                                                        ticketSnapshot) {
+                                                                    builder:
+                                                                        (context,
+                                                                            ticketSnapshot) {
                                                                       final ticketCount =
                                                                           ticketSnapshot.data?.docs.length ??
                                                                               0;
                                                                       return FFButtonWidget(
-                                                                    showLoadingIndicator:
-                                                                        false,
-                                                                    onPressed: ((widget.gameDoc!.endDate! <
-                                                                                getCurrentTimestamp) ||
-                                                                            (noRemainingPartsLive &&
-                                                                                !hasPlayedToday) ||
-                                                                            _isLaunchingGame)
-                                                                        ? null
-                                                                        : () async {
-                                                                            if (_isLaunchingGame) {
-                                                                              return;
-                                                                            }
-                                                                            if (isGuestOrAnonymous) {
-                                                                              await showCreateAccountToPlayDialog(context);
-                                                                              return;
-                                                                            }
-                                                                            debugPrint(
-                                                                              '[GAME_FLOW_DEBUG] participate_start screen=JeuDetailJoueurPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
-                                                                            );
-                                                                            await _launchGame(
-                                                                              attemptId: _newAttemptId(),
-                                                                              participate: () async {
-                                                                                final attemptId = _currentAttemptId ??
-                                                                                    _createAttemptId(
-                                                                                      widget.gameDoc?.reference.id ?? 'unknown',
+                                                                        showLoadingIndicator:
+                                                                            false,
+                                                                        onPressed: ((widget.gameDoc!.endDate! < getCurrentTimestamp) ||
+                                                                                (noRemainingPartsLive && !hasPlayedToday) ||
+                                                                                _isLaunchingGame)
+                                                                            ? null
+                                                                            : () async {
+                                                                                if (_isLaunchingGame) {
+                                                                                  return;
+                                                                                }
+                                                                                if (isGuestOrAnonymous) {
+                                                                                  await showCreateAccountToPlayDialog(context);
+                                                                                  return;
+                                                                                }
+                                                                                debugPrint(
+                                                                                  '[GAME_FLOW_DEBUG] participate_start screen=JeuDetailJoueurPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
+                                                                                );
+                                                                                await _launchGame(
+                                                                                  attemptId: _newAttemptId(),
+                                                                                  participate: () async {
+                                                                                    final attemptId = _currentAttemptId ??
+                                                                                        _createAttemptId(
+                                                                                          widget.gameDoc?.reference.id ?? 'unknown',
+                                                                                        );
+                                                                                    final lastPlay = _coerceDateTime(
+                                                                                      jeuDetailJoueurPageParticipantsDetailsRecord?.lastPlay,
                                                                                     );
-                                                                                final lastPlay = _coerceDateTime(
-                                                                                  jeuDetailJoueurPageParticipantsDetailsRecord?.lastPlay,
-                                                                                );
-                                                                                final now = DateTime.now();
-                                                                                final hasPlayedTodayNow = _computeHasPlayedToday(
-                                                                                  lastPlay,
-                                                                                  now,
-                                                                                );
-                                                                                _logParticipationTrace(
-                                                                                  stage: 'before_click_play',
-                                                                                  attemptId: attemptId,
-                                                                                  gameId: widget.gameDoc?.reference.id ?? 'unknown',
-                                                                                  lastPlay: lastPlay,
-                                                                                  hasPlayedToday: hasPlayedTodayNow,
-                                                                                  detail: 'source=${widget.source ?? 'unknown'} fromQr=${widget.fromQr}',
-                                                                                );
-                                                                                _model.cloudFunction3sn2 = await _callParticipateInGameTransaction(
-                                                                                  attemptId: attemptId,
-                                                                                  payload: {
-                                                                                    "gameRef": widget.gameDoc!.reference.id,
-                                                                                    "from_qr": widget.fromQr,
-                                                                                    "attemptId": attemptId,
+                                                                                    final now = DateTime.now();
+                                                                                    final hasPlayedTodayNow = _computeHasPlayedToday(
+                                                                                      lastPlay,
+                                                                                      now,
+                                                                                    );
+                                                                                    _logParticipationTrace(
+                                                                                      stage: 'before_click_play',
+                                                                                      attemptId: attemptId,
+                                                                                      gameId: widget.gameDoc?.reference.id ?? 'unknown',
+                                                                                      lastPlay: lastPlay,
+                                                                                      hasPlayedToday: hasPlayedTodayNow,
+                                                                                      detail: 'source=${widget.source ?? 'unknown'} fromQr=${widget.fromQr}',
+                                                                                    );
+                                                                                    _model.cloudFunction3sn2 = await _callParticipateInGameTransaction(
+                                                                                      attemptId: attemptId,
+                                                                                      payload: {
+                                                                                        "gameRef": widget.gameDoc!.reference.id,
+                                                                                        "from_qr": widget.fromQr,
+                                                                                        "attemptId": attemptId,
+                                                                                      },
+                                                                                    );
+                                                                                    return _model.cloudFunction3sn2!;
                                                                                   },
                                                                                 );
-                                                                                return _model.cloudFunction3sn2!;
                                                                               },
-                                                                            );
-                                                                          },
-                                                                    text: () {
-                                                                      if (noRemainingPartsLive) {
-                                                                        return 'Vous n\'avez plus de parties';
-                                                                      } else if (widget
-                                                                              .gameDoc!
-                                                                              .endDate! <
-                                                                          getCurrentTimestamp) {
-                                                                        return 'Le jeu est termin\u00E9';
-                                                                      } else if (hasPlayedToday &&
-                                                                          ticketCount >
-                                                                              0) {
-                                                                        return '\uD83C\uDF9F\uFE0F $ticketCount ${ticketCount > 1 ? 'tickets valid\u00E9s' : 'ticket valid\u00E9'}';
-                                                                      } else if (hasPlayedToday) {
-                                                                        return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
-                                                                      } else if (hasPlayedBefore) {
-                                                                        return 'Rejouer';
-                                                                      } else if (_isLaunchingGame) {
-                                                                        return 'Chargement du jeu\u2026';
-                                                                      } else {
-                                                                        return 'Jouer';
-                                                                      }
-                                                                    }(),
-                                                                    icon: _isLaunchingGame
-                                                                        ? SizedBox(
-                                                                            width:
-                                                                                18.0,
-                                                                            height:
-                                                                                18.0,
-                                                                            child:
-                                                                                CircularProgressIndicator(
-                                                                              strokeWidth: 2.2,
-                                                                              color: Colors.white,
-                                                                            ),
-                                                                          )
-                                                                        : null,
-                                                                    options:
-                                                                        FFButtonOptions(
-                                                                      width: double
-                                                                          .infinity,
-                                                                      height:
-                                                                          56.0,
-                                                                      padding: const EdgeInsets
-                                                                          .all(
-                                                                          0.0),
-                                                                      iconPadding: const EdgeInsetsDirectional
-                                                                          .fromSTEB(
-                                                                          0.0,
-                                                                          0.0,
-                                                                          0.0,
-                                                                          0.0),
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primary,
-                                                                      textStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .titleMedium
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FontWeight.w600,
-                                                                            ),
-                                                                            color:
-                                                                                Colors.white,
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                          ),
-                                                                      borderRadius:
-                                                                          BorderRadius.circular(
-                                                                              16.0),
-                                                                      elevation:
-                                                                          4.0,
-                                                                      disabledColor: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primary
-                                                                          .withValues(
-                                                                              alpha: 0.7),
-                                                                    ),
-                                                                  );
+                                                                        text:
+                                                                            () {
+                                                                          if (noRemainingPartsLive) {
+                                                                            return 'Vous n\'avez plus de parties';
+                                                                          } else if (widget.gameDoc!.endDate! <
+                                                                              getCurrentTimestamp) {
+                                                                            return 'Le jeu est termin\u00E9';
+                                                                          } else if (hasPlayedToday &&
+                                                                              ticketCount > 0) {
+                                                                            return '\uD83C\uDF9F\uFE0F $ticketCount ${ticketCount > 1 ? 'tickets valid\u00E9s' : 'ticket valid\u00E9'}';
+                                                                          } else if (hasPlayedToday) {
+                                                                            return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
+                                                                          } else if (hasPlayedBefore) {
+                                                                            return 'Rejouer';
+                                                                          } else if (_isLaunchingGame) {
+                                                                            return 'Chargement du jeu\u2026';
+                                                                          } else {
+                                                                            return 'Jouer';
+                                                                          }
+                                                                        }(),
+                                                                        icon: _isLaunchingGame
+                                                                            ? SizedBox(
+                                                                                width: 18.0,
+                                                                                height: 18.0,
+                                                                                child: CircularProgressIndicator(
+                                                                                  strokeWidth: 2.2,
+                                                                                  color: Colors.white,
+                                                                                ),
+                                                                              )
+                                                                            : null,
+                                                                        options:
+                                                                            FFButtonOptions(
+                                                                          width:
+                                                                              double.infinity,
+                                                                          height:
+                                                                              56.0,
+                                                                          padding: const EdgeInsets
+                                                                              .all(
+                                                                              0.0),
+                                                                          iconPadding: const EdgeInsetsDirectional
+                                                                              .fromSTEB(
+                                                                              0.0,
+                                                                              0.0,
+                                                                              0.0,
+                                                                              0.0),
+                                                                          color:
+                                                                              FlutterFlowTheme.of(context).primary,
+                                                                          textStyle: FlutterFlowTheme.of(context)
+                                                                              .titleMedium
+                                                                              .override(
+                                                                                font: GoogleFonts.inter(
+                                                                                  fontWeight: FontWeight.w600,
+                                                                                ),
+                                                                                color: Colors.white,
+                                                                                letterSpacing: 0.0,
+                                                                              ),
+                                                                          borderRadius:
+                                                                              BorderRadius.circular(16.0),
+                                                                          elevation:
+                                                                              4.0,
+                                                                          disabledColor: FlutterFlowTheme.of(context)
+                                                                              .primary
+                                                                              .withValues(alpha: 0.7),
+                                                                        ),
+                                                                      );
                                                                     },
                                                                   );
                                                                 },
@@ -2424,7 +2400,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   // ),
                                                 ),
                                               // if (leftActionVisible)
-
                                             ],
                                           ),
                                           const SizedBox(height: 16.0),
@@ -2446,8 +2421,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   style: GoogleFonts.inter(
                                                     fontSize: 13.0,
                                                     fontWeight: FontWeight.w500,
-                                                    color: const Color(
-                                                        0xFF6B7280),
+                                                    color:
+                                                        const Color(0xFF6B7280),
                                                     letterSpacing: 0.0,
                                                   ),
                                                 ),
@@ -2456,8 +2431,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                   '|',
                                                   style: GoogleFonts.inter(
                                                     fontSize: 13.0,
-                                                    color: const Color(
-                                                        0xFFD1D5DB),
+                                                    color:
+                                                        const Color(0xFFD1D5DB),
                                                   ),
                                                 ),
                                                 const SizedBox(width: 8.0),
@@ -2495,8 +2470,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       Icons
                                                           .chevron_right_rounded,
                                                       size: 16.0,
-                                                      color:
-                                                          Color(0xFFA0134D),
+                                                      color: Color(0xFFA0134D),
                                                     ),
                                                   ],
                                                 ),

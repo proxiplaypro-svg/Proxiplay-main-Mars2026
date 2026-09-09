@@ -1325,7 +1325,7 @@ class _DrawWinnerSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
-          .doc('animations/$animationId/winner/current')
+          .doc('animations/$animationId/public_winner/current')
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData || !snapshot.data!.exists) {

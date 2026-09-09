@@ -100,9 +100,14 @@ function createRefreshGooglePlaceRatingTrigger({
       });
 
       const enseigneRef = change.after.ref;
+      const applyCurrent = (patch) => enseigneRef.firestore.runTransaction(async transaction => {
+        const current = await transaction.get(enseigneRef);
+        if (!current.exists || getStringField(current.data(), 'google_place_id') !== afterPlaceId) return;
+        transaction.update(enseigneRef, patch);
+      });
 
       if (result.action === "clear") {
-        await enseigneRef.update({
+        await applyCurrent({
           google_rating: admin.firestore.FieldValue.delete(),
           google_reviews_count: admin.firestore.FieldValue.delete(),
           google_rating_updated_at: admin.firestore.FieldValue.delete(),
@@ -112,7 +117,7 @@ function createRefreshGooglePlaceRatingTrigger({
 
       if (result.action === "update") {
         const {rating, reviewsCount} = result.details;
-        await enseigneRef.update({
+        await applyCurrent({
           google_rating:
             rating === null
               ? admin.firestore.FieldValue.delete()

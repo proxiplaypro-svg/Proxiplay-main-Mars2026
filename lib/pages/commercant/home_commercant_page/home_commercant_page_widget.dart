@@ -1,4 +1,5 @@
-﻿import '/auth/firebase_auth/auth_util.dart';
+import '/services/merchant_games_service.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
 import '/components/get_code_gagnant_widget.dart';
@@ -38,10 +39,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
   String _normalizeClaimCode(String rawValue) {
-    return rawValue
-        .trim()
-        .toUpperCase()
-        .replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    return rawValue.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
   }
 
   Future<Set<DocumentReference>> _loadMerchantEnseigneRefs() async {
@@ -53,10 +51,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
       parent: currentUserReference,
     );
 
-    return enseignes
-        .map((record) => record.enseigneId)
-        .nonNulls
-        .toSet();
+    return enseignes.map((record) => record.enseigneId).nonNulls.toSet();
   }
 
   Future<PrizesRecord?> _findPrizeForMerchantClaimCode(String rawCode) async {
@@ -173,7 +168,8 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
             overflow: TextOverflow.ellipsis,
             style: FlutterFlowTheme.of(context).bodySmall.override(
                   font: GoogleFonts.inter(
-                    fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                    fontWeight:
+                        FlutterFlowTheme.of(context).bodySmall.fontWeight,
                     fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
                   ),
                   color: FlutterFlowTheme.of(context).primaryText,
@@ -233,16 +229,17 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                           game.name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: FlutterFlowTheme.of(context).titleLarge.override(
-                                font: GoogleFonts.interTight(
-                                  fontWeight: FontWeight.w700,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .titleLarge
-                                      .fontStyle,
-                                ),
-                                letterSpacing: 0.0,
-                                fontWeight: FontWeight.w700,
-                              ),
+                          style:
+                              FlutterFlowTheme.of(context).titleLarge.override(
+                                    font: GoogleFonts.interTight(
+                                      fontWeight: FontWeight.w700,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .titleLarge
+                                          .fontStyle,
+                                    ),
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                         ),
                       ),
                       const SizedBox(width: 10.0),
@@ -264,10 +261,12 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                     overflow: TextOverflow.ellipsis,
                     style: FlutterFlowTheme.of(context).bodyMedium.override(
                           font: GoogleFonts.inter(
-                            fontWeight:
-                                FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                            fontStyle:
-                                FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                            fontWeight: FlutterFlowTheme.of(context)
+                                .bodyMedium
+                                .fontWeight,
+                            fontStyle: FlutterFlowTheme.of(context)
+                                .bodyMedium
+                                .fontStyle,
                           ),
                           color: FlutterFlowTheme.of(context).secondaryText,
                           letterSpacing: 0.0,
@@ -426,8 +425,8 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Padding(
-                                        padding: const EdgeInsetsDirectional.fromSTEB(
-                                            16.0, 8.0, 0.0, 0.0),
+                                        padding: const EdgeInsetsDirectional
+                                            .fromSTEB(16.0, 8.0, 0.0, 0.0),
                                         child: Text(
                                           'V\u00E9rifier le code gagnant',
                                           style: FlutterFlowTheme.of(context)
@@ -454,8 +453,8 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                         ),
                                       ),
                                       Padding(
-                                        padding: const EdgeInsetsDirectional.fromSTEB(
-                                            16.0, 0.0, 16.0, 16.0),
+                                        padding: const EdgeInsetsDirectional
+                                            .fromSTEB(16.0, 0.0, 16.0, 16.0),
                                         child: TextFormField(
                                           controller: _model.textController,
                                           focusNode: _model.textFieldFocusNode,
@@ -583,9 +582,8 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                       ),
                                       Builder(
                                         builder: (context) => Padding(
-                                          padding:
-                                              const EdgeInsetsDirectional.fromSTEB(
-                                                  16.0, 0.0, 16.0, 16.0),
+                                          padding: const EdgeInsetsDirectional
+                                              .fromSTEB(16.0, 0.0, 16.0, 16.0),
                                           child: FFButtonWidget(
                                             onPressed: () async {
                                               final normalizedCode =
@@ -670,11 +668,14 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                             options: FFButtonOptions(
                                               width: double.infinity,
                                               height: 40.0,
-                                              padding: const EdgeInsetsDirectional
-                                                  .fromSTEB(
+                                              padding:
+                                                  const EdgeInsetsDirectional
+                                                      .fromSTEB(
                                                       16.0, 0.0, 16.0, 0.0),
-                                              iconPadding: const EdgeInsetsDirectional
-                                                  .fromSTEB(0.0, 0.0, 0.0, 0.0),
+                                              iconPadding:
+                                                  const EdgeInsetsDirectional
+                                                      .fromSTEB(
+                                                      0.0, 0.0, 0.0, 0.0),
                                               color:
                                                   FlutterFlowTheme.of(context)
                                                       .primary,
@@ -720,7 +721,8 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                 ),
                               ),
                               Align(
-                                alignment: const AlignmentDirectional(-1.0, 0.0),
+                                alignment:
+                                    const AlignmentDirectional(-1.0, 0.0),
                                 child: Container(
                                   decoration: const BoxDecoration(),
                                   child: Text(
@@ -761,21 +763,13 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                     future: (_model
                                                 .firestoreRequestCompleter ??=
                                             Completer<List<GamesRecord>>()
-                                              ..complete(queryGamesRecordOnce(
-                                                queryBuilder: (gamesRecord) =>
-                                                    gamesRecord
-                                                        .where(
-                                                          'create_by',
-                                                          isEqualTo:
-                                                              currentUserReference,
-                                                        )
-                                                        .where(
-                                                          'end_date',
-                                                          isGreaterThanOrEqualTo:
-                                                              getCurrentTimestamp,
-                                                        ),
-                                                limit: 15,
-                                              )))
+                                              ..complete(loadAllMerchantGames()
+                                                  .then((games) => games
+                                                      .where((g) =>
+                                                          g.endDate != null &&
+                                                          !g.endDate!.isBefore(
+                                                              getCurrentTimestamp))
+                                                      .toList())))
                                         .future,
                                     builder: (context, snapshot) {
                                       // Customize what your widget looks like when it's loading.
@@ -784,7 +778,8 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                           child: SizedBox(
                                             width: 40.0,
                                             height: 40.0,
-                                            child: ProxiplayLoadingLogo(size: 42.0),
+                                            child: ProxiplayLoadingLogo(
+                                                size: 42.0),
                                           ),
                                         );
                                       }

@@ -16,7 +16,7 @@
 //     "node --test test/participate_already_played_no_parts.test.js"
 
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
-process.env.GCLOUD_PROJECT = "demo-proxiplay-rules-test";
+process.env.GCLOUD_PROJECT = "demo-proxiplay-cached-result-test";
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -27,6 +27,12 @@ const myFunctions = require("../index.js");
 const wrapped = functionsTest.wrap(myFunctions.participateInGameTransaction);
 
 const firestore = admin.firestore();
+test.beforeEach(async () => {
+  for (const collection of await firestore.listCollections()) {
+    await firestore.recursiveDelete(collection);
+  }
+});
+test.after(() => functionsTest.cleanup());
 
 function getParisDayKey(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -167,4 +173,20 @@ test("joueur avec des parties restantes qui joue un jeu jamais tente aujourd'hui
 
   const userSnap = await firestore.collection("users").doc(uid).get();
   assert.equal(userSnap.data().remaining_part, 2);
+});
+
+test('animation qualification is server-only and cached retry never announces qualification again', async () => {
+  await seedGame({gameId:'animation_game',ownerUid:'merchant',enseigneId:'shop'});
+  await firestore.doc('games/animation_game').update({animation_id:'a'});
+  await firestore.doc('animations/a').set({status:'active',threshold:1,
+    start_date:admin.firestore.Timestamp.fromMillis(now.toMillis()-hourMs),
+    end_date:admin.firestore.Timestamp.fromMillis(now.toMillis()+hourMs)});
+  await firestore.doc('users/player').set({user_role:'joueur',remaining_part:2});
+  const result=await wrapped({gameRef:'animation_game',from_qr:false},{auth:{uid:'player'}});
+  assert.deepEqual(result.animation,{id:'a',visitedCount:1,threshold:1,thresholdReached:true,newlyQualified:true});
+  assert.equal((await firestore.doc('animations/a/entries/player').get()).data().threshold_reached,true);
+  assert.equal((await firestore.doc('users/player/animations/a').get()).exists,false);
+  const replay=await wrapped({gameRef:'animation_game',from_qr:false},{auth:{uid:'player'}});
+  assert.equal(replay.animation.newlyQualified,false);
+  assert.equal((await firestore.doc('users/player').get()).data().remaining_part,1);
 });

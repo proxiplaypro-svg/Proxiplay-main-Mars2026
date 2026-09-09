@@ -90,7 +90,7 @@ service cloud.firestore {
     // liste, un compte commerçant pourrait réécrire n'importe quel champ de
     // son propre document, y compris fabriquer un statut "gagnant".
     function isSafeMerchantEnseigneUpdate() {
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         'name', 'address', 'city', 'area_code', 'phone_number',
         'description', 'site_web_url', 'instagram_link', 'twitter_link',
         'facebook_link', 'category',
@@ -104,7 +104,7 @@ service cloud.firestore {
     }
 
     function isSafeMerchantGameUpdate() {
-      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         'hidden_from_merchant_stats', 'updated_time'
       ]);
     }
@@ -125,48 +125,46 @@ service cloud.firestore {
         : null;
     }
 
-    function ownsEnseigneById(merchantId) {
-      return merchantId != null &&
-        signedInEmail() != null &&
-        exists(/databases/$(database)/documents/enseignes/$(merchantId)) &&
-        get(/databases/$(database)/documents/enseignes/$(merchantId)).data.email == signedInEmail();
+    function ownsTrustedMerchant(data) {
+      return isSignedIn() && (
+        data.get('owner_uid', null) == request.auth.uid ||
+        data.get('owner_id', null) == request.auth.uid ||
+        isOwnerRef(data.get('owner_id', null)) || isOwnerRef(data.get('owner', null))
+      );
     }
 
-    function ownsMerchantById(merchantId) {
-      return merchantId != null &&
-        signedInEmail() != null &&
-        exists(/databases/$(database)/documents/merchants/$(merchantId)) &&
-        get(/databases/$(database)/documents/merchants/$(merchantId)).data.email == signedInEmail();
+    function ownsGame(data) {
+      let shop = data.get('enseigne_id', data.get('enseigne_ref', null));
+      let owner = data.get('owner_id', null);
+      return isSignedIn() && isMerchantOwnerOfEnseigne(shop) &&
+        (owner == null || isOwnerRef(owner) || owner == request.auth.uid);
     }
 
-    function requestedGameMerchantId() {
-      // .get(cle, defaut), pas l'acces pointe : un champ totalement absent
-      // du document (jamais ecrit, ni merchantId ni merchant_id) leve une
-      // erreur en notation pointee plutot que de renvoyer null, ce qui
-      // ferait echouer toute la chaine || de canManageRequestedGameAsMerchant().
-      return request.resource.data.get('merchantId', null) != null
-        ? request.resource.data.get('merchantId', null)
-        : request.resource.data.get('merchant_id', null) != null
-          ? request.resource.data.get('merchant_id', null)
-          : resource.data.get('merchantId', null) != null
-            ? resource.data.get('merchantId', null)
-            : resource.data.get('merchant_id', null);
-    }
-
-    function canManageRequestedGameAsMerchant() {
-      let merchantId = requestedGameMerchantId();
-      return ownsEnseigneById(merchantId) || ownsMerchantById(merchantId);
+    function canManageLegacyGame() {
+      let merchantId = resource.data.get('merchantId', resource.data.get('merchant_id', null));
+      return ownsTrustedMerchant(resource.data) || (merchantId is string && (
+        (exists(/databases/$(database)/documents/enseignes/$(merchantId)) &&
+          ownsTrustedMerchant(get(/databases/$(database)/documents/enseignes/$(merchantId)).data)) ||
+        (exists(/databases/$(database)/documents/merchants/$(merchantId)) &&
+          ownsTrustedMerchant(get(/databases/$(database)/documents/merchants/$(merchantId)).data))
+      ));
     }
 
     function isPrizeClaimValidationUpdate() {
-      return resource.data.claimed != true &&
+      return isMerchantPrize(resource.data) &&
+        resource.data.claimed != true &&
         request.resource.data.claimed == true &&
-        request.resource.data.diff(resource.data).changedKeys().hasOnly(['claimed']);
+        (resource.data.get('usage_deadline', null) == null ||
+          (resource.data.usage_deadline is timestamp &&
+            request.time <= resource.data.usage_deadline)) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimed']);
     }
 
     function isAllowedSelfUserCreate(userId) {
       return isSelf(userId) &&
         request.resource.data.uid == request.auth.uid &&
+        (!('userRole' in request.resource.data) ||
+          request.resource.data.userRole in ['joueur', 'commercant']) &&
         (
           !('user_role' in request.resource.data) ||
           request.resource.data.user_role in ['joueur', 'commercant']
@@ -243,15 +241,19 @@ service cloud.firestore {
       allow delete: if isAdmin() || isOwnerRef(resource.data.owner);
     }
 
-    // Collection legacy utilisee par la console admin (repo proxiplay-admin)
-    // pour certains commercants pas encore migres vers /enseignes ;
-    // ownsMerchantById() en depend. Regle reprise telle quelle de ce repo
-    // (large : n'importe quel compte connecte peut ecrire) -- pas une
-    // regression introduite ici, mais a resserrer plus tard (voir note en
-    // tete de fichier).
-    match /merchants/{document=**} {
-      allow read: if isAdmin() || isSignedIn();
-      allow write: if isAdmin() || isSignedIn();
+    // Ownership is assigned by admin/server, never by a client-supplied email.
+    match /merchants/{document} {
+      allow read: if isAdmin() || ownsTrustedMerchant(resource.data);
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (ownsTrustedMerchant(resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'description', 'address', 'city', 'phone_number', 'site_web_url'
+        ]));
+    }
+
+    function isMerchantPrize(data) {
+      return data.get('fulfillment_type', 'merchant') == 'merchant' &&
+        !(data.get('prize_type', '') in ['animation', 'referral_game', 'monthly_challenge']);
     }
 
     match /games/{document} {
@@ -259,14 +261,15 @@ service cloud.firestore {
         (
           request.auth != null &&
           request.resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid) &&
+          ownsGame(request.resource.data) &&
           isApprovedMerchant()
         );
       allow read: if true;
       allow update: if isAdmin() ||
-        (resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid) &&
+        (ownsGame(resource.data) &&
           isSafeMerchantGameUpdate());
       allow delete: if isAdmin() ||
-        resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid);
+        ownsGame(resource.data);
     }
 
     // Collection legacy pour les jeux a scanner geres via la console admin
@@ -278,7 +281,11 @@ service cloud.firestore {
     // regle explicite.
     match /jeux/{document} {
       allow read: if true;
-      allow write: if isAdmin() || canManageRequestedGameAsMerchant();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (canManageLegacyGame() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'title', 'description', 'active', 'updated_at'
+        ]));
     }
 
     match /users/{parent}/favorite_enseignes/{document} {
@@ -387,35 +394,30 @@ service cloud.firestore {
       allow update: if isAdmin() || (
         isPrizeClaimValidationUpdate() &&
         (
-          isOwnerRef(resource.data.owner_id) ||
-          isMerchantOwnerOfEnseigne(resource.data.enseigne_id)
+          isOwnerRef(resource.data.get('owner_id', null)) ||
+          isMerchantOwnerOfEnseigne(resource.data.get('enseigne_id', null))
         )
       );
-      // *** TEMPORAIRE -- REOUVERT LE 31/08/2026, A REFERMER AU PROCHAIN BUILD MOBILE ***
-      // prizes contient claim_code (et winner_id), qui ne devraient PAS etre
-      // publics -- la lecture stricte ci-dessous (isAdmin() ||
-      // isOwnerRef(winner_id) || isOwnerRef(owner_id) ||
-      // isMerchantOwnerOfEnseigne(enseigne_id)) reste la version cible et est
-      // deja couverte par firestore_rules_prizes_and_my_lots.test.js.
-      // Elle est desactivee ici volontairement et temporairement : l'app
-      // mobile actuellement installee (avant la prochaine publication)
-      // contient des requetes list() sur prizes (game_id seul, claim_code
-      // seul) qui ne sont pas prouvables par cette regle et echouent
-      // entierement (voir l'audit du 31/08/2026) -- Firestore ne peut pas
-      // filtrer une requete list() document par document, elle rejette tout
-      // ou rien. Le correctif definitif (filtres owner_id/enseigne_id
-      // corriges cote app) est deja sur develop, mais n'atteindra les
-      // utilisateurs qu'a la prochaine build (app mobile uniquement, pas de
-      // web) -- decision assumee d'exposer publiquement claim_code/winner_id
-      // le temps de cette publication plutot que de forcer une mise a jour
-      // en urgence sur les stores.
-      // A FAIRE au prochain build publie : remettre la regle stricte
-      // ci-dessus et redeployer `firebase deploy --only firestore:rules`.
+      // PRIZES_READ_POLICY: strict; rollout compatibility file is explicit and temporary.
+      allow read: if isAdmin() ||
+        isOwnerRef(resource.data.get('winner_id', null)) ||
+        isOwnerRef(resource.data.get('owner_id', null)) ||
+        isMerchantOwnerOfEnseigne(resource.data.get('enseigne_id', null));
+    }
+
+    match /public_prize_winners/{document} {
       allow read: if true;
-      // allow read: if isAdmin() ||
-      //   isOwnerRef(resource.data.winner_id) ||
-      //   isOwnerRef(resource.data.owner_id) ||
-      //   isMerchantOwnerOfEnseigne(resource.data.enseigne_id);
+      allow write: if false;
+    }
+
+    match /animations/{animationId}/public_winner/{document} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /animations/{animationId}/winner/{document} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     match /users/{parent}/notifications/{document} {

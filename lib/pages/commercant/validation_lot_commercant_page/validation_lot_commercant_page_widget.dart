@@ -1,4 +1,4 @@
-﻿import '/backend/backend.dart';
+import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -570,7 +570,9 @@ class _ValidationLotCommercantPageWidgetState
                                 ),
                               ),
                             ),
-                            if (!widget.prize!.claimed)
+                            if (widget.prize!.isExpired && !widget.prize!.claimed)
+                              const Text('Lot expiré : la date limite d’utilisation est dépassée.'),
+                            if (widget.prize!.isAvailable && widget.prize!.fulfillmentType == 'merchant')
                               FFButtonWidget(
                                 showLoadingIndicator: _isSubmitting,
                                 onPressed: () async {

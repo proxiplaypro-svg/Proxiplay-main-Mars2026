@@ -68,7 +68,7 @@ export async function addReferralGameTicket(
     const referral = referralSnap.data() as ReferralRecord;
     const startMs = game.start_date?.toMillis?.();
     const endMs = game.end_date?.toMillis?.();
-    if (game.status !== 'active' || startMs == null || endMs == null || startMs > now.toMillis() || endMs < now.toMillis()) return 'ineligible';
+    if (game.winner_uid || game.draw_status === 'completed' || game.draw_status === 'no_eligible_entries' || game.status !== 'active' || startMs == null || endMs == null || startMs > now.toMillis() || endMs < now.toMillis()) return 'ineligible';
     if (referral.status !== 'accepted' || !referral.inviterUid?.trim()) return 'ineligible';
     const inviterRef = refs.user(referral.inviterUid);
     const inviterSnap = await transaction.get(inviterRef);

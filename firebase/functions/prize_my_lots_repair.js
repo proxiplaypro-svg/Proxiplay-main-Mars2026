@@ -1,3 +1,4 @@
+const {checkAwardLinks, prizeSource, review} = require("./prize_integrity");
 // Repare, de facon strictement additive, le lien manquant
 // users/{winnerUid}/my_lots/{prizeId} pour un lot ("prizes") qui a deja un
 // gagnant (winner_id, DocumentReference) mais aucune entree my_lots
@@ -96,6 +97,20 @@ async function repairMissingMyLotsLink(prizeId) {
       );
     }
 
+    const source = prizeSource(prize);
+    if (!source.sourceField) return review(prizeId, 'missing_source');
+    const sourceCollections = {game_id:'games',animation_id:'animations',referral_game_id:'referral_games',monthly_challenge_draw_ref:'monthly_challenge_draws'};
+    const rawSource = source.sourceValue?.path || source.sourceValue;
+    if (typeof rawSource !== 'string') return review(prizeId, 'invalid_source');
+    const sourcePath = rawSource.includes('/') ? rawSource : sourceCollections[source.sourceField] + '/' + rawSource;
+    if (!new RegExp('^' + sourceCollections[source.sourceField] + '/[^/]+$').test(sourcePath)) return review(prizeId, 'invalid_source');
+    const sourceRef = db.doc(sourcePath);
+    const sourceSnap = await transaction.get(sourceRef);
+    if (!sourceSnap.exists) return review(prizeId, 'missing_source_document');
+    const sourceWinner = sourceSnap.data().main_prize_winner?.path || sourceSnap.data().winner_ref?.path || (sourceSnap.data().winner_uid ? 'users/' + sourceSnap.data().winner_uid : '');
+    if (prize.prize_type !== 'secondaire' && sourceWinner && sourceWinner !== winnerRef.path) return review(prizeId, 'source_winner_mismatch');
+    const integrity = await checkAwardLinks(transaction, {prizeRef, winnerRef, ...source, prizeSnap});
+    if (integrity.status !== 'consistent') return integrity;
     const myLotRef = winnerRef.collection("my_lots").doc(prizeRef.id);
     const myLotSnap = await transaction.get(myLotRef);
     if (myLotSnap.exists) {

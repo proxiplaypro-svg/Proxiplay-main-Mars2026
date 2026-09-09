@@ -4,6 +4,9 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const {isFunctionsEmulator} = require("./lib/emulator_runtime");
 admin.initializeApp();
+exports.syncPrizeLotSnapshot = require('./prize_lot_snapshot').syncPrizeLotSnapshot;
+exports.getMerchantGames = require('./merchant_games').getMerchantGames;
+exports.syncPublicPrizeWinner = require("./public_winners").syncPublicPrizeWinner;
 const participateInGameTransaction = require("./participate_in_game_transaction.js");
 const {
   expandSecondaryPrizes,
@@ -100,8 +103,9 @@ const generateInstantWinnersForGameCallable = functions
     const gameData = gameSnap.data() || {};
     const callerRef = firestore.collection("users").doc(context.auth.uid);
     const isCallerAdmin = (await callerRef.get()).data()?.user_role === "admin";
-    const createByRef = toDocRef(gameData.create_by);
-    const ownerRef = createByRef || toDocRef(gameData.owner_id);
+    const shopRef = toDocRef(gameData.enseigne_id || gameData.enseigne_ref);
+    const shop = shopRef ? await shopRef.get() : null;
+    const ownerRef = toDocRef(gameData.owner_id) || toDocRef(shop?.data()?.owner);
 
     if (
       !isCallerAdmin &&
@@ -5131,8 +5135,8 @@ exports.notifyPrizeWon = functions
       ]);
 
     const gameData = gameDataRaw || {};
-    if (!ownerRef && gameData.create_by) {
-      ownerRef = toDocRef(gameData.create_by);
+    if (!ownerRef && gameData.owner_id) {
+      ownerRef = toDocRef(gameData.owner_id);
     }
     if (!enseigneRef && gameData.enseigne_id) {
       enseigneRef = toDocRef(gameData.enseigne_id);
@@ -5726,203 +5730,7 @@ exports.relaunInactivePlayersByStatus = functions
 // Automatically select a main prize winner after game end.
 // Runs hourly to avoid load; processes completed games and enforces
 // "no main prize => no main-prize winner" consistency.
-exports.pickMainPrizeWinners = functions.pubsub
-  .schedule("0 0 * * *")
-  .timeZone("Europe/Paris")
-  .onRun(async () => {
-    const gamesSnap = await firestore
-      .collection("games")
-      .where("hasWinner", "==", false)
-      .where("end_date", "<=", admin.firestore.Timestamp.now())
-      .get();
-
-    if (gamesSnap.empty) {
-      return null;
-    }
-
-    await Promise.all(
-      gamesSnap.docs.map(async (gameDoc) => {
-        const gameData = gameDoc.data();
-        const gameId = gameDoc.id;
-        const hasMainPrize = resolveHasMainPrize(gameData);
-        const endDateValue = gameData.end_date || gameData.endDate || null;
-        const endDateLog =
-          endDateValue &&
-          typeof endDateValue.toDate === "function" &&
-          !Number.isNaN(endDateValue.toDate().getTime())
-            ? endDateValue.toDate().toISOString()
-            : endDateValue === null
-              ? "absent"
-              : String(endDateValue);
-
-        console.log(
-          `[DRAW] Jeu trouvé : gameId=${gameId}, end_date=${endDateLog}, status=${gameData.status || "absent"}, main_prize=${hasMainPrize ? "present" : "absent"}`,
-        );
-
-        if (!hasMainPrize) {
-          console.log(
-            `[DRAW][SKIP] gameId=${gameId} — raison : main_prize absent ou mal formé`,
-          );
-          return null;
-        }
-
-        if (gameData.main_prize_winner) {
-          console.log(
-            `[DRAW][SKIP] gameId=${gameId} — raison : winner_uid déjà présent`,
-          );
-          return null;
-        }
-
-        const participantsSnap = await gameDoc.ref
-          .collection("participants")
-          .get();
-
-        if (participantsSnap.empty) {
-          console.log(
-            `[DRAW][SKIP] gameId=${gameId} — raison : aucun participant`,
-          );
-          return null;
-        }
-
-        const participants = participantsSnap.docs.filter((participantDoc) => {
-          const participantData = participantDoc.data() || {};
-          const participantUserRef = participantData.user_id;
-          if (participantUserRef) {
-            return true;
-          }
-
-          const participantUid =
-            participantData.uid ||
-            participantData.user_uid ||
-            participantData.userId ||
-            participantData.user_id_string ||
-            "absent";
-          console.log(
-            `[DRAW][SKIP] gameId=${gameId} — raison : participant sans user_id (uid=${participantUid})`,
-          );
-          return false;
-        });
-
-        if (participants.length === 0) {
-          console.log(
-            `[DRAW][SKIP] gameId=${gameId} — raison : aucun participant`,
-          );
-          return null;
-        }
-
-        const winnerDoc =
-          participants[Math.floor(Math.random() * participants.length)];
-        const winnerRef = winnerDoc.data().user_id;
-        const winnerUid =
-          winnerRef && typeof winnerRef.path === "string"
-            ? winnerRef.path.split("/").pop()
-            : "absent";
-
-        const prizeRef = firestore.collection("prizes").doc();
-        const claimCode = generateClaimCode();
-        const ownerRef = gameData.create_by
-          ? firestore.doc(gameData.create_by.path)
-          : null;
-        const enseigneRef = gameData.enseigne_id
-          ? firestore.doc(gameData.enseigne_id.path)
-          : null;
-
-        await firestore.runTransaction(async (transaction) => {
-          const freshGameDoc = await transaction.get(gameDoc.ref);
-          // Lu ici (avant toute ecriture, comme l'exige une transaction
-          // Firestore) pour denormaliser prenom/ville sur games et prizes :
-          // l'app n'a alors plus jamais besoin de lire le profil d'un autre
-          // utilisateur pour afficher "Gagne par <prenom> - <ville>".
-          const winnerUserDoc = await transaction.get(winnerRef);
-          if (!freshGameDoc.exists) {
-            console.log(
-              `[DRAW][SKIP] gameId=${gameId} — raison : document introuvable pendant la transaction`,
-            );
-            return;
-          }
-          const freshGameData = freshGameDoc.data();
-
-          if (freshGameData.hasWinner || freshGameData.main_prize_winner) {
-            console.log(
-              `[DRAW][SKIP] gameId=${gameId} — raison : winner_uid déjà présent`,
-            );
-            return;
-          }
-
-          logHasWinnerWrite({
-            gameId,
-            previousValue: freshGameData.hasWinner === true,
-            newValue: true,
-            sourceFunction: "pickMainPrizeWinners",
-            winnerType: "gagnant-principal",
-            hasMainPrize: resolveHasMainPrize(freshGameData),
-            endDate:
-              freshGameData.end_date?.toDate?.()?.toISOString?.() ||
-              freshGameData.end_date ||
-              null,
-          });
-
-          const winnerUserData = winnerUserDoc.exists
-            ? winnerUserDoc.data() || {}
-            : {};
-          const winnerFirstNameValue = getTrimmedString(
-            winnerUserData.first_name || winnerUserData.firstName,
-          ).split(/\s+/)[0] || "";
-          const winnerCityValue = getTrimmedString(winnerUserData.city);
-          const denormalizedWinnerFields = {
-            ...(winnerFirstNameValue
-              ? {
-                  winnerFirstName: winnerFirstNameValue,
-                  winner_first_name: winnerFirstNameValue,
-                }
-              : {}),
-            ...(winnerCityValue
-              ? { winnerCity: winnerCityValue, winner_city: winnerCityValue }
-              : {}),
-          };
-
-          transaction.update(gameDoc.ref, {
-            hasWinner: true,
-            main_prize_winner: winnerRef,
-            ...denormalizedWinnerFields,
-          });
-
-          transaction.set(prizeRef, {
-            prize_type: "principal",
-            name: gameData.name || "Lot principal",
-            description: gameData.description || "",
-            winner_id: winnerRef,
-            game_id: gameDoc.ref,
-            enseigne_id: enseigneRef,
-            enseigne_name: gameData.enseigne_name || "",
-            owner_id: ownerRef,
-            claim_code: normalizeClaimCode(claimCode),
-            claimed: false,
-            win_date: admin.firestore.FieldValue.serverTimestamp(),
-            ...(gameData.prize_usage_deadline
-              ? { usage_deadline: gameData.prize_usage_deadline }
-              : {}),
-            ...denormalizedWinnerFields,
-          });
-
-          const userLotRef = winnerRef
-            .collection("my_lots")
-            .doc(prizeRef.id);
-          transaction.set(userLotRef, {
-            prize_id: prizeRef,
-          });
-
-          console.log(
-            `[DRAW][OK] gameId=${gameId} — gagnant tiré : uid=${winnerUid}`,
-          );
-        });
-
-        return null;
-      }),
-    );
-
-    return null;
-  });
+exports.pickMainPrizeWinners = require("./main_prize_draw").pickMainPrizeWinners;
 
 // One-way migration job:
 // progressively backfills `hasMainPrize` on existing games and cleans
@@ -6132,7 +5940,7 @@ exports.onUserDeleted = functions.auth.user().onDelete(async (user) => {
 try {
   Object.assign(exports, require("./lib/share_promo"));
 } catch (error) {
-  console.log("share_promo TypeScript bundle not loaded yet:", error.message);
+  throw error;
 }
 
 try {
@@ -6263,7 +6071,8 @@ try {
       }
     });
 } catch (error) {
-  console.log("drawAnimationWinners not loaded yet:", error.message);
+  functions.logger.error("DRAW_EXPORT_FAILED", {module: "draw_animation_winner", error: error.message});
+  throw error;
 }
 
 try {
@@ -6272,7 +6081,8 @@ try {
   } = require("./draw_referral_game_winner");
   exports.drawReferralGameWinner = drawReferralGameWinner;
 } catch (error) {
-  console.log("drawReferralGameWinner not loaded yet:", error.message);
+  functions.logger.error("DRAW_EXPORT_FAILED", {module: "draw_referral_game_winner", error: error.message});
+  throw error;
 }
 
 const {drawReferralGame, repairReferralGameDraw} = require("./referral_game_engine");

@@ -51,6 +51,23 @@ class PrizesRecord extends FirestoreRecord {
   DocumentReference? get ownerId => _ownerId;
   bool hasOwnerId() => _ownerId != null;
 
+  String get fulfillmentType {
+    final explicit = snapshotData['fulfillment_type'];
+    if (explicit == 'platform' || explicit == 'partner') {
+      return explicit as String;
+    }
+    if (['animation', 'referral_game', 'monthly_challenge']
+        .contains(snapshotData['prize_type'])) {
+      return 'platform';
+    }
+    if (ownerId != null &&
+        enseigneId != null &&
+        (explicit == null || explicit == 'merchant')) {
+      return 'merchant';
+    }
+    return 'review';
+  }
+
   // "claim_code" field.
   String? _claimCode;
   String get claimCode => _claimCode ?? '';
@@ -70,6 +87,8 @@ class PrizesRecord extends FirestoreRecord {
   DateTime? _usageDeadline;
   DateTime? get usageDeadline => _usageDeadline;
   bool hasUsageDeadline() => _usageDeadline != null;
+  bool get isExpired => _usageDeadline?.isBefore(DateTime.now()) ?? false;
+  bool get isAvailable => !claimed && !isExpired;
 
   // "enseigne_name" field.
   String? _enseigneName;

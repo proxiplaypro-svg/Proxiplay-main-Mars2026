@@ -62,7 +62,7 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
           continue;
         }
         final prize = PrizesRecord.fromSnapshot(prizeSnap);
-        if (!prize.claimed) {
+        if (prize.isAvailable) {
           unclaimedLots++;
         }
       } catch (error, stackTrace) {

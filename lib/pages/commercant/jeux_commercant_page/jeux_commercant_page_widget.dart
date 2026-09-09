@@ -1,4 +1,5 @@
-﻿import '/auth/firebase_auth/auth_util.dart';
+import '/services/merchant_games_service.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
 import '/components/list_empty_component_widget.dart';
@@ -29,11 +30,30 @@ class JeuxCommercantPageWidget extends StatefulWidget {
 class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
   late JeuxCommercantPageModel _model;
 
+  final _games = <GamesRecord>[];
+  late Future<List<GamesRecord>> _gamesFuture;
+  String _cursor = '';
+  bool _hasMore = true;
+  bool _loading = false;
+  Future<List<GamesRecord>> _loadPage() async {
+    _loading = true;
+    try {
+      final page = await loadMerchantGamesPage(cursor: _cursor);
+      _games.addAll(page.games);
+      _cursor = page.cursor;
+      _hasMore = page.hasMore;
+      return List.of(_games);
+    } finally {
+      _loading = false;
+    }
+  }
+
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
+    _gamesFuture = _loadPage();
     _model = createModel(context, () => JeuxCommercantPageModel());
 
     logFirebaseEvent('screen_view',
@@ -131,10 +151,10 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
 
   List<GamesRecord> _finishedGames(List<GamesRecord> games) {
     return games
-      .where((g) =>
-          g.snapshotData['hidden_from_merchant_stats'] != true &&
-          !_isGameActive(g))
-      .toList()
+        .where((g) =>
+            g.snapshotData['hidden_from_merchant_stats'] != true &&
+            !_isGameActive(g))
+        .toList()
       ..sort((a, b) {
         final aDate = a.endDate ?? DateTime.fromMillisecondsSinceEpoch(0);
         final bDate = b.endDate ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -208,7 +228,8 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(10.0),
-                child: Image.network(game.photo, width: 88.0, height: 88.0, fit: BoxFit.cover),
+                child: Image.network(game.photo,
+                    width: 88.0, height: 88.0, fit: BoxFit.cover),
               ),
               const SizedBox(width: 10.0),
               Expanded(
@@ -236,8 +257,12 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                       overflow: TextOverflow.ellipsis,
                       style: FlutterFlowTheme.of(context).bodySmall.override(
                             font: GoogleFonts.inter(
-                              fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                              fontWeight: FlutterFlowTheme.of(context)
+                                  .bodySmall
+                                  .fontWeight,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodySmall
+                                  .fontStyle,
                             ),
                             color: FlutterFlowTheme.of(context).secondaryText,
                             letterSpacing: 0.0,
@@ -255,10 +280,14 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                             text: 'Relancer',
                             options: FFButtonOptions(
                               height: 30.0,
-                              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12.0),
                               color: FlutterFlowTheme.of(context).primary,
-                              textStyle: FlutterFlowTheme.of(context).bodySmall.override(
-                                    font: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                              textStyle: FlutterFlowTheme.of(context)
+                                  .bodySmall
+                                  .override(
+                                    font: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w700),
                                     color: FlutterFlowTheme.of(context).info,
                                     letterSpacing: 0.0,
                                   ),
@@ -270,15 +299,20 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                             text: 'Supprimer',
                             options: FFButtonOptions(
                               height: 30.0,
-                              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12.0),
                               color: const Color(0xFFFFF3E0),
-                              textStyle: FlutterFlowTheme.of(context).bodySmall.override(
-                                    font: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                              textStyle: FlutterFlowTheme.of(context)
+                                  .bodySmall
+                                  .override(
+                                    font: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w700),
                                     color: const Color(0xFFE65100),
                                     letterSpacing: 0.0,
                                   ),
                               borderRadius: BorderRadius.circular(16.0),
-                              borderSide: const BorderSide(color: Color(0xFFE65100), width: 1.0),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFFE65100), width: 1.0),
                             ),
                           ),
                         ],
@@ -376,8 +410,8 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                 children: [
                   Expanded(
                     child: Padding(
-                      padding:
-                          const EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 0.0),
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                          20.0, 20.0, 20.0, 0.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
                         children: [
@@ -399,7 +433,15 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                   singleRecord: true,
                                 ),
                                 builder: (context, snapshot) {
-                                  // Customize what your widget looks like when it's loading.
+                                  if (snapshot.hasError) {
+                                    return TextButton(
+                                        onPressed: () => setState(() {
+                                              _gamesFuture = _loadPage();
+                                            }),
+                                        child: const Text(
+                                            'Chargement impossible. Réessayer'));
+                                  }
+                                  // Loading.
                                   if (!snapshot.hasData) {
                                     return const Center(
                                       child: SizedBox(
@@ -445,11 +487,11 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                           text: 'Ajouter un jeu',
                                           options: FFButtonOptions(
                                             height: 40.0,
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    16.0, 0.0, 16.0, 0.0),
+                                            padding: const EdgeInsetsDirectional
+                                                .fromSTEB(16.0, 0.0, 16.0, 0.0),
                                             iconPadding:
-                                                const EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional
+                                                    .fromSTEB(
                                                     0.0, 0.0, 0.0, 0.0),
                                             color: FlutterFlowTheme.of(context)
                                                 .primary,
@@ -497,11 +539,11 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                           text: 'Ajouter une enseigne',
                                           options: FFButtonOptions(
                                             height: 40.0,
-                                            padding:
-                                                const EdgeInsetsDirectional.fromSTEB(
-                                                    16.0, 0.0, 16.0, 0.0),
+                                            padding: const EdgeInsetsDirectional
+                                                .fromSTEB(16.0, 0.0, 16.0, 0.0),
                                             iconPadding:
-                                                const EdgeInsetsDirectional.fromSTEB(
+                                                const EdgeInsetsDirectional
+                                                    .fromSTEB(
                                                     0.0, 0.0, 0.0, 0.0),
                                             color: FlutterFlowTheme.of(context)
                                                 .primary,
@@ -551,15 +593,8 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                             child: Container(
                               width: double.infinity,
                               decoration: const BoxDecoration(),
-                              child: StreamBuilder<List<GamesRecord>>(
-                                stream: queryGamesRecord(
-                                  queryBuilder: (gamesRecord) =>
-                                      gamesRecord.where(
-                                    'create_by',
-                                    isEqualTo: currentUserReference,
-                                  ),
-                                  limit: 15,
-                                ),
+                              child: FutureBuilder<List<GamesRecord>>(
+                                future: _gamesFuture,
                                 builder: (context, snapshot) {
                                   // Customize what your widget looks like when it's loading.
                                   if (!snapshot.hasData) {
@@ -578,7 +613,8 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                                   'hidden_from_merchant_stats'] !=
                                               true)
                                           .toList();
-                                  if (listViewGamesRecordList.isEmpty) {
+                                  if (listViewGamesRecordList.isEmpty &&
+                                      !_hasMore) {
                                     return const Center(
                                       child: ListEmptyComponentWidget(
                                         title: 'Aucun Jeu',
@@ -588,14 +624,24 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                     );
                                   }
 
-                                  final activeGames = _activeGames(
-                                      listViewGamesRecordList);
-                                  final finishedGames = _finishedGames(
-                                      listViewGamesRecordList);
+                                  final activeGames =
+                                      _activeGames(listViewGamesRecordList);
+                                  final finishedGames =
+                                      _finishedGames(listViewGamesRecordList);
 
                                   return ListView(
                                     padding: EdgeInsets.zero,
                                     children: [
+                                      if (_hasMore)
+                                        TextButton(
+                                            onPressed: _loading
+                                                ? null
+                                                : () => setState(() {
+                                                      _gamesFuture =
+                                                          _loadPage();
+                                                    }),
+                                            child: const Text(
+                                                'Charger plus de jeux')),
                                       Align(
                                         alignment: Alignment.centerLeft,
                                         child: Text(
@@ -747,45 +793,45 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                             ),
                                           ),
                                         const SizedBox(height: 14.0),
-                                      Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          'Jeux termin\u00E9s',
-                                          style: FlutterFlowTheme.of(context)
-                                              .titleMedium
-                                              .override(
-                                                font: GoogleFonts.interTight(
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(
+                                            'Jeux termin\u00E9s',
+                                            style: FlutterFlowTheme.of(context)
+                                                .titleMedium
+                                                .override(
+                                                  font: GoogleFonts.interTight(
+                                                    fontWeight: FontWeight.w700,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .titleMedium
+                                                            .fontStyle,
+                                                  ),
+                                                  letterSpacing: 0.0,
                                                   fontWeight: FontWeight.w700,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .titleMedium
-                                                          .fontStyle,
                                                 ),
-                                                letterSpacing: 0.0,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10.0),
-                                      if (finishedGames.isEmpty)
-                                        const ListEmptyComponentWidget(
-                                          title: 'Aucun jeu terminé.',
-                                          description:
-                                              'Vos jeux terminés apparaîtront ici',
-                                        )
-                                      else
-                                        ...finishedGames.map(
-                                          (game) => Padding(
-                                            padding: const EdgeInsets.only(
-                                                bottom: 10.0),
-                                            child: _statStyleCard(
-                                              game,
-                                              isActive: false,
-                                              showActions: true,
-                                            ),
                                           ),
                                         ),
+                                        const SizedBox(height: 10.0),
+                                        if (finishedGames.isEmpty)
+                                          const ListEmptyComponentWidget(
+                                            title: 'Aucun jeu terminé.',
+                                            description:
+                                                'Vos jeux terminés apparaîtront ici',
+                                          )
+                                        else
+                                          ...finishedGames.map(
+                                            (game) => Padding(
+                                              padding: const EdgeInsets.only(
+                                                  bottom: 10.0),
+                                              child: _statStyleCard(
+                                                game,
+                                                isActive: false,
+                                                showActions: true,
+                                              ),
+                                            ),
+                                          ),
                                       ],
                                     );
                                   }
@@ -810,8 +856,7 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                               child: SizedBox(
                                                 width: 50.0,
                                                 height: 50.0,
-                                                child:
-                                                    SizedBox.shrink(),
+                                                child: SizedBox.shrink(),
                                               ),
                                             );
                                           }
@@ -848,7 +893,8 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                                   ),
                                                 }.withoutNulls,
                                                 extra: <String, dynamic>{
-                                                  'gameDoc': listViewGamesRecord,
+                                                  'gameDoc':
+                                                      listViewGamesRecord,
                                                   'enseigneDoc':
                                                       containerEnseignesRecord,
                                                   kTransitionInfoKey:
@@ -891,8 +937,7 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                                     Expanded(
                                                       flex: 1,
                                                       child: Container(
-                                                        height:
-                                                            double.infinity,
+                                                        height: double.infinity,
                                                         decoration:
                                                             const BoxDecoration(),
                                                         child: ClipRRect(
@@ -917,8 +962,8 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                                             const BoxDecoration(),
                                                         child: Padding(
                                                           padding:
-                                                              const EdgeInsets.all(
-                                                                  10.0),
+                                                              const EdgeInsets
+                                                                  .all(10.0),
                                                           child: Column(
                                                             mainAxisSize:
                                                                 MainAxisSize
@@ -948,7 +993,8 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                                                       letterSpacing:
                                                                           0.0,
                                                                       fontWeight:
-                                                                          FontWeight.w600,
+                                                                          FontWeight
+                                                                              .w600,
                                                                       fontStyle: FlutterFlowTheme.of(
                                                                               context)
                                                                           .bodyMedium
@@ -1044,8 +1090,7 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                                                               ),
                                                                             ],
                                                                           ),
-                                                                        ].divide(
-                                                                                const SizedBox(height: 10.0)),
+                                                                        ].divide(const SizedBox(height: 10.0)),
                                                                       ),
                                                                     ),
                                                                     Expanded(
@@ -1114,7 +1159,8 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                                                         FFButtonOptions(
                                                                       height:
                                                                           28.0,
-                                                                      padding: const EdgeInsetsDirectional.fromSTEB(
+                                                                      padding: const EdgeInsetsDirectional
+                                                                          .fromSTEB(
                                                                           10.0,
                                                                           0.0,
                                                                           10.0,
@@ -1158,7 +1204,8 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                                                         FFButtonOptions(
                                                                       height:
                                                                           28.0,
-                                                                      padding: const EdgeInsetsDirectional.fromSTEB(
+                                                                      padding: const EdgeInsetsDirectional
+                                                                          .fromSTEB(
                                                                           10.0,
                                                                           0.0,
                                                                           10.0,
@@ -1195,8 +1242,10 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                                                   ),
                                                                 ],
                                                               ),
-                                                            ].divide(const SizedBox(
-                                                                height: 5.0)),
+                                                            ].divide(
+                                                                const SizedBox(
+                                                                    height:
+                                                                        5.0)),
                                                           ),
                                                         ),
                                                       ),
@@ -1234,5 +1283,3 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
     );
   }
 }
-
-
