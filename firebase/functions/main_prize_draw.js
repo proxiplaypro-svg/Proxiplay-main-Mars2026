@@ -12,11 +12,14 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
     const snap=await tx.get(gameRef);
     if(!snap.exists) return {status:'not_found'};
     const game=snap.data();
-    if(game.hasWinner || game.main_prize_winner || game.draw_status==='no_eligible_entries') return {status:'already_finalized'};
+    if(game.hasWinner || game.main_prize_winner || ['no_eligible_entries','no_main_prize'].includes(game.draw_status)) return {status:'already_finalized'};
     if(!game.end_date?.toMillis || game.end_date.toMillis()>now.toMillis()) return {status:'not_due'};
     const hasMain=typeof game.hasMainPrize==='boolean'?game.hasMainPrize:!!(game.name||game.description||game.prize_value!=null);
-    if(!hasMain) return {status:'no_main_prize'};
     if(['draft','cancelled','canceled','disabled'].includes(game.status)) return {status:'inactive'};
+    if(!hasMain) {
+      tx.update(gameRef,{status:'ended',draw_status:'no_main_prize',drawn_at:now});
+      return {status:'no_main_prize'};
+    }
     const tickets=await tx.get(gameRef.collection('participants'));
     const eligible=[];
     for(const doc of tickets.docs){
@@ -30,6 +33,10 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
     if(!eligible.length){
       tx.update(gameRef,{status:'ended',draw_status:'no_eligible_entries',drawn_at:now});
       return {status:'no_eligible_entries'};
+    }
+    if(game.prize_usage_deadline != null &&
+      (typeof game.prize_usage_deadline.toMillis !== 'function' || game.prize_usage_deadline.toMillis()<=now.toMillis())) {
+      return review(gameId,'invalid_or_expired_prize_deadline');
     }
     const enseigneRef=game.enseigne_id||game.enseigne_ref;
     if(!/^enseignes\/[^/]+$/.test(enseigneRef?.path||'')) return review(gameId,'missing_enseigne');

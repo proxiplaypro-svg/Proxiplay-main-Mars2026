@@ -147,6 +147,9 @@ async function drawWinnerForAnimation(animationId, { now = admin.firestore.Times
     if (getTrimmedString(animationData.winner_uid)) {
       return { status: "already_drawn", winnerUid: getTrimmedString(animationData.winner_uid) };
     }
+    if (animationData.draw_status === 'no_eligible_entries') {
+      return {status: 'already_finalized'};
+    }
 
     // Joueurs qualifies : animations/{id}/entries/{uid} avec
     // threshold_reached == true. Ecrit par participateInGameTransaction
@@ -156,6 +159,9 @@ async function drawWinnerForAnimation(animationId, { now = admin.firestore.Times
     );
 
     if (entriesSnap.empty) {
+      transaction.set(animationRef, {
+        status: 'ended', draw_status: 'no_eligible_entries', drawn_at: now,
+      }, {merge: true});
       return { status: "no_qualified_entries" };
     }
 

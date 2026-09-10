@@ -133,7 +133,7 @@ test("aucun candidat eligible -> anime marquee terminee sans lot", async () => {
   assert.equal(prizeSnap.exists, false);
 });
 
-test("aucune entree qualifiee -> ne marque rien (retente la nuit suivante)", async () => {
+test("aucune entree qualifiee apres echeance -> cloture sans gain, retry sans effet", async () => {
   await seedAnimation();
 
   const result = await drawWinnerForAnimation("anim-1", { now: NOW });
@@ -141,7 +141,9 @@ test("aucune entree qualifiee -> ne marque rien (retente la nuit suivante)", asy
   assert.equal(result.status, "no_qualified_entries");
 
   const animationSnap = await firestore.collection("animations").doc("anim-1").get();
-  assert.equal(animationSnap.data().status, "active");
+  assert.equal(animationSnap.data().status, "ended");
+  assert.equal(animationSnap.data().draw_status, "no_eligible_entries");
+  assert.equal((await drawWinnerForAnimation('anim-1', {now: NOW})).status, 'already_finalized');
 });
 
 test("rejouer le tirage sur une animation deja tiree ne cree pas de second prize", async () => {

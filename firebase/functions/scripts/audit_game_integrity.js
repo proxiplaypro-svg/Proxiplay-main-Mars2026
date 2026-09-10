@@ -23,6 +23,9 @@ function inspectIntegrity({prizes, links, sources, userPaths, shops = [], projec
   }
   const awards = new Map();
   for (const prize of prizes) {
+    const platformSource = prize.data.animation_id || prize.data.referral_game_id || prize.data.monthly_challenge_id || prize.data.monthly_challenge_draw_ref;
+    if (platformSource && !['platform', 'partner'].includes(prize.data.fulfillment_type)) report('platform_source_missing_or_wrong_fulfillment', prize.path);
+    if (['platform', 'partner'].includes(prize.data.fulfillment_type) && !prize.data.claim_code) report('operator_prize_missing_code', prize.path);
     const fulfillment = prize.data.fulfillment_type || (['animation','referral_game','monthly_challenge'].includes(prize.data.prize_type) ? 'platform' : 'merchant');
     if (fulfillment === 'merchant' && (!refPath(prize.data.owner_id) || !refPath(prize.data.enseigne_id))) report('merchant_prize_missing_owner_or_shop', prize.path);
     if (fulfillment === 'platform' && (prize.data.owner_id || prize.data.enseigne_id)) report('platform_prize_merchant_owner', prize.path);

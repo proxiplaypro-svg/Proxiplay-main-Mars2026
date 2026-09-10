@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import '/backend/schema/games_record.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -37,7 +38,48 @@ class _GameQrCodeCardState extends State<GameQrCodeCard> {
   bool _isSharing = false;
   bool _isDownloadingFacebookVisual = false;
 
-  String get _qrLink => buildGameQrLink(widget.game.reference.id);
+  String? _issuedQrLink;
+  String? _qrError;
+  String get _qrLink => _issuedQrLink ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadQr();
+  }
+
+  @override
+  void didUpdateWidget(covariant GameQrCodeCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.game.reference != widget.game.reference ||
+        oldWidget.game.snapshotData['access_mode'] != widget.game.snapshotData['access_mode']) {
+      _issuedQrLink = null;
+      _qrError = null;
+      _loadQr();
+    }
+  }
+
+  Future<void> _loadQr() async {
+    final gameId = widget.game.reference.id;
+    if (widget.game.snapshotData['access_mode'] != 'qr_only') {
+      setState(() => _issuedQrLink = buildGameQrLink(widget.game.reference.id));
+      return;
+    }
+    try {
+      final result = await FirebaseFunctions.instance
+          .httpsCallable('issueGameQrAccess')
+          .call({'gameId': gameId});
+      final token = result.data['token'] as String;
+      if (mounted && widget.game.reference.id == gameId) {
+        setState(() => _issuedQrLink =
+            buildGameQrLink(widget.game.reference.id, token: token));
+      }
+    } catch (_) {
+      if (mounted && widget.game.reference.id == gameId) {
+        setState(() => _qrError = 'Impossible de charger le QR code.');
+      }
+    }
+  }
   String get _enseigneName {
     final trimmed = widget.game.enseigneName.trim();
     return trimmed.isNotEmpty ? trimmed : 'votre enseigne';
@@ -409,6 +451,12 @@ class _GameQrCodeCardState extends State<GameQrCodeCard> {
 
   @override
   Widget build(BuildContext context) {
+    if (_issuedQrLink == null) {
+      return Center(child: _qrError == null
+          ? const CircularProgressIndicator()
+          : TextButton(onPressed: () { setState(() => _qrError = null); _loadQr(); },
+              child: Text('$_qrError Reessayer')));
+    }
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18.0),

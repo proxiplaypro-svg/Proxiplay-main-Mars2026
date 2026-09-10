@@ -1,3 +1,4 @@
+import '/utils/share_links.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
@@ -248,6 +249,7 @@ class _AnimationDetailPageState extends State<AnimationDetailPage> {
             if (gameId.isEmpty) {
               return;
             }
+            rememberGameQrToken(gameId, uri);
             final gameRef = GamesRecord.collection.doc(gameId);
             final gameDoc = await GamesRecord.getDocumentOnce(gameRef);
             if (!context.mounted) {

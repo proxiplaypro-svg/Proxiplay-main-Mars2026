@@ -4,8 +4,7 @@ const String proxiplayCustomScheme = 'proxiplay';
 const String proxiplayAndroidPackageName = 'com.proxiplay.proxiplay';
 const String proxiplayAndroidStoreUrl =
     'https://play.google.com/store/apps/details?id=$proxiplayAndroidPackageName';
-const String proxiplayIosStoreUrl =
-    'https://apps.apple.com/app/id6753818573';
+const String proxiplayIosStoreUrl = 'https://apps.apple.com/app/id6753818573';
 
 const List<String> _referralParamCandidates = <String>[
   'ref',
@@ -35,20 +34,42 @@ String buildReferralShareLink([String? referralCode]) {
   return baseUri.replace(queryParameters: queryParameters).toString();
 }
 
-String buildGameQrLink(String gameId) {
+// In-memory only: login within this process preserves the proof; a restart requires a new scan.
+final Map<String, String> _gameQrTokens = {};
+String? gameQrToken(String gameId) => _gameQrTokens[gameId];
+void rememberGameQrToken(String gameId, Uri uri) {
+  final token = uri.queryParameters['qr_token'];
+  if (token != null && RegExp(r'^[a-f0-9]{64}$').hasMatch(token)) {
+    _gameQrTokens[gameId] = token;
+  }
+}
+
+String _withQrToken(String link, String gameId, String? token) {
+  final value = token ?? gameQrToken(gameId);
+  return value == null
+      ? link
+      : Uri.parse(link)
+          .replace(queryParameters: {'qr_token': value}).toString();
+}
+
+String buildGameQrLink(String gameId, {String? token}) {
   final normalizedGameId = gameId.trim();
-  return '$gameQrLinkBase/$normalizedGameId';
+  return _withQrToken(
+      '$gameQrLinkBase/$normalizedGameId', normalizedGameId, token);
 }
 
 String buildGameDeepLink(String gameId) {
   final normalizedGameId = gameId.trim();
-  return '$proxiplayCustomScheme://game/$normalizedGameId';
+  return _withQrToken('$proxiplayCustomScheme://game/$normalizedGameId',
+      normalizedGameId, null);
 }
 
 String buildGameAndroidIntentUrl(String gameId) {
   final normalizedGameId = Uri.encodeComponent(gameId.trim());
   final encodedStoreUrl = Uri.encodeComponent(proxiplayAndroidStoreUrl);
-  return 'intent://game/$normalizedGameId'
+  final query =
+      gameQrToken(gameId) == null ? '' : '?qr_token=${gameQrToken(gameId)}';
+  return 'intent://game/$normalizedGameId$query'
       '#Intent;scheme=$proxiplayCustomScheme;package=$proxiplayAndroidPackageName;'
       'S.browser_fallback_url=$encodedStoreUrl;end';
 }
@@ -91,7 +112,8 @@ String? extractReferralCodeFromUri(Uri? uri) {
 
   final fragment = uri.fragment.trim();
   if (fragment.isNotEmpty) {
-    final fragmentUri = Uri.tryParse(fragment.startsWith('?') ? '/$fragment' : fragment);
+    final fragmentUri =
+        Uri.tryParse(fragment.startsWith('?') ? '/$fragment' : fragment);
     final fragmentMatch = extractReferralCodeFromUri(fragmentUri);
     if (fragmentMatch != null) {
       return fragmentMatch;

@@ -76,7 +76,7 @@ class _GameLaunchScreenState extends State<_GameLaunchScreen> {
   @override
   void initState() {
     super.initState();
-    debugPrint('[QR_DEEPLINK_RECEIVED] gameId=$_gameId uri=${Uri.base.toString()}');
+    debugPrint('[QR_DEEPLINK_RECEIVED] gameId=$_gameId');
     debugPrint(
       '[QR_AUTH_STATE_ON_DEEPLINK] isLoggedIn=$_isAuthenticatedInApp authResolved=$_authStateResolved',
     );

@@ -2,6 +2,15 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {inspectIntegrity} = require('../scripts/audit_game_integrity');
 const ref = path => ({path});
+
+test('historical platform source and missing code require review without repair or code disclosure', () => {
+  const findings = inspectIntegrity({userPaths: new Set(['users/a']), links: [], sources: [], prizes: [
+    {path: 'prizes/legacy', data: {animation_id: 'old', prize_type: 'principal', winner_id: ref('users/a')}},
+    {path: 'prizes/no_code', data: {fulfillment_type: 'platform', winner_id: ref('users/a')}},
+  ]});
+  assert.ok(findings.some(f => f.kind === 'platform_source_missing_or_wrong_fulfillment'));
+  assert.ok(findings.some(f => f.kind === 'operator_prize_missing_code'));
+});
 test('audit distinguishes missing links, wrong owners, orphans, duplicates and unmaterialized winners', () => {
   const findings = inspectIntegrity({now: 100, userPaths: new Set(['users/a']),
     prizes: [{path: 'prizes/p', data: {winner_id: ref('users/a'), game_id: ref('games/g'), usage_deadline: {toMillis: () => 1}}}],

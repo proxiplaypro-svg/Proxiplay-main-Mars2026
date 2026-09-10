@@ -998,10 +998,11 @@ class FFRoute {
           final deepLinkGameId = _extractDeepLinkGameId(state.uri);
           final isDeepLinkRoute = deepLinkGameId != null;
           if (isDeepLinkRoute) {
+            rememberGameQrToken(deepLinkGameId, state.uri);
             debugPrint(
-                '[DEEPLINK_RECEIVED] gameId=$deepLinkGameId uri=${state.uri.toString()}');
+                '[DEEPLINK_RECEIVED] gameId=$deepLinkGameId');
             debugPrint(
-              '[QR_DEEPLINK_RECEIVED] gameId=$deepLinkGameId uri=${state.uri.toString()}',
+              '[QR_DEEPLINK_RECEIVED] gameId=$deepLinkGameId',
             );
             debugPrint(
               '[QR_AUTH_STATE_ON_DEEPLINK] isLoggedIn=${appStateNotifier.loggedIn} authResolved=${appStateNotifier.hasResolvedAuthState}',

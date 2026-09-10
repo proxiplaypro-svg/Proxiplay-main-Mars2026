@@ -507,7 +507,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
   }
 
   Widget _buildQrOnlyPrimaryButton() {
-    if (widget.fromQr) {
+    if (widget.fromQr && gameQrToken(widget.gameDoc?.reference.id ?? '') != null) {
       return SizedBox(
         width: double.infinity,
         height: 52.0,
@@ -567,6 +567,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                             .call({
                           "gameRef": widget.gameDoc!.reference.id,
                           "from_qr": true,
+                          "qr_token": gameQrToken(widget.gameDoc!.reference.id),
                           "attemptId": attemptId,
                         });
                         _logTrace('retour_cf', {
@@ -665,6 +666,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                           }
 
                           final scannedGameId = segments[jIndex + 1].trim();
+                          rememberGameQrToken(scannedGameId, uri);
                           if (scannedGameId.isEmpty) {
                             return;
                           }
@@ -703,6 +705,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                   payload: {
                                     "gameRef": widget.gameDoc!.reference.id,
                                     "from_qr": true,
+                                    "qr_token": gameQrToken(widget.gameDoc!.reference.id),
                                     "attemptId": attemptId,
                                   },
                                 );
@@ -2079,6 +2082,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                       payload: {
                                                                                         "gameRef": widget.gameDoc!.reference.id,
                                                                                         "from_qr": widget.fromQr,
+                                                                                        "qr_token": gameQrToken(widget.gameDoc!.reference.id),
                                                                                         "attemptId": attemptId,
                                                                                       },
                                                                                     );
@@ -2256,6 +2260,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                       payload: {
                                                                                         "gameRef": widget.gameDoc!.reference.id,
                                                                                         "from_qr": widget.fromQr,
+                                                                                        "qr_token": gameQrToken(widget.gameDoc!.reference.id),
                                                                                         "attemptId": attemptId,
                                                                                       },
                                                                                     );

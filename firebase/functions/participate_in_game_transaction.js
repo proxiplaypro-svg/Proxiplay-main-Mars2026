@@ -1,4 +1,5 @@
 const {shopOwnerRef,userPath}=require('./merchant_ownership');
+const {excluded}=require('./prize_integrity');
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
@@ -444,10 +445,8 @@ exports.participateInGameTransaction = functions.https.onCall(
         // 1. Référence à la sous-collection
         const instantWinnersRef = gameRef.collection("instant_winners");
 
-        // 2. Query tous les instants gagnants echus et encore ouverts.
-        // Si plusieurs creneaux sont deja depasses, on ne garde comme
-        // gagnant eligible que le plus recent. Les plus anciens sont
-        // expires pour eviter une cascade de gains a chaque participation.
+        // Query all due, unassigned instants. The core selects one uniformly;
+        // unselected instants remain available for subsequent participations.
         const instantWinnersQuery = instantWinnersRef
           .where("hasWinner", "==", false)
           .where("date", "<=", now)
@@ -478,13 +477,19 @@ exports.participateInGameTransaction = functions.https.onCall(
         }
 
         const gameData = gameDoc.data();
-        if (gameData.access_mode === "qr_only" && fromQr !== true) {
-          throw new functions.https.HttpsError(
-            "failed-precondition",
-            "Ce jeu nécessite un scan QR code en boutique."
-          );
+        if (gameData.access_mode === "qr_only") {
+          await require('./game_qr_access').validateQr(
+            transaction, gameRef, gameData, data.qr_token, now);
         }
         const userData = userDoc.data();
+        // Apply final-draw eligibility to the participation/instant path too.
+        // Otherwise an excluded account can win instantly and its activity
+        // update can overwrite the suspended cached status.
+        if (excluded(userData) || ['draft', 'cancelled', 'canceled', 'disabled', 'ended']
+          .includes(String(gameData.status || '').toLowerCase())) {
+          throw new functions.https.HttpsError('failed-precondition',
+            'Ce compte ou ce jeu ne permet plus de participer.');
+        }
         if (gameData.prohibited_for_minors === true) {
           if (!readBirthdayDate(userData.birthday)) {
             throw new functions.https.HttpsError(
@@ -517,6 +522,13 @@ exports.participateInGameTransaction = functions.https.onCall(
             "failed-precondition",
             "Ce jeu n'est pas disponible actuellement."
           );
+        }
+        if (eligibleInstantWinnerDoc && gameData.prize_usage_deadline != null) {
+          const deadlineMs = toMillis(gameData.prize_usage_deadline);
+          if (!Number.isFinite(deadlineMs) || deadlineMs <= nowMs) {
+            throw new functions.https.HttpsError('failed-precondition',
+              'La date limite du lot doit être corrigée avant son attribution.');
+          }
         }
         userEmail = getTrimmedString(userData.email);
         ownerRef = userPath(gameData.owner_id)
