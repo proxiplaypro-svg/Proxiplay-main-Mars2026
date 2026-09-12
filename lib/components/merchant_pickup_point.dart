@@ -65,10 +65,6 @@ class _MerchantPickupPointState extends State<MerchantPickupPoint> {
                   children: [
                     ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: const CircleAvatar(
-                            backgroundColor: Color(0xFFF9EAF1),
-                            child: Icon(Icons.storefront_outlined,
-                                color: merchantAccent)),
                         title: Text(
                             merchant.name.trim().isEmpty
                                 ? 'Commerçant'
@@ -76,7 +72,7 @@ class _MerchantPickupPointState extends State<MerchantPickupPoint> {
                             style: const TextStyle(
                                 color: merchantInk,
                                 fontWeight: FontWeight.w700)),
-                        subtitle: const Text('Voir la fiche commerçant'),
+                        subtitle: const Text('Voir le commerce'),
                         trailing: const Icon(Icons.chevron_right_rounded,
                             color: merchantAccent),
                         onTap: () => context.pushNamed(
@@ -87,6 +83,7 @@ class _MerchantPickupPointState extends State<MerchantPickupPoint> {
                             }.withoutNulls,
                             extra: <String, dynamic>{'enseigneDoc': merchant})),
                     const SizedBox(height: 8),
+                    MerchantRating(merchant: merchant),
                     Text(address.isEmpty ? 'Adresse non renseignée' : address,
                         style:
                             const TextStyle(color: merchantInk, height: 1.5)),

@@ -1,16 +1,13 @@
 import '/components/merchant_pickup_point.dart';
+import '/widgets/proxiplay_network_image.dart';
 import 'dart:async';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 
-import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'lot_detail_joueur_page_model.dart';
 export 'lot_detail_joueur_page_model.dart';
@@ -93,701 +90,248 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
     );
   }
 
-  Widget _buildSectionCard({
-    required BuildContext context,
-    required String title,
-    required Widget child,
-  }) {
-    return Container(
-      width: MediaQuery.sizeOf(context).width * 1.0,
-      decoration: BoxDecoration(
-        color: FlutterFlowTheme.of(context).secondaryBackground,
-        borderRadius: BorderRadius.circular(24.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.035),
-            blurRadius: 18.0,
-            offset: const Offset(0.0, 8.0),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(24.0, 24.0, 24.0, 24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.max,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: FlutterFlowTheme.of(context).headlineSmall.override(
-                    font: GoogleFonts.interTight(
-                      fontWeight: FontWeight.w700,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).headlineSmall.fontStyle,
-                    ),
-                    color: const Color(0xFF2D2A72),
-                    letterSpacing: 0.0,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 22.0),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
+  static const ink = Color(0xFF2B285F);
+  static const accent = Color(0xFFA0134D);
 
-  // Utilise pour les lots sans jeu classique lie (animations, jeu de
-  // parrainage, defi mensuel) : ces moteurs de tirage n'ecrivent jamais
-  // game_id sur le prize (voir draw_animation_winner.js /
-  // referral_game_engine.js / monthly_challenge.js), donc
-  // GamesRecord.getDocument(_lot!.gameId!) plantait ici avant meme
-  // de commencer (null check operator sur un champ absent). Ce lot a
-  // toujours son propre nom/description/claim_code denormalises, donc pas
-  // besoin du jeu pour afficher l'essentiel.
-  Widget _buildGamelessLotContent(BuildContext context) {
-    final prize = _lot;
-    final name = prize?.name.trim() ?? '';
-    final conditions = _lotConditions();
-    final winDate = prize?.winDate;
+  Widget _card({required String title, required Widget child}) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+            color: const Color(0xFFFEFFFE),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFF0ECF1))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title,
+              style: const TextStyle(
+                  color: ink, fontSize: 21, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 16),
+          child,
+        ]),
+      );
 
-    return SingleChildScrollView(
-      padding: const EdgeInsetsDirectional.fromSTEB(20.0, 20.0, 20.0, 32.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.max,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionCard(
-            context: context,
-            title: name.isNotEmpty ? name : 'Votre lot',
-            child: Column(
-              mainAxisSize: MainAxisSize.max,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (prize?.fulfillmentType == 'platform')
-                  const Text('Remise du lot organisée par Proxiplay.'),
-                if (prize?.fulfillmentType == 'review' ||
-                    prize?.fulfillmentType == 'partner')
-                  const Text(
-                      'Contactez Proxiplay pour les modalités de remise.'),
-                if (winDate != null)
-                  Text(
-                    'Gagné le ${dateTimeFormat('d/M/y', winDate, locale: FFLocalizations.of(context).languageCode)}',
-                    style: FlutterFlowTheme.of(context).bodyMedium.override(
-                          font: GoogleFonts.inter(
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontStyle,
-                          ),
-                          color: FlutterFlowTheme.of(context).secondaryText,
-                          letterSpacing: 0.0,
-                        ),
-                  ),
-                if (conditions != null) ...[
-                  const SizedBox(height: 12.0),
-                  Text(
-                    conditions,
-                    style: FlutterFlowTheme.of(context).bodyMedium.override(
-                          font: GoogleFonts.inter(
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontStyle,
-                          ),
-                          color: FlutterFlowTheme.of(context).primaryText,
-                          letterSpacing: 0.0,
-                        ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 16.0),
-          if (prize != null && prize.isAvailable)
-            _buildSectionCard(
-              context: context,
-              title: 'Code de récupération',
+  Widget _badge(String text, IconData icon) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+            color: const Color(0xFFF9EAF1),
+            borderRadius: BorderRadius.circular(16)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 18, color: accent),
+          const SizedBox(width: 8),
+          Flexible(
+              child: Text(text,
+                  style: const TextStyle(
+                      color: accent, fontWeight: FontWeight.w600))),
+        ]),
+      );
+
+  void _showConditions(String description) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: const Color(0xFFFEFFFE),
+      builder: (context) => SafeArea(
+          child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
               child: Column(
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF1F6),
-                      borderRadius: BorderRadius.circular(22.0),
-                      border: Border.all(
-                        color: const Color(0xFFA0134D),
-                        width: 2.0,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.fromSTEB(
-                          16.0, 24.0, 16.0, 24.0),
-                      child: Text(
-                        prize.claimCode,
-                        textAlign: TextAlign.center,
-                        style:
-                            FlutterFlowTheme.of(context).displayMedium.override(
-                                  font: GoogleFonts.interTight(
-                                    fontWeight: FontWeight.w800,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .displayMedium
-                                        .fontStyle,
-                                  ),
-                                  color: const Color(0xFFA0134D),
-                                  fontSize: 34.0,
-                                  letterSpacing: 1.5,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16.0),
-                  Text(
-                    'Présentez ce code au commerçant',
-                    textAlign: TextAlign.center,
-                    style: FlutterFlowTheme.of(context).bodyLarge.override(
-                          font: GoogleFonts.inter(
-                            fontWeight: FontWeight.w500,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyLarge
-                                .fontStyle,
-                          ),
-                          color: FlutterFlowTheme.of(context).secondaryText,
-                          letterSpacing: 0.0,
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                  const SizedBox(height: 16.0),
-                  FFButtonWidget(
-                    onPressed: () async {
-                      await _copyClaimCode();
-                    },
-                    text: 'Copier le code',
-                    icon: const Icon(Icons.copy_rounded, size: 18.0),
-                    options: FFButtonOptions(
-                      width: 190.0,
-                      height: 44.0,
-                      padding: const EdgeInsetsDirectional.fromSTEB(
-                          18.0, 0.0, 18.0, 0.0),
-                      iconPadding: const EdgeInsetsDirectional.fromSTEB(
-                          0.0, 0.0, 0.0, 0.0),
-                      color: const Color(0xFFFFF1F6),
-                      textStyle:
-                          FlutterFlowTheme.of(context).bodyMedium.override(
-                                font: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w600,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontStyle,
-                                ),
-                                color: const Color(0xFFA0134D),
-                                letterSpacing: 0.0,
-                                fontWeight: FontWeight.w600,
-                              ),
-                      elevation: 0.0,
-                      borderSide: const BorderSide(
-                        color: Color(0xFFF0C1D1),
-                        width: 1.0,
-                      ),
-                      borderRadius: BorderRadius.circular(16.0),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else if (prize != null)
-            _buildSectionCard(
-              context: context,
-              title: 'Code de récupération',
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF5FF),
-                  borderRadius: BorderRadius.circular(18.0),
-                ),
-                child: Padding(
-                  padding: const EdgeInsetsDirectional.fromSTEB(
-                      16.0, 18.0, 16.0, 18.0),
-                  child: Text(
-                    prize.claimed == true ? 'Lot récupéré' : 'Lot expiré',
-                    textAlign: TextAlign.center,
-                    style: FlutterFlowTheme.of(context).titleMedium.override(
-                          font: GoogleFonts.interTight(
-                            fontWeight: FontWeight.w700,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .titleMedium
-                                .fontStyle,
-                          ),
-                          color: const Color(0xFF2068B9),
-                          letterSpacing: 0.0,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-              ),
-            ),
-          if (prize != null && prize.fulfillmentType == 'merchant') ...[
-            const SizedBox(height: 16),
-            MerchantPickupPoint(enseigneRef: prize.enseigneId),
-          ],
-        ],
-      ),
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Conditions d’utilisation',
+                        style: TextStyle(
+                            color: ink,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 16),
+                    SelectableText(description,
+                        style: const TextStyle(color: ink, height: 1.5)),
+                  ]))),
     );
   }
 
-  String? _lotConditions() {
-    final conditions = _lot?.description.trim() ?? '';
-    return conditions.isEmpty ? null : conditions;
+  Widget _content({String? gamePhoto}) {
+    final prize = _lot;
+    if (prize == null) return const Center(child: Text('Lot indisponible.'));
+    final status = prize.claimed
+        ? 'Retiré'
+        : prize.isExpired
+            ? 'Expiré'
+            : 'À récupérer';
+    final deadline = prize.usageDeadline;
+    final description = prize.description.trim();
+    final photo = gamePhoto?.trim() ?? '';
+    final photoUri = Uri.tryParse(photo);
+    final hasPhoto = photoUri != null &&
+        (photoUri.scheme == 'https' || photoUri.scheme == 'http') &&
+        photoUri.host.isNotEmpty;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+              color: const Color(0xFFFEFFFE),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFF0ECF1))),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (hasPhoto)
+              AspectRatio(
+                  key: const ValueKey('lot-game-hero'),
+                  aspectRatio: 16 / 9,
+                  child: ProxiplayNetworkImage(
+                      imageUrl: photo, fit: BoxFit.cover)),
+            Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                          prize.name.trim().isEmpty
+                              ? 'Votre lot'
+                              : prize.name.trim(),
+                          style: const TextStyle(
+                              color: ink,
+                              fontSize: 26,
+                              fontWeight: FontWeight.w700)),
+                      if (prize.enseigneName.trim().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text('chez ${prize.enseigneName.trim()}',
+                            style: const TextStyle(color: ink, fontSize: 16)),
+                      ],
+                      const SizedBox(height: 16),
+                      _badge(
+                          status,
+                          prize.isAvailable
+                              ? Icons.card_giftcard_outlined
+                              : Icons.check_circle_outline),
+                      if (deadline != null) ...[
+                        const SizedBox(height: 8),
+                        _badge(
+                            '${prize.isAvailable ? 'À utiliser avant le' : 'Échéance :'} ${dateTimeFormat('dd/MM/yyyy', deadline)}',
+                            Icons.schedule),
+                      ],
+                      if (prize.gameId == null) ...[
+                        if (prize.fulfillmentType == 'platform') ...[
+                          const SizedBox(height: 12),
+                          const Text('Remise du lot organisée par Proxiplay.')
+                        ],
+                        if (prize.fulfillmentType == 'review' ||
+                            prize.fulfillmentType == 'partner') ...[
+                          const SizedBox(height: 12),
+                          const Text(
+                              'Contactez Proxiplay pour les modalités de remise.')
+                        ],
+                        if (prize.winDate != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                              'Gagné le ${dateTimeFormat('d/M/y', prize.winDate, locale: FFLocalizations.of(context).languageCode)}')
+                        ],
+                      ],
+                    ])),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        _card(
+            title: 'Code de récupération',
+            child: prize.isAvailable
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                        Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                                color: const Color(0xFFF9EAF1),
+                                borderRadius: BorderRadius.circular(16)),
+                            child: SelectableText(prize.claimCode,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    color: accent,
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1))),
+                        const SizedBox(height: 12),
+                        const Text('Présentez ce code au commerçant',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: ink)),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                            onPressed: _copyClaimCode,
+                            style:
+                                TextButton.styleFrom(foregroundColor: accent),
+                            icon: const Icon(Icons.copy_rounded),
+                            label: const Text('Copier le code')),
+                      ])
+                : Text(prize.claimed ? 'Lot récupéré' : 'Lot expiré',
+                    style: const TextStyle(color: ink))),
+        if (prize.gameId != null || prize.fulfillmentType == 'merchant') ...[
+          const SizedBox(height: 16),
+          MerchantPickupPoint(enseigneRef: prize.enseigneId),
+        ],
+        if (description.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _card(
+              title: 'Conditions d’utilisation',
+              child: InkWell(
+                onTap: () => _showConditions(description),
+                child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(children: [
+                      Expanded(
+                          child: Text(description,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: ink, height: 1.5))),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.chevron_right_rounded, color: accent),
+                    ])),
+              )),
+        ],
+      ]),
+    );
   }
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-        FocusManager.instance.primaryFocus?.unfocus();
-      },
-      child: Scaffold(
-        key: scaffoldKey,
-        backgroundColor: const Color(0xFFF8F8FC),
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0.0,
-          automaticallyImplyLeading: false,
-          titleSpacing: 0.0,
-          title: Row(
-            children: [
-              Padding(
-                padding:
-                    const EdgeInsetsDirectional.fromSTEB(12.0, 0.0, 0.0, 0.0),
-                child: FlutterFlowIconButton(
-                  borderColor: Colors.transparent,
-                  borderRadius: 18.0,
-                  borderWidth: 1.0,
-                  buttonSize: 48.0,
-                  fillColor: Colors.white.withValues(alpha: 0.9),
-                  icon: Icon(
-                    Icons.chevron_left_rounded,
-                    color: FlutterFlowTheme.of(context).primaryText,
-                    size: 30.0,
-                  ),
-                  onPressed: () async {
-                    context.pop();
-                  },
-                ),
-              ),
-              Padding(
-                padding:
-                    const EdgeInsetsDirectional.fromSTEB(12.0, 0.0, 0.0, 0.0),
-                child: Text(
-                  'Mes lots',
-                  style: FlutterFlowTheme.of(context).headlineMedium.override(
-                        font: GoogleFonts.interTight(
-                          fontWeight: FontWeight.w700,
-                          fontStyle: FlutterFlowTheme.of(context)
-                              .headlineMedium
-                              .fontStyle,
-                        ),
-                        color: const Color(0xFF2D2A72),
-                        fontSize: 22.0,
-                        letterSpacing: 0.0,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        body: SafeArea(
-          top: true,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFFCFBFF),
-                  Color(0xFFF0F2FF),
-                ],
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.max,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: _lot?.gameId == null
-                      ? _buildGamelessLotContent(context)
-                      : StreamBuilder<GamesRecord>(
-                          stream: GamesRecord.getDocument(_lot!.gameId!),
-                          builder: (context, snapshot) {
-                            // Customize what your widget looks like when it's loading.
-                            if (!snapshot.hasData) {
-                              return const Center(
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: () {
+          FocusScope.of(context).unfocus();
+          FocusManager.instance.primaryFocus?.unfocus();
+        },
+        child: Scaffold(
+          key: scaffoldKey,
+          backgroundColor: const Color(0xFFF7F5F8),
+          appBar: AppBar(
+              backgroundColor: const Color(0xFFF7F5F8),
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              centerTitle: true,
+              leading: IconButton(
+                  icon: const Icon(Icons.chevron_left_rounded, color: ink),
+                  onPressed: () => context.pop()),
+              title: const Text('Mon lot',
+                  style: TextStyle(
+                      color: ink, fontSize: 22, fontWeight: FontWeight.w700))),
+          body: SafeArea(
+              child: Column(children: [
+            Expanded(
+                child: _lot?.gameId == null
+                    ? _content()
+                    : StreamBuilder<GamesRecord>(
+                        stream: GamesRecord.getDocument(_lot!.gameId!),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData)
+                            return const Center(
                                 child: SizedBox(
-                                  width: 50.0,
-                                  height: 50.0,
-                                  child: SizedBox.shrink(),
-                                ),
-                              );
-                            }
-
-                            final columnGamesRecord = snapshot.data!;
-                            final lotConditions = _lotConditions();
-
-                            return SingleChildScrollView(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.max,
-                                children: [
-                                  Container(
-                                    width:
-                                        MediaQuery.sizeOf(context).width * 1.0,
-                                    decoration: const BoxDecoration(
-                                      borderRadius: BorderRadius.only(
-                                        bottomLeft: Radius.circular(0.0),
-                                        bottomRight: Radius.circular(0.0),
-                                        topLeft: Radius.circular(0.0),
-                                        topRight: Radius.circular(0.0),
-                                      ),
-                                    ),
-                                    child: Padding(
-                                      padding:
-                                          const EdgeInsetsDirectional.fromSTEB(
-                                              20.0, 24.0, 20.0, 24.0),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.max,
-                                        children: [
-                                          _buildSectionCard(
-                                            context: context,
-                                            title: 'Code de récupération',
-                                            child: Builder(
-                                              builder: (context) {
-                                                if (_lot!.isAvailable) {
-                                                  return Column(
-                                                    mainAxisSize:
-                                                        MainAxisSize.max,
-                                                    children: [
-                                                      Container(
-                                                        width: double.infinity,
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          color: const Color(
-                                                              0xFFFFF1F6),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      22.0),
-                                                          border: Border.all(
-                                                            color: const Color(
-                                                                0xFFA0134D),
-                                                            width: 2.0,
-                                                          ),
-                                                        ),
-                                                        child: Padding(
-                                                          padding:
-                                                              const EdgeInsetsDirectional
-                                                                  .fromSTEB(
-                                                                  16.0,
-                                                                  24.0,
-                                                                  16.0,
-                                                                  24.0),
-                                                          child: Text(
-                                                            _lot!.claimCode,
-                                                            textAlign: TextAlign
-                                                                .center,
-                                                            style: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .displayMedium
-                                                                .override(
-                                                                  font: GoogleFonts
-                                                                      .interTight(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w800,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .displayMedium
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: const Color(
-                                                                      0xFFA0134D),
-                                                                  fontSize:
-                                                                      34.0,
-                                                                  letterSpacing:
-                                                                      1.5,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w800,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      Text(
-                                                        'Présentez ce code au commerçant',
-                                                        textAlign:
-                                                            TextAlign.center,
-                                                        style:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyLarge
-                                                                .override(
-                                                                  font:
-                                                                      GoogleFonts
-                                                                          .inter(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w500,
-                                                                    fontStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodyLarge
-                                                                        .fontStyle,
-                                                                  ),
-                                                                  color: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .secondaryText,
-                                                                  letterSpacing:
-                                                                      0.0,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w500,
-                                                                ),
-                                                      ),
-                                                      FFButtonWidget(
-                                                        onPressed: () async {
-                                                          await _copyClaimCode();
-                                                        },
-                                                        text: 'Copier le code',
-                                                        icon: const Icon(
-                                                          Icons.copy_rounded,
-                                                          size: 18.0,
-                                                        ),
-                                                        options:
-                                                            FFButtonOptions(
-                                                          width: 190.0,
-                                                          height: 44.0,
-                                                          padding:
-                                                              const EdgeInsetsDirectional
-                                                                  .fromSTEB(
-                                                                  18.0,
-                                                                  0.0,
-                                                                  18.0,
-                                                                  0.0),
-                                                          iconPadding:
-                                                              const EdgeInsetsDirectional
-                                                                  .fromSTEB(
-                                                                  0.0,
-                                                                  0.0,
-                                                                  0.0,
-                                                                  0.0),
-                                                          color: const Color(
-                                                              0xFFFFF1F6),
-                                                          textStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .override(
-                                                                    font: GoogleFonts
-                                                                        .inter(
-                                                                      fontWeight:
-                                                                          FontWeight
-                                                                              .w600,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontStyle,
-                                                                    ),
-                                                                    color: const Color(
-                                                                        0xFFA0134D),
-                                                                    letterSpacing:
-                                                                        0.0,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
-                                                                  ),
-                                                          elevation: 0.0,
-                                                          borderSide:
-                                                              const BorderSide(
-                                                            color: Color(
-                                                                0xFFF0C1D1),
-                                                            width: 1.0,
-                                                          ),
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(
-                                                                      16.0),
-                                                        ),
-                                                      ),
-                                                    ].divide(const SizedBox(
-                                                        height: 16.0)),
-                                                  );
-                                                }
-
-                                                return Container(
-                                                  width: double.infinity,
-                                                  decoration: BoxDecoration(
-                                                    color:
-                                                        const Color(0xFFEAF5FF),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            18.0),
-                                                  ),
-                                                  child: Padding(
-                                                    padding:
-                                                        const EdgeInsetsDirectional
-                                                            .fromSTEB(16.0,
-                                                            18.0, 16.0, 18.0),
-                                                    child: Text(
-                                                      _lot!.claimed
-                                                          ? 'Lot récupéré'
-                                                          : 'Lot expiré',
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      style: FlutterFlowTheme
-                                                              .of(context)
-                                                          .titleMedium
-                                                          .override(
-                                                            font: GoogleFonts
-                                                                .interTight(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w700,
-                                                              fontStyle:
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleMedium
-                                                                      .fontStyle,
-                                                            ),
-                                                            color: const Color(
-                                                                0xFF2068B9),
-                                                            letterSpacing: 0.0,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                          MerchantPickupPoint(
-                                              enseigneRef: _lot?.enseigneId),
-                                          _buildSectionCard(
-                                            context: context,
-                                            title: 'Détails du lot',
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.center,
-                                              children: [
-                                                Text(
-                                                  _lot!.name,
-                                                  textAlign: TextAlign.center,
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .titleLarge
-                                                      .override(
-                                                        font: GoogleFonts
-                                                            .interTight(
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .titleLarge
-                                                                  .fontStyle,
-                                                        ),
-                                                        color: const Color(
-                                                            0xFF2D2A72),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                      ),
-                                                ),
-                                                if (lotConditions != null) ...[
-                                                  const SizedBox(height: 18.0),
-                                                  Align(
-                                                    alignment:
-                                                        Alignment.centerLeft,
-                                                    child: Text(
-                                                      'Conditions',
-                                                      style: FlutterFlowTheme
-                                                              .of(context)
-                                                          .titleMedium
-                                                          .override(
-                                                            font: GoogleFonts
-                                                                .inter(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w700,
-                                                              fontStyle:
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .titleMedium
-                                                                      .fontStyle,
-                                                            ),
-                                                            color: const Color(
-                                                                0xFF2D2A72),
-                                                            letterSpacing: 0.0,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 8.0),
-                                                  Align(
-                                                    alignment:
-                                                        Alignment.centerLeft,
-                                                    child: Text(
-                                                      lotConditions,
-                                                      style: FlutterFlowTheme
-                                                              .of(context)
-                                                          .bodyLarge
-                                                          .override(
-                                                            font: GoogleFonts
-                                                                .inter(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w400,
-                                                              fontStyle:
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyLarge
-                                                                      .fontStyle,
-                                                            ),
-                                                            color: const Color(
-                                                                0xFF5E667E),
-                                                            letterSpacing: 0.0,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox.shrink(),
-                                        ].divide(const SizedBox(height: 24.0)),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                ),
-                wrapWithModel(
-                  model: _model.customNavBarJoueurModel,
-                  updateCallback: () => safeSetState(() {}),
-                  child: const CustomNavBarJoueurWidget(
-                    indexActive: 4,
-                  ),
-                ),
-              ],
-            ),
-          ),
+                                    width: 50,
+                                    height: 50,
+                                    child: SizedBox.shrink()));
+                          return _content(gamePhoto: snapshot.data!.photo);
+                        })),
+            wrapWithModel(
+                model: _model.customNavBarJoueurModel,
+                updateCallback: () => safeSetState(() {}),
+                child: const CustomNavBarJoueurWidget(indexActive: 4)),
+          ])),
         ),
-      ),
-    );
-  }
+      );
 }

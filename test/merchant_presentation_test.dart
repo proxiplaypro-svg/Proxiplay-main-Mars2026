@@ -18,6 +18,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:google_fonts/src/google_fonts_base.dart' as font_testing;
 import 'package:proxi_play/backend/backend.dart';
+import 'package:proxi_play/auth/base_auth_user_provider.dart';
+import 'package:proxi_play/app_state.dart';
+import 'package:proxi_play/components/player_gain_card.dart';
+import 'package:proxi_play/components/game_prize_deadline_rule.dart';
+import 'package:proxi_play/components/player_tickets_card.dart';
+import 'package:proxi_play/pages/joueur/lots_joueur_page/lots_joueur_page_widget.dart';
 import 'package:proxi_play/components/merchant_pickup_point.dart';
 import 'package:proxi_play/components/merchant_presentation.dart';
 import 'package:proxi_play/components/winner_email_text.dart';
@@ -56,8 +62,11 @@ class _Document extends platform.DocumentReferencePlatform {
   final _Store store;
   @override
   Future<platform.DocumentSnapshotPlatform> get(
-          [platform.GetOptions options = const platform.GetOptions()]) async =>
-      store.snapshot(path);
+      [platform.GetOptions options = const platform.GetOptions()]) async {
+    store.reads.add(path);
+    return store.snapshot(path);
+  }
+
   @override
   Stream<platform.DocumentSnapshotPlatform> snapshots(
       {bool includeMetadataChanges = false,
@@ -86,6 +95,12 @@ class _Collection extends platform.CollectionReferencePlatform {
   @override
   bool get isCollectionGroupQuery => false;
   @override
+  Stream<platform.QuerySnapshotPlatform> snapshots({
+    bool includeMetadataChanges = false,
+    required platform.ListenSource listenSource,
+  }) =>
+      Stream.fromFuture(get());
+  @override
   Future<platform.QuerySnapshotPlatform> get(
       [platform.GetOptions options = const platform.GetOptions()]) async {
     store.reads.add(path);
@@ -99,6 +114,11 @@ class _Collection extends platform.CollectionReferencePlatform {
     return platform.QuerySnapshotPlatform(
         docs, [], platform.SnapshotMetadataPlatform(false, false));
   }
+}
+
+class _GainsUser extends GuestAuthUser {
+  @override
+  AuthUserInfo get authUserInfo => const AuthUserInfo(uid: 'gains-player');
 }
 
 class _Functions extends functions_platform.FirebaseFunctionsPlatform {
@@ -259,13 +279,228 @@ void main() {
     await tester.runAsync(() async {
       final image = await boundary.toImage(pixelRatio: 1);
       final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-      final dir = Directory('.tmp_merchant_ui');
+      final dir = Directory(name.startsWith('lot_')
+          ? 'build/mon_lot_preview'
+          : name.startsWith('gains_')
+              ? 'build/mes_gains_preview'
+              : '.tmp_merchant_ui');
       await dir.create(recursive: true);
       await File('${dir.path}/$name.png')
           .writeAsBytes(bytes!.buffer.asUint8List());
       image.dispose();
     });
   }
+
+  testWidgets(
+      'gains tabs, legacy fallback and detail navigation keep existing data contract',
+      (tester) async {
+    final previousUser = currentUser;
+    final previousGuest = FFAppState().isGuest;
+    currentUser = _GainsUser();
+    FFAppState().isGuest = false;
+    addTearDown(() {
+      currentUser = previousUser;
+      FFAppState().isGuest = previousGuest;
+    });
+    final future =
+        Timestamp.fromDate(DateTime.now().add(const Duration(days: 28)));
+    final past =
+        Timestamp.fromDate(DateTime.now().subtract(const Duration(days: 1)));
+    final values = <Map<String, dynamic>>[
+      {
+        'name': 'Un dîner pour deux',
+        'enseigne_name': 'Le restaurant du quartier',
+        'description': 'Sur réservation.',
+        'usage_deadline': future
+      },
+      {'name': 'Lot retiré', 'claimed': true, 'usage_deadline': past},
+      {'name': 'Lot expiré', 'usage_deadline': past},
+      {'name': 'Ancien lot sans snapshot'},
+    ];
+    for (var i = 0; i < values.length; i++) {
+      store.data['users/gains-player/my_lots/$i'] = {
+        'prize_id': ref('prizes/$i'),
+        if (i != 3) 'prize_snapshot': values[i],
+      };
+      if (i == 3) store.data['prizes/$i'] = values[i];
+    }
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const LotsJoueurPageWidget()),
+      GoRoute(
+          path: '/lot',
+          name: LotDetailJoueurPageWidget.routeName,
+          builder: (_, state) {
+            final prize =
+                (state.extra as Map<String, dynamic>)['lot'] as PrizesRecord;
+            return Scaffold(body: Text('Lot reçu ${prize.reference.path}'));
+          }),
+    ]);
+    addTearDown(router.dispose);
+    await pump(
+        tester,
+        MaterialApp.router(
+          routerConfig: router,
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(fontFamily: 'TestSans'),
+        ));
+    expect(find.text('4 lots gagnés'), findsOneWidget);
+    expect(find.text('À récupérer (2)'), findsOneWidget);
+    expect(find.text('Historique (2)'), findsOneWidget);
+    await capture(tester, 'gains_overview');
+    await tester.tap(find.text('Historique (2)'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Lot expiré'), 200,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('Retiré'), findsOneWidget);
+    expect(find.text('Expiré'), findsOneWidget);
+    await capture(tester, 'gains_history');
+    await tester.scrollUntilVisible(find.text('À récupérer (2)'), -250,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text('À récupérer (2)'));
+    await tester.pumpAndSettle();
+    expect(store.reads, ['users/gains-player/my_lots', 'prizes/3']);
+    await tester.scrollUntilVisible(find.text('Voir mon lot').first, 150,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text('Voir mon lot').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Lot reçu prizes/0'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'gains card supports missing fields and long names at 320px large text',
+      (tester) async {
+    final prize = PrizesRecord.getDocumentFromData({
+      'name': 'Un très beau lot à partager avec toute la famille et les amis',
+      'enseigne_name':
+          'Le commerçant de proximité au nom particulièrement long',
+      'description': 'Réservation nécessaire. Présentez votre lot en boutique.',
+      'usage_deadline': DateTime(2030, 9, 30),
+    }, ref('prizes/long'));
+    await pump(
+        tester,
+        Scaffold(
+            body: SingleChildScrollView(
+                child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: PlayerGainCard(prize: prize, onOpen: () {}, onDelete: () {}),
+        ))),
+        width: 320,
+        scale: 2);
+    await capture(tester, 'gains_narrow_card');
+    await tester.ensureVisible(find.text('Conditions ›'));
+    await tester.tap(find.text('Conditions ›'));
+    await tester.pumpAndSettle();
+    expect(find.text(prize.description), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await pump(
+        tester,
+        Scaffold(
+            body: PlayerGainCard(
+          prize: PrizesRecord.getDocumentFromData(
+              {'name': 'Lot sans échéance'}, ref('prizes/bare')),
+          onOpen: () {},
+          onDelete: () {},
+        )),
+        width: 320,
+        scale: 2);
+    expect(find.text('Conditions ›'), findsNothing);
+    expect(find.byIcon(Icons.schedule_rounded), findsNothing);
+    expect(find.text('Commerçant non renseigné'), findsNothing);
+    expect(find.byIcon(Icons.card_giftcard_rounded), findsNothing);
+    expect(tester.getTopLeft(find.text('Lot sans échéance')).dx, 17);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'player ticket card uses Home ticket and neutral styling at 320px text x2',
+      (tester) async {
+    for (final count in [1, 12]) {
+      final title =
+          'Vous avez déjà $count ${count == 1 ? 'ticket' : 'tickets'}';
+      final chances =
+          '$count ${count == 1 ? 'chance' : 'chances'} pour le tirage du mercredi 30 septembre 2026';
+      await pump(
+          tester,
+          Scaffold(
+              body: SingleChildScrollView(
+                  child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: PlayerTicketsCard(
+                title: title,
+                chances: chances,
+                bodyStyle: const TextStyle(fontSize: 14)),
+          ))),
+          width: 320,
+          scale: 2);
+      expect(find.text('🎫'), findsOneWidget);
+      expect(find.text('🎟️'), findsNothing);
+      expect(find.text(title), findsOneWidget);
+      expect(find.text(chances), findsOneWidget);
+      final container = tester.widget<Container>(find
+          .descendant(
+              of: find.byType(PlayerTicketsCard),
+              matching: find.byType(Container))
+          .first);
+      expect((container.decoration as BoxDecoration).color,
+          const Color(0xFFF3F4F6));
+      expect(tester.widget<Text>(find.text(title)).style!.color,
+          const Color(0xFF2B285F));
+      expect(
+          tester
+              .widget<Text>(
+                  find.text('Rejouez chaque jour pour augmenter vos chances'))
+              .style!
+              .fontStyle,
+          FontStyle.italic);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
+  testWidgets(
+      'game usage deadline rule never substitutes game end or draw dates',
+      (tester) async {
+    for (final deadline in [
+      DateTime(2026, 10, 31),
+      DateTime(2020, 1, 2),
+      null
+    ]) {
+      final game = GamesRecord.getDocumentFromData({
+        'end_date': Timestamp.fromDate(DateTime(2026, 9, 30)),
+        'drawn_at': Timestamp.fromDate(DateTime(2026, 10, 1)),
+        if (deadline != null)
+          'prize_usage_deadline': Timestamp.fromDate(deadline),
+      }, ref('games/deadline'));
+      await pump(
+          tester,
+          Scaffold(
+              body: SingleChildScrollView(
+                  child: Column(children: [
+            GamePrizeDeadlineRule(
+                deadline: game.prizeUsageDeadline,
+                style: const TextStyle(fontSize: 16)),
+            const Text('Suite des règles'),
+          ]))),
+          width: 320,
+          scale: 2);
+      if (deadline == null) {
+        expect(find.textContaining('Lot à utiliser avant le'), findsNothing);
+        expect(find.byIcon(Icons.calendar_today_outlined), findsNothing);
+        expect(tester.getTopLeft(find.text('Suite des règles')).dy, 0);
+      } else {
+        expect(
+            find.text(
+                'Lot à utiliser avant le ${deadline.year == 2026 ? '31/10/2026' : '02/01/2020'}'),
+            findsOneWidget);
+        expect(find.byIcon(Icons.calendar_today_outlined), findsOneWidget);
+      }
+      expect(find.textContaining('30/09/2026'), findsNothing);
+      expect(find.textContaining('01/10/2026'), findsNothing);
+      expect(store.reads, isEmpty);
+      expect(tester.takeException(), isNull);
+    }
+  });
 
   testWidgets('merchant screens show errors and retry to empty without a loop',
       (tester) async {
@@ -563,6 +798,32 @@ void main() {
   });
 
   testWidgets(
+      'pickup without loaded photo has no icon or reserved space at 320px text x2',
+      (tester) async {
+    const name = 'Oscar Timmerman Pâtisserie Fine et gourmandises artisanales';
+    store.data['enseignes/shop'] = {...complete(), 'name': name};
+    // Photos in the existing subcollection must not cause an additional read.
+    store.data['enseignes/shop/images/main'] = {
+      'url': 'https://example.invalid/photo.png'
+    };
+    await pump(
+        tester,
+        Scaffold(
+            body: SingleChildScrollView(
+                child: MerchantPickupPoint(enseigneRef: ref()))),
+        width: 320,
+        scale: 2);
+    expect(find.byIcon(Icons.storefront_outlined), findsNothing);
+    expect(find.byType(CircleAvatar), findsNothing);
+    expect(find.byType(CachedNetworkImage), findsNothing);
+    expect(
+        tester.widget<ListTile>(find.byType(ListTile).first).leading, isNull);
+    expect(tester.getTopLeft(find.text(name)).dx, 21);
+    expect(store.reads, ['enseignes/shop']);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
       'pickup never queries schedules for absent, invalid or deleted merchant',
       (tester) async {
     for (final reference in [
@@ -608,7 +869,7 @@ void main() {
         store.reads.where((path) => path == 'enseignes/shop/horaires').length,
         1);
     expect(store.reads.where((path) => path.startsWith('games')), isEmpty);
-    await tester.tap(find.text('Voir la fiche commerçant'));
+    await tester.tap(find.text('Voir le commerce'));
     await tester.pumpAndSettle();
     expect(find.text('Destination enseignes/shop'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -713,6 +974,212 @@ void main() {
           isEmpty);
       expect(tester.takeException(), isNull);
     }
+  });
+
+  for (final variant in ['photo', 'empty', 'invalid', 'no_game']) {
+    testWidgets('lot hero uses only loaded game: $variant at 320px text x2',
+        (tester) async {
+      const url = 'https://example.invalid/loaded-game.png';
+      if (variant == 'photo') {
+        await tester.runAsync(() async {
+          final codec = await ui.instantiateImageCodec(
+              File('assets/images/Background.png').readAsBytesSync());
+          final frame = await codec.getNextFrame();
+          PaintingBinding.instance.imageCache.putIfAbsent(
+              const CachedNetworkImageProvider(url),
+              () => OneFrameImageStreamCompleter(
+                  Future.value(ImageInfo(image: frame.image))));
+          codec.dispose();
+        });
+      }
+      store.data['games/loaded'] = {
+        'name': 'Jeu déjà chargé',
+        'photo': variant == 'photo'
+            ? url
+            : variant == 'invalid'
+                ? 'not-an-image-url'
+                : '  '
+      };
+      final data = <String, dynamic>{
+        'name': 'Lot test',
+        'claim_code': 'ABC123',
+        'fulfillment_type': 'platform',
+        if (variant != 'no_game') 'game_id': ref('games/loaded')
+      };
+      store.data['prizes/hero'] = data;
+      await pump(
+          tester,
+          LotDetailJoueurPageWidget(
+              lot: PrizesRecord.getDocumentFromData(data, ref('prizes/hero'))),
+          width: 320,
+          scale: 2);
+      final hero = find.byKey(const ValueKey('lot-game-hero'));
+      expect(find.byIcon(Icons.card_giftcard_rounded), findsNothing);
+      if (variant == 'photo') {
+        expect(hero, findsOneWidget);
+        final image =
+            tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
+        expect(image.imageUrl, url);
+        expect(image.fit, BoxFit.cover);
+        final size = tester.getSize(hero);
+        expect(size.width / size.height, closeTo(16 / 9, .01));
+      } else {
+        expect(hero, findsNothing);
+        expect(find.byType(CachedNetworkImage), findsNothing);
+        // The title follows the app bar, scroll padding and card padding only.
+        expect(
+            tester.getTopLeft(find.text('Lot test')).dy -
+                tester.getBottomLeft(find.byType(AppBar)).dy,
+            lessThan(45));
+      }
+      // Existing build subscribes once with the passed prize, then again when
+      // its live snapshot arrives. Photo and no-photo cases must stay identical.
+      expect(store.reads, [
+        'prizes/hero',
+        if (variant != 'no_game') ...['games/loaded', 'games/loaded'],
+      ]);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  testWidgets('lot detail back returns to the existing route', (tester) async {
+    store.data['prizes/detail'] = {
+      'name': 'Cadeau',
+      'fulfillment_type': 'platform'
+    };
+    final prize = PrizesRecord.getDocumentFromData(
+        store.data['prizes/detail']!, ref('prizes/detail'));
+    final router = GoRouter(routes: [
+      GoRoute(
+          path: '/',
+          builder: (_, __) =>
+              const Scaffold(body: Text('Mes gains destination'))),
+      GoRoute(
+          path: '/detail',
+          builder: (_, __) => LotDetailJoueurPageWidget(lot: prize)),
+    ]);
+    addTearDown(router.dispose);
+    await pump(tester, MaterialApp.router(routerConfig: router));
+    router.push('/detail');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.chevron_left_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Mes gains destination'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  for (final state in ['available', 'claimed', 'expired', 'no_deadline']) {
+    testWidgets('lot detail state $state preserves code visibility and reads',
+        (tester) async {
+      final data = <String, dynamic>{
+        'name': 'Un cadeau',
+        'claim_code': 'MR2R5ANCD2OE',
+        'claimed': state == 'claimed',
+        'fulfillment_type': 'platform',
+        if (state != 'no_deadline')
+          'usage_deadline': Timestamp.fromDate(DateTime.now()
+              .add(Duration(days: state == 'available' ? 10 : -1))),
+      };
+      store.data['prizes/detail'] = data;
+      await pump(
+          tester,
+          LotDetailJoueurPageWidget(
+              lot: PrizesRecord.getDocumentFromData(
+                  data, ref('prizes/detail'))));
+      expect(find.text('Mon lot'), findsOneWidget);
+      expect(
+          find.text(state == 'claimed'
+              ? 'Retiré'
+              : state == 'expired'
+                  ? 'Expiré'
+                  : 'À récupérer'),
+          findsOneWidget);
+      expect(
+          find.text('Copier le code'),
+          state == 'claimed' || state == 'expired'
+              ? findsNothing
+              : findsOneWidget);
+      expect(
+          find.textContaining('Échéance :'),
+          state == 'claimed' || state == 'expired'
+              ? findsOneWidget
+              : findsNothing);
+      expect(find.byIcon(Icons.schedule),
+          state == 'no_deadline' ? findsNothing : findsOneWidget);
+      expect(find.text('Conditions d’utilisation'), findsNothing);
+      expect(find.textContaining('chez '), findsNothing);
+      expect(store.reads, ['prizes/detail']);
+      if (state == 'available') await capture(tester, 'lot_overview');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  testWidgets('lot detail long content at 320px double text copies exact code',
+      (tester) async {
+    const code = 'MR2R5ANCD2OE1234567890';
+    const description =
+        'Conditions détaillées du lot. À présenter au commerçant selon les modalités indiquées lors du gain.';
+    store.data['enseignes/shop'] = {
+      ...complete(),
+      'name': 'Un commerce au nom particulièrement long',
+      'address':
+          '123 avenue des Commerçants et des Artisans du Centre Historique'
+    };
+    final data = <String, dynamic>{
+      'name': 'Un très beau cadeau à partager avec toute la famille',
+      'enseigne_name': 'Un commerce au nom particulièrement long',
+      'enseigne_id': ref(),
+      'claim_code': code,
+      'description': description
+    };
+    store.data['prizes/detail'] = data;
+    String? copied;
+    tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copied = (call.arguments as Map)['text'] as String;
+      }
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+    await pump(
+        tester,
+        LotDetailJoueurPageWidget(
+            lot: PrizesRecord.getDocumentFromData(data, ref('prizes/detail'))),
+        width: 320,
+        scale: 2);
+    expect(find.byIcon(Icons.card_giftcard_rounded), findsNothing);
+    expect(find.byKey(const ValueKey('lot-game-hero')), findsNothing);
+    await tester.scrollUntilVisible(find.text('Copier le code'), 200,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text('Copier le code'));
+    await tester.pumpAndSettle();
+    expect(copied, code);
+    expect(find.text('Code copié'), findsOneWidget);
+    await capture(tester, 'lot_narrow_code');
+    await tester.scrollUntilVisible(
+        find.text('Horaires du point de retrait'), 200,
+        scrollable: find.byType(Scrollable).first);
+    expect(store.reads, ['prizes/detail', 'enseignes/shop']);
+    await tester.pumpAndSettle();
+    await capture(tester, 'lot_narrow_pickup');
+    await tester.tap(find.text('Horaires du point de retrait'));
+    await tester.pumpAndSettle();
+    expect(store.reads.where((p) => p.endsWith('/horaires')).length, 1);
+    await tester.scrollUntilVisible(find.text(description), 200,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text(description));
+    await tester.pumpAndSettle();
+    expect(
+        find.byWidgetPredicate(
+            (w) => w is SelectableText && w.data == description),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets(

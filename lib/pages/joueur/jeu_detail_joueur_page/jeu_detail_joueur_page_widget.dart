@@ -1,3 +1,5 @@
+import '/components/game_prize_deadline_rule.dart';
+import '/components/player_tickets_card.dart';
 import '/components/merchant_presentation.dart';
 import '/backend/animation_progress.dart';
 import 'dart:async';
@@ -453,54 +455,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final chanceWord = ticketCount > 1 ? 'chances' : 'chance';
         return Padding(
           padding: const EdgeInsets.only(top: 12.0),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14.0),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEF3E2),
-              borderRadius: BorderRadius.circular(16.0),
-              border: Border.all(
-                color: const Color(0xFFF5A623).withOpacity(0.35),
-                width: 1.0,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('🎟️', style: TextStyle(fontSize: 18.0)),
-                    const SizedBox(width: 8.0),
-                    Expanded(
-                      child: Text(
-                        'Vous avez déjà $ticketCount $ticketWord',
-                        style: GoogleFonts.inter(
-                          fontSize: 15.0,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF92400E),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4.0),
-                Text(
-                  drawDateText != null
-                      ? '$ticketCount $chanceWord pour le tirage du $drawDateText'
-                      : '$ticketCount $chanceWord pour le tirage',
-                  style: bodyStyle,
-                ),
-                const SizedBox(height: 6.0),
-                Text(
-                  'Rejouez chaque jour pour augmenter vos chances',
-                  style: bodyStyle.copyWith(
-                    fontStyle: FontStyle.italic,
-                    color: const Color(0xFF6B7280),
-                  ),
-                ),
-              ],
-            ),
+          child: PlayerTicketsCard(
+            title: 'Vous avez déjà $ticketCount $ticketWord',
+            chances: drawDateText != null
+                ? '$ticketCount $chanceWord pour le tirage du $drawDateText'
+                : '$ticketCount $chanceWord pour le tirage',
+            bodyStyle: bodyStyle,
           ),
         );
       },
@@ -3170,6 +3130,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                         return Container();
                                                       },
                                                     ),
+                                                    if (shouldShowMainPrize)
+                                                      _buildYourTicketsCard(detailBodyStyle),
                                                     if (hasSecondaryPrizeContent ||
                                                         shouldShowMainPrize)
                                                       Container(
@@ -3353,8 +3315,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         style:
                                                                             detailBodyStyle,
                                                                       ),
-                                                                      _buildYourTicketsCard(
-                                                                          detailBodyStyle),
+
                                                                     ],
                                                                   ),
                                                                 ),
@@ -3362,6 +3323,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                             ),
                                                           const SizedBox(
                                                               height: 8.0),
+                                                          GamePrizeDeadlineRule(
+                                                            deadline: widget.gameDoc?.prizeUsageDeadline,
+                                                            style: detailBodyStyle,
+                                                          ),
                                                           if (hasSecondaryPrizeContent)
                                                             Row(
                                                               crossAxisAlignment:
@@ -3451,6 +3416,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                         ),
                                                       ),
                                                     ),
+                                                    if (shouldShowMainPrize)
+                                                      _buildYourTicketsCard(detailBodyStyle),
                                                     if (hasSecondaryPrizeContent ||
                                                         shouldShowMainPrize)
                                                       Container(
@@ -3634,8 +3601,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         style:
                                                                             detailBodyStyle,
                                                                       ),
-                                                                      _buildYourTicketsCard(
-                                                                          detailBodyStyle),
+
                                                                     ],
                                                                   ),
                                                                 ),
@@ -3643,6 +3609,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                             ),
                                                           const SizedBox(
                                                               height: 8.0),
+                                                          GamePrizeDeadlineRule(
+                                                            deadline: widget.gameDoc?.prizeUsageDeadline,
+                                                            style: detailBodyStyle,
+                                                          ),
                                                           if (hasSecondaryPrizeContent)
                                                             Row(
                                                               crossAxisAlignment:
