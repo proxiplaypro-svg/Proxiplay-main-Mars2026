@@ -1,3 +1,4 @@
+import '/components/merchant_games_load_error.dart';
 import '/services/merchant_games_service.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
@@ -35,10 +36,18 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
   String _cursor = '';
   bool _hasMore = true;
   bool _loading = false;
-  Future<List<GamesRecord>> _loadPage() async {
+  Future<List<GamesRecord>> _loadPage() {
+    final request = _fetchPage();
+    // A fast failure may arrive before the next frame subscribes to this Future.
+    // Keep the original result for FutureBuilder while marking it as handled.
+    request.ignore();
+    return request;
+  }
+
+  Future<List<GamesRecord>> _fetchPage() async {
     _loading = true;
     try {
-      final page = await loadMerchantGamesPage(cursor: _cursor);
+      final page = await logMerchantGamesFailure(loadMerchantGamesPage(cursor: _cursor), 'games');
       _games.addAll(page.games);
       _cursor = page.cursor;
       _hasMore = page.hasMore;
@@ -597,7 +606,7 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                 future: _gamesFuture,
                                 builder: (context, snapshot) {
                                   // Customize what your widget looks like when it's loading.
-                                  if (!snapshot.hasData) {
+                                  if (snapshot.connectionState == ConnectionState.waiting && _games.isEmpty) {
                                     return const Center(
                                       child: SizedBox(
                                         width: 50.0,
@@ -606,15 +615,20 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                       ),
                                     );
                                   }
+                                  final failed = snapshot.connectionState == ConnectionState.done && snapshot.hasError;
+                                  void retry() => setState(() { _gamesFuture = _loadPage(); });
+                                  if (failed && _games.isEmpty) {
+                                    return MerchantGamesLoadError(onRetry: retry);
+                                  }
                                   List<GamesRecord> listViewGamesRecordList =
-                                      snapshot.data!
+                                      (snapshot.data ?? _games)
                                           .where((g) =>
                                               g.snapshotData[
                                                   'hidden_from_merchant_stats'] !=
                                               true)
                                           .toList();
                                   if (listViewGamesRecordList.isEmpty &&
-                                      !_hasMore) {
+                                      !_hasMore && !failed) {
                                     return const Center(
                                       child: ListEmptyComponentWidget(
                                         title: 'Aucun Jeu',
@@ -632,7 +646,9 @@ class _JeuxCommercantPageWidgetState extends State<JeuxCommercantPageWidget> {
                                   return ListView(
                                     padding: EdgeInsets.zero,
                                     children: [
-                                      if (_hasMore)
+                                      if (failed)
+                                        MerchantGamesLoadError(onRetry: retry),
+                                      if (_hasMore && !failed)
                                         TextButton(
                                             onPressed: _loading
                                                 ? null

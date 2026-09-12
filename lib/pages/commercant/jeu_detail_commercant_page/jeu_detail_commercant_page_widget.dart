@@ -1,3 +1,4 @@
+import '/components/winner_email_text.dart';
 import '/services/merchant_prizes_service.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
@@ -578,6 +579,35 @@ class _JeuDetailCommercantPageWidgetState
   Widget _buildWinnerInfoRow(String label, String? value) {
     final displayValue =
         (value ?? '').trim().isNotEmpty ? value!.trim() : '—';
+    if (label == 'MAIL') {
+      final style = GoogleFonts.inter(
+          textStyle: FlutterFlowTheme.of(context).bodySmall,
+          letterSpacing: 0);
+      final caption = Text('$label :',
+          style: style.copyWith(
+              color: FlutterFlowTheme.of(context).secondaryText,
+              fontWeight: FontWeight.w700));
+      return LayoutBuilder(builder: (context, constraints) {
+        final painter = TextPainter(
+            text: TextSpan(text: displayValue, style: style),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context))
+          ..layout();
+        final fitsRow = painter.width <= constraints.maxWidth - 88;
+        painter.dispose();
+        final email = WinnerEmailText(email: displayValue, style: style);
+        return fitsRow
+            ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                SizedBox(width: 88, child: caption),
+                Expanded(child: email),
+              ])
+            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                caption,
+                const SizedBox(height: 4),
+                email,
+              ]);
+      });
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

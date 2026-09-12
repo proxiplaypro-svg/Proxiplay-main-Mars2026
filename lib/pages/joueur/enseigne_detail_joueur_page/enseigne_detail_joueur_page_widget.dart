@@ -61,7 +61,7 @@ class _EnseigneDetailJoueurPageWidgetState
     if (game.prizeValue == 0 && hasSecondaryPrizes) {
       return 'Gains immédiats';
     }
-    return _formatPrice(game.prizeValue);
+    return 'Valeur du lot : ${_formatPrice(game.prizeValue)}';
   }
 
   String _formatPrice(double value) {

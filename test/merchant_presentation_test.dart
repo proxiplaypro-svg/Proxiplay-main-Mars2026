@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 
 import 'package:cloud_firestore_platform_interface/cloud_firestore_platform_interface.dart'
     as platform;
+import 'package:cloud_functions_platform_interface/cloud_functions_platform_interface.dart'
+    as functions_platform;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
@@ -13,10 +15,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:google_fonts/src/google_fonts_base.dart' as font_testing;
 import 'package:proxi_play/backend/backend.dart';
 import 'package:proxi_play/components/merchant_pickup_point.dart';
 import 'package:proxi_play/components/merchant_presentation.dart';
+import 'package:proxi_play/components/winner_email_text.dart';
+import 'package:proxi_play/pages/commercant/home_commercant_page/home_commercant_page_widget.dart';
+import 'package:proxi_play/pages/commercant/jeux_commercant_page/jeux_commercant_page_widget.dart';
 import 'package:proxi_play/flutter_flow/internationalization.dart';
 import 'package:proxi_play/pages/joueur/enseigne_detail_joueur_page/enseigne_detail_joueur_page_widget.dart';
 import 'package:proxi_play/pages/joueur/lot_detail_joueur_page/lot_detail_joueur_page_widget.dart';
@@ -95,6 +101,32 @@ class _Collection extends platform.CollectionReferencePlatform {
   }
 }
 
+class _Functions extends functions_platform.FirebaseFunctionsPlatform {
+  _Functions() : super(null, 'europe-west1');
+  late Future<dynamic> Function(dynamic) handler;
+  @override
+  functions_platform.FirebaseFunctionsPlatform delegateFor(
+          {FirebaseApp? app, required String region}) =>
+      this;
+  @override
+  functions_platform.HttpsCallablePlatform httpsCallable(String? origin,
+          String name, functions_platform.HttpsCallableOptions options) =>
+      _Callable(this, name, options);
+}
+
+class _Callable extends functions_platform.HttpsCallablePlatform {
+  _Callable(_Functions functions, String name,
+      functions_platform.HttpsCallableOptions options)
+      : super(functions, null, name, options, null);
+  @override
+  Future<dynamic> call([dynamic parameters]) {
+    if (name != 'getMerchantGames') {
+      throw StateError('Unexpected callable $name');
+    }
+    return (functions as _Functions).handler(parameters);
+  }
+}
+
 class _FontManifest extends Fake implements AssetManifest {
   @override
   List<String> listAssets() => [
@@ -114,8 +146,10 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setupFirebaseCoreMocks();
   final store = _Store();
+  final calls = _Functions();
   final screenshotKey = GlobalKey();
   setUpAll(() async {
+    await initializeDateFormatting('fr');
     GoogleFonts.config.allowRuntimeFetching = false;
     // Offline font fixture from the Flutter SDK. No application asset changes.
     final flutterRoot = Platform.environment['FLUTTER_ROOT'];
@@ -151,6 +185,7 @@ void main() {
     }
     await Firebase.initializeApp();
     platform.FirebaseFirestorePlatform.instance = store;
+    functions_platform.FirebaseFunctionsPlatform.instance = calls;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockDecodedMessageHandler<Object?>(
             const BasicMessageChannel<Object?>(
@@ -169,6 +204,7 @@ void main() {
     store.data.clear();
     store.reads.clear();
     store.denied.clear();
+    calls.handler = (_) async => throw StateError('Unexpected call');
   });
 
   DocumentReference ref([String path = 'enseignes/shop']) =>
@@ -230,6 +266,105 @@ void main() {
       image.dispose();
     });
   }
+
+  testWidgets('merchant screens show errors and retry to empty without a loop',
+      (tester) async {
+    for (final page in [
+      const HomeCommercantPageWidget(),
+      const JeuxCommercantPageWidget()
+    ]) {
+      var count = 0;
+      calls.handler = (_) async {
+        count++;
+        if (count == 1) {
+          throw FirebaseException(
+              plugin: 'cloud_functions',
+              code: 'not-found',
+              message: 'Missing endpoint');
+        }
+        return {'ids': <String>[], 'cursor': '', 'hasMore': false};
+      };
+      await pump(tester, page, width: 320, scale: 1.5);
+      expect(find.text('Impossible de charger vos jeux.'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      expect(count, 1);
+      await tester.tap(find.text('Réessayer'));
+      await tester.pumpAndSettle();
+      expect(count, 2);
+      expect(find.text('Impossible de charger vos jeux.'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
+  testWidgets('merchant pagination retains games and retries the same cursor',
+      (tester) async {
+    const photo = 'https://example.invalid/merchant-game.png';
+    await tester.runAsync(() async {
+      final codec = await ui.instantiateImageCodec(
+          File('assets/images/Background.png').readAsBytesSync());
+      final frame = await codec.getNextFrame();
+      PaintingBinding.instance.imageCache.putIfAbsent(
+          const NetworkImage(photo),
+          () => OneFrameImageStreamCompleter(
+              Future.value(ImageInfo(image: frame.image))));
+    });
+    store.data['games/one'] = {
+      'name': 'Premier jeu',
+      'photo': photo,
+      'end_date':
+          Timestamp.fromDate(DateTime.now().add(const Duration(days: 2)))
+    };
+    final cursors = <String>[];
+    calls.handler = (parameters) async {
+      cursors.add(parameters['cursor'] as String);
+      if (cursors.length == 2) {
+        throw FirebaseException(
+            plugin: 'cloud_functions', code: 'unavailable', message: 'Offline');
+      }
+      return cursors.length == 1
+          ? {
+              'ids': ['one'],
+              'cursor': 'one',
+              'hasMore': true
+            }
+          : {'ids': <String>[], 'cursor': 'one', 'hasMore': false};
+    };
+    await pump(tester, const JeuxCommercantPageWidget(), width: 800);
+    expect(find.text('Premier jeu'), findsWidgets);
+    await tester.tap(find.text('Charger plus de jeux'));
+    await tester.pumpAndSettle();
+    expect(find.text('Premier jeu'), findsWidgets);
+    expect(find.text('Impossible de charger vos jeux.'), findsOneWidget);
+    await tester.tap(find.text('Réessayer'));
+    await tester.pumpAndSettle();
+    expect(cursors, ['', 'one', 'one']);
+    expect(find.text('Premier jeu'), findsWidgets);
+    expect(find.text('Impossible de charger vos jeux.'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('winner email remains readable at narrow width and large text',
+      (tester) async {
+    for (final scale in [1.0, 2.0]) {
+      await pump(
+          tester,
+          const Scaffold(
+              body: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: WinnerEmailText(
+                    email: 'prenom.nom@gmail.com',
+                    style: TextStyle(fontSize: 14),
+                  ))),
+          width: 320,
+          scale: scale);
+      final displayed =
+          tester.widget<SelectableText>(find.byType(SelectableText)).data!;
+      expect(displayed.replaceAll('\n', ''), 'prenom.nom@gmail.com');
+      expect(displayed.contains('gmail.co\nm'), isFalse);
+      expect(tester.takeException(), isNull);
+    }
+  });
 
   testWidgets('portrait cards fit sparse content and enlarged text',
       (tester) async {
@@ -523,6 +658,7 @@ void main() {
     await tester.scrollUntilVisible(find.text('Un déjeuner à gagner'), 200,
         scrollable: find.byType(Scrollable).first);
     expect(find.text('Jeux en cours'), findsOneWidget);
+    expect(find.text('Valeur du lot : 35 €'), findsOneWidget);
     expect(
         store.reads.where((path) => path == 'enseignes/shop/horaires').length,
         1);

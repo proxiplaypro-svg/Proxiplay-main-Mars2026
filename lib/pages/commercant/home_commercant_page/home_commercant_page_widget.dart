@@ -1,3 +1,4 @@
+import '/components/merchant_games_load_error.dart';
 import '/services/merchant_prizes_service.dart';
 import '/services/merchant_games_service.dart';
 import '/auth/firebase_auth/auth_util.dart';
@@ -692,7 +693,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                     future: (_model
                                                 .firestoreRequestCompleter ??=
                                             Completer<List<GamesRecord>>()
-                                              ..complete(loadAllMerchantGames()
+                                              ..complete(logMerchantGamesFailure(loadAllMerchantGames(), 'home')
                                                   .then((games) => games
                                                       .where((g) =>
                                                           g.endDate != null &&
@@ -702,7 +703,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                         .future,
                                     builder: (context, snapshot) {
                                       // Customize what your widget looks like when it's loading.
-                                      if (!snapshot.hasData) {
+                                      if (snapshot.connectionState == ConnectionState.waiting) {
                                         return const Center(
                                           child: SizedBox(
                                             width: 40.0,
@@ -711,6 +712,11 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                 size: 42.0),
                                           ),
                                         );
+                                      }
+                                      if (snapshot.hasError) {
+                                        return MerchantGamesLoadError(onRetry: () => setState(() {
+                                          _model.firestoreRequestCompleter = null;
+                                        }));
                                       }
                                       List<GamesRecord>
                                           listViewGamesRecordList =
