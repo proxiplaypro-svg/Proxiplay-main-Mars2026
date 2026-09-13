@@ -930,20 +930,22 @@ class _AddGameCommercantPageWidgetState
     }, gamesRecordReference);
 
     var instantWinnersGenerationFailed = false;
-    if (totalSecondaryCount > 0) {
-      try {
-        await FirebaseFunctions.instance
-            .httpsCallable('generateInstantWinnersForGame')
-            .call({
-          'gameId': gamesRecordReference.id,
-        });
-      } catch (e, st) {
-        debugPrint(
-          'generateInstantWinnersForGame failed for gameId=${gamesRecordReference.id}: $e',
-        );
-        debugPrintStack(stackTrace: st);
-        instantWinnersGenerationFailed = true;
-      }
+    var instantWinnersPublished = false;
+    try {
+      final generationResult = await FirebaseFunctions.instance
+          .httpsCallable('generateInstantWinnersForGame')
+          .call({
+        'gameId': gamesRecordReference.id,
+        'publishOnSuccess': true,
+      });
+      instantWinnersPublished =
+          (generationResult.data as Map?)?['published'] == true;
+    } catch (e, st) {
+      debugPrint(
+        'generateInstantWinnersForGame failed for gameId=${gamesRecordReference.id}: $e',
+      );
+      debugPrintStack(stackTrace: st);
+      instantWinnersGenerationFailed = true;
     }
     safeSetState(() {
       _model.isDataUploading_uploadGameData5ir = false;
@@ -952,7 +954,7 @@ class _AddGameCommercantPageWidgetState
         originalFilename: '',
       );
     });
-    if (instantWinnersGenerationFailed) {
+    if (instantWinnersGenerationFailed || !instantWinnersPublished) {
       // Le jeu reste en brouillon, non visible : "Valider" relancera la
       // génération sur ce même document plutôt que d'en créer un autre.
       if (mounted) {
@@ -968,8 +970,10 @@ class _AddGameCommercantPageWidgetState
       return false;
     }
 
-    // Lots instantanés prêts (ou pas nécessaires) : le jeu peut devenir visible.
-    await gamesRecordReference.update(mapToFirestore({'visible_public': true}));
+    // Le backend a publié le jeu lui-même (Admin SDK) une fois le calendrier
+    // d'instant winners confirmé complet : le client n'écrit plus
+    // visible_public (Firestore Rules : un commerçant n'a pas ce droit,
+    // volontairement — voir isSafeMerchantGameUpdate()).
     _model.gameResult = GamesRecord.getDocumentFromData({
       ...gameFieldsData,
       ...mapToFirestore({

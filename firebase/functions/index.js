@@ -95,8 +95,15 @@ const generateInstantWinnersForGameCallable = functions
         "A valid gameId is required.",
       );
     }
+    // Publication serveur, demandee explicitement par le seul flux
+    // creation/relance commercant (voir add_game_commercant_page_widget.dart).
+    // Les appels admin/reparation existants n'envoient jamais ce champ : leur
+    // comportement (jamais de publication automatique) est strictement
+    // inchange.
+    const publishOnSuccess = (data && data.publishOnSuccess) === true;
 
     const gameRef = firestore.collection("games").doc(gameId);
+    const instantWinnersRef = gameRef.collection("instant_winners");
     const gameSnap = await gameRef.get();
     if (!gameSnap.exists) {
       throw new functions.https.HttpsError("not-found", "Game not found.");
@@ -125,16 +132,40 @@ const generateInstantWinnersForGameCallable = functions
     const expandedSecondaryPrizes = expandSecondaryPrizes(gameData.secondary_prizes);
 
     if (expandedSecondaryPrizes.length === 0) {
+      // Rien a generer : desiredCount=0 est trivialement "complet". Publier
+      // reste conditionne a l'absence de tout instant_winners existant
+      // (jamais un jeu deja gere/publie, ni un jeu qu'un admin aurait
+      // volontairement masque) et a un jeu non termine -- mêmes garanties
+      // que la branche de generation ci-dessous.
+      let published = false;
+      if (publishOnSuccess) {
+        const [freshGameSnap, existingSnap] = await Promise.all([
+          gameRef.get(),
+          instantWinnersRef.limit(1).get(),
+        ]);
+        const freshGameData = freshGameSnap.data() || {};
+        const freshEndDateMs = toMillis(freshGameData.end_date);
+        const freshGameAlreadyEnded =
+          Number.isFinite(freshEndDateMs) && Date.now() >= freshEndDateMs;
+        if (
+          existingSnap.empty &&
+          !freshGameAlreadyEnded &&
+          freshGameData.visible_public !== true
+        ) {
+          await gameRef.update({visible_public: true});
+          published = true;
+        }
+      }
       return {
         ok: true,
         gameId,
         status: "skip_no_secondary_prizes",
         createdCount: 0,
         desiredCount: 0,
+        published,
       };
     }
 
-    const instantWinnersRef = gameRef.collection("instant_winners");
     try {
       planInstantWinnerReconciliation({
         gameId,
@@ -267,8 +298,28 @@ const generateInstantWinnersForGameCallable = functions
         duplicateExistingKeys: freshPlan.duplicateExistingKeys,
         unexpectedExistingCount: freshPlan.unexpectedExistingEntries.length,
         hasAssignedInstantWinner,
+        isFreshGeneration,
+        freshGameAlreadyEnded,
       };
     });
+
+    // Publication serveur : uniquement si demandee explicitement, sur une
+    // generation fraiche (jamais sur un jeu deja gere -- reparation admin ou
+    // jeu volontairement masque -- puisque isFreshGeneration y est faux), le
+    // calendrier desire integralement couvert, et le jeu non termine. Ecrit
+    // via l'Admin SDK : n'accorde aucune permission supplementaire au
+    // commercant cote Firestore Rules, qui restent inchangees.
+    let published = false;
+    if (
+      publishOnSuccess &&
+      transactionResult.isFreshGeneration &&
+      !transactionResult.freshGameAlreadyEnded &&
+      transactionResult.existingCount + transactionResult.createdCount >=
+        transactionResult.desiredCount
+    ) {
+      await gameRef.update({visible_public: true});
+      published = true;
+    }
 
     return {
       ok: true,
@@ -288,6 +339,7 @@ const generateInstantWinnersForGameCallable = functions
       duplicateExistingKeys: transactionResult.duplicateExistingKeys,
       unexpectedExistingCount: transactionResult.unexpectedExistingCount,
       hasAssignedInstantWinner: transactionResult.hasAssignedInstantWinner,
+      published,
       idStrategy:
         "instant_{gameId}_spi_{secondary_prize_index}_occ_{secondary_prize_occurrence_index}",
     };
