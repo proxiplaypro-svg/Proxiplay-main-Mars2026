@@ -179,7 +179,17 @@ const generateInstantWinnersForGameCallable = functions
       const freshGameAlreadyStarted =
         Number.isFinite(freshStartDateMs) && Date.now() >= freshStartDateMs;
 
-      if (freshGameAlreadyStarted && freshPlan.missingPayloads.length > 0) {
+      // Un admin peut relancer un jeu avec une start_date immediate puis
+      // regenerer ses lots instantanes avant toute participation : bloquer
+      // sur le seul horodatage empecherait cette premiere generation
+      // legitime. Un commercant reste soumis a la garde stricte. La garde
+      // hasAssignedInstantWinner ci-dessous s'applique dans tous les cas des
+      // qu'un lot a reellement ete attribue.
+      if (
+        !isCallerAdmin &&
+        freshGameAlreadyStarted &&
+        freshPlan.missingPayloads.length > 0
+      ) {
         throw new functions.https.HttpsError(
           "failed-precondition",
           "Instant winners cannot be completed after the game start.",
