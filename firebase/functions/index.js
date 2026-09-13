@@ -132,28 +132,33 @@ const generateInstantWinnersForGameCallable = functions
     const expandedSecondaryPrizes = expandSecondaryPrizes(gameData.secondary_prizes);
 
     if (expandedSecondaryPrizes.length === 0) {
-      // Rien a generer : desiredCount=0 est trivialement "complet". Publier
-      // reste conditionne a l'absence de tout instant_winners existant
-      // (jamais un jeu deja gere/publie, ni un jeu qu'un admin aurait
-      // volontairement masque) et a un jeu non termine -- mêmes garanties
-      // que la branche de generation ci-dessous.
+      // Rien a generer : desiredCount=0 est trivialement "complet". La
+      // decision de publier ne se base plus sur la presence d'instant_winners
+      // (qui redevient "non fraiche" des le premier appel reussi et casserait
+      // tout retry legitime) mais sur un marqueur serveur dedie -- voir plus
+      // bas dans la branche de generation pour le detail du raisonnement.
       let published = false;
       if (publishOnSuccess) {
-        const [freshGameSnap, existingSnap] = await Promise.all([
-          gameRef.get(),
-          instantWinnersRef.limit(1).get(),
-        ]);
+        const freshGameSnap = await gameRef.get();
         const freshGameData = freshGameSnap.data() || {};
-        const freshEndDateMs = toMillis(freshGameData.end_date);
-        const freshGameAlreadyEnded =
-          Number.isFinite(freshEndDateMs) && Date.now() >= freshEndDateMs;
-        if (
-          existingSnap.empty &&
-          !freshGameAlreadyEnded &&
-          freshGameData.visible_public !== true
-        ) {
-          await gameRef.update({visible_public: true});
+        if (freshGameData.visible_public === true) {
+          // Deja publie (par cet appel ou un appel precedent) : retry
+          // idempotent, on ne reecrit rien.
           published = true;
+        } else if (freshGameData.visible_public_auto_published !== true) {
+          // Jamais publie par ce mecanisme -- distinct d'un jeu qu'un admin
+          // aurait volontairement masque apres une publication anterieure
+          // (ce cas-la a visible_public_auto_published===true).
+          const freshEndDateMs = toMillis(freshGameData.end_date);
+          const freshGameAlreadyEnded =
+            Number.isFinite(freshEndDateMs) && Date.now() >= freshEndDateMs;
+          if (!freshGameAlreadyEnded) {
+            await gameRef.update({
+              visible_public: true,
+              visible_public_auto_published: true,
+            });
+            published = true;
+          }
         }
       }
       return {
@@ -290,6 +295,43 @@ const generateInstantWinnersForGameCallable = functions
         transaction.update(instantWinnersRef.doc(docId), patch);
       });
 
+      // Publication serveur, dans la meme transaction que la creation des
+      // instant_winners (atomique : jamais d'etat intermediaire ou le
+      // calendrier serait complet sans que la publication ait ete tentee).
+      // isFreshGeneration n'est PAS utilise ici : notre flux reutilise
+      // volontairement le meme gameId sur un retry apres un premier appel
+      // qui a deja cree les instant_winners, ce qui rend isFreshGeneration
+      // faux des le 2e essai et bloquerait a tort toute publication. On
+      // distingue plutot explicitement, via un marqueur pose uniquement par
+      // ce code serveur (jamais par le client, absent de
+      // isSafeMerchantGameUpdate()) :
+      //   - deja publie (visible_public===true) -> retry idempotent, succes.
+      //   - jamais publie par ce mecanisme (marqueur absent) -> autorise.
+      //   - publie par le passe puis remis a false par un admin (marqueur
+      //     present mais visible_public===false) -> jamais republie ici.
+      let published = false;
+      if (publishOnSuccess) {
+        const alreadyPublished = freshGameData.visible_public === true;
+        const previouslyAutoPublished =
+          freshGameData.visible_public_auto_published === true;
+        const calendarComplete =
+          freshPlan.existingCount + freshPlan.missingPayloads.length >=
+          freshPlan.desiredCount;
+        if (alreadyPublished) {
+          published = true;
+        } else if (
+          !previouslyAutoPublished &&
+          !freshGameAlreadyEnded &&
+          calendarComplete
+        ) {
+          transaction.update(gameRef, {
+            visible_public: true,
+            visible_public_auto_published: true,
+          });
+          published = true;
+        }
+      }
+
       return {
         desiredCount: freshPlan.desiredCount,
         existingCount: freshPlan.existingCount,
@@ -298,28 +340,9 @@ const generateInstantWinnersForGameCallable = functions
         duplicateExistingKeys: freshPlan.duplicateExistingKeys,
         unexpectedExistingCount: freshPlan.unexpectedExistingEntries.length,
         hasAssignedInstantWinner,
-        isFreshGeneration,
-        freshGameAlreadyEnded,
+        published,
       };
     });
-
-    // Publication serveur : uniquement si demandee explicitement, sur une
-    // generation fraiche (jamais sur un jeu deja gere -- reparation admin ou
-    // jeu volontairement masque -- puisque isFreshGeneration y est faux), le
-    // calendrier desire integralement couvert, et le jeu non termine. Ecrit
-    // via l'Admin SDK : n'accorde aucune permission supplementaire au
-    // commercant cote Firestore Rules, qui restent inchangees.
-    let published = false;
-    if (
-      publishOnSuccess &&
-      transactionResult.isFreshGeneration &&
-      !transactionResult.freshGameAlreadyEnded &&
-      transactionResult.existingCount + transactionResult.createdCount >=
-        transactionResult.desiredCount
-    ) {
-      await gameRef.update({visible_public: true});
-      published = true;
-    }
 
     return {
       ok: true,
@@ -339,7 +362,7 @@ const generateInstantWinnersForGameCallable = functions
       duplicateExistingKeys: transactionResult.duplicateExistingKeys,
       unexpectedExistingCount: transactionResult.unexpectedExistingCount,
       hasAssignedInstantWinner: transactionResult.hasAssignedInstantWinner,
-      published,
+      published: transactionResult.published,
       idStrategy:
         "instant_{gameId}_spi_{secondary_prize_index}_occ_{secondary_prize_occurrence_index}",
     };
