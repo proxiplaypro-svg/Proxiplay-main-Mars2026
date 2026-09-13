@@ -81,3 +81,55 @@ test('invalid configured withdrawal deadline refuses the award before spending a
   assert.equal((await db.doc('users/player').get()).data().remaining_part, 30);
   assert.equal((await db.doc('games/game/instant_winners/instant').get()).data().hasWinner, false);
 });
+test('fresh generation succeeds for a merchant even when start_date is already past (immediate relaunch/creation)', async () => {
+  const start = new Date(Date.now() - 5000).toISOString();
+  const end = new Date(Date.now() + 7 * 86400000).toISOString();
+  await game('game', {start_date: time(start), end_date: time(end),
+    secondary_prizes: [{name: 'Lot A', presentation: 'Fixture', count: 2}]});
+  const provision = ft.wrap(functions.generateInstantWinnersForGame);
+  const result = await provision({gameId: 'game'}, {auth: {uid: 'merchant'}});
+  assert.equal(result.createdCount, 2);
+  assert.equal((await db.collection('games/game/instant_winners').get()).size, 2);
+  // Idempotent retry: nothing left to create, no duplicates.
+  assert.equal((await provision({gameId: 'game'}, {auth: {uid: 'merchant'}})).createdCount, 0);
+  assert.equal((await db.collection('games/game/instant_winners').get()).size, 2);
+});
+test('completing a partial calendar on an already-started game stays refused for a merchant', async () => {
+  const start = new Date(Date.now() - 5000).toISOString();
+  const end = new Date(Date.now() + 7 * 86400000).toISOString();
+  await game('game', {start_date: time(start), end_date: time(end),
+    secondary_prizes: [{name: 'Lot A', presentation: 'Fixture', count: 2}]});
+  await db.doc('games/game/instant_winners/instant_0').set({
+    date: time(new Date(Date.now() - 1000).toISOString()), hasWinner: false,
+    secondary_prize_index: 0, secondary_prize_occurrence_index: 0,
+    secondary_prize_name: 'Lot A', secondary_prize_presentation: 'Fixture',
+  });
+  const provision = ft.wrap(functions.generateInstantWinnersForGame);
+  await assert.rejects(provision({gameId: 'game'}, {auth: {uid: 'merchant'}}), {code: 'failed-precondition'});
+  assert.equal((await db.collection('games/game/instant_winners').get()).size, 1);
+});
+test('completing a partial calendar on an already-started game is allowed for an admin repair', async () => {
+  const start = new Date(Date.now() - 5000).toISOString();
+  const end = new Date(Date.now() + 7 * 86400000).toISOString();
+  await game('game', {start_date: time(start), end_date: time(end),
+    secondary_prizes: [{name: 'Lot A', presentation: 'Fixture', count: 2}]});
+  await db.doc('games/game/instant_winners/instant_0').set({
+    date: time(new Date(Date.now() - 1000).toISOString()), hasWinner: false,
+    secondary_prize_index: 0, secondary_prize_occurrence_index: 0,
+    secondary_prize_name: 'Lot A', secondary_prize_presentation: 'Fixture',
+  });
+  const provision = ft.wrap(functions.generateInstantWinnersForGame);
+  const result = await provision({gameId: 'game'}, {auth: {uid: 'operator'}});
+  assert.equal(result.createdCount, 1);
+  assert.equal((await db.collection('games/game/instant_winners').get()).size, 2);
+});
+test('generation is refused for a game that has already ended, even with no existing instants', async () => {
+  const start = new Date(Date.now() - 2 * 86400000).toISOString();
+  const end = new Date(Date.now() - 1000).toISOString();
+  await game('game', {start_date: time(start), end_date: time(end),
+    secondary_prizes: [{name: 'Lot A', presentation: 'Fixture', count: 2}]});
+  const provision = ft.wrap(functions.generateInstantWinnersForGame);
+  await assert.rejects(provision({gameId: 'game'}, {auth: {uid: 'merchant'}}), {code: 'failed-precondition'});
+  await assert.rejects(provision({gameId: 'game'}, {auth: {uid: 'operator'}}), {code: 'failed-precondition'});
+  assert.equal((await db.collection('games/game/instant_winners').get()).size, 0);
+});

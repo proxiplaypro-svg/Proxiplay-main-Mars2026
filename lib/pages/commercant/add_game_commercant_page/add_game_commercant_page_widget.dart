@@ -869,10 +869,19 @@ class _AddGameCommercantPageWidgetState
 
     final createByRef = currentUserReference;
 
-    var gamesRecordReference = GamesRecord.collection.doc();
+    // Une tentative précédente a pu créer le jeu (en brouillon, non visible)
+    // puis échouer sur la génération des lots instantanés : on réutilise le
+    // même document au lieu d'en créer un second à chaque nouvelle tentative
+    // de "Valider" dans la boîte de confirmation.
+    final gamesRecordReference =
+        _model.gameResult?.reference ?? GamesRecord.collection.doc();
     final qrLink = buildGameQrLink(gamesRecordReference.id);
     debugPrint('[HAS_WINNER WRITE] {gameId: ${gamesRecordReference.id}, previousValue: null, newValue: false, sourceFunction: addGameCommercantPage, winnerType: creation-jeu, hasMainPrize: $shouldPersistMainPrize, endDate: ${_model.endDateTransformCopy?.toIso8601String()}, now: ${DateTime.now().toIso8601String()}}');
-    await gamesRecordReference.set({
+    // Le jeu est toujours (re)écrit non visible : il ne devient public
+    // qu'après validation réussie des lots instantanés (ou immédiatement
+    // s'il n'y en a pas besoin). Un jeu qui reste en brouillon n'est jamais
+    // proposé aux joueurs ni comptabilisé dans leurs statistiques.
+    final gameFieldsData = {
       'owner_id': currentUserReference,
       ...createGamesRecordData(
         name: gameName,
@@ -882,7 +891,7 @@ class _AddGameCommercantPageWidgetState
         prizeUsageDeadline: prizeUsageDeadline,
         enseigneId: widget.enseigneRef,
         createBy: createByRef,
-        visiblePublic: true,
+        visiblePublic: false,
         prizeValue: shouldPersistMainPrize ? mainPrizeValue : null,
         gameType: GameType.scratcher,
         type: GameAccessType.standard,
@@ -911,62 +920,26 @@ class _AddGameCommercantPageWidgetState
           'qr_created_at': FieldValue.serverTimestamp(),
         },
       ),
-    });
+    };
+    await gamesRecordReference.set(gameFieldsData);
     _model.gameResult = GamesRecord.getDocumentFromData({
-      'owner_id': currentUserReference,
-      ...createGamesRecordData(
-        name: gameName,
-        description:
-            mainPrizeDescription.isNotEmpty ? mainPrizeDescription : null,
-        endDate: _model.endDateTransformCopy,
-        prizeUsageDeadline: prizeUsageDeadline,
-        enseigneId: widget.enseigneRef,
-        createBy: createByRef,
-        visiblePublic: true,
-        prizeValue: shouldPersistMainPrize ? mainPrizeValue : null,
-        gameType: GameType.scratcher,
-        type: GameAccessType.standard,
-        accessMode: AccessMode.public,
-        photo: _model.uploadedFileUrl_uploadDataNyu,
-        secondaryPrizeDescription: secondaryPrizeSummary,
-        secondaryPrizes: secondaryPrizes,
-        views: 0,
-        favorites: 0,
-        participations: 0,
-        prohibitedForMinors: _model.switchValue,
-        hasWinner: false,
-        mainPrizeWinner: null,
-        hasMainPrize: shouldPersistMainPrize,
-        startDate: startDate,
-        enseigneName: widget.enseigne,
-        qrLink: qrLink,
-        qrTarget: 'game_detail',
-        qrVersion: 2,
-      ),
+      ...gameFieldsData,
       ...mapToFirestore(
-        {
-          'created_time': DateTime.now(),
-          'uniquePlayersEnabled': true,
-          'unique_players_count': 0,
-          'qr_created_at': DateTime.now(),
-        },
+        {'created_time': DateTime.now(), 'qr_created_at': DateTime.now()},
       ),
     }, gamesRecordReference);
-    // Le jeu existe déjà en base à ce stade (gamesRecordReference.set a
-    // réussi ci-dessus). Un échec de la génération des lots secondaires ne
-    // doit jamais faire croire au commerçant que "rien ne s'est passé" :
-    // sinon il retape sur "Créer le jeu" et se retrouve avec un doublon.
+
     var instantWinnersGenerationFailed = false;
     if (totalSecondaryCount > 0) {
       try {
         await FirebaseFunctions.instance
             .httpsCallable('generateInstantWinnersForGame')
             .call({
-          'gameId': _model.gameResult!.reference.id,
+          'gameId': gamesRecordReference.id,
         });
       } catch (e, st) {
         debugPrint(
-          'generateInstantWinnersForGame failed for gameId=${_model.gameResult!.reference.id}: $e',
+          'generateInstantWinnersForGame failed for gameId=${gamesRecordReference.id}: $e',
         );
         debugPrintStack(stackTrace: st);
         instantWinnersGenerationFailed = true;
@@ -979,16 +952,33 @@ class _AddGameCommercantPageWidgetState
         originalFilename: '',
       );
     });
-    if (instantWinnersGenerationFailed && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Le jeu a bien été créé, mais la génération des lots secondaires a échoué. Contactez le support si le problème persiste — ne recréez pas le jeu.',
+    if (instantWinnersGenerationFailed) {
+      // Le jeu reste en brouillon, non visible : "Valider" relancera la
+      // génération sur ce même document plutôt que d'en créer un autre.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Impossible de préparer les gains instantanés. Le jeu reste en brouillon, non visible des joueurs. Appuyez de nouveau sur Valider pour réessayer.',
+            ),
+            duration: Duration(seconds: 6),
           ),
-          duration: Duration(seconds: 6),
-        ),
-      );
+        );
+      }
+      return false;
     }
+
+    // Lots instantanés prêts (ou pas nécessaires) : le jeu peut devenir visible.
+    await gamesRecordReference.update(mapToFirestore({'visible_public': true}));
+    _model.gameResult = GamesRecord.getDocumentFromData({
+      ...gameFieldsData,
+      ...mapToFirestore({
+        'created_time': DateTime.now(),
+        'qr_created_at': DateTime.now(),
+        'visible_public': true,
+      }),
+    }, gamesRecordReference);
+
     return true;
   }
 

@@ -178,14 +178,32 @@ const generateInstantWinnersForGameCallable = functions
       const freshStartDateMs = toMillis(freshGameData.start_date);
       const freshGameAlreadyStarted =
         Number.isFinite(freshStartDateMs) && Date.now() >= freshStartDateMs;
+      const freshEndDateMs = toMillis(freshGameData.end_date);
+      const freshGameAlreadyEnded =
+        Number.isFinite(freshEndDateMs) && Date.now() >= freshEndDateMs;
 
-      // Un admin peut relancer un jeu avec une start_date immediate puis
-      // regenerer ses lots instantanes avant toute participation : bloquer
-      // sur le seul horodatage empecherait cette premiere generation
-      // legitime. Un commercant reste soumis a la garde stricte. La garde
-      // hasAssignedInstantWinner ci-dessous s'applique dans tous les cas des
-      // qu'un lot a reellement ete attribue.
+      // Un jeu termine ne doit plus jamais recevoir de nouveau creneau
+      // gagnant, meme lors d'une premiere generation : le resultat du jeu
+      // est deja fige, en generer maintenant reviendrait a choisir un
+      // gagnant a coup sur.
+      if (freshGameAlreadyEnded && freshPlan.missingPayloads.length > 0) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Instant winners cannot be generated for a game that has already ended.",
+        );
+      }
+
+      // Generation initiale (aucun instant_winners existant pour ce jeu) :
+      // un jeu qui demarre "maintenant" (creation ou relance commercant/
+      // admin sans date future choisie) est deja "commence" au sens strict
+      // au moment ou l'appel reseau arrive, sans qu'aucune partie n'ait pu
+      // etre jouee entre-temps. La bloquer casserait la creation normale
+      // d'un jeu. Completer un calendrier deja existant sur un jeu en cours
+      // (generation partielle passee, ou reprise apres coup) reste en
+      // revanche reserve a l'admin, via la garde ci-dessous.
+      const isFreshGeneration = existingSnap.size === 0;
       if (
+        !isFreshGeneration &&
         !isCallerAdmin &&
         freshGameAlreadyStarted &&
         freshPlan.missingPayloads.length > 0
