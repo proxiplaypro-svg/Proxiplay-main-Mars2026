@@ -21,6 +21,8 @@ import 'package:proxi_play/backend/backend.dart';
 import 'package:proxi_play/auth/base_auth_user_provider.dart';
 import 'package:proxi_play/app_state.dart';
 import 'package:proxi_play/components/player_gain_card.dart';
+import 'package:proxi_play/utils/merchant_game_visibility.dart';
+import 'package:proxi_play/pages/commercant/jeu_detail_commercant_page/jeu_detail_commercant_page_widget.dart';
 import 'package:proxi_play/components/game_prize_deadline_rule.dart';
 import 'package:proxi_play/components/player_tickets_card.dart';
 import 'package:proxi_play/pages/joueur/lots_joueur_page/lots_joueur_page_widget.dart';
@@ -140,7 +142,7 @@ class _Callable extends functions_platform.HttpsCallablePlatform {
       : super(functions, null, name, options, null);
   @override
   Future<dynamic> call([dynamic parameters]) {
-    if (name != 'getMerchantGames') {
+    if (name != 'getMerchantGames' && name != 'getMerchantPrizes') {
       throw StateError('Unexpected callable $name');
     }
     return (functions as _Functions).handler(parameters);
@@ -499,6 +501,57 @@ void main() {
       expect(find.textContaining('01/10/2026'), findsNothing);
       expect(store.reads, isEmpty);
       expect(tester.takeException(), isNull);
+    }
+  });
+
+  testWidgets(
+      'merchant detail only shows management for finished games at 320px text x2',
+      (tester) async {
+    const photo = 'https://example.invalid/merchant-game.png';
+    await tester.runAsync(() async {
+      final codec = await ui.instantiateImageCodec(
+          File('assets/images/Background.png').readAsBytesSync());
+      final frame = await codec.getNextFrame();
+      PaintingBinding.instance.imageCache.putIfAbsent(
+          const NetworkImage(photo),
+          () => OneFrameImageStreamCompleter(
+              Future.value(ImageInfo(image: frame.image))));
+      codec.dispose();
+    });
+    final now = DateTime.now();
+    for (final state in ['active', 'future', 'finished', 'missing_end']) {
+      final game = GamesRecord.getDocumentFromData({
+        'name': 'Jeu du commerçant',
+        'photo': photo,
+        'start_date': Timestamp.fromDate(
+            now.add(Duration(days: state == 'future' ? 2 : -10))),
+        if (state != 'missing_end')
+          'end_date': Timestamp.fromDate(
+              now.add(Duration(days: state == 'finished' ? -1 : 5))),
+      }, ref('games/manage'));
+      expect(canManageFinishedMerchantGame(game), state == 'finished');
+      store.data['prizes/existing-code'] = {'name': 'Lot gagné', 'claim_code': 'ABC123', 'claimed': true};
+      calls.handler = (_) async => {'ids': state == 'finished' ? ['existing-code'] : <String>[], 'hasMore': false, 'cursor': ''};
+      await pump(tester,
+          JeuDetailCommercantPageWidget(gameDoc: game, enseigneDoc: null),
+          width: 320, scale: 2);
+      final matcher = state == 'finished' ? findsOneWidget : findsNothing;
+      expect(find.text('Actions du jeu'), matcher);
+      expect(find.text('Relancer ce jeu'), matcher);
+      expect(find.text('Retirer ce jeu'), matcher);
+      expect(
+          find.text('Relancez ce jeu ou retirez-le de votre liste commerçant.'),
+          matcher);
+      expect(
+          find.text(
+              'La suppression retire le jeu de votre liste, sans effacer les statistiques.'),
+          matcher);
+      await tester.scrollUntilVisible(
+          find.text(state == 'finished' ? 'Code: ABC123' : "Aucun code gagnant pour l'instant"), 300,
+          scrollable: find.byType(Scrollable).first);
+      expect(find.text('Actualiser les lots'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
     }
   });
 

@@ -1,4 +1,5 @@
 import '/components/winner_email_text.dart';
+import '/utils/merchant_game_visibility.dart';
 import '/services/merchant_prizes_service.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
@@ -88,6 +89,7 @@ class _JeuDetailCommercantPageWidgetState
   }
 
   Future<void> _restartGame(GamesRecord game) async {
+    if (!canManageFinishedMerchantGame(game)) return;
     if (game.enseigneId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enseigne introuvable pour ce jeu.')),
@@ -114,6 +116,7 @@ class _JeuDetailCommercantPageWidgetState
   }
 
   Future<void> _deleteGame(GamesRecord game) async {
+    if (!canManageFinishedMerchantGame(game)) return;
     final shouldDelete = await showDialog<bool>(
           context: context,
           builder: (dialogContext) {
@@ -137,7 +140,7 @@ class _JeuDetailCommercantPageWidgetState
         ) ??
         false;
 
-    if (!shouldDelete) {
+    if (!shouldDelete || !canManageFinishedMerchantGame(game)) {
       return;
     }
 
@@ -1185,8 +1188,10 @@ class _JeuDetailCommercantPageWidgetState
                             const SizedBox(height: 16.0),
                             _buildGameInformationCard(game),
                             const SizedBox(height: 16.0),
-                            _buildManagementActionsCard(game),
-                            const SizedBox(height: 16.0),
+                            if (canManageFinishedMerchantGame(game)) ...[
+                              _buildManagementActionsCard(game),
+                              const SizedBox(height: 16.0),
+                            ],
                             Text(
                               key: _winningCodesSectionKey,
                               'Codes gagnants',
@@ -1200,11 +1205,6 @@ class _JeuDetailCommercantPageWidgetState
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.w700,
                                   ),
-                            ),
-                            TextButton.icon(
-                              onPressed: () => setState(() => _prizes = loadMerchantPrizes(gameId: game.reference.id)),
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Actualiser les lots'),
                             ),
                             FutureBuilder<List<PrizesRecord>>(
                               future: _prizes,

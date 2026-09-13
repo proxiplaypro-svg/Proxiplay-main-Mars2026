@@ -106,7 +106,15 @@ service cloud.firestore {
     function isSafeMerchantGameUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         'hidden_from_merchant_stats', 'updated_time'
-      ]);
+      ]) && (
+        // Only restrict the merchant's transition to a hidden game.
+        !(request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['hidden_from_merchant_stats']) &&
+          request.resource.data.get('hidden_from_merchant_stats', false) == true) ||
+        ('end_date' in resource.data &&
+          resource.data.end_date is timestamp &&
+          resource.data.end_date < request.time)
+      );
     }
 
     function isMerchantOwnerOfEnseigne(enseigneRef) {
