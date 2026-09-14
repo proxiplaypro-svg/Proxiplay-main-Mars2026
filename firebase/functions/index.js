@@ -5,6 +5,7 @@ const nodemailer = require("nodemailer");
 const {isFunctionsEmulator} = require("./lib/emulator_runtime");
 admin.initializeApp();
 const {shopOwnerRef,ownsPrize}=require('./merchant_ownership');
+const {shouldNotifyMerchantForPrize}=require('./prize_merchant_notification_policy');
 exports.getMerchantPrizes=require('./merchant_prizes').getMerchantPrizes;
 exports.syncPrizeLotSnapshot = require('./prize_lot_snapshot').syncPrizeLotSnapshot;
 exports.getMerchantGames = require('./merchant_games').getMerchantGames;
@@ -5406,7 +5407,13 @@ exports.notifyPrizeWon = functions
       }
     }
 
-    if (!merchantEmailDone) {
+    if (!merchantEmailDone && !shouldNotifyMerchantForPrize(enseigneData)) {
+      console.log(
+        `[notifyPrizeWon] prize=${prizeId} merchant_email skipped reason=managed_by_admin`,
+      );
+      updates.merchant_email_skipped = true;
+      updates.merchant_email_skip_reason = "managed_by_admin";
+    } else if (!merchantEmailDone) {
       const lockResult = await acquireMerchantEmailSendRight(statusRef);
       if (!lockResult.acquired) {
         console.log(
@@ -5526,7 +5533,10 @@ exports.notifyPrizeWon = functions
       }
     }
 
-    if (!merchantPushDone) {
+    if (!merchantPushDone && !shouldNotifyMerchantForPrize(enseigneData)) {
+      updates.merchant_push_skipped = true;
+      updates.merchant_push_skip_reason = "managed_by_admin";
+    } else if (!merchantPushDone) {
       const ownerRefPath = ownerRef && ownerRef.path ? ownerRef.path : "";
       if (!ownerRefPath) {
         updates.merchant_push_skipped = true;

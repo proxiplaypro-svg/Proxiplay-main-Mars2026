@@ -84,6 +84,13 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.account_status == 'approved';
     }
 
+    // managed_by_admin absent ou tout sauf true => comportement actuel
+    // inchange. Jamais deduit d'un autre champ (owner, owner_id,
+    // account_status, approved...).
+    function isManagedByAdmin(data) {
+      return data.get('managed_by_admin', false) == true;
+    }
+
     // Champs qu'un commerçant peut modifier lui-même sur son enseigne/jeu.
     // Tout le reste (hasWinner, main_prize_winner, participations, owner,
     // create_by, ...) doit rester réservé au serveur/admin : sans cette
@@ -158,20 +165,32 @@ service cloud.firestore {
       );
     }
 
+    // isMerchantOwnerOfEnseigne() n'est volontairement pas touchee ici : elle
+    // sert aussi horaires/images/enseigne_game, hors perimetre de ce gate.
+    // Le managed_by_admin de la boutique est verifie ici via le meme
+    // get(shop) que ownsShopData, pas via un second exists()+get() separe.
     function ownsGame(data) {
       let shop = data.get('enseigne_id', data.get('enseigne_ref', null));
       let owner = data.get('owner_id', null);
-      return isSignedIn() && isMerchantOwnerOfEnseigne(shop) &&
+      return isSignedIn() && shop != null && exists(shop) &&
+        ownsShopData(get(shop).data) &&
+        !isManagedByAdmin(get(shop).data) &&
         (owner == null || isUserIdentity(owner));
     }
 
     function canManageLegacyGame() {
       let merchantId = resource.data.get('merchantId', resource.data.get('merchant_id', null));
+      // La branche ownsTrustedMerchant(resource.data) ne resout aucune fiche
+      // marchande (elle traite le jeu lui-meme comme identite) : pas de
+      // managed_by_admin a y verifier, il ne vit que sur une fiche enseigne/
+      // merchant.
       return ownsTrustedMerchant(resource.data) || (merchantId is string && (
         (exists(/databases/$(database)/documents/enseignes/$(merchantId)) &&
-          ownsTrustedMerchant(get(/databases/$(database)/documents/enseignes/$(merchantId)).data)) ||
+          ownsTrustedMerchant(get(/databases/$(database)/documents/enseignes/$(merchantId)).data) &&
+          !isManagedByAdmin(get(/databases/$(database)/documents/enseignes/$(merchantId)).data)) ||
         (exists(/databases/$(database)/documents/merchants/$(merchantId)) &&
-          ownsTrustedMerchant(get(/databases/$(database)/documents/merchants/$(merchantId)).data))
+          ownsTrustedMerchant(get(/databases/$(database)/documents/merchants/$(merchantId)).data) &&
+          !isManagedByAdmin(get(/databases/$(database)/documents/merchants/$(merchantId)).data))
       ));
     }
 
@@ -262,8 +281,10 @@ service cloud.firestore {
         );
       allow read: if true;
       allow update: if isAdmin() ||
-        (isOwnerRef(resource.data.owner) && isSafeMerchantEnseigneUpdate());
-      allow delete: if isAdmin() || isOwnerRef(resource.data.owner);
+        (isOwnerRef(resource.data.owner) && !isManagedByAdmin(resource.data) &&
+          isSafeMerchantEnseigneUpdate());
+      allow delete: if isAdmin() ||
+        (isOwnerRef(resource.data.owner) && !isManagedByAdmin(resource.data));
     }
 
     // Ownership is assigned by admin/server, never by a client-supplied email.
@@ -271,6 +292,7 @@ service cloud.firestore {
       allow read: if isAdmin() || ownsTrustedMerchant(resource.data);
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (ownsTrustedMerchant(resource.data) &&
+        !isManagedByAdmin(resource.data) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name', 'description', 'address', 'city', 'phone_number', 'site_web_url'
         ]));
