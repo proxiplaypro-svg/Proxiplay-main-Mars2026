@@ -7,6 +7,7 @@ const {runScheduledDraws} = require("./scheduled_draw_runner");
 const {
   queuePushNotificationRequest,
 } = require("./push_notification_request.js");
+const {shouldNotifyMerchantForPrize} = require("./prize_merchant_notification_policy");
 
 const db = admin.firestore();
 
@@ -378,6 +379,11 @@ async function notifyAnimationWinner(animationId, animationRef, drawResult) {
       const ownerRef = enseigneData.owner || null;
       if (!ownerRef || typeof ownerRef.id !== "string") continue;
       if (ownerRefsSeen.has(ownerRef.id)) continue;
+      // Meme politique que notifyPrizeWon : une enseigne geree par Proxiplay
+      // ne recoit plus l'annonce marchand du gagnant, ici pour le gros lot
+      // d'animation. Ne consomme pas la dedup ownerRefsSeen pour ne pas
+      // bloquer une autre fiche non geree du meme proprietaire.
+      if (!shouldNotifyMerchantForPrize(enseigneData)) continue;
       ownerRefsSeen.add(ownerRef.id);
 
       const ownerSnap = await ownerRef.get();

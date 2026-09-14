@@ -209,3 +209,118 @@ test("16. la fiche prize (claim_code, claimed, status) et my_lots ne sont jamais
     await clearFirestore();
   }
 });
+
+// --- 17-19 : transition managed_by_admin (interrupteur reversible) --------
+// Le skip est decide une fois pour toutes a la creation du prize (jamais
+// re-evalue apres coup) : un skip deja enregistre ne doit jamais etre
+// rejoue retroactivement, mais un NOUVEAU prize cree apres un changement
+// d'etat doit refleter l'etat courant de l'enseigne.
+
+test("17. transition true -> false : le skip deja enregistre n'est jamais rejoue, meme sur un retry apres desactivation", async () => {
+  const {prizeRef} = await seedPrize({managedByAdmin: true});
+  await invoke(prizeRef);
+
+  let status = (await statusRef("prize1").get()).data() || {};
+  assert.equal(status.merchant_email_skipped, true);
+  assert.equal(status.merchant_push_skipped, true);
+  assert.equal(sentEmails.filter((m) => m.to === "merchant@example.com").length, 0);
+
+  // L'admin repasse la fiche en mode normal, sans autre intervention.
+  await firestore.collection("enseignes").doc("shop1").update({managed_by_admin: false});
+
+  // Cloud Functions v1 ne garantit qu'une livraison "au moins une fois" :
+  // un retry du meme evenement onCreate est un scenario reel (meme
+  // hypothese que notify_prize_won_idempotence.test.js), pas une
+  // hypothese de laboratoire.
+  sentEmails = [];
+  await invoke(prizeRef);
+
+  assert.equal(
+    sentEmails.filter((m) => m.to === "merchant@example.com").length,
+    0,
+    "un skip managed_by_admin deja enregistre ne doit jamais etre rejoue retroactivement",
+  );
+  const pushDoc = await firestore.collection(kPushNotificationsCollection)
+    .doc("prize_prize1_merchant_push").get();
+  assert.equal(pushDoc.exists, false);
+
+  status = (await statusRef("prize1").get()).data() || {};
+  assert.equal(status.merchant_email_skipped, true);
+  assert.equal(status.merchant_push_skipped, true);
+});
+
+test("18. transition true -> false : les FUTURS lots (crees apres la desactivation) notifient de nouveau le marchand normalement", async () => {
+  const {prizeRef: firstPrize} = await seedPrize({managedByAdmin: true});
+  await invoke(firstPrize);
+  assert.equal(sentEmails.filter((m) => m.to === "merchant@example.com").length, 0);
+
+  // Sans creation de compte, sans migration : un seul champ change.
+  await firestore.collection("enseignes").doc("shop1").update({managed_by_admin: false});
+  sentEmails = [];
+
+  const secondPrizeRef = firestore.collection("prizes").doc("prize2");
+  await secondPrizeRef.set({
+    winner_id: firestore.collection("users").doc("winner1"),
+    owner_id: firestore.collection("users").doc("merchant1"),
+    enseigne_id: firestore.collection("enseignes").doc("shop1"),
+    game_id: firestore.collection("games").doc("game1"),
+    name: "Lot test 2",
+    claim_code: "CODE456",
+    claimed: false,
+    prize_type: "principal",
+    fulfillment_type: "merchant",
+  });
+  await firestore.collection("users").doc("winner1")
+    .collection("my_lots").doc(secondPrizeRef.id).set({prize_id: secondPrizeRef});
+
+  await invoke(secondPrizeRef);
+
+  assert.equal(
+    sentEmails.filter((m) => m.to === "merchant@example.com").length,
+    1,
+    "le marchand doit etre notifie normalement pour un lot cree apres le retour a managed_by_admin=false",
+  );
+  const pushDoc = await firestore.collection(kPushNotificationsCollection)
+    .doc("prize_prize2_merchant_push").get();
+  assert.equal(pushDoc.exists, true);
+
+  const status = (await statusRef("prize2").get()).data() || {};
+  assert.equal(status.merchant_email_skipped || false, false);
+  assert.equal(status.merchant_push_skipped || false, false);
+});
+
+test("19. transition false -> true : un lot cree apres activation reste bloque, sans effet retroactif sur un lot deja notifie avant", async () => {
+  const {prizeRef: firstPrize} = await seedPrize({managedByAdmin: false});
+  await invoke(firstPrize);
+  assert.equal(sentEmails.filter((m) => m.to === "merchant@example.com").length, 1);
+
+  await firestore.collection("enseignes").doc("shop1").update({managed_by_admin: true});
+  sentEmails = [];
+
+  const secondPrizeRef = firestore.collection("prizes").doc("prize2");
+  await secondPrizeRef.set({
+    winner_id: firestore.collection("users").doc("winner1"),
+    owner_id: firestore.collection("users").doc("merchant1"),
+    enseigne_id: firestore.collection("enseignes").doc("shop1"),
+    game_id: firestore.collection("games").doc("game1"),
+    name: "Lot test 2",
+    claim_code: "CODE789",
+    claimed: false,
+    prize_type: "principal",
+    fulfillment_type: "merchant",
+  });
+  await firestore.collection("users").doc("winner1")
+    .collection("my_lots").doc(secondPrizeRef.id).set({prize_id: secondPrizeRef});
+
+  await invoke(secondPrizeRef);
+
+  assert.equal(sentEmails.filter((m) => m.to === "merchant@example.com").length, 0);
+  const status = (await statusRef("prize2").get()).data() || {};
+  assert.equal(status.merchant_email_skipped, true);
+  assert.equal(status.merchant_push_skip_reason, "managed_by_admin");
+
+  // Le premier lot (notifie avant l'activation) ne doit pas etre affecte
+  // retroactivement par le changement d'etat survenu apres son traitement.
+  const firstStatus = (await statusRef("prize1").get()).data() || {};
+  assert.equal(firstStatus.merchant_email_skipped || false, false);
+});

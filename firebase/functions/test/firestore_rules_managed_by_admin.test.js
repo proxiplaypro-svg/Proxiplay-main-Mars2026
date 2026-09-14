@@ -273,3 +273,58 @@ test("un utilisateur quelconque ne peut modifier ni une enseigne normale ni une 
   await assertFails(db.collection("enseignes").doc("shop-normal").update({description: "hijack"}));
   await assertFails(db.collection("enseignes").doc("shop-managed").update({description: "hijack"}));
 });
+
+// --- Transition managed_by_admin : interrupteur reversible, sans migration ---
+
+test("11. transition managed_by_admin true -> false : le commercant retrouve immediatement ses droits (fiche et jeux)", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().collection("enseignes").doc("shop-managed")
+      .update({managed_by_admin: false});
+  });
+
+  const db = ownerContext().firestore();
+  await assertSucceeds(
+    db.collection("enseignes").doc("shop-managed").update({description: "je regere"}),
+  );
+  await assertSucceeds(
+    db.collection("games").doc("game-managed").update({updated_time: new Date()}),
+  );
+  await assertSucceeds(
+    db.collection("jeux").doc("qr-managed").update({active: false}),
+  );
+});
+
+test("12. transition false -> true -> false sur la meme fiche : reversible a chaque etape, sans creation de compte ni migration", async () => {
+  const db = ownerContext().firestore();
+
+  // Depart : enseigne normale, gerable par le commercant.
+  await assertSucceeds(
+    db.collection("enseignes").doc("shop-normal").update({description: "etape 1 : ok"}),
+  );
+
+  // L'admin bascule managed_by_admin a true.
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().collection("enseignes").doc("shop-normal")
+      .update({managed_by_admin: true});
+  });
+  await assertFails(
+    db.collection("enseignes").doc("shop-normal").update({description: "etape 2 : bloque"}),
+  );
+  await assertFails(
+    db.collection("games").doc("game-normal").update({updated_time: new Date()}),
+  );
+
+  // L'admin repasse managed_by_admin a false : aucune autre intervention,
+  // aucune recreation de compte -- le commercant doit retrouver la main
+  // au prochain appel, immediatement.
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().collection("enseignes").doc("shop-normal")
+      .update({managed_by_admin: false});
+  });
+  await assertSucceeds(
+    db.collection("enseignes").doc("shop-normal").update({description: "etape 3 : de nouveau ok"}),
+  );
+  await assertSucceeds(
+    db.collection("games").doc("game-normal").update({updated_time: new Date()}),
+  );
+});
