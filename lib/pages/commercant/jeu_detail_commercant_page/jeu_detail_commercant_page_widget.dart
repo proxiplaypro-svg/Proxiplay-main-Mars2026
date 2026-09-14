@@ -12,9 +12,12 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/index.dart';
 import '/utils/game_metrics.dart';
+import '/utils/game_players_export.dart';
 import '/utils/prize_winner_contact.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '/utils/share_links.dart';
 import 'jeu_detail_commercant_page_model.dart';
@@ -49,6 +52,7 @@ class _JeuDetailCommercantPageWidgetState
   final scaffoldKey = GlobalKey<ScaffoldState>();
   final Set<String> _claimingPrizeIds = <String>{};
   final GlobalKey _winningCodesSectionKey = GlobalKey();
+  bool _isExportingPlayers = false;
 
   @override
   void initState() {
@@ -176,6 +180,52 @@ class _JeuDetailCommercantPageWidgetState
         'initialGame': game,
       },
     );
+  }
+
+  Future<void> _exportPlayers(GamesRecord game) async {
+    if (_isExportingPlayers) {
+      return;
+    }
+    safeSetState(() => _isExportingPlayers = true);
+    try {
+      final export = await exportGamePlayersCsv(game.reference.id);
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/${export.fileName}');
+      await file.writeAsBytes(export.bytes, flush: true);
+
+      if (!mounted) {
+        return;
+      }
+      if (export.rowCount == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Aucun joueur à exporter pour ce jeu pour le moment.'),
+          ),
+        );
+        return;
+      }
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'text/csv')],
+        subject: 'Joueurs Proxiplay – ${game.name}',
+      );
+    } on GamePlayersExportException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Impossible d'exporter les joueurs. Réessayez."),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        safeSetState(() => _isExportingPlayers = false);
+      }
+    }
   }
 
   Future<void> _showStatsDialog(GamesRecord game) async {
@@ -1184,6 +1234,59 @@ class _JeuDetailCommercantPageWidgetState
                                   ),
                                 ),
                               ),
+                            ),
+                            const SizedBox(height: 16.0),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: _isExportingPlayers
+                                    ? null
+                                    : () async {
+                                        await _exportPlayers(game);
+                                      },
+                                icon: _isExportingPlayers
+                                    ? const SizedBox(
+                                        width: 18.0,
+                                        height: 18.0,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.0,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                  Colors.white),
+                                        ),
+                                      )
+                                    : const Icon(Icons.file_download_outlined),
+                                label: Text(_isExportingPlayers
+                                    ? 'Export en cours…'
+                                    : 'Exporter les joueurs'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      FlutterFlowTheme.of(context).secondaryText,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0.0,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16.0,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16.0),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6.0),
+                            Text(
+                              'Données réservées à la gestion de votre jeu et de vos gagnants.',
+                              style: FlutterFlowTheme.of(context)
+                                  .bodySmall
+                                  .override(
+                                    font: GoogleFonts.inter(
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .bodySmall
+                                          .fontStyle,
+                                    ),
+                                    color: FlutterFlowTheme.of(context).secondaryText,
+                                    letterSpacing: 0.0,
+                                  ),
                             ),
                             const SizedBox(height: 16.0),
                             _buildGameInformationCard(game),

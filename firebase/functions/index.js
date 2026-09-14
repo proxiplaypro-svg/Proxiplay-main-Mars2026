@@ -6337,3 +6337,5 @@ const {deleteCommercantAccount} = require("./delete_commercant_account");
 exports.deleteCommercantAccount = deleteCommercantAccount;
 exports.issueGameQrAccess = require('./game_qr_access').issueGameQrAccess;
 exports.claimOperatorPrize = require('./operator_prize_claim').claimOperatorPrize;
+exports.exportGameParticipants =
+  require('./export_game_participants').exportGameParticipantsCallable;
