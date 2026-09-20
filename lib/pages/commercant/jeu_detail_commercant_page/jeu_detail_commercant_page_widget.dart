@@ -14,10 +14,8 @@ import '/index.dart';
 import '/utils/game_metrics.dart';
 import '/utils/game_players_export.dart';
 import '/utils/prize_winner_contact.dart';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '/utils/share_links.dart';
 import 'jeu_detail_commercant_page_model.dart';
@@ -189,9 +187,6 @@ class _JeuDetailCommercantPageWidgetState
     safeSetState(() => _isExportingPlayers = true);
     try {
       final export = await exportGamePlayersCsv(game.reference.id);
-      final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/${export.fileName}');
-      await file.writeAsBytes(export.bytes, flush: true);
 
       if (!mounted) {
         return;
@@ -204,10 +199,20 @@ class _JeuDetailCommercantPageWidgetState
         );
         return;
       }
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'text/csv')],
-        subject: 'Joueurs Proxiplay – ${game.name}',
+      final saveResult = await saveGamePlayersCsv(
+        export,
+        shareSubject: 'Gagnants Proxiplay – ${game.name}',
       );
+      if (!mounted) {
+        return;
+      }
+      if (saveResult.destination == GamePlayersSaveDestination.downloads) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Fichier enregistré dans Téléchargements.'),
+          ),
+        );
+      }
     } on GamePlayersExportException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)

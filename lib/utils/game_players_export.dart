@@ -1,8 +1,11 @@
 import 'dart:convert';
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
+import 'package:media_store_plus/media_store_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// One exported file, decoded and ready to write to disk / share.
 class GamePlayersExportResult {
@@ -77,4 +80,73 @@ Future<GamePlayersExportResult> exportGamePlayersCsv(String gameId) async {
     );
     throw GamePlayersExportException(_messageForCode(error.code));
   }
+}
+
+/// Where an exported CSV ended up after [saveGamePlayersCsv].
+enum GamePlayersSaveDestination {
+  /// Written directly to the device's public Downloads folder (Android).
+  downloads,
+
+  /// Handed to the OS share sheet for the user to pick a destination (iOS
+  /// and any other non-Android platform).
+  shared,
+}
+
+class GamePlayersSaveResult {
+  const GamePlayersSaveResult(this.destination);
+  final GamePlayersSaveDestination destination;
+}
+
+bool _mediaStoreInitialized = false;
+
+/// Saves an already-exported CSV to disk.
+///
+/// On Android this writes straight to the public Downloads folder via
+/// MediaStore (Scoped Storage, no storage permission needed on API 29+) and
+/// never opens the share sheet. On every other platform (iOS in
+/// particular, which has no equivalent app-writable public folder) the
+/// existing share-sheet flow is preserved unchanged.
+///
+/// Throws [GamePlayersExportException] if the file could not be saved --
+/// callers must not report success in that case.
+Future<GamePlayersSaveResult> saveGamePlayersCsv(
+  GamePlayersExportResult export, {
+  required String shareSubject,
+}) async {
+  final tempDir = await getTemporaryDirectory();
+  final tempFile = File('${tempDir.path}/${export.fileName}');
+  await tempFile.writeAsBytes(export.bytes, flush: true);
+
+  if (Platform.isAndroid) {
+    try {
+      if (!_mediaStoreInitialized) {
+        await MediaStore.ensureInitialized();
+        MediaStore.appFolder = 'Proxiplay';
+        _mediaStoreInitialized = true;
+      }
+      final saveInfo = await MediaStore().saveFile(
+        tempFilePath: tempFile.path,
+        dirType: DirType.download,
+        dirName: DirType.download.defaults,
+        relativePath: FilePath.root,
+      );
+      if (saveInfo == null) {
+        throw const GamePlayersExportException(
+            "Impossible d'enregistrer le fichier.");
+      }
+    } on GamePlayersExportException {
+      rethrow;
+    } catch (error) {
+      debugPrint('[GamePlayersExport] MediaStore save failed: $error');
+      throw const GamePlayersExportException(
+          "Impossible d'enregistrer le fichier.");
+    }
+    return const GamePlayersSaveResult(GamePlayersSaveDestination.downloads);
+  }
+
+  await Share.shareXFiles(
+    [XFile(tempFile.path, mimeType: 'text/csv')],
+    subject: shareSubject,
+  );
+  return const GamePlayersSaveResult(GamePlayersSaveDestination.shared);
 }
