@@ -72,9 +72,10 @@ const kColumns = [
   'telephone',
   'ville',
   'jeu',
-  'date_participation',
-  'gagnant',
+  'date_du_gain',
   'lot_gagne',
+  'code_gagnant',
+  'statut',
 ];
 const kColumnLabels = {
   prenom: 'Prénom',
@@ -83,10 +84,40 @@ const kColumnLabels = {
   telephone: 'Téléphone',
   ville: 'Ville',
   jeu: 'Jeu',
-  date_participation: 'Date de participation',
-  gagnant: 'Gagnant',
+  date_du_gain: 'Date du gain',
   lot_gagne: 'Lot gagné',
+  code_gagnant: 'Code gagnant',
+  statut: 'Statut',
 };
+
+// Mirrors PrizesRecord.isAvailable/isExpired (lib/backend/schema/prizes_record.dart)
+// so the exported status matches what the merchant/player see in the app.
+function prizeStatus(prize) {
+  if (prize.claimed === true) return 'Retiré';
+  const deadline = prize.usage_deadline;
+  const ms =
+    deadline && typeof deadline.toMillis === 'function'
+      ? deadline.toMillis()
+      : null;
+  if (Number.isFinite(ms) && ms < Date.now()) return 'Expiré';
+  return 'À retirer';
+}
+
+// "Lot gagné" must never be blank when the prize carries enough information
+// to identify it -- name is the modern field, description covers older
+// documents that only ever had that, and prize_type is the last resort for
+// the rare historical document with neither (still better than empty).
+function prizeLabel(prize) {
+  const name = getTrimmedString(prize.name);
+  if (name) return name;
+  const description = getTrimmedString(prize.description);
+  if (description) return description;
+  const type = getTrimmedString(prize.prize_type);
+  if (type === 'principal') return 'Lot principal';
+  if (type === 'secondaire') return 'Lot secondaire';
+  if (type) return type;
+  return 'Lot gagné';
+}
 
 function buildCsv(rows) {
   const header = kColumns.map((c) => csvEscape(kColumnLabels[c])).join(';');
@@ -99,9 +130,10 @@ function buildCsv(rows) {
   return '\uFEFF' + [header, ...lines].join('\r\n') + '\r\n';
 }
 
-// Exports the players who took part in one game, for the merchant who owns
-// that game (or an admin) only -- never a cross-merchant or cross-game
-// listing. See export_game_participants.md in the PR/report for the full
+// Exports the winners (players actually awarded a prize) of one game, for
+// the merchant who owns that game (or an admin) only -- never a
+// cross-merchant or cross-game listing, and never a losing participation.
+// See export_game_participants.md in the PR/report for the full
 // authorization + data-source writeup.
 exports.exportGameParticipantsCallable = functions
   .region(kRegion)
@@ -156,73 +188,62 @@ exports.exportGameParticipantsCallable = functions
       });
       throw new functions.https.HttpsError(
         'permission-denied',
-        'Only the game owner can export its participants.',
+        'Only the game owner can export its winners.',
       );
     }
 
-    const participantsSnap = await gameRef.collection('participants').get();
+    // Canonical source of "who actually won a prize on this game": prizes,
+    // not participants.hasWinner (same source getMerchantPrizes already uses
+    // -- see merchant_prizes.js -- so "Voir les codes gagnants" and this
+    // export never disagree). game_id on prizes is a DocumentReference, so
+    // the query must compare against gameRef, not the raw gameId string --
+    // a bare-string comparison here previously never matched anything.
+    const prizesSnap = await firestore
+      .collection('prizes')
+      .where('game_id', '==', gameRef)
+      .get();
 
-    const rows = [];
-    if (!participantsSnap.empty) {
-      // Dedupe + batch-fetch user docs in one round trip (firestore.getAll)
-      // instead of one get() per participant.
-      const userRefsByPath = new Map();
-      participantsSnap.docs.forEach((doc) => {
-        const userRef = toDocRef(doc.data().user_id);
-        if (userRef) userRefsByPath.set(userRef.path, userRef);
-      });
-      const uniqueUserRefs = [...userRefsByPath.values()];
+    const winnerRefsByPath = new Map();
+    const prizeEntries = [];
+    prizesSnap.docs.forEach((doc) => {
+      const prize = doc.data() || {};
+      const winnerRef = toDocRef(prize.winner_id);
+      // No winner_id yet == not actually awarded to anyone -- not a winner.
+      if (!winnerRef) return;
+      winnerRefsByPath.set(winnerRef.path, winnerRef);
+      prizeEntries.push({prize, winnerRef});
+    });
 
-      const [userSnaps, prizesSnap] = await Promise.all([
-        uniqueUserRefs.length
-          ? firestore.getAll(...uniqueUserRefs)
-          : Promise.resolve([]),
-        firestore.collection('prizes').where('game_id', '==', gameId).get(),
-      ]);
-      const usersByPath = new Map(
-        userSnaps.map((s) => [s.ref.path, s.data() || {}]),
-      );
+    const uniqueWinnerRefs = [...winnerRefsByPath.values()];
+    const userSnaps = uniqueWinnerRefs.length
+      ? await firestore.getAll(...uniqueWinnerRefs)
+      : [];
+    const usersByPath = new Map(
+      userSnaps.map((s) => [s.ref.path, s.data() || {}]),
+    );
 
-      const prizesByWinnerPath = new Map();
-      prizesSnap.docs.forEach((doc) => {
-        const prize = doc.data() || {};
-        const winnerRef = toDocRef(prize.winner_id);
-        if (!winnerRef) return;
-        const name =
-          getTrimmedString(prize.name) || getTrimmedString(prize.description);
-        if (!name) return;
-        const existing = prizesByWinnerPath.get(winnerRef.path);
-        prizesByWinnerPath.set(
-          winnerRef.path,
-          existing ? `${existing}; ${name}` : name,
-        );
-      });
+    const gameName = getTrimmedString(gameData.name) || 'Jeu';
 
-      const gameName = getTrimmedString(gameData.name) || 'Jeu';
-
-      participantsSnap.docs.forEach((doc) => {
-        const participant = doc.data() || {};
-        const userRef = toDocRef(participant.user_id);
-        const userData = userRef ? usersByPath.get(userRef.path) || {} : {};
-        const prizeName = userRef
-          ? prizesByWinnerPath.get(userRef.path)
-          : undefined;
-        rows.push({
-          prenom: getTrimmedString(userData.first_name),
-          nom: getTrimmedString(userData.last_name),
-          email: getTrimmedString(userData.email),
-          telephone: getTrimmedString(userData.phone_number),
-          ville: getTrimmedString(userData.city),
-          jeu: gameName,
-          date_participation: formatDateFr(participant.participation_date),
-          gagnant: prizeName ? 'Oui' : 'Non',
-          lot_gagne: prizeName || '',
-        });
-      });
-    }
+    // One row per prize won -- a player with several prizes on this game
+    // gets several rows, never merged (see report).
+    const rows = prizeEntries.map(({prize, winnerRef}) => {
+      const userData = usersByPath.get(winnerRef.path) || {};
+      return {
+        prenom: getTrimmedString(userData.first_name),
+        nom: getTrimmedString(userData.last_name),
+        email: getTrimmedString(userData.email),
+        telephone: getTrimmedString(userData.phone_number),
+        ville: getTrimmedString(userData.city),
+        jeu: gameName,
+        date_du_gain: formatDateFr(prize.win_date),
+        lot_gagne: prizeLabel(prize),
+        code_gagnant: getTrimmedString(prize.claim_code),
+        statut: prizeStatus(prize),
+      };
+    });
 
     const csv = buildCsv(rows);
-    const fileName = `proxiplay_joueurs_${slugify(gameData.name)}_${new Date().toISOString().slice(0, 10)}.csv`;
+    const fileName = `proxiplay_gagnants_${slugify(gameData.name)}_${new Date().toISOString().slice(0, 10)}.csv`;
 
     console.log('[EXPORT_GAME_PARTICIPANTS_OK]', {
       gameId,
