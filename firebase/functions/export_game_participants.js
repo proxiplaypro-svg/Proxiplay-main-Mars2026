@@ -71,7 +71,6 @@ const kColumns = [
   'email',
   'telephone',
   'ville',
-  'jeu',
   'date_du_gain',
   'lot_gagne',
   'code_gagnant',
@@ -83,7 +82,6 @@ const kColumnLabels = {
   email: 'Email',
   telephone: 'Téléphone',
   ville: 'Ville',
-  jeu: 'Jeu',
   date_du_gain: 'Date du gain',
   lot_gagne: 'Lot gagné',
   code_gagnant: 'Code gagnant',
@@ -222,8 +220,6 @@ exports.exportGameParticipantsCallable = functions
       userSnaps.map((s) => [s.ref.path, s.data() || {}]),
     );
 
-    const gameName = getTrimmedString(gameData.name) || 'Jeu';
-
     // One row per prize won -- a player with several prizes on this game
     // gets several rows, never merged (see report).
     const rows = prizeEntries.map(({prize, winnerRef}) => {
@@ -234,7 +230,6 @@ exports.exportGameParticipantsCallable = functions
         email: getTrimmedString(userData.email),
         telephone: getTrimmedString(userData.phone_number),
         ville: getTrimmedString(userData.city),
-        jeu: gameName,
         date_du_gain: formatDateFr(prize.win_date),
         lot_gagne: prizeLabel(prize),
         code_gagnant: getTrimmedString(prize.claim_code),

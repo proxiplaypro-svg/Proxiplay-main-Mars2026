@@ -183,7 +183,7 @@ test("le commercant proprietaire exporte les gagnants avec les bonnes colonnes",
   assert.equal(lines.length, 5); // header + 4 rows
   assert.equal(
     lines[0],
-    "Prénom;Nom;Email;Téléphone;Ville;Jeu;Date du gain;Lot gagné;Code gagnant;Statut",
+    "Prénom;Nom;Email;Téléphone;Ville;Date du gain;Lot gagné;Code gagnant;Statut",
   );
 });
 
@@ -194,7 +194,7 @@ test("lot secondaire gagne apparait avec son code et le statut 'A retirer'", asy
   const aliceRow = lines.find((l) => l.startsWith("Alice;"));
   assert.equal(
     aliceRow,
-    "Alice;Dupont;alice@example.com;0600000000;Dunkerque;Grand Jeu d'Été;01/09/2026 10:00;Bon d'achat 20€;ABC123;À retirer",
+    "Alice;Dupont;alice@example.com;0600000000;Dunkerque;01/09/2026 10:00;Bon d'achat 20€;ABC123;À retirer",
   );
 });
 
@@ -204,7 +204,7 @@ test("lot principal gagne et deja retire (claimed) apparait avec le bon statut",
   const lines = csv.replace(/^﻿/, "").trim().split("\r\n");
   const bobRow = lines.find((l) => l.startsWith("Bob;"));
   // email/telephone/ville/date_du_gain/code_gagnant absents -> colonnes vides.
-  assert.equal(bobRow, "Bob;Martin;;;;Grand Jeu d'Été;;Weekend au spa;;Retiré");
+  assert.equal(bobRow, "Bob;Martin;;;;;Weekend au spa;;Retiré");
 });
 
 test("gain non retire dont l'echeance est depassee apparait avec le statut 'Expiré'", async () => {
@@ -273,9 +273,9 @@ test("Lot gagne n'est jamais vide meme sur un ancien prize sans name ni descript
   assert.equal(result.rowCount, 3);
   const csv = decodeCsv(result);
   const lines = csv.replace(/^﻿/, "").trim().split("\r\n").slice(1);
-  // Colonnes : prenom(0),nom(1),email(2),telephone(3),ville(4),jeu(5),date_du_gain(6),lot_gagne(7),...
+  // Colonnes : prenom(0),nom(1),email(2),telephone(3),ville(4),date_du_gain(5),lot_gagne(6),...
   for (const line of lines) {
-    const cell = line.split(";")[7];
+    const cell = line.split(";")[6];
     assert.ok(cell && cell.trim().length > 0, `Lot gagné ne doit jamais etre vide (ligne: ${line})`);
   }
   assert.ok(csv.includes("Lot principal"));
@@ -336,7 +336,7 @@ test("10 participants / 2 gagnants / 8 perdants -> CSV = exactement 2 lignes, au
   assert.equal(lines.length, 3, "header + exactement 2 lignes de donnees");
   assert.equal(
     lines[0],
-    "Prénom;Nom;Email;Téléphone;Ville;Jeu;Date du gain;Lot gagné;Code gagnant;Statut",
+    "Prénom;Nom;Email;Téléphone;Ville;Date du gain;Lot gagné;Code gagnant;Statut",
   );
 
   // Aucun des 8 perdants n'apparait, sous aucune forme.
@@ -347,7 +347,7 @@ test("10 participants / 2 gagnants / 8 perdants -> CSV = exactement 2 lignes, au
   // Lot gagné n'est vide sur aucune des 2 lignes de donnees.
   for (const line of lines.slice(1)) {
     const cells = line.split(";");
-    const lotGagne = cells[7]; // prenom,nom,email,telephone,ville,jeu,date_du_gain,lot_gagne
+    const lotGagne = cells[6]; // prenom,nom,email,telephone,ville,date_du_gain,lot_gagne
     assert.ok(lotGagne && lotGagne.trim().length > 0, `Lot gagné vide sur: ${line}`);
   }
   assert.ok(csv.includes("Joueur0;Regression"));

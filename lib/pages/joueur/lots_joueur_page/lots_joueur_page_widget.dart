@@ -55,55 +55,8 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
     super.dispose();
   }
 
-  Future<List<_LotListItem>> _loadLotItems(List<MyLotsRecord> myLots) async {
-    final recordsWithPrizeRef =
-        myLots.where((record) => record.prizeId != null).toList();
-    if (recordsWithPrizeRef.isEmpty) {
-      return const <_LotListItem>[];
-    }
-
-    final items = <_LotListItem>[];
-    for (final record in recordsWithPrizeRef) {
-      final prizeRef = record.prizeId!;
-      if (record.snapshotData['prize_deleted'] == true) continue;
-      final cached = record.snapshotData['prize_snapshot'];
-      if (cached is Map) {
-        items.add(_LotListItem(
-            myLot: record,
-            prize: PrizesRecord.getDocumentFromData(
-                Map<String, dynamic>.from(cached), prizeRef)));
-        continue;
-      }
-      DocumentSnapshot<Object?> prizeSnap;
-      try {
-        prizeSnap = await prizeRef.get();
-      } catch (error, stackTrace) {
-        debugPrint(
-          'Failed to load my_lots item. my_lots=${record.reference.path} '
-          'prize=${prizeRef.path} error=$error',
-        );
-        debugPrintStack(stackTrace: stackTrace);
-        rethrow;
-      }
-
-      if (!prizeSnap.exists) {
-        continue;
-      }
-
-      final prize = PrizesRecord.fromSnapshot(prizeSnap);
-      items.add(_LotListItem(
-        myLot: record,
-        prize: prize,
-      ));
-    }
-
-    items.sort((a, b) {
-      final aTime = a.prize.winDate?.millisecondsSinceEpoch ?? 0;
-      final bTime = b.prize.winDate?.millisecondsSinceEpoch ?? 0;
-      return bTime.compareTo(aTime);
-    });
-    return items;
-  }
+  Future<List<_LotListItem>> _loadLotItems(List<MyLotsRecord> myLots) =>
+      resolveMyLotItems(myLots);
 
   Future<void> _openLotDetail(PrizesRecord prize) async {
     context.pushNamed(
@@ -386,4 +339,87 @@ class _LotListItem {
 
   final MyLotsRecord myLot;
   final PrizesRecord prize;
+}
+
+/// Resolves every my_lots entry to a displayable lot, treating each one
+/// independently: a lot that fails to resolve (unreadable/deleted/malformed
+/// prize doc -- see [resolveMyLotItem]) is skipped and logged, never
+/// thrown, so it can't blank the rest of the player's list. This is the
+/// only place that decides "Impossible de charger vos lots" vs "some lots
+/// missing" -- that error stays reserved for the my_lots stream itself
+/// (StreamBuilder in build()), which this function never triggers.
+@visibleForTesting
+Future<List<_LotListItem>> resolveMyLotItems(
+  List<MyLotsRecord> myLots, {
+  Future<DocumentSnapshot<Object?>> Function(DocumentReference)?
+      getPrizeSnapshot,
+}) async {
+  final items = <_LotListItem>[];
+  for (final record in myLots) {
+    try {
+      final item = await resolveMyLotItem(
+        record,
+        getPrizeSnapshot: getPrizeSnapshot,
+      );
+      if (item != null) {
+        items.add(item);
+      }
+    } catch (error, stackTrace) {
+      // Any failure resolving THIS lot -- permission-denied, a deleted or
+      // malformed prize doc (e.g. a legacy winner_id format that isn't a
+      // DocumentReference, which throws inside PrizesRecord.fromSnapshot
+      // itself, not just on the read) -- must never take down the rest of
+      // the list.
+      debugPrint(
+        'Failed to load my_lots item ${record.reference.path}: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  items.sort((a, b) {
+    final aTime = a.prize.winDate?.millisecondsSinceEpoch ?? 0;
+    final bTime = b.prize.winDate?.millisecondsSinceEpoch ?? 0;
+    return bTime.compareTo(aTime);
+  });
+  return items;
+}
+
+/// Resolves one my_lots entry, preferring the whitelisted snapshot cached
+/// directly on my_lots (prize_lot_snapshot.js -- avoids a prizes read
+/// entirely for lots created after that mechanism existed) and falling
+/// back to a direct prizes/{id} read for older links that predate it.
+/// [getPrizeSnapshot] is injectable so this stays testable without a real
+/// Firestore backend; defaults to the real `prizeRef.get()`.
+///
+/// Returns null when there's genuinely nothing to show for this lot
+/// (explicitly deleted prize, or the prize document no longer exists).
+/// Throws when the lot couldn't be resolved at all (unreadable or
+/// malformed prize doc) -- callers (resolveMyLotItems) treat that as
+/// "skip this one lot", never as a reason to fail the whole list.
+@visibleForTesting
+Future<_LotListItem?> resolveMyLotItem(
+  MyLotsRecord record, {
+  Future<DocumentSnapshot<Object?>> Function(DocumentReference)?
+      getPrizeSnapshot,
+}) async {
+  final prizeRef = record.prizeId;
+  if (prizeRef == null) return null;
+  if (record.snapshotData['prize_deleted'] == true) return null;
+
+  final cached = record.snapshotData['prize_snapshot'];
+  if (cached is Map) {
+    return _LotListItem(
+      myLot: record,
+      prize: PrizesRecord.getDocumentFromData(
+        Map<String, dynamic>.from(cached),
+        prizeRef,
+      ),
+    );
+  }
+
+  final fetch = getPrizeSnapshot ?? (ref) => ref.get();
+  final prizeSnap = await fetch(prizeRef);
+  if (!prizeSnap.exists) return null;
+  return _LotListItem(myLot: record, prize: PrizesRecord.fromSnapshot(prizeSnap));
 }
