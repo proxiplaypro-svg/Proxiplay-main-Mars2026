@@ -201,7 +201,7 @@ class _JeuDetailCommercantPageWidgetState
       }
       final saveResult = await saveGamePlayersCsv(
         export,
-        shareSubject: 'Gagnants Proxiplay – ${game.name}',
+        shareSubject: 'Joueurs Proxiplay – ${game.name}',
       );
       if (!mounted) {
         return;
