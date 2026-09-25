@@ -607,9 +607,9 @@ exports.participateInGameTransaction = functions.https.onCall(
         const hasMainPrize = hasMainPrizeField
           ? gameData.hasMainPrize === true
           : (
-              (typeof gameData.name === "string" && gameData.name.trim().length > 0) ||
-              (typeof gameData.description === "string" && gameData.description.trim().length > 0) ||
-              (gameData.prize_value !== null && typeof gameData.prize_value !== "undefined")
+              (gameData.prize_value !== null && typeof gameData.prize_value !== "undefined") ||
+              (typeof gameData.main_prize_title === "string" && gameData.main_prize_title.trim().length > 0) ||
+              (typeof gameData.main_prize_description === "string" && gameData.main_prize_description.trim().length > 0)
             );
 
         // Patch cohérence: si pas de lot principal -> pas de winner / tirage au sort

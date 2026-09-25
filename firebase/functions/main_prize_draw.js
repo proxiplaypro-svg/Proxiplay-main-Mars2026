@@ -14,7 +14,11 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
     const game=snap.data();
     if(game.hasWinner || game.main_prize_winner || ['no_eligible_entries','no_main_prize'].includes(game.draw_status)) return {status:'already_finalized'};
     if(!game.end_date?.toMillis || game.end_date.toMillis()>now.toMillis()) return {status:'not_due'};
-    const hasMain=typeof game.hasMainPrize==='boolean'?game.hasMainPrize:!!(game.name||game.description||game.prize_value!=null);
+    const hasMain=typeof game.hasMainPrize==='boolean'?game.hasMainPrize:!!(
+      game.prize_value!=null ||
+      (typeof game.main_prize_title==='string'&&game.main_prize_title.trim()) ||
+      (typeof game.main_prize_description==='string'&&game.main_prize_description.trim())
+    );
     if(['draft','cancelled','canceled','disabled'].includes(game.status)) return {status:'inactive'};
     if(!hasMain) {
       tx.update(gameRef,{status:'ended',draw_status:'no_main_prize',drawn_at:now});
