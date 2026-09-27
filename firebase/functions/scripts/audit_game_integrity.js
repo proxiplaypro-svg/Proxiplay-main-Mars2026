@@ -2,6 +2,14 @@
 // Read-only. No repair mode. Reports document paths, never claim codes or emails.
 // node scripts/audit_game_integrity.js --project=PROJECT > integrity.json
 function refPath(value) { return typeof value?.path === 'string' ? value.path : ''; }
+function userPath(value) {
+  const path=refPath(value)||String(typeof value==='string'?value:'').replace(/^\//,'');
+  return /^users\/[^/]+$/.test(path)?path:'';
+}
+function shopOwnerPath(data={}) {
+  const primary=userPath(data.owner_id), legacy=userPath(data.owner);
+  return (data.owner_id!=null&&!primary)||(data.owner!=null&&!legacy)||(primary&&legacy&&primary!==legacy)?'':primary||legacy;
+}
 function millis(value) { return typeof value?.toMillis === 'function' ? value.toMillis() : null; }
 function inspectIntegrity({prizes, links, sources, userPaths, shops = [], projections = [], referrals = [], tickets = [], pending = [], now = Date.now()}) {
   const findings = [];
@@ -28,8 +36,7 @@ function inspectIntegrity({prizes, links, sources, userPaths, shops = [], projec
     if (['platform', 'partner'].includes(prize.data.fulfillment_type) && !prize.data.claim_code) report('operator_prize_missing_code', prize.path);
     const fulfillment = prize.data.fulfillment_type || (['animation','referral_game','monthly_challenge'].includes(prize.data.prize_type) ? 'platform' : 'merchant');
     if (fulfillment === 'merchant' && (!refPath(prize.data.owner_id) || !refPath(prize.data.enseigne_id))) report('merchant_prize_missing_owner_or_shop', prize.path);
-    if (fulfillment === 'platform' && (prize.data.owner_id || prize.data.enseigne_id)) report('platform_prize_merchant_owner', prize.path);
-    if (fulfillment === 'partner' && !prize.data.partner_ref) report('partner_prize_missing_partner', prize.path);
+    if (fulfillment === 'partner' && (!refPath(prize.data.partner_ref) || refPath(prize.data.partner_ref)!==refPath(prize.data.enseigne_id) || prize.data.owner_id!=null)) report('partner_prize_invalid_delivery_shape', prize.path);
     const winner = refPath(prize.data.winner_id);
     const linked = linksByPrize.get(prize.path) || [];
     if (!/^users\/[^/]+$/.test(winner)) report('invalid_prize_winner', prize.path);
@@ -54,10 +61,14 @@ function inspectIntegrity({prizes, links, sources, userPaths, shops = [], projec
     const d = source.data;
     if (source.path.startsWith('games/')) {
       const shop = shopMap.get(refPath(d.enseigne_id) || refPath(d.enseigne_ref));
-      const owner = refPath(d.owner_id) || (typeof d.owner_id === 'string' ? 'users/' + d.owner_id : '');
-      if (!owner && !shop) report('game_missing_trusted_owner', source.path);
-      if (owner && shop && owner !== refPath(shop.data.owner)) report('game_owner_shop_mismatch', source.path);
-      if (shop && !owner && refPath(d.create_by) !== refPath(shop.data.owner)) report('admin_created_game_legacy_owner', source.path);
+      const owner = userPath(d.owner_id);
+      const shopOwner = shop ? shopOwnerPath(shop.data) : '';
+      const ownerlessManaged = shop?.data.managed_by_admin===true && shop?.data.owner_id==null && shop?.data.owner==null;
+      if (!shop) report('game_missing_enseigne', source.path);
+      else if (ownerlessManaged) {
+        if (d.owner_id!=null) report('managed_game_has_merchant_owner', source.path);
+        if (!userPath(d.create_by)) report('managed_game_missing_creator', source.path);
+      } else if (!owner || owner!==shopOwner) report('game_owner_shop_mismatch', source.path);
     }
     const winner = refPath(d.main_prize_winner) || refPath(d.winner_ref) || (d.winner_uid ? `users/${d.winner_uid}` : '');
     if (winner && source.path.startsWith('animations/') && !projectionPaths.has(source.path + '/public_winner/current')) report('animation_missing_public_winner', source.path);

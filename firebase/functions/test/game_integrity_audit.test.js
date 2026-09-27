@@ -28,3 +28,17 @@ test('finalized empty draw is distinguished from missed draw', () => {
   ]});
   assert.deepEqual(findings, [{kind: 'ended_without_winner_needs_review', path: 'animations/missed'}]);
 });
+test('managed ownerless games and all delivery modes follow the current contract', () => {
+  const shop=ref('enseignes/usdk');
+  const base={winner_id:ref('users/a'),game_id:ref('games/usdk'),enseigne_id:shop,claim_code:'CODE'};
+  const findings=inspectIntegrity({userPaths:new Set(['users/a','users/admin']),links:[
+    {path:'users/a/my_lots/p',data:{prize_id:ref('prizes/p')}},
+    {path:'users/a/my_lots/m',data:{prize_id:ref('prizes/m')}},
+    {path:'users/a/my_lots/x',data:{prize_id:ref('prizes/x')}},
+  ],shops:[{path:'enseignes/usdk',data:{managed_by_admin:true}}],sources:[{path:'games/usdk',data:{enseigne_id:shop,create_by:ref('users/admin'),owner_id:null,hasMainPrize:false}}],prizes:[
+    {path:'prizes/p',data:{...base,fulfillment_type:'platform'}},
+    {path:'prizes/m',data:{...base,fulfillment_type:'merchant',owner_id:ref('users/merchant')}},
+    {path:'prizes/x',data:{...base,fulfillment_type:'partner',partner_ref:shop,owner_id:null}},
+  ]});
+  assert.ok(!findings.some(f=>['managed_game_has_merchant_owner','game_owner_shop_mismatch','platform_prize_merchant_owner'].includes(f.kind)));
+});

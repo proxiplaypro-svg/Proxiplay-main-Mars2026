@@ -1,7 +1,7 @@
 const admin=require('firebase-admin');
 const functions=require('firebase-functions');
 const fields=['name','description','claim_code','claimed','usage_deadline','win_date',
-  'winner_id','game_id','enseigne_id','owner_id','enseigne_name','prize_type','fulfillment_type'];
+  'winner_id','game_id','enseigne_id','owner_id','enseigne_name','prize_type','fulfillment_type','partner_ref'];
 function lotSnapshot(prize){
   return Object.fromEntries(fields.filter(k=>prize[k]!==undefined).map(k=>[k,prize[k]]));
 }

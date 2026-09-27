@@ -72,6 +72,8 @@ test.beforeEach(async () => {
     await db.collection("enseignes").doc("shop-managed").set({
       name: "Boutique geree",
       owner: db.doc("users/owner_uid"),
+      // Une sortie du mode admin exige maintenant le proprietaire canonique.
+      owner_id: db.doc("users/owner_uid"),
       managed_by_admin: true,
     });
 
@@ -327,4 +329,17 @@ test("12. transition false -> true -> false sur la meme fiche : reversible a cha
   await assertSucceeds(
     db.collection("games").doc("game-normal").update({updated_time: new Date()}),
   );
+});
+
+test("un Admin ne peut pas sortir du mode gere avec une reference hors users", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await db.doc("external/not-a-user").set({user_role: "commercant"});
+    await db.doc("enseignes/shop-external-owner").set({
+      managed_by_admin: true,
+      owner_id: db.doc("external/not-a-user"),
+    });
+  });
+  await assertFails(adminByEmailContext().firestore()
+    .doc("enseignes/shop-external-owner").update({managed_by_admin: false}));
 });

@@ -24,7 +24,7 @@ for(const mode of ['strict','transitional']) describe(`rollout merchant business
         user_role:uid==='admin'?'admin':uid==='winner'?'joueur':'commercant',account_status:'approved'});
       await db.doc('enseignes/shop').set({owner:db.doc('users/merchant')});
       await db.doc('games/admin_game').set({create_by:db.doc('users/admin'),
-        owner_id:db.doc('users/merchant'),enseigne_id:db.doc('enseignes/shop'),hasWinner:true});
+        owner_id:db.doc('users/merchant'),enseigne_id:db.doc('enseignes/shop'),hasWinner:true,end_date:new Date('2000-01-01')});
       const prize={winner_id:db.doc('users/winner'),game_id:db.doc('games/admin_game'),
         owner_id:db.doc('users/merchant'),enseigne_id:db.doc('enseignes/shop'),
         prize_type:'principal',fulfillment_type:'merchant',claim_code:'LOCAL_TEST_CODE',claimed:false};
@@ -68,7 +68,7 @@ for(const mode of ['strict','transitional']) describe(`rollout merchant business
     const db=context('merchant');
     await assertSucceeds(db.doc('prizes/legacy_shop').get());
     const query=db.collection('prizes').where('enseigne_id','==',db.doc('enseignes/shop')).get();
-    if(mode==='strict') await assertFails(query); else await assertSucceeds(query);
+    await assertFails(query);
   });
   it('4 merchant can claim an available merchant prize, but cannot claim twice',async()=>{
     const ref=context('merchant').doc('prizes/modern');
@@ -137,7 +137,6 @@ for(const mode of ['strict','transitional']) describe(`rollout merchant business
   it('legacy query and anonymous read are explicitly temporary, never proof of strict compatibility',async()=>{
     const query=context('merchant').collection('prizes').where('game_id','==',context('merchant').doc('games/admin_game'));
     const anonymous=env.unauthenticatedContext().firestore().doc('prizes/modern');
-    if(mode==='strict'){await assertFails(query.get());await assertFails(anonymous.get());}
-    else {await assertSucceeds(query.get());await assertSucceeds(anonymous.get());}
+    await assertFails(query.get());await assertFails(anonymous.get());
   });
 });

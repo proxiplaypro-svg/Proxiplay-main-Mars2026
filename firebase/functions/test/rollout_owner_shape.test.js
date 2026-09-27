@@ -22,7 +22,7 @@ test('admin string-owner shop produces a canonical merchant prize and player my_
   await shop.set({owner:'/users/merchant'});
   await db.doc('users/winner').set({first_name:'Test'});
   await db.doc('games/draw').set({create_by:db.doc('users/admin'),enseigne_id:shop,
-    name:'Lot',hasWinner:false,end_date:admin.firestore.Timestamp.fromMillis(1)});
+    name:'Lot',hasMainPrize:true,prize_value:1,hasWinner:false,end_date:admin.firestore.Timestamp.fromMillis(1)});
   await db.doc('games/draw/participants/winner').set({user_id:db.doc('users/winner')});
   const result=await drawMainPrize('draw');
   assert.equal(result.status,'completed');

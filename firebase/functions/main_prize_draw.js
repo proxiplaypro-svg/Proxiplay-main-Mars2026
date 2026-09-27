@@ -1,7 +1,8 @@
-const {shopOwnerRef,userPath}=require('./merchant_ownership');
+const {gameOwnership,gamePrizeOwnership}=require('./merchant_ownership');
 const admin=require('firebase-admin');
 const functions=require('firebase-functions');
 const crypto=require('crypto');
+const {reserveClaimCode}=require('./claim_code_registry');
 const {excluded,review}=require('./prize_integrity');
 const {publicPrize}=require('./public_winners');
 const {runScheduledDraws}=require('./scheduled_draw_runner');
@@ -45,17 +46,19 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
     const enseigneRef=game.enseigne_id||game.enseigne_ref;
     if(!/^enseignes\/[^/]+$/.test(enseigneRef?.path||'')) return review(gameId,'missing_enseigne');
     const shop=await tx.get(enseigneRef);
-    const trustedOwner=shopOwnerRef(db,shop.data());
-    const explicitOwner=userPath(game.owner_id);
-    const ownerRef=explicitOwner?db.doc(explicitOwner):game.owner_id==null?trustedOwner:null;
-    if(!shop.exists||!/^users\/[^/]+$/.test(ownerRef?.path||'') || (!trustedOwner || trustedOwner.path!==ownerRef.path)) return review(gameId,'invalid_merchant_owner');
+    const ownership=gameOwnership(game,shop.data());
+    if(!shop.exists||!ownership.valid) return review(gameId,'invalid_merchant_owner');
+    let fulfillment;
+    try { fulfillment=require('./prize_fulfillment').prizeFulfillment(game,shop.data()); }
+    catch (_) { return review(gameId,'invalid_prize_fulfillment'); }
     const winner=eligible[crypto.randomInt(eligible.length)];
     const prizeRef=db.collection('prizes').doc();
+    const claimCode=await reserveClaimCode(tx,db);
     const first=String(winner.data.first_name||winner.data.firstName||'').split(/\s+/)[0];
     const city=String(winner.data.city||'');
-    const prize={prize_type:'principal',fulfillment_type:'merchant',name:game.name||'Lot principal',description:game.description||'',
-      winner_id:winner.ref,game_id:gameRef,enseigne_id:enseigneRef,owner_id:ownerRef,enseigne_name:shop.data().name||game.enseigne_name||'',
-      claim_code:crypto.randomBytes(10).toString('hex').toUpperCase(),claimed:false,win_date:now,
+    const prize={prize_type:'principal',...gamePrizeOwnership(db,ownership,enseigneRef,fulfillment),partner_delivery_eligible:fulfillment.type==='partner'&&game.partner_delivery_enabled===true,name:game.name||'Lot principal',description:game.description||'',
+      winner_id:winner.ref,game_id:gameRef,enseigne_id:enseigneRef,enseigne_name:shop.data().name||game.enseigne_name||'',
+      claim_code:claimCode,claimed:false,win_date:now,
       prize_value:Number.isFinite(Number(game.prize_value))?Number(game.prize_value):0,
       winnerFirstName:first,winnerCity:city,winner_first_name:first,winner_city:city,
       ...(game.prize_usage_deadline?{usage_deadline:game.prize_usage_deadline}:{}),};

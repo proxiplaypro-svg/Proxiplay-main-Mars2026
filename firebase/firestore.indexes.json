@@ -499,6 +499,34 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "_partner_delivery_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "send_after",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "_partner_delivery_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "started_at",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

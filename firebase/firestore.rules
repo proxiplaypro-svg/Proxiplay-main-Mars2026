@@ -91,6 +91,17 @@ service cloud.firestore {
       return data.get('managed_by_admin', false) == true;
     }
 
+    function canLeaveAdminMode(data) {
+      let primary = data.get('owner_id', null);
+      let legacy = data.get('owner', null);
+      return primary is path &&
+        primary == /databases/$(database)/documents/users/$(primary[4]) &&
+        exists(primary) &&
+        get(primary).data.get('user_role', '') == 'commercant' &&
+        (legacy == null || legacy == primary || legacy == primary[4] ||
+          legacy == 'users/' + primary[4] || legacy == '/users/' + primary[4]);
+    }
+
     // Champs qu'un commerçant peut modifier lui-même sur son enseigne/jeu.
     // Tout le reste (hasWinner, main_prize_winner, participations, owner,
     // create_by, ...) doit rester réservé au serveur/admin : sans cette
@@ -154,7 +165,8 @@ service cloud.firestore {
     function ownsMerchantPrize(data) {
       let owner = data.get('owner_id', null);
       return (owner != null && isUserIdentity(owner)) ||
-        (owner == null && isMerchantOwnerOfEnseigne(data.get('enseigne_id', null)));
+        (!(data.get('fulfillment_type', '') in ['partner', 'platform']) &&
+          owner == null && isMerchantOwnerOfEnseigne(data.get('enseigne_id', null)));
     }
 
     function ownsTrustedMerchant(data) {
@@ -275,12 +287,16 @@ service cloud.firestore {
       allow create: if isAdmin() ||
         (
           isSignedIn() &&
+          !isManagedByAdmin(request.resource.data) &&
           ('owner' in request.resource.data) &&
           isOwnerRef(request.resource.data.owner) &&
+          ownsShopData(request.resource.data) &&
           isApprovedMerchant()
         );
       allow read: if true;
-      allow update: if isAdmin() ||
+      allow update: if (isAdmin() &&
+        (!isManagedByAdmin(resource.data) || isManagedByAdmin(request.resource.data) ||
+          canLeaveAdminMode(request.resource.data))) ||
         (isOwnerRef(resource.data.owner) && !isManagedByAdmin(resource.data) &&
           isSafeMerchantEnseigneUpdate());
       allow delete: if isAdmin() ||

@@ -1,8 +1,8 @@
-const {shopOwnerRef,userPath}=require('./merchant_ownership');
+const {gameOwnership,gamePrizeOwnership}=require('./merchant_ownership');
 const {excluded}=require('./prize_integrity');
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const crypto = require("crypto");
+const {reserveClaimCode} = require('./claim_code_registry');
 const {
   pickDueInstantWinner,
   toMillis,
@@ -68,12 +68,6 @@ function normalizeClaimCode(value) {
   return getTrimmedString(value)
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
-}
-
-function generateClaimCode() {
-  const timePart = Date.now().toString(36).toUpperCase();
-  const randomPart = crypto.randomBytes(2).toString("hex").toUpperCase();
-  return `${timePart}${randomPart}`;
 }
 
 function getParisDayKey(date = new Date()) {
@@ -379,8 +373,10 @@ exports.participateInGameTransaction = functions.https.onCall(
     let enseigneName = "";
     let lotDetails = "";
     let claim_code = "";
+    let reservedInstantClaimCode = "";
     let enseigneRef = null;
     let ownerRef = null;
+    let prizeOwnership = null;
     let userRef = null;
     let lotGagne = false;
     let gameName = "";
@@ -531,9 +527,6 @@ exports.participateInGameTransaction = functions.https.onCall(
           }
         }
         userEmail = getTrimmedString(userData.email);
-        ownerRef = userPath(gameData.owner_id)
-          ? db.doc(userPath(gameData.owner_id))
-          : null;
         const enseigneRefField = gameData.enseigne_id || gameData.enseigne_ref;
         enseigneRef = enseigneRefField?.path
           ? db.doc(enseigneRefField.path)
@@ -556,11 +549,23 @@ exports.participateInGameTransaction = functions.https.onCall(
           );
         }
         const enseigneData = enseigneDoc.data();
-        const trustedOwner = shopOwnerRef(db, enseigneData);
-        if (gameData.owner_id == null) ownerRef = trustedOwner;
-        if (!ownerRef || !trustedOwner || ownerRef.path !== trustedOwner.path) {
+        const ownership = gameOwnership(gameData, enseigneData);
+        if (!ownership.valid) {
           throw new functions.https.HttpsError('failed-precondition', 'Proprietaire du jeu incoherent.');
         }
+        let fulfillment;
+        try {
+          fulfillment = require('./prize_fulfillment').prizeFulfillment(gameData, enseigneData,
+            eligibleInstantWinnerDoc?.data()?.secondary_prize_index ?? null);
+        } catch (error) {
+          throw new functions.https.HttpsError('failed-precondition', error.message);
+        }
+        prizeOwnership = gamePrizeOwnership(db, ownership, enseigneRef, fulfillment);
+        // Explicit per-game activation: old prizes are never eligible for the
+        // partner mail recovery path after a Functions deployment.
+        prizeOwnership.partner_delivery_eligible =
+          fulfillment.type === 'partner' && gameData.partner_delivery_enabled === true;
+        ownerRef = prizeOwnership.owner_id;
         enseigneName = getTrimmedString(enseigneData.name);
 
         const currentParticipation = gameData.participations || 0;
@@ -805,22 +810,34 @@ exports.participateInGameTransaction = functions.https.onCall(
               finalRemainingPartValue,
             });
             return;
-          } else {
-            recordWrite("set", participantDetailRef, {
+          }
+        }
+
+        // All transaction reads and every "already played" return have now
+        // completed. Reserve before the first write so an old
+        // participants_details-only replay cannot leave an unused registry
+        // entry behind.
+        if (eligibleInstantWinnerDoc) {
+          reservedInstantClaimCode = await reserveClaimCode(transaction, db);
+        }
+
+        if (participantDetailDoc.exists) {
+          const detailData = participantDetailDoc.data();
+          const bonus = detailData.game_bonus || 0;
+          recordWrite("set", participantDetailRef, {
+            last_play: now,
+            game_bonus: bonus,
+            user_id: userRef,
+          });
+          transaction.set(
+            participantDetailRef,
+            {
               last_play: now,
               game_bonus: bonus,
               user_id: userRef,
-            });
-            transaction.set(
-              participantDetailRef,
-              {
-                last_play: now,
-                game_bonus: bonus,
-                user_id: userRef,
-              },
-              { merge: true }
-            );
-          }
+            },
+            { merge: true }
+          );
         } else {
           recordWrite("set", participantDetailRef, {
             last_play: now,
@@ -969,7 +986,7 @@ exports.participateInGameTransaction = functions.https.onCall(
         if (eligibleInstantWinnerDoc) {
           const instantWinnerData = eligibleInstantWinnerDoc.data() || {};
 
-          const generatedClaimCode = generateClaimCode();
+          const generatedClaimCode = reservedInstantClaimCode;
           const selectedSecondaryPrizeName =
             typeof instantWinnerData.secondary_prize_name === "string" &&
             instantWinnerData.secondary_prize_name.trim().length > 0
@@ -1027,7 +1044,7 @@ exports.participateInGameTransaction = functions.https.onCall(
 
           recordWrite("set", prizeRef, {
             prize_type: "secondaire",
-            fulfillment_type: "merchant",
+            ...prizeOwnership,
             name: selectedSecondaryPrizeName,
             description: selectedSecondaryPrizePresentation,
             winner_id: userRef,
@@ -1041,7 +1058,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           });
           transaction.set(prizeRef, {
             prize_type: "secondaire",
-            fulfillment_type: "merchant",
+            ...prizeOwnership,
             name: selectedSecondaryPrizeName,
             description: selectedSecondaryPrizePresentation,
             winner_id: userRef,

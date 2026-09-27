@@ -1,7 +1,8 @@
 const admin = require('firebase-admin');
 const functions = require('firebase-functions');
 const crypto = require('node:crypto');
-const {userPath, shopOwnerPath} = require('./merchant_ownership');
+const {userPath, shopOwnerPath, gameOwnership} = require('./merchant_ownership');
+const {isTrustedAdmin} = require('./admin_identity');
 const {excluded} = require('./prize_integrity');
 const {getNowTimestamp} = require('./lib/emulator_runtime');
 const fail = () => { throw new functions.https.HttpsError('failed-precondition', 'QR invalide ou expire. Scannez le QR en boutique.'); };
@@ -16,7 +17,9 @@ async function validateQr(tx, gameRef, game, token, now) {
   const proof = snap.data();
   const shop = shopPath(game);
   const currentShop = /^enseignes\/[^/]+$/.test(shop) ? await tx.get(gameRef.firestore.doc(shop)) : null;
-  if (!proof || proof.game_path !== gameRef.path || proof.shop_path !== shopPath(game) ||
+  if (!currentShop?.exists || !gameOwnership(game, currentShop.data()).valid ||
+      (proof?.managed_by_admin === true) !== (currentShop.data().managed_by_admin === true) ||
+      !proof || proof.game_path !== gameRef.path || proof.shop_path !== shopPath(game) ||
       proof.shop_owner_path !== shopOwnerPath(currentShop?.data()) ||
       proof.owner_path !== userPath(game.owner_id) || typeof proof.expires_at?.toMillis !== 'function' ||
       proof.expires_at.toMillis() <= now.toMillis() ||
@@ -39,7 +42,9 @@ exports.issueGameQrAccess = functions.https.onCall(async (data, context) => {
     const shopSnap = /^enseignes\/[^/]+$/.test(shop) ? await tx.get(db.doc(shop)) : null;
     const owner = shopOwnerPath(shopSnap?.data());
     const explicit = userPath(game.owner_id);
-    if (user.user_role !== 'admin' && !(user.user_role === 'commercant' &&
+    if (!shopSnap?.exists || !gameOwnership(game, shopSnap.data()).valid) fail();
+    const managed = shopSnap.data().managed_by_admin === true;
+    if (!isTrustedAdmin(context.auth, user) && !(user.user_role === 'commercant' && !managed &&
         owner === 'users/' + context.auth.uid && (game.owner_id == null || explicit === owner))) {
       throw new functions.https.HttpsError('permission-denied', 'Acces refuse.');
     }
@@ -48,12 +53,14 @@ exports.issueGameQrAccess = functions.https.onCall(async (data, context) => {
         ['ended','cancelled','canceled','disabled'].includes(game.status)) fail();
     const old = current.data();
     if (data.rotate !== true && old?.game_path === gameRef.path && old.shop_path === shop &&
+        (old.managed_by_admin === true) === managed &&
         old.owner_path === explicit && old.shop_owner_path === owner && old.expires_at.toMillis() > now.toMillis()) {
       return {token: old.token, expiresAt: old.expires_at.toMillis()};
     }
     const token = crypto.randomBytes(32).toString('hex');
     tx.set(current.ref, {token, game_path: gameRef.path, shop_path: shop,
-      owner_path: explicit, shop_owner_path: owner, expires_at: game.end_date, issued_by: context.auth.uid});
+      owner_path: explicit, shop_owner_path: owner, managed_by_admin: managed,
+      expires_at: game.end_date, issued_by: context.auth.uid});
     return {token, expiresAt: game.end_date.toMillis()};
   });
 });
