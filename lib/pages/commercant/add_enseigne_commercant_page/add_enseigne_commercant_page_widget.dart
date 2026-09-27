@@ -2254,6 +2254,7 @@ class _AddEnseigneCommercantPageWidgetState
                                     var enseignesRecordReference =
                                         EnseignesRecord.collection.doc();
                                     await enseignesRecordReference.set({
+                                      'owner_id': currentUserReference,
                                       ...createEnseignesRecordData(
                                         owner: currentUserReference,
                                         createdTime: getCurrentTimestamp,
