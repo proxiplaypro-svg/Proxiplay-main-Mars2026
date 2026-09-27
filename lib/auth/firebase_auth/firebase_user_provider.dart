@@ -69,6 +69,11 @@ Stream<BaseAuthUser> proxiPlayFirebaseUserStream() => FirebaseAuth.instance
             : Stream.value(user))
         .map<BaseAuthUser>(
       (user) {
+        // Repair preferences written by older versions or by the guest button
+        // while Firebase had already restored a real account.
+        if (user != null && !user.isAnonymous && FFAppState().isGuest) {
+          FFAppState().isGuest = false;
+        }
         currentUser = user == null && FFAppState().isGuest
             ? GuestAuthUser()
             : ProxiPlayFirebaseUser(user);

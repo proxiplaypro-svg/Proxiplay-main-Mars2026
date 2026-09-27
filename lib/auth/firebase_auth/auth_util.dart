@@ -20,8 +20,45 @@ String get currentUserEmail =>
 String get currentUserUid => currentUser?.uid ?? '';
 
 bool get isGuestUser => FFAppState().isGuest;
-bool get isGuestOrAnonymous =>
-    isGuestUser || (FirebaseAuth.instance.currentUser?.isAnonymous ?? false);
+
+/// Firebase Auth is authoritative whenever it has restored a user.  A stale
+/// FlutterFlow guest preference must never turn a real account into a guest.
+bool isGuestOrAnonymousFromAuth({
+  required bool hasFirebaseUser,
+  required bool isAnonymous,
+  required bool localGuest,
+}) =>
+    hasFirebaseUser ? isAnonymous : localGuest;
+
+bool isGuestOrAnonymousFor(User? user, {required bool localGuest}) =>
+    isGuestOrAnonymousFromAuth(
+      hasFirebaseUser: user != null,
+      isAnonymous: user?.isAnonymous ?? false,
+      localGuest: localGuest,
+    );
+
+bool get isGuestOrAnonymous => isGuestOrAnonymousFor(
+      FirebaseAuth.instance.currentUser,
+      localGuest: isGuestUser,
+    );
+
+/// Returns the Firebase UID that may back the current user reference.
+///
+/// This deliberately reads Firebase Auth rather than the FlutterFlow provider:
+/// Auth can restore a real session before that provider emits its first value.
+String? currentUserReferenceUidFromAuth({
+  required String? firebaseUid,
+  required bool isAnonymous,
+  required bool localGuest,
+}) =>
+    firebaseUid != null &&
+            !isGuestOrAnonymousFromAuth(
+              hasFirebaseUser: true,
+              isAnonymous: isAnonymous,
+              localGuest: localGuest,
+            )
+        ? firebaseUid
+        : null;
 
 String get currentUserDisplayName =>
     currentUserDocument?.displayName ?? currentUser?.displayName ?? '';
@@ -44,10 +81,15 @@ final jwtTokenStream = FirebaseAuth.instance
     .map((user) async => _currentJwtToken = await user?.getIdToken())
     .asBroadcastStream();
 
-DocumentReference? get currentUserReference =>
-    (!isGuestUser && currentUser?.uid != null)
-        ? UsersRecord.collection.doc(currentUser!.uid)
-        : null;
+DocumentReference? get currentUserReference {
+  final firebaseUser = FirebaseAuth.instance.currentUser;
+  final uid = currentUserReferenceUidFromAuth(
+    firebaseUid: firebaseUser?.uid,
+    isAnonymous: firebaseUser?.isAnonymous ?? false,
+    localGuest: isGuestUser,
+  );
+  return uid == null ? null : UsersRecord.collection.doc(uid);
+}
 
 UsersRecord? currentUserDocument;
 final authenticatedUserStream = FirebaseAuth.instance
