@@ -3,6 +3,7 @@ const functions = require('firebase-functions');
 const {excluded} = require('./prize_integrity');
 const {getNowTimestamp} = require('./lib/emulator_runtime');
 const {lotSnapshot} = require('./prize_lot_snapshot');
+const {isTrustedAdmin} = require('./admin_identity');
 const deny = (message = 'Retrait refuse.') => { throw new functions.https.HttpsError('failed-precondition', message); };
 
 // platform and partner are both coordinated by Proxiplay. Being a merchant,
@@ -23,7 +24,7 @@ exports.claimOperatorPrize = functions.https.onCall(async (data, context) => {
       tx.get(db.doc('users/' + data.winnerId)),
       tx.get(db.doc(`users/${data.winnerId}/my_lots/${data.prizeId}`)),
     ]);
-    if (operator.data()?.user_role !== 'admin' || excluded(operator.data())) {
+    if (!isTrustedAdmin(context.auth, operator.data()) || excluded(operator.data())) {
       throw new functions.https.HttpsError('permission-denied', 'Operateur Proxiplay requis.');
     }
     const prize = snap.data();

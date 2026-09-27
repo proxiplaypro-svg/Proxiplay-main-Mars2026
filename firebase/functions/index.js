@@ -4,8 +4,10 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const {isFunctionsEmulator} = require("./lib/emulator_runtime");
 admin.initializeApp();
+exports.notifyPartnerPrize = require('./partner_prize_delivery').notifyPartnerPrize;
+exports.deliverPartnerPrizeDigests = require('./partner_prize_delivery').deliverPartnerPrizeDigests;
 const {shopOwnerRef,ownsPrize}=require('./merchant_ownership');
-const {shouldNotifyMerchantForPrize}=require('./prize_merchant_notification_policy');
+const {shouldNotifyMerchantForPrize,merchantNotificationSkipReason}=require('./prize_merchant_notification_policy');
 exports.getMerchantPrizes=require('./merchant_prizes').getMerchantPrizes;
 exports.syncPrizeLotSnapshot = require('./prize_lot_snapshot').syncPrizeLotSnapshot;
 exports.getMerchantGames = require('./merchant_games').getMerchantGames;
@@ -112,7 +114,8 @@ const generateInstantWinnersForGameCallable = functions
 
     const gameData = gameSnap.data() || {};
     const callerRef = firestore.collection("users").doc(context.auth.uid);
-    const isCallerAdmin = (await callerRef.get()).data()?.user_role === "admin";
+    const isCallerAdmin = require('./admin_identity').isTrustedAdmin(
+      context.auth, (await callerRef.get()).data());
     const shopRef = toDocRef(gameData.enseigne_id || gameData.enseigne_ref);
     const shop = shopRef ? await shopRef.get() : null;
     const ownerRef = gameData.owner_id != null
@@ -120,7 +123,9 @@ const generateInstantWinnersForGameCallable = functions
 
     if (
       !isCallerAdmin &&
-      (!ownerRef || ownerRef.path !== callerRef.path)
+      (shop?.data()?.managed_by_admin === true ||
+        !require('./merchant_ownership').gameOwnership(gameData, shop?.data()).valid ||
+        !ownerRef || ownerRef.path !== callerRef.path)
     ) {
       throw new functions.https.HttpsError(
         "permission-denied",
@@ -5303,8 +5308,8 @@ exports.notifyPrizeWon = functions
     const playerEmailBody = [
       `Bonjour ${winnerFirstName},`,
       `F\u00E9licitations, vous avez remport\u00E9 ${prizeName} offert par ${shopName}`,
-      `Votre code \u00E0 pr\u00E9senter en boutique : ${claimCode}`,
-      `Retrouvez la boutique ici : ${shopLink}`,
+      prizeData.fulfillment_type === "platform" ? `Remise organis?e par ProxiPlay. Code : ${claimCode}` : `Votre code ? pr?senter au commer?ant / partenaire : ${claimCode}`,
+      prizeData.fulfillment_type === "platform" ? "Contactez ProxiPlay pour recevoir votre lot." : `Retrouvez la boutique ici : ${shopLink}`,
       "Continuez \u00E0 jouer chaque jour pour multiplier vos chances !",
       "\u00C0 tr\u00E8s vite sur ProxiPlay",
     ].join("\n");
@@ -5408,12 +5413,11 @@ exports.notifyPrizeWon = functions
       }
     }
 
-    if (!merchantEmailDone && !shouldNotifyMerchantForPrize(enseigneData)) {
-      console.log(
-        `[notifyPrizeWon] prize=${prizeId} merchant_email skipped reason=managed_by_admin`,
-      );
+    if (!merchantEmailDone && !shouldNotifyMerchantForPrize(enseigneData, prizeData)) {
+      const skipReason=merchantNotificationSkipReason(enseigneData,prizeData);
+      console.log(`[notifyPrizeWon] prize=${prizeId} merchant_email skipped reason=${skipReason}`);
       updates.merchant_email_skipped = true;
-      updates.merchant_email_skip_reason = "managed_by_admin";
+      updates.merchant_email_skip_reason = skipReason;
     } else if (!merchantEmailDone) {
       const lockResult = await acquireMerchantEmailSendRight(statusRef);
       if (!lockResult.acquired) {
@@ -5534,9 +5538,9 @@ exports.notifyPrizeWon = functions
       }
     }
 
-    if (!merchantPushDone && !shouldNotifyMerchantForPrize(enseigneData)) {
+    if (!merchantPushDone && !shouldNotifyMerchantForPrize(enseigneData, prizeData)) {
       updates.merchant_push_skipped = true;
-      updates.merchant_push_skip_reason = "managed_by_admin";
+      updates.merchant_push_skip_reason = merchantNotificationSkipReason(enseigneData,prizeData);
     } else if (!merchantPushDone) {
       const ownerRefPath = ownerRef && ownerRef.path ? ownerRef.path : "";
       if (!ownerRefPath) {
@@ -5976,78 +5980,39 @@ function getCharForIndex(charIdx) {
 exports.onUserDeleted = functions.auth.user().onDelete(async (user) => {
   let firestore = admin.firestore();
   let userRef = firestore.doc("users/" + user.uid);
-  await firestore
-    .collection("enseignes")
-    .where("owner", "==", userRef)
-    .get()
-    .then(async (querySnapshot) => {
-      for (var doc of querySnapshot.docs) {
-        await doc.ref
-          .collection("enseigne_game")
-          .get()
-          .then(async (q) => {
-            for (var d of q.docs) {
-              console.log(
-                `Deleting document ${d.id} from collection enseigne_game`,
-              );
-              await d.ref.delete();
-            }
-          });
-      }
-    });
-  await firestore
-    .collection("enseignes")
-    .where("owner", "==", userRef)
-    .get()
-    .then(async (querySnapshot) => {
-      for (var doc of querySnapshot.docs) {
-        await doc.ref
-          .collection("horaires")
-          .get()
-          .then(async (q) => {
-            for (var d of q.docs) {
-              console.log(`Deleting document ${d.id} from collection horaires`);
-              await d.ref.delete();
-            }
-          });
-      }
-    });
-  await firestore
-    .collection("enseignes")
-    .where("owner", "==", userRef)
-    .get()
-    .then(async (querySnapshot) => {
-      for (var doc of querySnapshot.docs) {
-        await doc.ref
-          .collection("images")
-          .get()
-          .then(async (q) => {
-            for (var d of q.docs) {
-              console.log(`Deleting document ${d.id} from collection images`);
-              await d.ref.delete();
-            }
-          });
-      }
-    });
+  // Both fields and all legacy encodings are supported. Filter with the
+  // canonical normalizer so a contradictory shop is never deleted as owned.
+  const ownerValues = [userRef, userRef.path, `/${userRef.path}`, user.uid];
+  const snapshots = await Promise.all(['owner', 'owner_id'].flatMap(field =>
+    ownerValues.map(value => firestore.collection('enseignes').where(field, '==', value).get())));
+  const {shopOwnerPath} = require('./merchant_ownership');
+  const ownedShops = [...new Map(snapshots.flatMap(s => s.docs).map(d => [d.id, d])).values()]
+    .filter(doc => shopOwnerPath(doc.data()) === userRef.path && doc.data().managed_by_admin !== true);
+  await require('./deleted_shop_games_cleanup').deleteGamesForDeletedShops(
+    firestore, ownedShops.map(doc => doc.ref));
+  for (const doc of ownedShops) {
+    for (const collection of ['enseigne_game', 'horaires', 'images']) {
+      const children = await doc.ref.collection(collection).get();
+      for (const child of children.docs) await child.ref.delete();
+    }
+  }
   await firestore.collection("users").doc(user.uid).delete();
-  await firestore
-    .collection("enseignes")
-    .where("owner", "==", userRef)
-    .get()
-    .then(async (querySnapshot) => {
-      for (var doc of querySnapshot.docs) {
-        console.log(`Deleting document ${doc.id} from collection enseignes`);
-        await doc.ref.delete();
-      }
-    });
+  for (const doc of ownedShops) {
+    console.log(`Deleting document ${doc.id} from collection enseignes`);
+    await doc.ref.delete();
+  }
   await firestore
     .collection("games")
     .where("create_by", "==", userRef)
     .get()
     .then(async (querySnapshot) => {
       for (var doc of querySnapshot.docs) {
-        console.log(`Deleting document ${doc.id} from collection games`);
-        await doc.ref.delete();
+        // create_by is provenance, never ownership. Preserve all games attached
+        // to an enseigne, including those created on behalf of it by an admin.
+        if (!doc.data().enseigne_id && !doc.data().enseigne_ref &&
+            require('./merchant_ownership').userPath(doc.data().owner_id) === userRef.path) {
+          await doc.ref.delete();
+        }
       }
     });
 });

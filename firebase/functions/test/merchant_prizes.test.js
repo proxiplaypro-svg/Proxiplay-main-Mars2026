@@ -64,6 +64,18 @@ test('other merchant cannot list the game, read or claim its legitimate prizes',
     await assertFails(ref.update({claimed: true}));
   }
 });
+
+test('concurrent claims allow exactly one transition and reject repeated pickup', async () => {
+  const ref = env.authenticatedContext('merchant').firestore().doc('prizes/b_modern');
+  const results = await Promise.allSettled([
+    ref.update({claimed: true}),
+    ref.update({claimed: true}),
+  ]);
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+  assert.equal(results.filter(r => r.status === 'rejected').length, 1);
+  assert.equal((await ref.get()).data().claimed, true);
+  await assertFails(ref.update({claimed: true}));
+});
 test('explicit different owner prevents shop fallback; winner alone retains beneficiary access', async () => {
   const ref = env.authenticatedContext('merchant').firestore().doc('prizes/a_conflict');
   await assertFails(ref.get());

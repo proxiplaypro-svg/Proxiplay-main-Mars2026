@@ -53,13 +53,15 @@ function createSmtpMailer() {
   };
 }
 
-async function sendTextEmail({to, subject, text}) {
+async function sendTextEmail({to, subject, text, attachments, messageId}) {
   const mailer = createSmtpMailer();
   await mailer.transporter.sendMail({
     from: mailer.from,
     to,
     subject,
     text,
+    ...(attachments ? {attachments} : {}),
+    ...(messageId ? {messageId} : {}),
     ...(mailer.replyTo ? {replyTo: mailer.replyTo} : {}),
   });
 }

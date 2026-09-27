@@ -102,18 +102,29 @@ exports.deleteCommercantAccount = functions.https.onCall(
 
       // 3.3. Suppression des enseignes de la collection de niveau supérieur et de leurs sous-collections
       const enseignesRef = admin.firestore().collection("enseignes");
-      const [enseignesByRefSnapshot, enseignesByStringSnapshot] =
-        await Promise.all([
+      const enseigneSnapshots = await Promise.all([
           enseignesRef.where("owner", "==", userDocRef).get(),
           // Backward compatibility: certains anciens documents peuvent stocker un string.
           enseignesRef.where("owner", "==", userDocPath).get(),
-        ]);
+          enseignesRef.where("owner", "==", `/${userDocPath}`).get(),
+          enseignesRef.where("owner", "==", commercantUid).get(),
+          enseignesRef.where("owner_id", "==", userDocRef).get(),
+          enseignesRef.where("owner_id", "==", userDocPath).get(),
+          enseignesRef.where("owner_id", "==", commercantUid).get(),
+          enseignesRef.where("owner_id", "==", `/${userDocPath}`).get(),
+      ]);
       const enseignesMap = new Map();
-      enseignesByRefSnapshot.docs.forEach((doc) => enseignesMap.set(doc.id, doc));
-      enseignesByStringSnapshot.docs.forEach((doc) =>
+      enseigneSnapshots.forEach((snapshot) => snapshot.docs.forEach((doc) =>
         enseignesMap.set(doc.id, doc),
+      ));
+      const {shopOwnerPath} = require('./merchant_ownership');
+      const enseignesDocs = [...enseignesMap.values()].filter((doc) =>
+        shopOwnerPath(doc.data()) === userDocPath && doc.data().managed_by_admin !== true,
       );
-      const enseignesDocs = [...enseignesMap.values()];
+
+      await require('./deleted_shop_games_cleanup').deleteGamesForDeletedShops(
+        admin.firestore(), enseignesDocs.map((doc) => doc.ref),
+      );
 
       for (const doc of enseignesDocs) {
         const enseigneDocRef = doc.ref;
