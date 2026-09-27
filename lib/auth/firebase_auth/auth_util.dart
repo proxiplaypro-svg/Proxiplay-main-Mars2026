@@ -20,8 +20,27 @@ String get currentUserEmail =>
 String get currentUserUid => currentUser?.uid ?? '';
 
 bool get isGuestUser => FFAppState().isGuest;
-bool get isGuestOrAnonymous =>
-    isGuestUser || (FirebaseAuth.instance.currentUser?.isAnonymous ?? false);
+
+/// Firebase Auth is authoritative whenever it has restored a user. A stale
+/// FlutterFlow guest preference must never turn a real account into a guest.
+bool isGuestOrAnonymousFromAuth({
+  required bool hasFirebaseUser,
+  required bool isAnonymous,
+  required bool localGuest,
+}) =>
+    hasFirebaseUser ? isAnonymous : localGuest;
+
+bool isGuestOrAnonymousFor(User? user, {required bool localGuest}) =>
+    isGuestOrAnonymousFromAuth(
+      hasFirebaseUser: user != null,
+      isAnonymous: user?.isAnonymous ?? false,
+      localGuest: localGuest,
+    );
+
+bool get isGuestOrAnonymous => isGuestOrAnonymousFor(
+      FirebaseAuth.instance.currentUser,
+      localGuest: isGuestUser,
+    );
 
 String get currentUserDisplayName =>
     currentUserDocument?.displayName ?? currentUser?.displayName ?? '';

@@ -854,6 +854,22 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
                                     0.0, 16.0, 0.0, 16.0),
                                 child: FFButtonWidget(
                                   onPressed: () async {
+                                    final firebaseUser =
+                                        FirebaseAuth.instance.currentUser;
+                                    if (firebaseUser != null &&
+                                        !firebaseUser.isAnonymous) {
+                                      // A real Firebase session always wins over
+                                      // a persisted local guest preference.
+                                      FFAppState().isGuest = false;
+                                      final resolution =
+                                          await resolveAuthenticatedHome(
+                                        source: 'login_guest_click_real_user',
+                                      );
+                                      if (context.mounted) {
+                                        await _navigateFromResolution(resolution);
+                                      }
+                                      return;
+                                    }
                                     FFAppState().isGuest = true;
                                     if (!context.mounted) {
                                       return;
