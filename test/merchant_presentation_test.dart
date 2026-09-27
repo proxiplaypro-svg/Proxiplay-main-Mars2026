@@ -7,6 +7,8 @@ import 'package:cloud_firestore_platform_interface/cloud_firestore_platform_inte
     as platform;
 import 'package:cloud_functions_platform_interface/cloud_functions_platform_interface.dart'
     as functions_platform;
+import 'package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart'
+    as auth_platform;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
@@ -57,6 +59,68 @@ class _Store extends platform.FirebaseFirestorePlatform {
           data[path],
           platform.InternalSnapshotMetadata(
               hasPendingWrites: false, isFromCache: false));
+}
+
+/// Keeps widget fixtures aligned with production: a FlutterFlow user alone is
+/// not an authenticated Firebase session.
+class _AuthStore extends auth_platform.FirebaseAuthPlatform {
+  _AuthStore() : super();
+
+  auth_platform.UserPlatform? _currentUser;
+
+  @override
+  auth_platform.UserPlatform? get currentUser => _currentUser;
+
+  @override
+  set currentUser(auth_platform.UserPlatform? value) => _currentUser = value;
+
+  @override
+  auth_platform.FirebaseAuthPlatform delegateFor({required FirebaseApp app}) =>
+      this;
+
+  @override
+  auth_platform.FirebaseAuthPlatform setInitialValues({
+    auth_platform.InternalUserDetails? currentUser,
+    String? languageCode,
+  }) {
+    if (currentUser != null) {
+      _currentUser = _AuthUser(
+        this,
+        _AuthMultiFactor(this),
+        currentUser,
+      );
+    }
+    return this;
+  }
+
+  void signIn(String uid) {
+    _currentUser = _AuthUser(
+      this,
+      _AuthMultiFactor(this),
+      auth_platform.InternalUserDetails(
+        userInfo: auth_platform.InternalUserInfo(
+          uid: uid,
+          isAnonymous: false,
+          isEmailVerified: true,
+        ),
+        providerData: const [],
+      ),
+    );
+  }
+
+  void clearSession() => _currentUser = null;
+}
+
+class _AuthUser extends auth_platform.UserPlatform {
+  _AuthUser(
+    super.auth,
+    super.multiFactor,
+    super.user,
+  );
+}
+
+class _AuthMultiFactor extends auth_platform.MultiFactorPlatform {
+  _AuthMultiFactor(super.auth);
 }
 
 class _Document extends platform.DocumentReferencePlatform {
@@ -168,6 +232,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setupFirebaseCoreMocks();
   final store = _Store();
+  final auth = _AuthStore();
   final calls = _Functions();
   final screenshotKey = GlobalKey();
   setUpAll(() async {
@@ -206,6 +271,7 @@ void main() {
           .load();
     }
     await Firebase.initializeApp();
+    auth_platform.FirebaseAuthPlatform.instance = auth;
     platform.FirebaseFirestorePlatform.instance = store;
     functions_platform.FirebaseFunctionsPlatform.instance = calls;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -227,6 +293,7 @@ void main() {
     store.reads.clear();
     store.denied.clear();
     calls.handler = (_) async => throw StateError('Unexpected call');
+    auth.clearSession();
   });
 
   DocumentReference ref([String path = 'enseignes/shop']) =>
@@ -299,6 +366,7 @@ void main() {
     final previousUser = currentUser;
     final previousGuest = FFAppState().isGuest;
     currentUser = _GainsUser();
+    auth.signIn('gains-player');
     FFAppState().isGuest = false;
     addTearDown(() {
       currentUser = previousUser;

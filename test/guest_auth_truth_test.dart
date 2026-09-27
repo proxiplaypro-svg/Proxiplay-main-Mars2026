@@ -34,4 +34,36 @@ void main() {
       isTrue,
     );
   });
+
+  test('real Firebase user keeps its reference before provider repair', () {
+    const uid = 'TEST_UID';
+
+    expect(
+      currentUserReferenceUidFromAuth(
+        firebaseUid: uid,
+        isAnonymous: false,
+        localGuest: true,
+      ),
+      uid,
+    );
+  });
+
+  test('anonymous or absent Firebase users never get a user reference', () {
+    expect(
+      currentUserReferenceUidFromAuth(
+        firebaseUid: 'ANONYMOUS_UID',
+        isAnonymous: true,
+        localGuest: false,
+      ),
+      isNull,
+    );
+    expect(
+      currentUserReferenceUidFromAuth(
+        firebaseUid: null,
+        isAnonymous: false,
+        localGuest: true,
+      ),
+      isNull,
+    );
+  });
 }
