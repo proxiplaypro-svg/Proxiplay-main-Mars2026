@@ -191,25 +191,25 @@ class _JeuDetailCommercantPageWidgetState
       if (!mounted) {
         return;
       }
-      if (export.rowCount == 0) {
+      if (!export.hasRows) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Aucun joueur à exporter pour ce jeu pour le moment.'),
+            content: Text('Aucun gagnant à exporter pour ce jeu pour le moment.'),
           ),
         );
         return;
       }
       final saveResult = await saveGamePlayersCsv(
         export,
-        shareSubject: 'Joueurs Proxiplay – ${game.name}',
+        shareSubject: 'Gagnants Proxiplay – ${game.name}',
       );
       if (!mounted) {
         return;
       }
-      if (saveResult.destination == GamePlayersSaveDestination.downloads) {
+      if (saveResult.destination == GamePlayersSaveDestination.selectedLocation) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Fichier enregistré dans Téléchargements.'),
+            content: Text('Export enregistré.'),
           ),
         );
       }
@@ -222,7 +222,7 @@ class _JeuDetailCommercantPageWidgetState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Impossible d'exporter les joueurs. Réessayez."),
+            content: Text("Impossible d'exporter les gagnants. Réessayez."),
           ),
         );
       }
@@ -1263,7 +1263,7 @@ class _JeuDetailCommercantPageWidgetState
                                     : const Icon(Icons.file_download_outlined),
                                 label: Text(_isExportingPlayers
                                     ? 'Export en cours…'
-                                    : 'Exporter les joueurs'),
+                                    : 'Exporter les gagnants'),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor:
                                       FlutterFlowTheme.of(context).secondaryText,

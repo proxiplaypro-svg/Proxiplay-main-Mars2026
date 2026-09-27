@@ -35,7 +35,7 @@ Future<PrizeWinnerContact?> fetchPrizeWinnerContactForMerchant(
   try {
     final result = await FirebaseFunctions.instance
         .httpsCallable('getPrizeWinnerContactForMerchant')
-        .call({'prizeId': prizeId});
+        .call({'prizeId': prizeId}).timeout(const Duration(seconds: 15));
     final data = result.data;
     if (data is! Map) {
       return null;
@@ -49,13 +49,12 @@ Future<PrizeWinnerContact?> fetchPrizeWinnerContactForMerchant(
       phoneNumber: field('phoneNumber'),
     );
   } on FirebaseFunctionsException catch (error) {
-    debugPrint(
-      '[PrizeWinnerContact] fetch failed prizeId=$prizeId '
-      'code=${error.code} message=${error.message}',
-    );
+    if (kDebugMode) {
+      debugPrint('[PrizeWinnerContact] fetch failed code=${error.code}');
+    }
     return null;
-  } catch (error) {
-    debugPrint('[PrizeWinnerContact] fetch failed prizeId=$prizeId error=$error');
+  } catch (_) {
+    if (kDebugMode) debugPrint('[PrizeWinnerContact] error_or_timeout');
     return null;
   }
 }

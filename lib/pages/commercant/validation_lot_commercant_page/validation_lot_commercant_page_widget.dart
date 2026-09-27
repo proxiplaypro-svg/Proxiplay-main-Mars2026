@@ -36,12 +36,15 @@ class _ValidationLotCommercantPageWidgetState
   final scaffoldKey = GlobalKey<ScaffoldState>();
   bool _isSubmitting = false;
   bool _canClaim = false;
+  Future<PrizeWinnerContact?>? _winnerContact;
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => ValidationLotCommercantPageModel());
     if (widget.prize != null) {
+      _winnerContact =
+          fetchPrizeWinnerContactForMerchant(widget.prize!.reference.id);
       canClaimMerchantPrize(widget.prize!).then((allowed) {
         if (mounted) setState(() => _canClaim = allowed);
       }).catchError((Object error) {
@@ -78,15 +81,16 @@ class _ValidationLotCommercantPageWidgetState
             actions: const [],
             flexibleSpace: FlexibleSpaceBar(
               title: Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
+                padding:
+                    const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 14.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.max,
                   mainAxisAlignment: MainAxisAlignment.end,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
-                      padding:
-                          const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 8.0),
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                          0.0, 0.0, 0.0, 8.0),
                       child: Row(
                         mainAxisSize: MainAxisSize.max,
                         children: [
@@ -112,7 +116,9 @@ class _ValidationLotCommercantPageWidgetState
                             padding: const EdgeInsetsDirectional.fromSTEB(
                                 4.0, 0.0, 0.0, 0.0),
                             child: Text(
-                              'Validation du lot',
+                              widget.prize?.isAvailable == true
+                                  ? 'Code valide'
+                                  : 'Validation du lot',
                               style: FlutterFlowTheme.of(context)
                                   .headlineMedium
                                   .override(
@@ -171,7 +177,8 @@ class _ValidationLotCommercantPageWidgetState
               ),
             ),
             child: Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
+              padding:
+                  const EdgeInsetsDirectional.fromSTEB(20.0, 0.0, 20.0, 0.0),
               child: Column(
                 mainAxisSize: MainAxisSize.max,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,21 +281,18 @@ class _ValidationLotCommercantPageWidgetState
                                                 ),
                                           ),
                                           Expanded(
-                                            child:
-                                                FutureBuilder<PrizeWinnerContact?>(
-                                              future:
-                                                  fetchPrizeWinnerContactForMerchant(
-                                                widget.prize!.reference.id,
-                                              ),
+                                            child: FutureBuilder<
+                                                PrizeWinnerContact?>(
+                                              future: _winnerContact,
                                               builder: (context, snapshot) {
                                                 // Customize what your widget looks like when it's loading.
-                                                if (!snapshot.hasData) {
+                                                if (snapshot.connectionState !=
+                                                    ConnectionState.done) {
                                                   return const Center(
                                                     child: SizedBox(
                                                       width: 50.0,
                                                       height: 50.0,
-                                                      child:
-                                                          SizedBox.shrink(),
+                                                      child: SizedBox.shrink(),
                                                     ),
                                                   );
                                                 }
@@ -482,8 +486,9 @@ class _ValidationLotCommercantPageWidgetState
                                                     BorderRadius.circular(8.0),
                                               ),
                                               child: Padding(
-                                                padding: const EdgeInsetsDirectional
-                                                    .fromSTEB(
+                                                padding:
+                                                    const EdgeInsetsDirectional
+                                                        .fromSTEB(
                                                         12.0, 16.0, 12.0, 16.0),
                                                 child: Text(
                                                   'Lot Récupéré',
@@ -504,8 +509,8 @@ class _ValidationLotCommercantPageWidgetState
                                                                   .bodyMedium
                                                                   .fontStyle,
                                                         ),
-                                                        color:
-                                                            const Color(0xFF2068B9),
+                                                        color: const Color(
+                                                            0xFF2068B9),
                                                         letterSpacing: 0.0,
                                                         fontWeight:
                                                             FlutterFlowTheme.of(
@@ -532,8 +537,9 @@ class _ValidationLotCommercantPageWidgetState
                                                     BorderRadius.circular(8.0),
                                               ),
                                               child: Padding(
-                                                padding: const EdgeInsetsDirectional
-                                                    .fromSTEB(
+                                                padding:
+                                                    const EdgeInsetsDirectional
+                                                        .fromSTEB(
                                                         12.0, 16.0, 12.0, 16.0),
                                                 child: Text(
                                                   'En attente de validation',
@@ -554,8 +560,8 @@ class _ValidationLotCommercantPageWidgetState
                                                                   .bodyMedium
                                                                   .fontStyle,
                                                         ),
-                                                        color:
-                                                            const Color(0xFF2E7D32),
+                                                        color: const Color(
+                                                            0xFF2E7D32),
                                                         letterSpacing: 0.0,
                                                         fontWeight:
                                                             FlutterFlowTheme.of(
@@ -579,8 +585,10 @@ class _ValidationLotCommercantPageWidgetState
                                 ),
                               ),
                             ),
-                            if (widget.prize!.isExpired && !widget.prize!.claimed)
-                              const Text('Lot expiré : la date limite d’utilisation est dépassée.'),
+                            if (widget.prize!.isExpired &&
+                                !widget.prize!.claimed)
+                              const Text(
+                                  'Lot expiré : la date limite d’utilisation est dépassée.'),
                             if (_canClaim && widget.prize!.isAvailable)
                               FFButtonWidget(
                                 showLoadingIndicator: _isSubmitting,
@@ -621,8 +629,9 @@ class _ValidationLotCommercantPageWidgetState
                                   width: MediaQuery.sizeOf(context).width * 1.0,
                                   height: 56.0,
                                   padding: const EdgeInsets.all(8.0),
-                                  iconPadding: const EdgeInsetsDirectional.fromSTEB(
-                                      0.0, 0.0, 0.0, 0.0),
+                                  iconPadding:
+                                      const EdgeInsetsDirectional.fromSTEB(
+                                          0.0, 0.0, 0.0, 0.0),
                                   color: FlutterFlowTheme.of(context).primary,
                                   textStyle: FlutterFlowTheme.of(context)
                                       .titleMedium
@@ -665,5 +674,3 @@ class _ValidationLotCommercantPageWidgetState
     );
   }
 }
-
-

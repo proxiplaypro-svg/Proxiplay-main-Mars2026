@@ -211,7 +211,10 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                             '${prize.isAvailable ? 'À utiliser avant le' : 'Échéance :'} ${dateTimeFormat('dd/MM/yyyy', deadline)}',
                             Icons.schedule),
                       ],
-                      if (prize.gameId == null) ...[
+                      if (prize.gameId == null ||
+                          prize.fulfillmentType == 'partner' ||
+                          prize.fulfillmentType == 'platform' ||
+                          prize.fulfillmentType == 'review') ...[
                         if (prize.fulfillmentType == 'platform') ...[
                           const SizedBox(height: 12),
                           const Text('Remise du lot organisée par Proxiplay.')
@@ -264,7 +267,11 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                       ])
                 : Text(prize.claimed ? 'Lot récupéré' : 'Lot expiré',
                     style: const TextStyle(color: ink))),
-        if (prize.gameId != null || prize.fulfillmentType == 'merchant') ...[
+        if (prize.fulfillmentType == 'merchant' ||
+            (prize.gameId != null &&
+                prize.fulfillmentType != 'partner' &&
+                prize.fulfillmentType != 'platform' &&
+                prize.fulfillmentType != 'review')) ...[
           const SizedBox(height: 16),
           MerchantPickupPoint(enseigneRef: prize.enseigneId),
         ],
@@ -319,12 +326,13 @@ class _LotDetailJoueurPageWidgetState extends State<LotDetailJoueurPageWidget> {
                     : StreamBuilder<GamesRecord>(
                         stream: GamesRecord.getDocument(_lot!.gameId!),
                         builder: (context, snapshot) {
-                          if (!snapshot.hasData)
+                          if (!snapshot.hasData) {
                             return const Center(
                                 child: SizedBox(
                                     width: 50,
                                     height: 50,
                                     child: SizedBox.shrink()));
+                          }
                           return _content(gamePhoto: snapshot.data!.photo);
                         })),
             wrapWithModel(

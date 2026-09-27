@@ -4,7 +4,6 @@ import '/services/merchant_games_service.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
-import '/components/get_code_gagnant_widget.dart';
 import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -17,10 +16,10 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:webviewx_plus/webviewx_plus.dart';
 import 'home_commercant_page_model.dart';
 export 'home_commercant_page_model.dart';
 
@@ -40,15 +39,84 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
+  bool _isCheckingCode = false;
+
+  Future<void> _checkWinningCode() async {
+    if (_isCheckingCode) return;
+    final clock = Stopwatch()..start();
+    void trace(String stage) {
+      if (kDebugMode) {
+        debugPrint(
+            '[MerchantCodeCheck] $stage elapsedMs=${clock.elapsedMilliseconds}');
+      }
+    }
+
+    trace('T0 click');
+    setState(() => _isCheckingCode = true);
+    FocusScope.of(context).unfocus();
+    final code = _normalizeClaimCode(_model.textController.text);
+    _model.textController.text = code;
+    PrizesRecord? prize;
+    String? message;
+    try {
+      // Paint the loading state before starting network work.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+      trace('T1 request');
+      prize = await _findPrizeForMerchantClaimCode(code, onTrace: trace);
+      trace('T2 response');
+      if (prize == null) {
+        message = 'Code invalide';
+      } else if (prize.claimed) {
+        message = 'Ce lot a déjà été retiré.';
+      } else if (prize.isExpired) {
+        message = 'Ce code a expiré.';
+      }
+    } catch (_) {
+      // Never log the code, contact data, or raw backend errors.
+      trace('T2 error_or_timeout');
+      message = 'Impossible de vérifier le code pour le moment. Réessayez.';
+    } finally {
+      if (mounted) setState(() => _isCheckingCode = false);
+    }
+    if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
+    if (message != null) {
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          content: Text(message!),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'))
+          ],
+        ),
+      );
+    } else {
+      context.pushNamed(
+        ValidationLotCommercantPageWidget.routeName,
+        queryParameters:
+            {'prize': serializeParam(prize, ParamType.Document)}.withoutNulls,
+        extra: <String, dynamic>{'prize': prize},
+      );
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) trace('T3 result_frame');
+    });
+  }
+
   String _normalizeClaimCode(String rawValue) {
     return rawValue.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
   }
 
-  Future<PrizesRecord?> _findPrizeForMerchantClaimCode(String rawCode) async {
+  Future<PrizesRecord?> _findPrizeForMerchantClaimCode(String rawCode,
+      {void Function(String)? onTrace}) async {
     final code = _normalizeClaimCode(rawCode);
     if (code.isEmpty || currentUserReference == null) return null;
-    final prizes = await loadMerchantPrizes();
-    return prizes.firstWhereOrNull((prize) => _normalizeClaimCode(prize.claimCode) == code);
+    final prizes = await loadMerchantPrizes(
+        timeout: const Duration(seconds: 15), onTrace: onTrace);
+    return prizes.firstWhereOrNull(
+        (prize) => _normalizeClaimCode(prize.claimCode) == code);
   }
 
   Widget _buildStatusBadge() {
@@ -387,6 +455,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                             .fromSTEB(16.0, 0.0, 16.0, 16.0),
                                         child: TextFormField(
                                           controller: _model.textController,
+                                          enabled: !_isCheckingCode,
                                           focusNode: _model.textFieldFocusNode,
                                           autofocus: false,
                                           obscureText: false,
@@ -515,86 +584,23 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                           padding: const EdgeInsetsDirectional
                                               .fromSTEB(16.0, 0.0, 16.0, 16.0),
                                           child: FFButtonWidget(
-                                            onPressed: () async {
-                                              final normalizedCode =
-                                                  _normalizeClaimCode(
-                                                _model.textController.text,
-                                              );
-                                              _model.textController.text =
-                                                  normalizedCode;
-                                              try {
-                                                _model.resultPrize =
-                                                    await _findPrizeForMerchantClaimCode(
-                                                  normalizedCode,
-                                                );
-                                              } catch (error, stackTrace) {
-                                                debugPrint(
-                                                  'Failed to lookup prize by claim code '
-                                                  '"$normalizedCode": $error',
-                                                );
-                                                debugPrintStack(
-                                                    stackTrace: stackTrace);
-                                                _model.resultPrize = null;
-                                              }
-                                              if (!context.mounted) return;
-                                              if (_model.resultPrize != null) {
-                                                context.pushNamed(
-                                                  ValidationLotCommercantPageWidget
-                                                      .routeName,
-                                                  queryParameters: {
-                                                    'prize': serializeParam(
-                                                      _model.resultPrize,
-                                                      ParamType.Document,
-                                                    ),
-                                                  }.withoutNulls,
-                                                  extra: <String, dynamic>{
-                                                    'prize': _model.resultPrize,
-                                                  },
-                                                );
-                                              } else {
-                                                await showDialog(
-                                                  context: context,
-                                                  builder: (dialogContext) {
-                                                    return Dialog(
-                                                      elevation: 0,
-                                                      insetPadding:
-                                                          EdgeInsets.zero,
-                                                      backgroundColor:
-                                                          Colors.transparent,
-                                                      alignment:
-                                                          const AlignmentDirectional(
-                                                                  0.0, 0.0)
-                                                              .resolve(
-                                                                  Directionality.of(
-                                                                      context)),
-                                                      child: WebViewAware(
-                                                        child: GestureDetector(
-                                                          onTap: () {
-                                                            FocusScope.of(
-                                                                    dialogContext)
-                                                                .unfocus();
-                                                            FocusManager
-                                                                .instance
-                                                                .primaryFocus
-                                                                ?.unfocus();
-                                                          },
-                                                          child:
-                                                              const GetCodeGagnantWidget(
-                                                            title:
-                                                                'Pas de r\u00E9sultat',
-                                                            description:
-                                                                'Le code ne correspond \u00E0 aucun lot de votre boutique',
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                );
-                                              }
-
-                                              safeSetState(() {});
-                                            },
-                                            text: 'V\u00E9rifier',
+                                            onPressed: _isCheckingCode
+                                                ? null
+                                                : _checkWinningCode,
+                                            showLoadingIndicator: false,
+                                            icon: _isCheckingCode
+                                                ? const SizedBox(
+                                                    width: 18,
+                                                    height: 18,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                            color:
+                                                                Colors.white))
+                                                : null,
+                                            text: _isCheckingCode
+                                                ? 'V\u00e9rification...'
+                                                : 'V\u00e9rifier',
                                             options: FFButtonOptions(
                                               width: double.infinity,
                                               height: 40.0,
@@ -693,7 +699,9 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                     future: (_model
                                                 .firestoreRequestCompleter ??=
                                             Completer<List<GamesRecord>>()
-                                              ..complete(logMerchantGamesFailure(loadAllMerchantGames(), 'home')
+                                              ..complete(logMerchantGamesFailure(
+                                                      loadAllMerchantGames(),
+                                                      'home')
                                                   .then((games) => games
                                                       .where((g) =>
                                                           g.endDate != null &&
@@ -703,7 +711,8 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                         .future,
                                     builder: (context, snapshot) {
                                       // Customize what your widget looks like when it's loading.
-                                      if (snapshot.connectionState == ConnectionState.waiting) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
                                         return const Center(
                                           child: SizedBox(
                                             width: 40.0,
@@ -714,9 +723,11 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                         );
                                       }
                                       if (snapshot.hasError) {
-                                        return MerchantGamesLoadError(onRetry: () => setState(() {
-                                          _model.firestoreRequestCompleter = null;
-                                        }));
+                                        return MerchantGamesLoadError(
+                                            onRetry: () => setState(() {
+                                                  _model.firestoreRequestCompleter =
+                                                      null;
+                                                }));
                                       }
                                       List<GamesRecord>
                                           listViewGamesRecordList =

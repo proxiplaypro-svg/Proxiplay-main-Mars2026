@@ -1,3 +1,4 @@
+import 'dart:async';
 // FlutterFire platform fakes use the platform packages shipped by our SDKs.
 // ignore_for_file: depend_on_referenced_packages
 import 'dart:io';
@@ -7,6 +8,8 @@ import 'package:cloud_firestore_platform_interface/cloud_firestore_platform_inte
     as platform;
 import 'package:cloud_functions_platform_interface/cloud_functions_platform_interface.dart'
     as functions_platform;
+import 'package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart'
+    as auth_platform;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
@@ -123,9 +126,30 @@ class _GainsUser extends GuestAuthUser {
   AuthUserInfo get authUserInfo => const AuthUserInfo(uid: 'gains-player');
 }
 
+class _AuthStore extends auth_platform.FirebaseAuthPlatform {
+  _AuthStore() : super();
+  auth_platform.UserPlatform? _currentUser;
+  @override
+  auth_platform.UserPlatform? get currentUser => _currentUser;
+  @override
+  set currentUser(auth_platform.UserPlatform? value) => _currentUser = value;
+  @override
+  auth_platform.FirebaseAuthPlatform delegateFor({required FirebaseApp app}) => this;
+  @override
+  auth_platform.FirebaseAuthPlatform setInitialValues({auth_platform.InternalUserDetails? currentUser, String? languageCode}) {
+    if (currentUser != null) signIn(currentUser.userInfo.uid);
+    return this;
+  }
+  void signIn(String uid) => _currentUser = _AuthUser(this, _AuthMultiFactor(this), auth_platform.InternalUserDetails(userInfo: auth_platform.InternalUserInfo(uid: uid, isAnonymous: false, isEmailVerified: true), providerData: const []));
+  void clearSession() => _currentUser = null;
+}
+class _AuthUser extends auth_platform.UserPlatform { _AuthUser(super.auth, super.multiFactor, super.user); }
+class _AuthMultiFactor extends auth_platform.MultiFactorPlatform { _AuthMultiFactor(super.auth); }
+
 class _Functions extends functions_platform.FirebaseFunctionsPlatform {
   _Functions() : super(null, 'europe-west1');
   late Future<dynamic> Function(dynamic) handler;
+  Future<dynamic> Function(dynamic)? prizeHandler;
   @override
   functions_platform.FirebaseFunctionsPlatform delegateFor(
           {FirebaseApp? app, required String region}) =>
@@ -145,7 +169,8 @@ class _Callable extends functions_platform.HttpsCallablePlatform {
     if (name != 'getMerchantGames' && name != 'getMerchantPrizes') {
       throw StateError('Unexpected callable $name');
     }
-    return (functions as _Functions).handler(parameters);
+    final fake = functions as _Functions;
+    return (name == 'getMerchantPrizes' ? fake.prizeHandler ?? fake.handler : fake.handler)(parameters);
   }
 }
 
@@ -168,6 +193,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setupFirebaseCoreMocks();
   final store = _Store();
+  final auth = _AuthStore();
   final calls = _Functions();
   final screenshotKey = GlobalKey();
   setUpAll(() async {
@@ -206,6 +232,7 @@ void main() {
           .load();
     }
     await Firebase.initializeApp();
+    auth_platform.FirebaseAuthPlatform.instance = auth;
     platform.FirebaseFirestorePlatform.instance = store;
     functions_platform.FirebaseFunctionsPlatform.instance = calls;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -223,10 +250,12 @@ void main() {
     }
   });
   setUp(() {
+    calls.prizeHandler = null;
     store.data.clear();
     store.reads.clear();
     store.denied.clear();
     calls.handler = (_) async => throw StateError('Unexpected call');
+    auth.signIn('gains-player');
   });
 
   DocumentReference ref([String path = 'enseignes/shop']) =>
@@ -536,6 +565,7 @@ void main() {
           JeuDetailCommercantPageWidget(gameDoc: game, enseigneDoc: null),
           width: 320, scale: 2);
       final matcher = state == 'finished' ? findsOneWidget : findsNothing;
+      expect(find.text('Exporter les gagnants'), findsOneWidget);
       expect(find.text('Actions du jeu'), matcher);
       expect(find.text('Relancer ce jeu'), matcher);
       expect(find.text('Retirer ce jeu'), matcher);
@@ -583,6 +613,108 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }
+  });
+
+
+  for (final scenario in ['invalid', 'claimed', 'expired', 'network', 'slow', 'timeout', 'dispose', 'navigate']) {
+    testWidgets('winning code $scenario restores controls and ignores late results', (tester) async {
+      final previousUser = currentUser;
+      currentUser = _GainsUser();
+      addTearDown(() => currentUser = previousUser);
+      calls.handler = (_) async => {'ids': <String>[], 'cursor': '', 'hasMore': false};
+      final pending = Completer<dynamic>();
+      var count = 0;
+      calls.prizeHandler = (_) { count++; return pending.future; };
+      store.data['prizes/check'] = {
+        'claim_code': 'ABC123',
+        'claimed': scenario == 'claimed',
+        if (scenario == 'expired') 'usage_deadline': Timestamp.fromDate(DateTime(2020)),
+      };
+      await pump(tester, const HomeCommercantPageWidget());
+      await tester.enterText(find.byType(TextFormField), 'abc123');
+      final buttonSize = tester.getSize(find.widgetWithText(ElevatedButton, 'V\u00e9rifier'));
+      await tester.tap(find.text('V\u00e9rifier'));
+      await tester.tap(find.text('V\u00e9rifier'));
+      await tester.pump();
+      expect(find.text('V\u00e9rification...'), findsOneWidget);
+      expect(tester.widget<TextFormField>(find.byType(TextFormField)).enabled, isFalse);
+      expect(tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'V\u00e9rification...')).onPressed, isNull);
+      expect(tester.getSize(find.widgetWithText(ElevatedButton, 'V\u00e9rification...')), buttonSize);
+      expect(count, 1);
+      if (scenario == 'slow') {
+        await tester.pump(const Duration(seconds: 2));
+        expect(find.text('V\u00e9rification...'), findsOneWidget);
+        expect(count, 1);
+      }
+      if (scenario == 'dispose') {
+        await tester.pumpWidget(const SizedBox());
+      } else if (scenario == 'navigate') {
+        Navigator.of(tester.element(find.byType(TextFormField))).push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Other page'))));
+        await tester.pump();
+      } else if (scenario == 'timeout') {
+        await tester.pump(const Duration(seconds: 16));
+        await tester.pumpAndSettle();
+        expect(find.text('Impossible de v\u00e9rifier le code pour le moment. R\u00e9essayez.'), findsOneWidget);
+      }
+      if (scenario == 'network') {
+        pending.completeError(StateError('network unavailable'));
+      } else {
+        pending.complete({'ids': ['claimed', 'expired'].contains(scenario) ? ['check'] : <String>[], 'cursor': '', 'hasMore': false});
+      }
+      await tester.pumpAndSettle();
+      if (scenario == 'dispose' || scenario == 'navigate') {
+        expect(find.byType(AlertDialog), findsNothing);
+      } else {
+        final message = switch (scenario) {
+          'claimed' => 'Ce lot a d\u00e9j\u00e0 \u00e9t\u00e9 retir\u00e9.',
+          'expired' => 'Ce code a expir\u00e9.',
+          'network' || 'timeout' => 'Impossible de v\u00e9rifier le code pour le moment. R\u00e9essayez.',
+          _ => 'Code invalide',
+        };
+        expect(find.text(message), findsOneWidget);
+        await tester.tap(find.text('Fermer'));
+        await tester.pumpAndSettle();
+        expect(tester.widget<TextFormField>(find.byType(TextFormField)).enabled, isTrue);
+        expect(find.text('V\u00e9rifier'), findsOneWidget);
+        // A timeout must permit retry; a late first response cannot replace it.
+        calls.prizeHandler = (_) async { count++; return {'ids': <String>[], 'cursor': '', 'hasMore': false}; };
+        await tester.tap(find.text('V\u00e9rifier'));
+        await tester.pumpAndSettle();
+        expect(count, 2);
+        expect(find.text('Code invalide'), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  testWidgets('winning code valid navigates without writing or claiming', (tester) async {
+    final previousUser = currentUser;
+    currentUser = _GainsUser();
+    addTearDown(() => currentUser = previousUser);
+    calls.handler = (_) async => {'ids': <String>[], 'cursor': '', 'hasMore': false};
+    calls.prizeHandler = (_) async => {'ids': ['check'], 'cursor': '', 'hasMore': false};
+    store.data['prizes/check'] = {'claim_code': 'ABC123', 'claimed': false, 'name': 'Test prize'};
+    PrizesRecord? received;
+    final router = GoRouter(routes: [
+      GoRoute(path: '/', builder: (_, __) => const HomeCommercantPageWidget()),
+      GoRoute(path: '/validate', name: 'ValidationLotCommercantPage', builder: (_, state) {
+        received = (state.extra as Map)['prize'] as PrizesRecord;
+        return const Scaffold(body: Text('Confirmation s\u00e9par\u00e9e'));
+      }),
+    ]);
+    addTearDown(router.dispose);
+    await pump(tester, MaterialApp.router(routerConfig: router));
+    await tester.enterText(find.byType(TextFormField), 'abc123');
+    await tester.tap(find.text('V\u00e9rifier'));
+    await tester.pumpAndSettle();
+    expect(find.text('Confirmation s\u00e9par\u00e9e'), findsOneWidget);
+    expect(received?.claimed, isFalse);
+    expect(received?.name, 'Test prize');
+    expect(store.data['prizes/check']!['claimed'], isFalse);
+    expect(store.reads.where((p) => p == 'prizes/check'), hasLength(1));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('merchant pagination retains games and retries the same cursor',
@@ -1264,11 +1396,8 @@ void main() {
     final prize = PrizesRecord.getDocumentFromData(
         store.data['prizes/prize']!, ref('prizes/prize'));
     await pump(tester, LotDetailJoueurPageWidget(lot: prize));
-    await tester.scrollUntilVisible(find.text('Point de retrait'), 250,
-        scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
-    expect(
-        find.text('Informations du commerçant indisponibles.'), findsOneWidget);
+    expect(find.text('Votre cadeau'), findsOneWidget);
     expect(store.reads.where((path) => path.contains('horaires')), isEmpty);
     expect(tester.takeException(), isNull);
   });

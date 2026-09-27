@@ -15,6 +15,7 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import '/utils/create_account_to_play_dialog.dart';
 import '/utils/game_launch_coordinator.dart';
 import '/utils/minor_restricted_game_access.dart';
+import '/utils/main_prize_ticket_presentation.dart';
 import '/utils/share_links.dart';
 import '/utils/game_view_tracker.dart';
 import '/utils/winner_identity.dart';
@@ -1090,7 +1091,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             getCurrentTimestamp.isAfter(endDate) &&
             gameDoc.hasWinner &&
             (gameDoc.mainPrizeWinner != null);
-        final hasMainPrizeFlag = gameDoc.hasMainPrize == true;
+        // `hasMainPrize` is the sole source of truth for a draw ticket.
+        // Do not infer it from prize value or instant-win fields.  A missing
+        // legacy field is conservatively hidden until backend backfill.
+        final hasMainPrizeFlag = shouldShowMainPrizeTicket(
+          hasMainPrize: gameDoc.hasHasMainPrize() ? gameDoc.hasMainPrize : null,
+        );
         final prizeValue = gameDoc.prizeValue;
         final mainPrizeDescription = gameDoc.description.trim();
         // Regle produit :
@@ -1778,7 +1784,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                           } else if (widget.gameDoc!.endDate! <
                                                                               getCurrentTimestamp) {
                                                                             return 'Le jeu est termin\u00E9';
-                                                                          } else if (hasPlayedToday &&
+                                                                          } else if (hasMainPrizeFlag &&
+                                                                              hasPlayedToday &&
                                                                               ticketCount > 0) {
                                                                             return '\uD83C\uDF9F\uFE0F $ticketCount ${ticketCount > 1 ? 'tickets valid\u00E9s' : 'ticket valid\u00E9'}';
                                                                           } else if (hasPlayedToday) {
@@ -1951,7 +1958,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                           } else if (widget.gameDoc!.endDate! <
                                                                               getCurrentTimestamp) {
                                                                             return 'Le jeu est termin\u00E9';
-                                                                          } else if (hasPlayedToday &&
+                                                                          } else if (hasMainPrizeFlag &&
+                                                                              hasPlayedToday &&
                                                                               ticketCount > 0) {
                                                                             return '\uD83C\uDF9F\uFE0F $ticketCount ${ticketCount > 1 ? 'tickets valid\u00E9s' : 'ticket valid\u00E9'}';
                                                                           } else if (hasPlayedToday) {

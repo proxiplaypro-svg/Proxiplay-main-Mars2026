@@ -522,11 +522,14 @@ test("nombreux gagnants (50) -> tous exportes, un seul batch de lecture users", 
 test("un log d'audit est ecrit sans donnees personnelles", async () => {
   const before = await firestore.collection("_export_audit_logs")
     .where("gameId", "==", "game1").get();
+  const beforeIds = new Set(before.docs.map((doc) => doc.id));
   await wrapped({gameId: "game1", format: "csv"}, {auth: {uid: "merchant_uid"}});
   const after = await firestore.collection("_export_audit_logs")
     .where("gameId", "==", "game1").get();
   assert.equal(after.size, before.size + 1);
-  const entry = after.docs[after.docs.length - 1].data();
+  const created = after.docs.find((doc) => !beforeIds.has(doc.id));
+  assert.ok(created);
+  const entry = created.data();
   assert.equal(entry.merchantId, "users/merchant_uid");
   assert.equal(entry.gameId, "game1");
   assert.equal(entry.format, "csv");
