@@ -29,7 +29,14 @@ class PlayerGainCard extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
           decoration: BoxDecoration(
-              color: muted ? const Color(0xFFF3F0F5) : const Color(0xFFFCEAF2),
+              color: muted
+                  ? const Color(0xFFF3F0F5)
+                  : gainPink.withValues(alpha: 0.08),
+              border: Border.all(
+                color: muted
+                    ? const Color(0xFFF0ECF1)
+                    : gainPink.withValues(alpha: 0.20),
+              ),
               borderRadius: BorderRadius.circular(12)),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             if (icon != null) ...[
@@ -84,7 +91,7 @@ class PlayerGainCard extends StatelessWidget {
               icon: const Icon(Icons.qr_code_rounded, size: 20),
               label: const Text('Voir mon lot', textAlign: TextAlign.center),
               style: FilledButton.styleFrom(
-                  backgroundColor: gainPink,
+                  backgroundColor: gainInk,
                   foregroundColor: gainPaper,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 13),

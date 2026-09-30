@@ -1718,9 +1718,16 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                           FFButtonWidget(
                                                                         showLoadingIndicator:
                                                                             false,
-                                                                        onPressed: ((widget.gameDoc!.endDate! < getCurrentTimestamp) ||
-                                                                                (noRemainingParts && !hasPlayedToday) ||
-                                                                                _isLaunchingGame)
+                                                                        onPressed: !isGameDetailPrimaryActionEnabled(
+                                                                          gameEnded:
+                                                                              widget.gameDoc!.endDate! < getCurrentTimestamp,
+                                                                          noRemainingParts:
+                                                                              noRemainingParts,
+                                                                          hasPlayedToday:
+                                                                              hasPlayedToday,
+                                                                          isLaunchingGame:
+                                                                              _isLaunchingGame,
+                                                                        )
                                                                             ? null
                                                                             : () async {
                                                                                 if (_isLaunchingGame) {
@@ -1787,7 +1794,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                           } else if (hasMainPrizeFlag &&
                                                                               hasPlayedToday &&
                                                                               ticketCount > 0) {
-                                                                            return '\uD83C\uDF9F\uFE0F $ticketCount ${ticketCount > 1 ? 'tickets valid\u00E9s' : 'ticket valid\u00E9'}';
+                                                                            return mainPrizeTicketLabel(
+                                                                              ticketCount,
+                                                                            );
                                                                           } else if (hasPlayedToday) {
                                                                             return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
                                                                           } else if (hasPlayedBefore) {
@@ -1900,9 +1909,16 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       return FFButtonWidget(
                                                                         showLoadingIndicator:
                                                                             false,
-                                                                        onPressed: ((widget.gameDoc!.endDate! < getCurrentTimestamp) ||
-                                                                                (noRemainingPartsLive && !hasPlayedToday) ||
-                                                                                _isLaunchingGame)
+                                                                        onPressed: !isGameDetailPrimaryActionEnabled(
+                                                                          gameEnded:
+                                                                              widget.gameDoc!.endDate! < getCurrentTimestamp,
+                                                                          noRemainingParts:
+                                                                              noRemainingPartsLive,
+                                                                          hasPlayedToday:
+                                                                              hasPlayedToday,
+                                                                          isLaunchingGame:
+                                                                              _isLaunchingGame,
+                                                                        )
                                                                             ? null
                                                                             : () async {
                                                                                 if (_isLaunchingGame) {
@@ -1961,7 +1977,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                           } else if (hasMainPrizeFlag &&
                                                                               hasPlayedToday &&
                                                                               ticketCount > 0) {
-                                                                            return '\uD83C\uDF9F\uFE0F $ticketCount ${ticketCount > 1 ? 'tickets valid\u00E9s' : 'ticket valid\u00E9'}';
+                                                                            return mainPrizeTicketLabel(
+                                                                              ticketCount,
+                                                                            );
                                                                           } else if (hasPlayedToday) {
                                                                             return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
                                                                           } else if (hasPlayedBefore) {
@@ -3156,7 +3174,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                           border: Border.all(
                                                             color: const Color(
                                                                 0xFFE7EAF3),
-                                                          ),
+                                                                        ),
                                                           boxShadow: [
                                                             BoxShadow(
                                                               blurRadius: 18.0,
@@ -3323,7 +3341,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         style:
                                                                             detailBodyStyle,
                                                                       ),
-
                                                                     ],
                                                                   ),
                                                                 ),
@@ -3442,7 +3459,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                           border: Border.all(
                                                             color: const Color(
                                                                 0xFFE7EAF3),
-                                                          ),
+                                                                        ),
                                                           boxShadow: [
                                                             BoxShadow(
                                                               blurRadius: 18.0,
@@ -3609,7 +3626,6 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                         style:
                                                                             detailBodyStyle,
                                                                       ),
-
                                                                     ],
                                                                   ),
                                                                 ),

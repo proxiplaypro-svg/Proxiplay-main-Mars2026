@@ -26,9 +26,24 @@ class PrizeWinnerContact {
       [firstName, lastName].where((part) => part.trim().isNotEmpty).join(' ');
 }
 
-/// Returns `null` if the call fails or the caller isn't authorized — callers
-/// should show a neutral fallback ("coordonnées indisponibles") rather than
-/// surfacing the raw error.
+/// Caches one in-flight/resolved contact request per prize for the lifetime of
+/// its owner screen. Rebuilds therefore do not issue duplicate callables.
+class PrizeWinnerContactFutureCache {
+  PrizeWinnerContactFutureCache({
+    required Future<PrizeWinnerContact?> Function(String prizeId) fetch,
+  }) : _fetch = fetch;
+
+  final Future<PrizeWinnerContact?> Function(String prizeId) _fetch;
+  final Map<String, Future<PrizeWinnerContact?>> _contacts = {};
+
+  Future<PrizeWinnerContact?> get(String prizeId) =>
+      _contacts.putIfAbsent(prizeId, () => _fetch(prizeId));
+
+  void retry(String prizeId) => _contacts.remove(prizeId);
+}
+
+/// Returns a completed contact (which may contain empty individual fields).
+/// Callable errors are rethrown so merchant UI can present an explicit retry.
 Future<PrizeWinnerContact?> fetchPrizeWinnerContactForMerchant(
   String prizeId,
 ) async {
@@ -52,9 +67,9 @@ Future<PrizeWinnerContact?> fetchPrizeWinnerContactForMerchant(
     if (kDebugMode) {
       debugPrint('[PrizeWinnerContact] fetch failed code=${error.code}');
     }
-    return null;
+    rethrow;
   } catch (_) {
     if (kDebugMode) debugPrint('[PrizeWinnerContact] error_or_timeout');
-    return null;
+    rethrow;
   }
 }

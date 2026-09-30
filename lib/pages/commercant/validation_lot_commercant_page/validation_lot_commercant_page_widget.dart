@@ -1,10 +1,12 @@
 import '/services/merchant_prizes_service.dart';
+import '/components/merchant_prize_claim_success_dialog.dart';
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/utils/prize_winner_contact.dart';
+import '/utils/merchant_prize_claim_flow.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'validation_lot_commercant_page_model.dart';
@@ -34,7 +36,7 @@ class _ValidationLotCommercantPageWidgetState
   late ValidationLotCommercantPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
-  bool _isSubmitting = false;
+  final _claimFlow = MerchantPrizeClaimFlow();
   bool _canClaim = false;
   Future<PrizeWinnerContact?>? _winnerContact;
 
@@ -475,7 +477,8 @@ class _ValidationLotCommercantPageWidgetState
                                       ),
                                       Builder(
                                         builder: (context) {
-                                          if (widget.prize?.claimed ?? false) {
+                                           if ((widget.prize?.claimed ?? false) ||
+                                               _claimFlow.isClaimed) {
                                             return Container(
                                               width: MediaQuery.sizeOf(context)
                                                       .width *
@@ -589,23 +592,36 @@ class _ValidationLotCommercantPageWidgetState
                                 !widget.prize!.claimed)
                               const Text(
                                   'Lot expiré : la date limite d’utilisation est dépassée.'),
-                            if (_canClaim && widget.prize!.isAvailable)
+                            if (_canClaim &&
+                                widget.prize!.isAvailable &&
+                                !_claimFlow.isClaimed)
                               FFButtonWidget(
-                                showLoadingIndicator: _isSubmitting,
-                                onPressed: () async {
-                                  if (_isSubmitting) {
+                                showLoadingIndicator: _claimFlow.isSubmitting,
+                                onPressed: _claimFlow.isSubmitting
+                                    ? null
+                                    : () async {
+                                  if (!_claimFlow.start()) {
                                     return;
                                   }
 
                                   setState(() {
-                                    _isSubmitting = true;
                                   });
 
                                   try {
                                     await claimMerchantPrize(widget.prize!);
                                     if (!context.mounted) return;
-                                    context.safePop();
+                                    _claimFlow.succeed();
+                                    setState(() {});
+                                    await showDialog<void>(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (_) =>
+                                          const MerchantPrizeClaimSuccessDialog(),
+                                    );
+                                    if (!context.mounted) return;
+                                    context.pop(true);
                                   } catch (error) {
+                                    _claimFlow.fail();
                                     if (!context.mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -618,13 +634,13 @@ class _ValidationLotCommercantPageWidgetState
                                     );
                                   } finally {
                                     if (mounted) {
-                                      setState(() {
-                                        _isSubmitting = false;
-                                      });
+                                      setState(() {});
                                     }
                                   }
                                 },
-                                text: 'Valider la Récupération',
+                                text: _claimFlow.isSubmitting
+                                    ? 'Validation...'
+                                    : 'Valider la Récupération',
                                 options: FFButtonOptions(
                                   width: MediaQuery.sizeOf(context).width * 1.0,
                                   height: 56.0,

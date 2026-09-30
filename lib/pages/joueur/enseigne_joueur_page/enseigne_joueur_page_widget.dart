@@ -9,7 +9,9 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/widgets/proxiplay_network_image.dart';
 import 'dart:async';
+import 'dart:math';
 import '/index.dart';
+import '/utils/merchant_category_session_order.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -36,6 +38,21 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
   late StreamSubscription<bool> _keyboardVisibilitySubscription;
   bool _isKeyboardVisible = false;
   final Map<String, Future<List<ImagesRecord>>> _searchImageFutureCache = {};
+  final Random _sessionRandom = Random();
+  late final List<String> _sessionCategories;
+  final Map<String, Future<List<EnseignesRecord>>>
+      _categoryMerchantFutureCache = {};
+
+  Future<List<EnseignesRecord>> _getCategoryMerchants(String category) {
+    return _categoryMerchantFutureCache.putIfAbsent(
+      category,
+      () => queryEnseignesRecordOnce(
+        queryBuilder: (enseignesRecord) =>
+            enseignesRecord.where('category', arrayContains: category),
+        limit: 20,
+      ).then((records) => shuffledSessionCopy(records, _sessionRandom)),
+    );
+  }
 
   Future<List<ImagesRecord>> _getSearchImageFuture(EnseignesRecord enseigne) {
     return _searchImageFutureCache.putIfAbsent(
@@ -151,6 +168,10 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
   @override
   void initState() {
     super.initState();
+    _sessionCategories = shuffledSessionCopy(
+      FFAppConstants.Category.toList(),
+      _sessionRandom,
+    );
     _model = createModel(context, () => EnseigneJoueurPageModel());
 
     logFirebaseEvent('screen_view',
@@ -280,33 +301,30 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                           controller: _model.textController,
                                           focusNode: _model.textFieldFocusNode,
                                           onFieldSubmitted: (_) async {
-                                            await queryEnseignesRecordOnce()
-                                                .then(
-                                                  (records) => _model
-                                                          .simpleSearchResults =
-                                                      TextSearch(
-                                                    records
-                                                        .map(
-                                                          (record) =>
-                                                              TextSearchItem
-                                                                  .fromTerms(
-                                                                      record, [
-                                                            record.name
-                                                          ]),
-                                                        )
-                                                        .toList(),
-                                                  )
-                                                          .search(_model
-                                                              .textController
-                                                              .text)
-                                                          .map((r) => r.object)
-                                                          .take(10)
-                                                          .toList(),
-                                                )
-                                                .onError((_, __) => _model
-                                                    .simpleSearchResults = [])
-                                                .whenComplete(
-                                                    () => safeSetState(() {}));
+                                            try {
+                                              final categoryLists =
+                                                  await Future.wait(
+                                                _sessionCategories.map(
+                                                  _getCategoryMerchants,
+                                                ),
+                                              );
+                                              final query = _model
+                                                  .textController.text
+                                                  .trim()
+                                                  .toLowerCase();
+                                              _model.simpleSearchResults =
+                                                  categoryLists
+                                                      .expand((items) => items)
+                                                      .where((record) => record
+                                                          .name
+                                                          .toLowerCase()
+                                                          .contains(query))
+                                                      .take(10)
+                                                      .toList();
+                                            } catch (_) {
+                                              _model.simpleSearchResults = [];
+                                            }
+                                            safeSetState(() {});
 
                                             _model.searchActive = true;
                                           },
@@ -446,10 +464,11 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                   decoration: const BoxDecoration(),
                                   child: Builder(
                                     builder: (context) {
-                                      final catgeorie =
-                                          FFAppConstants.Category.toList();
+                                      final catgeorie = _sessionCategories;
 
                                       return SingleChildScrollView(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 24.0),
                                         child: Column(
                                           mainAxisSize: MainAxisSize.max,
                                           children:
@@ -459,14 +478,8 @@ class _EnseigneJoueurPageWidgetState extends State<EnseigneJoueurPageWidget> {
                                                 catgeorie[catgeorieIndex];
                                             return FutureBuilder<
                                                 List<EnseignesRecord>>(
-                                              future: queryEnseignesRecordOnce(
-                                                queryBuilder:
-                                                    (enseignesRecord) =>
-                                                        enseignesRecord.where(
-                                                  'category',
-                                                  arrayContains: catgeorieItem,
-                                                ),
-                                                limit: 20,
+                                              future: _getCategoryMerchants(
+                                                catgeorieItem,
                                               ),
                                               builder: (context, snapshot) {
                                                 // Customize what your widget looks like when it's loading.

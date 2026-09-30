@@ -195,7 +195,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: const Color(0xFFF0ECF1))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Icon(Icons.card_giftcard_rounded, color: gainPink, size: 30),
+        const Icon(Icons.card_giftcard_rounded, color: gainInk, size: 30),
         const SizedBox(height: 10),
         Text(
             '${items.length} lot${items.length == 1 ? '' : 's'} gagné${items.length == 1 ? '' : 's'}',
@@ -208,7 +208,7 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
         if (available > 0) ...[
           const SizedBox(height: 8),
           const Text('Profitez vite de vos lots !',
-              style: TextStyle(color: gainPink)),
+              style: TextStyle(color: Color(0xFF656171))),
         ],
       ]),
     );
@@ -227,8 +227,15 @@ class _LotsJoueurPageWidgetState extends State<LotsJoueurPageWidget> {
           child: TextButton(
             onPressed: () => setState(() => _showHistory = historyTab),
             style: TextButton.styleFrom(
-                backgroundColor: selected ? gainPink : const Color(0xFFF1EDF5),
-                foregroundColor: selected ? gainPaper : gainInk,
+                backgroundColor: selected
+                    ? (historyTab ? const Color(0xFFF1EDF5) : gainPink)
+                    : const Color(0xFFF1EDF5),
+                foregroundColor: selected && !historyTab ? gainPaper : gainInk,
+                side: BorderSide(
+                  color: selected && historyTab
+                      ? const Color(0xFFF0ECF1)
+                      : Colors.transparent,
+                ),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 shape: RoundedRectangleBorder(

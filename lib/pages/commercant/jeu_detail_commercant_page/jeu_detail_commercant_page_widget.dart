@@ -1,4 +1,5 @@
 import '/components/winner_email_text.dart';
+import '/components/winner_contact_information_card.dart';
 import '/utils/merchant_game_visibility.dart';
 import '/services/merchant_prizes_service.dart';
 import '/auth/firebase_auth/auth_util.dart';
@@ -46,6 +47,7 @@ class _JeuDetailCommercantPageWidgetState
   late JeuDetailCommercantPageModel _model;
 
   late Future<List<PrizesRecord>> _prizes;
+  late PrizeWinnerContactFutureCache _winnerContacts;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
   final Set<String> _claimingPrizeIds = <String>{};
@@ -56,6 +58,9 @@ class _JeuDetailCommercantPageWidgetState
   void initState() {
     super.initState();
     _prizes = loadMerchantPrizes(gameId: widget.gameDoc!.reference.id);
+    _winnerContacts = PrizeWinnerContactFutureCache(
+      fetch: fetchPrizeWinnerContactForMerchant,
+    );
     _model = createModel(context, () => JeuDetailCommercantPageModel());
 
     logFirebaseEvent('screen_view',
@@ -544,45 +549,11 @@ class _JeuDetailCommercantPageWidgetState
           ),
           if (prize.hasWinnerId()) ...[
             const SizedBox(height: 12.0),
-            FutureBuilder<PrizeWinnerContact?>(
-              future: fetchPrizeWinnerContactForMerchant(prize.reference.id),
-              builder: (context, snapshot) {
-                final winner = snapshot.data;
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12.0),
-                  decoration: BoxDecoration(
-                    color: FlutterFlowTheme.of(context)
-                        .primaryBackground
-                        .withValues(alpha: 0.65),
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Informations gagnant',
-                        style: FlutterFlowTheme.of(context).bodyMedium.override(
-                              font: GoogleFonts.inter(
-                                fontWeight: FontWeight.w700,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .fontStyle,
-                              ),
-                              letterSpacing: 0.0,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      const SizedBox(height: 8.0),
-                      _buildWinnerInfoRow('NOM', winner?.lastName),
-                      _buildWinnerInfoRow('PRENOM', winner?.firstName),
-                      _buildWinnerInfoRow('VILLE', winner?.city),
-                      _buildWinnerInfoRow('MAIL', winner?.email),
-                      _buildWinnerInfoRow('Telephone', winner?.phoneNumber),
-                    ].divide(const SizedBox(height: 6.0)),
-                  ),
-                );
-              },
+            WinnerContactInformationCard(
+              contactFuture: _winnerContacts.get(prize.reference.id),
+              onRetry: () => setState(
+                () => _winnerContacts.retry(prize.reference.id),
+              ),
             ),
           ],
           if (prize.isAvailable && prize.fulfillmentType == 'merchant') ...[
@@ -634,6 +605,9 @@ class _JeuDetailCommercantPageWidgetState
     );
   }
 
+  // Kept for generated-page compatibility; winner contact rendering now lives
+  // in WinnerContactInformationCard.
+  // ignore: unused_element
   Widget _buildWinnerInfoRow(String label, String? value) {
     final displayValue =
         (value ?? '').trim().isNotEmpty ? value!.trim() : '—';
