@@ -35,6 +35,15 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="proxiplay" android:host="game"/>
       </intent-filter>
+      <!-- Restaure la cible historique du redirect OneLink (proxiplay://proxiplay.com?ref=...),
+           retiree par erreur dans 664a8de le 09/05/2026 sans mettre a jour le tableau de bord
+           AppsFlyer : host distinct de "game" ci-dessus, aucun conflit de resolution possible. -->
+      <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="proxiplay" android:host="proxiplay.com"/>
+      </intent-filter>
       <intent-filter android:autoVerify="true">
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
