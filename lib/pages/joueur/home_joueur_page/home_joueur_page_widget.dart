@@ -27,6 +27,7 @@ import '/utils/proxiplay_layout.dart';
 import '/utils/share_links.dart';
 import '/utils/winner_identity.dart';
 import 'home_games_logic.dart';
+import 'share_promo_banner_logic.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1504,26 +1505,45 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         }
 
         if (hasNoRemainingPart) {
-          return SharePromoBanner(
-            data: SharePromoData(
-              kind: SharePromoKind.lowRemainingPlaysInvite,
-              title: '',
-              subtitle:
-                  'Aide un ami à découvrir Proxiplay et joue à tous les jeux jusqu\'à minuit.',
-              ctaLabel: 'Inviter un ami',
-              icon: Icons.volunteer_activism_rounded,
-              primaryColor: const Color(0xFFF5F6FB),
-              secondaryColor: const Color(0xFFA0134D),
-              titleColor: const Color(0xFF2C2F5B),
-              subtitleColor: const Color(0xFF2C2F5B),
-              buttonColor: const Color(0xFF2C2F5B),
-              buttonTextColor: Colors.white,
-              iconBackgroundColor: const Color(0xFFF7E6EE),
-              iconColor: const Color(0xFFA0134D),
-              animateCta: true,
-            ),
-            onTap: () {
-              _showSharePromoSheet();
+          // Pilotable depuis app_config/share_promo (enabled/isDraft/dates,
+          // cf. getSharePromoState côté backend) sans nouvelle release :
+          // bannière promotionnelle, donc fail-closed — seul un
+          // showBanner=true confirmé par le serveur l'affiche. Tant que la
+          // config n'a pas encore été chargée avec succès (demarrage,
+          // chargement en cours, erreur reseau), snapshot.data et
+          // _latestSharePromoState restent tous deux null -> bannière
+          // masquée par defaut.
+          return FutureBuilder<SharePromoStateViewModel?>(
+            future: _sharePromoFuture,
+            builder: (context, snapshot) {
+              final sharePromoState =
+                  snapshot.data ?? _latestSharePromoState;
+              if (!shouldShowHomeInviteBanner(sharePromoState)) {
+                return const SizedBox.shrink();
+              }
+
+              return SharePromoBanner(
+                data: SharePromoData(
+                  kind: SharePromoKind.lowRemainingPlaysInvite,
+                  title: '',
+                  subtitle:
+                      'Aide un ami à découvrir Proxiplay et joue à tous les jeux jusqu\'à minuit.',
+                  ctaLabel: 'Inviter un ami',
+                  icon: Icons.volunteer_activism_rounded,
+                  primaryColor: const Color(0xFFF5F6FB),
+                  secondaryColor: const Color(0xFFA0134D),
+                  titleColor: const Color(0xFF2C2F5B),
+                  subtitleColor: const Color(0xFF2C2F5B),
+                  buttonColor: const Color(0xFF2C2F5B),
+                  buttonTextColor: Colors.white,
+                  iconBackgroundColor: const Color(0xFFF7E6EE),
+                  iconColor: const Color(0xFFA0134D),
+                  animateCta: true,
+                ),
+                onTap: () {
+                  _showSharePromoSheet();
+                },
+              );
             },
           );
         }
