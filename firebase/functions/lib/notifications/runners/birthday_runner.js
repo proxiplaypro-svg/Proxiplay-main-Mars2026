@@ -81,9 +81,38 @@ function buildDateInTimeZone(baseDate, timeZone, hour, minute, second, milliseco
   return new Date(utcGuess.getTime() - offsetMs);
 }
 
-function getBirthdayDateKey(date, timeZone = kParisTimeZone) {
+function getBirthdayMonthDayKey(date, timeZone = kParisTimeZone) {
   const parts = getTimeZoneDateParts(date, timeZone);
   return `${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+}
+
+function getBirthdayDateKey(date, timeZone = kParisTimeZone) {
+  const parts = getTimeZoneDateParts(date, timeZone);
+  return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+}
+
+function buildBirthdayNotificationDocId(automationId, userId, birthdayDateKey) {
+  return `${automationId}_${userId}_${birthdayDateKey.replace(/-/g, "")}`;
+}
+
+function buildLegacyBirthdayNotificationDocId(automationId, userId, birthdayMonthDayKey) {
+  return `${automationId}_${userId}_${birthdayMonthDayKey.replace(/-/g, "")}`;
+}
+
+function isTimestampOnBirthdayDate(value, birthdayDateKey) {
+  const millis = timestampToMillis(value);
+  return millis !== null && getBirthdayDateKey(new Date(millis)) === birthdayDateKey;
+}
+
+function isLegacyBirthdayProcessedToday(data = {}, birthdayDateKey) {
+  return isTimestampOnBirthdayDate(data.createdAt || data.created_at || data.grantedAt, birthdayDateKey);
+}
+
+function isLegacyBirthdayDeliveryProcessedToday(data = {}, birthdayDateKey) {
+  return (
+    getTrimmedString(data.birthdayDateKey) === birthdayDateKey.slice(5) &&
+    isTimestampOnBirthdayDate(data.lastSentAt, birthdayDateKey)
+  );
 }
 
 function extractBirthdayDateKey(value) {
@@ -93,7 +122,7 @@ function extractBirthdayDateKey(value) {
 
   const millis = timestampToMillis(value);
   if (millis !== null) {
-    return getBirthdayDateKey(new Date(millis));
+    return getBirthdayMonthDayKey(new Date(millis));
   }
 
   const raw = getTrimmedString(value);
@@ -118,7 +147,7 @@ function extractBirthdayDateKey(value) {
 
   const parsed = new Date(raw);
   if (!Number.isNaN(parsed.getTime())) {
-    return getBirthdayDateKey(parsed);
+    return getBirthdayMonthDayKey(parsed);
   }
 
   return "";
@@ -142,16 +171,26 @@ function getBirthdayMessage(automationData = {}, userData = {}) {
       : {};
   const configured = messagesByStatus.default || {};
   const firstName = getTrimmedString(userData.first_name);
+  const configuredTitle = getTrimmedString(configured.title);
+  const configuredBody = getTrimmedString(configured.body);
+  const isLegacyBirthdayCopy =
+    configuredBody === "Profitez de vos avantages du jour et tentez votre chance !" &&
+    (
+      !configuredTitle ||
+      configuredTitle === "Joyeux anniversaire !" ||
+      configuredTitle === "Joyeux anniversaire {firstName} 🎉"
+    );
+  const template = isLegacyBirthdayCopy ? kDefaultBirthdayMessage : configured;
 
   return {
     title:
       interpolateTemplate(
-        configured.title || kDefaultBirthdayMessage.title,
+        template.title || kDefaultBirthdayMessage.title,
         {firstName},
       ) || kDefaultBirthdayMessage.title,
     body:
       interpolateTemplate(
-        configured.body || kDefaultBirthdayMessage.body,
+        template.body || kDefaultBirthdayMessage.body,
         {firstName},
       ) || kDefaultBirthdayMessage.body,
   };
@@ -191,18 +230,21 @@ function getBirthdayRewardConfig(automationData = {}) {
   if (!reward) {
     return null;
   }
-  if (
-    rewardType !== "all_games_until_midnight" &&
-    rewardType !== "free_play_all"
-  ) {
+  const isLegacyBirthdayReward =
+    rewardType === "all_games_until_midnight" || rewardType === "free_play_all";
+  if (rewardType !== "birthday_play_credit" && !isLegacyBirthdayReward) {
     return null;
   }
 
   const value = Number(reward.value);
   const grantedBy = getTrimmedString(reward.grantedBy) || "birthday";
   return {
-    type: "all_games_until_midnight",
-    value: Number.isFinite(value) ? value : 1,
+    type: "birthday_play_credit",
+    // Legacy birthday configs advertised an all-games entitlement with value 1.
+    // Treat them as the fixed three-play birthday credit without changing data.
+    value: isLegacyBirthdayReward
+      ? 3
+      : Number.isFinite(value) && value > 0 ? Math.trunc(value) : 3,
     grantedBy,
   };
 }
@@ -212,38 +254,79 @@ async function grantBirthdayReward({
   admin,
   automationId,
   userId,
+  userRef,
   birthdayDateKey,
   rewardConfig,
 }) {
-  if (!rewardConfig || rewardConfig.type !== "all_games_until_midnight") {
+  if (!rewardConfig || rewardConfig.type !== "birthday_play_credit") {
     return null;
   }
 
   const rewardEventId =
     `${automationId}__${userId}__${birthdayDateKey}`.replace(/[^A-Za-z0-9_-]/g, "_");
   const rewardEventRef = firestore.collection("reward_events").doc(rewardEventId);
-  const existingRewardEvent = await rewardEventRef.get();
+  const legacyRewardEventRef = firestore
+    .collection("reward_events")
+    .doc(`${automationId}__${userId}__${birthdayDateKey.slice(5)}`);
+  const resolvedUserRef = userRef || firestore.collection("users").doc(userId);
 
-  if (existingRewardEvent.exists) {
+  return firestore.runTransaction(async (transaction) => {
+    const [existingRewardEvent, legacyRewardEvent, userSnapshot] = await Promise.all([
+      transaction.get(rewardEventRef),
+      transaction.get(legacyRewardEventRef),
+      transaction.get(resolvedUserRef),
+    ]);
+
+    if (existingRewardEvent.exists) {
+      return {
+        rewardEventId,
+        alreadyExisted: true,
+      };
+    }
+
+    // The pre-annual format cannot distinguish years by ID. It is relevant
+    // only during this deployment day when its server timestamp proves it was
+    // created today in Paris; an older legacy event must not block next years.
+    if (
+      legacyRewardEvent.exists &&
+      isLegacyBirthdayProcessedToday(legacyRewardEvent.data() || {}, birthdayDateKey)
+    ) {
+      return {
+        rewardEventId,
+        alreadyExisted: true,
+        legacyAlreadyProcessed: true,
+      };
+    }
+
+    if (!userSnapshot.exists) {
+      throw new Error(`Birthday reward user not found: ${userId}`);
+    }
+
+    const currentRemainingPart = Number(userSnapshot.data()?.remaining_part);
+    const remainingPart = Number.isFinite(currentRemainingPart)
+      ? Math.max(0, Math.trunc(currentRemainingPart))
+      : 3;
+    const credit = rewardConfig.value;
+
+    transaction.update(resolvedUserRef, {
+      remaining_part: remainingPart + credit,
+      part_last_update: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    transaction.create(rewardEventRef, {
+      type: "birthday_play_credit",
+      status: "granted",
+      uid: userId,
+      value: credit,
+      grantedBy: rewardConfig.grantedBy || "birthday",
+      birthdayDateKey,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
     return {
       rewardEventId,
-      alreadyExisted: true,
+      alreadyExisted: false,
     };
-  }
-
-  await rewardEventRef.set({
-    type: "all_games_until_midnight",
-    status: "granted",
-    uid: userId,
-    value: rewardConfig.value || 1,
-    grantedBy: rewardConfig.grantedBy || "birthday",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
-
-  return {
-    rewardEventId,
-    alreadyExisted: false,
-  };
 }
 
 async function runBirthdayAutomation({
@@ -270,6 +353,7 @@ async function runBirthdayAutomation({
   const normalizedLimit = normalizeLimit(limit, 0, 500);
   const now = new Date();
   const todayKey = getBirthdayDateKey(now);
+  const todayMonthDayKey = getBirthdayMonthDayKey(now);
   const sendHour = getBirthdaySendHour(automation.data);
   const rewardConfig = getBirthdayRewardConfig(automation.data);
   const frequency = getTrimmedString(automation.data.frequency).toLowerCase() || "once";
@@ -354,7 +438,7 @@ async function runBirthdayAutomation({
         );
         continue;
       }
-      if (birthdayKey !== todayKey) {
+      if (birthdayKey !== todayMonthDayKey) {
         console.log(
           `[birthday_runner] user=${userId} skip=not_today birthdayKey=${birthdayKey} todayKey=${todayKey}`,
         );
@@ -376,9 +460,11 @@ async function runBirthdayAutomation({
         kNotificationChannelEmail,
       );
       const pushAlreadyProcessedToday =
-        getTrimmedString(pushDeliveryState.data.birthdayDateKey) === todayKey;
+        getTrimmedString(pushDeliveryState.data.birthdayDateKey) === todayKey ||
+        isLegacyBirthdayDeliveryProcessedToday(pushDeliveryState.data, todayKey);
       const emailAlreadyProcessedToday =
-        getTrimmedString(emailDeliveryState.data.birthdayDateKey) === todayKey;
+        getTrimmedString(emailDeliveryState.data.birthdayDateKey) === todayKey ||
+        isLegacyBirthdayDeliveryProcessedToday(emailDeliveryState.data, todayKey);
 
       processedEligible += 1;
       summary.eligibleUsers += 1;
@@ -392,6 +478,7 @@ async function runBirthdayAutomation({
             admin,
             automationId: automation.id,
             userId,
+            userRef: userDoc.ref,
             birthdayDateKey: todayKey,
             rewardConfig,
           });
@@ -416,11 +503,20 @@ async function runBirthdayAutomation({
 
         let notificationDocId = "";
         let notificationQueued = false;
-        let pushStatus = pushAlreadyProcessedToday ? "skipped_already_processed" : "skipped";
+        const legacyNotificationDoc = await firestore
+          .collection("ff_push_notifications")
+          .doc(buildLegacyBirthdayNotificationDocId(automation.id, userId, todayMonthDayKey))
+          .get();
+        const legacyNotificationProcessedToday =
+          legacyNotificationDoc.exists &&
+          isLegacyBirthdayProcessedToday(legacyNotificationDoc.data() || {}, todayKey);
+        const pushAlreadyHandledToday =
+          pushAlreadyProcessedToday || legacyNotificationProcessedToday;
+        let pushStatus = pushAlreadyHandledToday ? "skipped_already_processed" : "skipped";
         let emailStatus = emailAlreadyProcessedToday ? "skipped_already_processed" : "skipped";
         const message = getBirthdayMessage(automation.data, userData);
 
-        if (pushAlreadyProcessedToday) {
+        if (pushAlreadyHandledToday) {
           summary.skippedAlreadySent += 1;
           console.log(
             `[birthday_runner] user=${userId} push=skipped reason=already_processed rewardGranted=${rewardGranted}`,
@@ -441,7 +537,11 @@ async function runBirthdayAutomation({
                 `[birthday_runner] user=${userId} push=skipped reason=no_token rewardGranted=${rewardGranted}`,
               );
             } else {
-              notificationDocId = `${automation.id}_${userId}_${todayKey.replace("-", "")}`;
+              notificationDocId = buildBirthdayNotificationDocId(
+                automation.id,
+                userId,
+                todayKey,
+              );
               notificationQueued = await enqueueUserPushNotification({
                 firestore,
                 admin,
@@ -570,6 +670,14 @@ async function runBirthdayAutomation({
 }
 
 module.exports = {
+  buildBirthdayNotificationDocId,
+  buildLegacyBirthdayNotificationDocId,
+  getBirthdayDateKey,
+  getBirthdayMessage,
   getBirthdaySendHour,
+  getBirthdayRewardConfig,
+  grantBirthdayReward,
+  isLegacyBirthdayDeliveryProcessedToday,
+  isLegacyBirthdayProcessedToday,
   runBirthdayAutomation,
 };

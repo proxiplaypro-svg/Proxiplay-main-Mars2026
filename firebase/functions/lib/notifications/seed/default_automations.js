@@ -24,8 +24,8 @@ const kDefaultAutomations = [
         default: kDefaultBirthdayMessage,
       },
       reward: {
-        type: "all_games_until_midnight",
-        value: 1,
+        type: "birthday_play_credit",
+        value: 3,
         grantedBy: "birthday",
       },
     },
