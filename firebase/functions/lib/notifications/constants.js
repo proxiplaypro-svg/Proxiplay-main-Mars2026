@@ -30,8 +30,8 @@ const kDefaultInactivePlayerMessagesByStatus = {
 };
 
 const kDefaultBirthdayMessage = {
-  title: "Joyeux anniversaire !",
-  body: "Profitez de vos avantages du jour et tentez votre chance !",
+  title: "Joyeux anniversaire {firstName} 🎉",
+  body: "Pour votre anniversaire, ProxiPlay vous offre 3 parties supplémentaires aujourd'hui ! 🎁",
 };
 
 module.exports = {
