@@ -11,6 +11,13 @@
 // DRAW_SKIPPED, then "finished with status: 'timeout'" every night since
 // 01/10). needsMainPrizeDraw() is the in-memory pre-filter applied to the
 // broader end_date<=now query result, before any transaction is opened.
+//
+// A first version of this filter only covered the draw_status pair and
+// missed drawMainPrize()'s OTHER no-write branch: status in
+// draft/cancelled/canceled/disabled returns {status:'inactive'} with no
+// tx.update() at all (confirmed by reading drawMainPrize() itself).
+// After redeploying the first fix, production logs still showed dozens
+// of DRAW_SKIPPED -- this second gap is a real, demonstrated reason why.
 const test = require("node:test");
 const assert = require("node:assert/strict");
 // main_prize_draw.js calls admin.firestore() at module load time; this
@@ -51,6 +58,18 @@ test("draw_status:'completed' alone (hasWinner somehow not yet true) is not trea
   assert.equal(needsMainPrizeDraw({ hasWinner: false, draw_status: "completed" }), true);
 });
 
-test("inactive/draft-looking games are still candidates for this pre-filter -- drawMainPrize() itself decides status/inactive, not this filter", () => {
-  assert.equal(needsMainPrizeDraw({ hasWinner: false, status: "draft" }), true);
+for (const status of ["draft", "cancelled", "canceled", "disabled"]) {
+  test(`status:'${status}' -> drawMainPrize()'s inactive branch never writes anything, must not be re-opened either`, () => {
+    assert.equal(needsMainPrizeDraw({ hasWinner: false, status }), false);
+  });
+}
+
+test("status:'ended' or 'actif' (anything outside the inactive set) remains a candidate", () => {
+  assert.equal(needsMainPrizeDraw({ hasWinner: false, status: "ended" }), true);
+  assert.equal(needsMainPrizeDraw({ hasWinner: false, status: "actif" }), true);
+  assert.equal(needsMainPrizeDraw({ hasWinner: false }), true);
+});
+
+test("main_prize_winner set (hasWinner somehow not yet true) is still treated as already finalized, matching drawMainPrize()'s own already_finalized OR condition exactly", () => {
+  assert.equal(needsMainPrizeDraw({ hasWinner: false, main_prize_winner: { path: "users/winner" } }), false);
 });
