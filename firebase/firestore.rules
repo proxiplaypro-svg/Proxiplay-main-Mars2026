@@ -135,6 +135,20 @@ service cloud.firestore {
       );
     }
 
+    // A la creation, aucun champ pilote par le serveur ne doit pouvoir etre
+    // force par le commercant lui-meme : un jeu cree par un commercant doit
+    // toujours naitre en brouillon, sans gagnant ni participation deja
+    // comptee. La publication (visible_public), le resultat (hasWinner,
+    // main_prize_winner) et les compteurs (participations) restent ensuite
+    // reserves au serveur via isSafeMerchantGameUpdate() ci-dessus, qui ne
+    // les autorise jamais non plus en update.
+    function isSafeMerchantGameCreate(data) {
+      return data.get('visible_public', false) == false &&
+        data.get('hasWinner', false) == false &&
+        data.get('main_prize_winner', null) == null &&
+        data.get('participations', 0) == 0;
+    }
+
     function isMerchantOwnerOfEnseigne(enseigneRef) {
       return isSignedIn() &&
         enseigneRef != null &&
@@ -297,10 +311,18 @@ service cloud.firestore {
       allow update: if (isAdmin() &&
         (!isManagedByAdmin(resource.data) || isManagedByAdmin(request.resource.data) ||
           canLeaveAdminMode(request.resource.data))) ||
-        (isOwnerRef(resource.data.owner) && !isManagedByAdmin(resource.data) &&
+        // ownsShopData() plutot que isOwnerRef(resource.data.owner) seul : une
+        // enseigne creee par la console admin (proxiplay-admin/merchantServer.ts)
+        // ecrit `owner` comme STRING ('/users/{uid}') et `owner_id` comme vraie
+        // DocumentReference -- isOwnerRef seul (comparaison stricte de type path)
+        // ne reconnait jamais la string et bloquait tout commercant onboarde par
+        // ce chemin. ownsShopData() est deja le contrat utilise ailleurs dans ce
+        // fichier (ownsGame()) pour cette meme question, et tolere les deux
+        // champs/formats sans rien assouplir d'autre.
+        (ownsShopData(resource.data) && !isManagedByAdmin(resource.data) &&
           isSafeMerchantEnseigneUpdate());
       allow delete: if isAdmin() ||
-        (isOwnerRef(resource.data.owner) && !isManagedByAdmin(resource.data));
+        (ownsShopData(resource.data) && !isManagedByAdmin(resource.data));
     }
 
     // Ownership is assigned by admin/server, never by a client-supplied email.
@@ -325,7 +347,8 @@ service cloud.firestore {
           request.auth != null &&
           request.resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid) &&
           ownsGame(request.resource.data) &&
-          isApprovedMerchant()
+          isApprovedMerchant() &&
+          isSafeMerchantGameCreate(request.resource.data)
         );
       allow read: if true;
       allow update: if isAdmin() ||

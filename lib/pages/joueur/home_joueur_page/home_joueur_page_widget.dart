@@ -174,6 +174,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     if (game.accessMode == AccessMode.qr_only) {
       return false;
     }
+    if (isGameDraftHiddenFromPlayer(
+      hasVisiblePublicField: game.hasVisiblePublic(),
+      visiblePublic: game.visiblePublic,
+    )) {
+      return false;
+    }
     return isPlayerHomeGameVisible(
       now: getCurrentTimestamp,
       animationId: game.animationId,

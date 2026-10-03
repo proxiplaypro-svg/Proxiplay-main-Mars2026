@@ -81,6 +81,41 @@ void main() {
     });
   });
 
+  group('isGameDraftHiddenFromPlayer', () {
+    test('REGRESSION: a draft game (visible_public:false) must be hidden', () {
+      expect(
+        isGameDraftHiddenFromPlayer(
+          hasVisiblePublicField: true,
+          visiblePublic: false,
+        ),
+        isTrue,
+        reason: 'a game still in the instant-winners-generation window '
+            '(visible_public:false) must never show up in player carousels',
+      );
+    });
+
+    test('a published game (visible_public:true) stays visible', () {
+      expect(
+        isGameDraftHiddenFromPlayer(
+          hasVisiblePublicField: true,
+          visiblePublic: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('no regression: a legacy game without the field stays visible '
+        '(same "absent = public" convention as the admin console)', () {
+      expect(
+        isGameDraftHiddenFromPlayer(
+          hasVisiblePublicField: false,
+          visiblePublic: false, // GamesRecord.visiblePublic defaults to false
+        ),
+        isFalse,
+      );
+    });
+  });
+
   group('mergePagedStreamItems', () {
     test('fills an initially empty cached page when server items arrive later', () {
       final merged = mergePagedStreamItems<_FakeItem>(

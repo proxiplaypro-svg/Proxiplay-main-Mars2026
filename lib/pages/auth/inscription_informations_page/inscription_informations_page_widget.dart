@@ -1329,6 +1329,20 @@ class _InscriptionInformationsPageWidgetState
                                         _model.nomTextController.text.trim();
                                     await currentUserReference!.set(
                                         createUsersRecordData(
+                                          // Defense en profondeur : si le
+                                          // document n'existait deja pas pour
+                                          // une raison quelconque, ce set()
+                                          // devient une creation Firestore
+                                          // (isAllowedSelfUserCreate), qui
+                                          // exige explicitement uid -- sans
+                                          // lui la creation echoue et
+                                          // l'inscription ne peut jamais se
+                                          // terminer (voir le correctif
+                                          // amont qui garantit normalement
+                                          // deja l'existence du document).
+                                          uid: currentUserUid.isNotEmpty
+                                              ? currentUserUid
+                                              : null,
                                           phoneNumber: _model
                                               .telephoneTextController.text
                                               .trim(),

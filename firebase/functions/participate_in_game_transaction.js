@@ -473,6 +473,23 @@ exports.participateInGameTransaction = functions.https.onCall(
         }
 
         const gameData = gameDoc.data();
+        // A game still in draft (visible_public:false, set by the client at
+        // creation and only flipped to true by the server once the instant
+        // winners calendar is confirmed complete -- see
+        // generateInstantWinnersForGame) must never be playable directly by
+        // game ID, even if a client already knows it (QR/deep link race, or
+        // the Home carousel briefly listing it -- see
+        // isSafeMerchantGameCreate() in firestore.rules for the write-side
+        // half of this fix). `!== false` (not `!== true`) matches the
+        // existing convention used throughout the admin console
+        // (lib/firebase/*Queries.ts: `visible_public !== false`), so a
+        // legacy game that never had this field set is still playable.
+        if (gameData.visible_public === false) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "Ce jeu n'est pas encore disponible."
+          );
+        }
         if (gameData.access_mode === "qr_only") {
           await require('./game_qr_access').validateQr(
             transaction, gameRef, gameData, data.qr_token, now);

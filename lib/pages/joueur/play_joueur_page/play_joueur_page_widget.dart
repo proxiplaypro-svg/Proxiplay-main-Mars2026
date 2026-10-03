@@ -4,6 +4,7 @@ import '/components/custom_nav_bar_joueur_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/utils/main_prize_ticket_presentation.dart';
 import '/utils/share_links.dart';
 import '/widgets/proxiplay_network_image.dart';
 import '/widgets/tap_feedback.dart';
@@ -1019,7 +1020,17 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                           snapshot.data?.docs
                                                                   .length ??
                                                               0;
-                                                      if (ticketCount <= 0) {
+                                                      final showTicketCount =
+                                                          shouldShowMainPrizeTicket(
+                                                        hasMainPrize: widget
+                                                                .game!
+                                                                .hasHasMainPrize()
+                                                            ? widget.game!
+                                                                .hasMainPrize
+                                                            : null,
+                                                      );
+                                                      if (ticketCount <= 0 ||
+                                                          !showTicketCount) {
                                                         return const SizedBox
                                                             .shrink();
                                                       }
@@ -1029,7 +1040,8 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                                 .only(
                                                                 top: 8.0),
                                                         child: Text(
-                                                          '🎫 $ticketCount ${ticketCount > 1 ? 'tickets validés' : 'ticket validé'}',
+                                                          mainPrizeTicketLabel(
+                                                              ticketCount),
                                                           style: const TextStyle(
                                                               fontSize: 15.0,
                                                               fontWeight:

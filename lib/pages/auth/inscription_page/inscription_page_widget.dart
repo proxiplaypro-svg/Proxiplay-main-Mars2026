@@ -398,7 +398,17 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
 
     try {
       await refreshCurrentUserDocument();
-    } catch (_) {}
+    } catch (_) {
+      return false;
+    }
+
+    // Ne navigue que si le document existe vraiment desormais : sinon
+    // InscriptionInformationsPageWidget ecrirait sur un document absent
+    // (set() sans uid traite comme une creation, refusee par les regles),
+    // reproduisant le meme blocage sous une autre page.
+    if (currentUserDocument == null) {
+      return false;
+    }
 
     if (!mounted) {
       return true;
@@ -1996,41 +2006,41 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                       return true;
                                                                     }());
 
-                                                                    try {
-                                                                      await UsersRecord
-                                                                          .collection
-                                                                          .doc(user
-                                                                              .uid)
-                                                                          .set(
-                                                                              createUsersRecordData(
-                                                                                uid: user.uid,
-                                                                                userRole: _model.userType,
-                                                                                profileCompleted: false,
-                                                                                profileSchemaVersion: kCurrentUserProfileSchemaVersion,
-                                                                              ),
-                                                                              SetOptions(merge: true));
-                                                                    } catch (_) {}
-
+                                                                    // Ni l'un ni l'autre des deux appels ci-dessous n'est
+                                                                    // dans un try/catch local : une exception ici (reseau,
+                                                                    // permission-denied...) doit remonter au catch englobant
+                                                                    // de ce bouton, qui tente une recuperation puis affiche
+                                                                    // un message clair -- un catch(_) {} local la rendait
+                                                                    // injoignable et laissait l'utilisateur avec un compte
+                                                                    // Auth cree mais sans document users/{uid} exploitable.
                                                                     final currentFirebaseUser =
                                                                         FirebaseAuth
                                                                             .instance
                                                                             .currentUser;
                                                                     if (currentFirebaseUser !=
                                                                         null) {
-                                                                      try {
-                                                                        await ensureUserDocumentInitialized(
-                                                                          currentFirebaseUser,
-                                                                          roleHint:
-                                                                              _model.userType,
-                                                                          authProvider:
-                                                                              'EMAIL',
-                                                                          source:
-                                                                              'email_signup_player',
-                                                                        );
-                                                                      } catch (_) {}
+                                                                      await ensureUserDocumentInitialized(
+                                                                        currentFirebaseUser,
+                                                                        roleHint:
+                                                                            _model.userType,
+                                                                        authProvider:
+                                                                            'EMAIL',
+                                                                        source:
+                                                                            'email_signup_player',
+                                                                      );
                                                                     } else {
                                                                       await refreshCurrentUserDocument();
                                                                     }
+                                                                    await UsersRecord
+                                                                        .collection
+                                                                        .doc(user
+                                                                            .uid)
+                                                                        .set(
+                                                                            createUsersRecordData(
+                                                                              profileCompleted: false,
+                                                                              profileSchemaVersion: kCurrentUserProfileSchemaVersion,
+                                                                            ),
+                                                                            SetOptions(merge: true));
 
                                                                     final referralApplied =
                                                                         await _applyPendingReferralCodeIfNeeded();
@@ -3370,49 +3380,45 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                 return true;
                                                               }());
 
-                                                              try {
-                                                                await UsersRecord
-                                                                    .collection
-                                                                    .doc(user
-                                                                        .uid)
-                                                                    .set(
-                                                                        createUsersRecordData(
-                                                                          uid: user
-                                                                              .uid,
-                                                                          userRole:
-                                                                              _model.userType,
-                                                                          professionalCategory:
-                                                                              _model.professionalCategoryValue,
-                                                                          profileCompleted:
-                                                                              false,
-                                                                          profileSchemaVersion:
-                                                                              kCurrentUserProfileSchemaVersion,
-                                                                        ),
-                                                                        SetOptions(
-                                                                            merge:
-                                                                                true));
-                                                              } catch (_) {}
-
+                                                              // Ni l'un ni l'autre des deux appels ci-dessous n'est
+                                                              // dans un try/catch local : une exception ici doit
+                                                              // remonter au catch englobant de ce bouton (recuperation
+                                                              // puis message clair) -- voir le meme correctif sur le
+                                                              // parcours joueur, ligne ~1999.
                                                               final currentFirebaseUser =
                                                                   FirebaseAuth
                                                                       .instance
                                                                       .currentUser;
                                                               if (currentFirebaseUser !=
                                                                   null) {
-                                                                try {
-                                                                  await ensureUserDocumentInitialized(
-                                                                    currentFirebaseUser,
-                                                                    roleHint: _model
-                                                                        .userType,
-                                                                    authProvider:
-                                                                        'EMAIL',
-                                                                    source:
-                                                                        'email_signup_merchant',
-                                                                  );
-                                                                } catch (_) {}
+                                                                await ensureUserDocumentInitialized(
+                                                                  currentFirebaseUser,
+                                                                  roleHint: _model
+                                                                      .userType,
+                                                                  authProvider:
+                                                                      'EMAIL',
+                                                                  source:
+                                                                      'email_signup_merchant',
+                                                                );
                                                               } else {
                                                                 await refreshCurrentUserDocument();
                                                               }
+                                                              await UsersRecord
+                                                                  .collection
+                                                                  .doc(user
+                                                                      .uid)
+                                                                  .set(
+                                                                      createUsersRecordData(
+                                                                        professionalCategory:
+                                                                            _model.professionalCategoryValue,
+                                                                        profileCompleted:
+                                                                            false,
+                                                                        profileSchemaVersion:
+                                                                            kCurrentUserProfileSchemaVersion,
+                                                                      ),
+                                                                      SetOptions(
+                                                                          merge:
+                                                                              true));
 
                                                               final referralApplied =
                                                                   await _applyPendingReferralCodeIfNeeded();
