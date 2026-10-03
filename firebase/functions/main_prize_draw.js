@@ -70,10 +70,39 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
     return {status:'completed',prizeId:prizeRef.id};
   });
 }
-const pickMainPrizeWinners=functions.pubsub.schedule('0 0 * * *').timeZone('Europe/Paris').onRun(async()=>{
+// Pure. Mirrors drawMainPrize()'s own already_finalized check for the two
+// no-winner terminal paths (no_main_prize, no_eligible_entries) -- which
+// never set hasWinner to true, since there is no winner to record. The
+// old query (hasWinner=='false' AND end_date<=now) kept matching every
+// game ever finalized that way, forever: the set only grows as more
+// games end without a main prize or without eligible entries, and each
+// one still had to be re-opened in a transaction every single night just
+// to immediately bail out. That ever-growing graveyard is what pushed
+// pickMainPrizeWinners past its Gen1 timeout and starved genuinely
+// pending games (Kids Troc, Char a voile, support smartphone) that never
+// got reached. Filtering here, on data already in hand from the list
+// query, skips them before they ever cost a transaction.
+function needsMainPrizeDraw(data) {
+  if (data.hasWinner === true) return false;
+  if (['no_eligible_entries', 'no_main_prize'].includes(data.draw_status)) return false;
+  return true;
+}
+
+const pickMainPrizeWinners=functions.runWith({timeoutSeconds:300}).pubsub.schedule('0 0 * * *').timeZone('Europe/Paris').onRun(async()=>{
   const now=admin.firestore.Timestamp.now();
   return runScheduledDraws({name:'pickMainPrizeWinners',logger:functions.logger,
-    load:async()=>(await db.collection('games').where('hasWinner','==',false).where('end_date','<=',now).get()).docs,
+    concurrency:8,
+    timeBudgetMs:270000,
+    load:async()=>{
+      // end_date<=now alone -- no hasWinner equality filter -- also
+      // catches legacy games where hasWinner was never written at all:
+      // a plain equality filter excludes documents missing that field
+      // entirely, which silently hid exactly this kind of game.
+      const snap=await db.collection('games').where('end_date','<=',now).get();
+      const candidates=snap.docs.filter(doc=>needsMainPrizeDraw(doc.data()||{}));
+      functions.logger.info('DRAW_CANDIDATES_FILTERED',{job:'pickMainPrizeWinners',scanned:snap.docs.length,candidates:candidates.length});
+      return candidates;
+    },
     draw:doc=>drawMainPrize(doc.id,{now})});
 });
-module.exports={drawMainPrize,pickMainPrizeWinners};
+module.exports={drawMainPrize,pickMainPrizeWinners,needsMainPrizeDraw};
