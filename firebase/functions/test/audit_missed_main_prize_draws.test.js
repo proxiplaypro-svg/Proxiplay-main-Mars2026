@@ -23,6 +23,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {
   assertReadOnlySource,
+  describeType,
+  buildRawFieldDump,
   isMissedDrawCandidate,
   simulateMainPrizeDraw,
   buildMissedDrawReport,
@@ -262,6 +264,68 @@ test("buildMissedDrawReport : hasWinner absent est rapporte comme 'absent', pas 
     shopInfo: { exists: false, data: null, enseigneRefPath: null },
   });
   assert.equal(report.hasWinner, "absent");
+});
+
+test("describeType distingue Timestamp, DocumentReference, string, et absence", () => {
+  assert.equal(describeType(ts("2026-09-30T00:00:00Z")), "Firestore Timestamp (has toMillis)");
+  assert.equal(describeType(ref("users/a")), "DocumentReference");
+  assert.equal(describeType("30/09/2026"), "string");
+  assert.equal(describeType(null), "null");
+  assert.equal(describeType(undefined), "undefined");
+  assert.equal(describeType(true), "boolean");
+});
+
+test("buildRawFieldDump sur un document forme exactement comme Kids Troc (Timestamp reel, hasWinner:false) : candidat detectable", () => {
+  const dump = buildRawFieldDump({
+    exists: true,
+    id: KIDS_TROC_GAME_ID,
+    data: {
+      hasMainPrize: true,
+      hasWinner: false,
+      end_date: ts("2026-09-30T00:00:00Z"),
+      status: "ended",
+    },
+  });
+  assert.equal(dump.exists, true);
+  assert.equal(dump.hasMainPrize_present, true);
+  assert.equal(dump.hasMainPrize_strictlyTrue, true);
+  assert.equal(dump.hasWinner_present, true);
+  assert.equal(dump.hasWinner, false);
+  assert.equal(dump.end_date_present, true);
+  assert.equal(dump.end_date_has_toMillis, true);
+  assert.equal(dump.end_date_resolved_iso, "2026-09-30T00:00:00.000Z");
+  assert.equal(dump.main_prize_winner, null);
+});
+
+test("buildRawFieldDump expose le cas piege : end_date stocke comme une chaine plutot qu'un Timestamp", () => {
+  const dump = buildRawFieldDump({
+    exists: true,
+    id: "legacy_game",
+    data: { hasMainPrize: true, hasWinner: false, end_date: "30/09/2026" },
+  });
+  assert.equal(dump.end_date_type, "string");
+  assert.equal(dump.end_date_has_toMillis, false);
+  assert.equal(dump.end_date_resolved_iso, null, "une chaine non-ISO ne doit pas etre interpretee silencieusement comme une date valide");
+  // C'est exactement ce qui ferait echouer isMissedDrawCandidate silencieusement :
+  assert.equal(isMissedDrawCandidate({ hasMainPrize: true, hasWinner: false, end_date: "30/09/2026" }, NOW_MS), false);
+});
+
+test("buildRawFieldDump expose le cas piege : hasMainPrize non strictement booleen (ex. la chaine 'true')", () => {
+  const dump = buildRawFieldDump({
+    exists: true,
+    id: "legacy_game_2",
+    data: { hasMainPrize: "true", hasWinner: false, end_date: ts("2026-09-30T00:00:00Z") },
+  });
+  assert.equal(dump.hasMainPrize_type, "string");
+  assert.equal(dump.hasMainPrize_strictlyTrue, false);
+});
+
+test("buildRawFieldDump sur document absent : exists:false, tous les champs a leur valeur neutre", () => {
+  const dump = buildRawFieldDump({ exists: false, id: "missing_game", data: null });
+  assert.equal(dump.exists, false);
+  assert.equal(dump.hasMainPrize, null);
+  assert.equal(dump.hasMainPrize_present, false);
+  assert.equal(dump.end_date_present, false);
 });
 
 test("buildMissedDrawReport ne mute jamais les objets source passes en entree (lecture pure)", () => {

@@ -36,6 +36,17 @@
 // Usage:
 //   node scripts/audit_missed_main_prize_draws.js --project <firebase-project-id> \
 //     [--page-size 200] [--json-out report.json] [--game-id <id>]
+//
+// --game-id switches to a single-document diagnostic mode: it fetches
+// that one games/{id} document DIRECTLY (db.doc().get(), no collection
+// scan at all) and prints the raw field values actually read --
+// exists, id, hasMainPrize (+ its JS type), hasWinner (+ presence and
+// type), end_date (+ presence, type, whether it exposes toMillis, and
+// the ISO string that resolves to), status, draw_status and
+// main_prize_winner -- BEFORE isMissedDrawCandidate() or
+// simulateMainPrizeDraw() ever run on it. This is the fastest way to
+// see exactly why a specific document (e.g. Kids Troc) was or wasn't
+// picked up by the general scan below, without guessing at its schema.
 const fs = require("node:fs");
 const path = require("node:path");
 const { gameOwnership } = require("../merchant_ownership");
@@ -77,6 +88,52 @@ function toIso(value) {
 
 function refPath(value) {
   return typeof value?.path === "string" ? value.path : "";
+}
+
+/** Pure. Describes the actual JS shape of a field's raw value, without
+ * assuming it is the Firestore type the engine expects -- this is what
+ * lets the diagnostic mode show e.g. "end_date is a string, not a
+ * Timestamp" instead of silently treating it as absent. */
+function describeType(value) {
+  if (value === null) return "null";
+  if (value === undefined) return "undefined";
+  if (Array.isArray(value)) return "array";
+  if (typeof value === "object") {
+    if (typeof value.toMillis === "function") return "Firestore Timestamp (has toMillis)";
+    if (typeof value.path === "string") return "DocumentReference";
+    return value.constructor?.name || "object";
+  }
+  return typeof value;
+}
+
+/** Pure. Raw, unfiltered read of the exact fields drawMainPrize()'s
+ * candidate selection and decision chain depend on -- built straight
+ * from an already-fetched {exists, id, data}, no Firestore access here.
+ * Deliberately reports presence and JS type separately from the value
+ * itself, since "false" vs "absent" vs "the string 'false'" are three
+ * different things this script must never conflate. */
+function buildRawFieldDump({ exists, id, data }) {
+  const d = data || {};
+  const has = (key) => Object.prototype.hasOwnProperty.call(d, key);
+  return {
+    exists,
+    id,
+    hasMainPrize: d.hasMainPrize ?? null,
+    hasMainPrize_present: has("hasMainPrize"),
+    hasMainPrize_type: describeType(d.hasMainPrize),
+    hasMainPrize_strictlyTrue: d.hasMainPrize === true,
+    hasWinner: d.hasWinner ?? null,
+    hasWinner_present: has("hasWinner"),
+    hasWinner_type: describeType(d.hasWinner),
+    end_date_present: has("end_date"),
+    end_date_type: describeType(d.end_date),
+    end_date_has_toMillis: typeof d.end_date?.toMillis === "function",
+    end_date_resolved_iso: toIso(d.end_date),
+    status: d.status ?? null,
+    draw_status: d.draw_status ?? null,
+    main_prize_winner_present: has("main_prize_winner"),
+    main_prize_winner: refPath(d.main_prize_winner) || d.main_prize_winner || null,
+  };
 }
 
 /** Pure. Mirrors the hasMain derivation inside drawMainPrize() exactly. */
@@ -344,10 +401,36 @@ async function main() {
   const nowTimestamp = admin.firestore.Timestamp.now();
   const nowMs = nowTimestamp.toMillis();
 
+  if (args.gameId) {
+    // Single-document diagnostic mode: direct db.doc().get(), no
+    // collection scan, no candidate filter applied before the raw dump.
+    const snap = await db.doc(`games/${args.gameId}`).get();
+    const diagnostic = buildRawFieldDump({
+      exists: snap.exists,
+      id: args.gameId,
+      data: snap.exists ? snap.data() : null,
+    });
+    const report = snap.exists
+      ? await buildReportForGame(db, args.gameId, snap.data() || {}, nowTimestamp)
+      : null;
+    const summary = {
+      generatedAt: new Date().toISOString(),
+      readOnly: true,
+      mode: "single-game-diagnostic",
+      project: args.project,
+      gameId: args.gameId,
+      diagnostic,
+      wouldBeCandidate: snap.exists ? isMissedDrawCandidate(snap.data() || {}, nowMs) : false,
+      report,
+    };
+    writeIfRequested(args.jsonOut, `${JSON.stringify(summary, null, 2)}\n`);
+    console.log(JSON.stringify(summary, null, 2));
+    return;
+  }
+
   const reports = [];
   let scanned = 0;
   let lastDoc = null;
-  let kidsTrocHandledInScan = false;
 
   while (true) {
     let query = db.collection("games").orderBy(admin.firestore.FieldPath.documentId()).limit(args.pageSize);
@@ -359,22 +442,27 @@ async function main() {
     for (const doc of snapshot.docs) {
       scanned += 1;
       const data = doc.data() || {};
-      if (args.gameId && doc.id !== args.gameId) continue;
-      if (!args.gameId && !isMissedDrawCandidate(data, nowMs)) continue;
-
-      if (doc.id === KIDS_TROC_GAME_ID) kidsTrocHandledInScan = true;
+      if (!isMissedDrawCandidate(data, nowMs)) continue;
       // eslint-disable-next-line no-await-in-loop
       reports.push(await buildReportForGame(db, doc.id, data, nowTimestamp));
     }
   }
 
-  // Kids Troc must get a definitive answer even if some unexpected field
-  // shape kept it out of the generic candidate filter above.
+  // Kids Troc always gets a direct, unconditional lookup -- independent
+  // of whether the generic candidate filter above matched it -- so
+  // "kidsTroc" in the output is never silently null: it is either the
+  // full simulated report, or an explicit NOT_FOUND row, and
+  // kidsTrocDiagnostic always shows the raw values actually read.
+  const kidsTrocSnap = await db.doc(`games/${KIDS_TROC_GAME_ID}`).get();
+  const kidsTrocDiagnostic = buildRawFieldDump({
+    exists: kidsTrocSnap.exists,
+    id: KIDS_TROC_GAME_ID,
+    data: kidsTrocSnap.exists ? kidsTrocSnap.data() : null,
+  });
   let kidsTroc = reports.find((r) => r.gameId === KIDS_TROC_GAME_ID) || null;
-  if (!kidsTroc && !kidsTrocHandledInScan && !args.gameId) {
-    const snap = await db.doc(`games/${KIDS_TROC_GAME_ID}`).get();
-    kidsTroc = snap.exists
-      ? await buildReportForGame(db, KIDS_TROC_GAME_ID, snap.data() || {}, nowTimestamp)
+  if (!kidsTroc) {
+    kidsTroc = kidsTrocSnap.exists
+      ? await buildReportForGame(db, KIDS_TROC_GAME_ID, kidsTrocSnap.data() || {}, nowTimestamp)
       : { gameId: KIDS_TROC_GAME_ID, category: "NOT_FOUND", reason: "document_not_found" };
   }
 
@@ -390,6 +478,7 @@ async function main() {
     candidateCount: reports.length,
     byCategory,
     kidsTroc,
+    kidsTrocDiagnostic,
     candidates: reports,
   };
 
@@ -406,6 +495,8 @@ if (require.main === module) {
 
 module.exports = {
   assertReadOnlySource,
+  describeType,
+  buildRawFieldDump,
   deriveHasMainPrize,
   isMissedDrawCandidate,
   isValidUserRef,
