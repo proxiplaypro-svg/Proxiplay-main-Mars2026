@@ -31,6 +31,9 @@ const {
   isMissedDrawCandidate,
   simulateMainPrizeDraw,
   buildMissedDrawReport,
+  buildReportForGame,
+  safelyBuildReport,
+  logProgress,
   KIDS_TROC_GAME_ID,
   ADMIN_APP_NAME,
 } = require("../scripts/audit_missed_main_prize_draws");
@@ -484,4 +487,174 @@ test("buildConnectionDiagnostic : FIRESTORE_EMULATOR_HOST absent -> null, pas un
     env: {},
   });
   assert.equal(result.firestoreEmulatorHost, null);
+});
+
+// --- Reproduction of the "global scan appears to hang" report ---
+// A minimal, purpose-built fake Firestore: just enough of the .doc()/
+// .collection()/.where()/.limit()/.get() surface that buildReportForGame
+// actually calls, nothing more. No real Firestore or emulator involved.
+
+function makePrizesQuery(existingPrizeId) {
+  const query = {
+    where: () => query,
+    limit: () => query,
+    get: async () => (existingPrizeId ? { empty: false, docs: [{ id: existingPrizeId }] } : { empty: true, docs: [] }),
+  };
+  return query;
+}
+
+function makeFakeDb({
+  participantRefs = [],
+  userDocs = {},
+  existingPrizeId = null,
+  shopExists = false,
+  shopData = null,
+  throwOnParticipantsGet = false,
+  delayedUserPaths = new Set(),
+}) {
+  return {
+    doc(docPath) {
+      return {
+        path: docPath,
+        collection(name) {
+          assert.equal(name, "participants", "ce fake ne modelise que la sous-collection participants");
+          return {
+            async get() {
+              if (throwOnParticipantsGet) throw new Error("simulated participants read failure");
+              return {
+                docs: participantRefs.map((ref, i) => ({ id: `ticket${i}`, data: () => ({ user_id: ref }) })),
+              };
+            },
+          };
+        },
+        async get() {
+          if (docPath.startsWith("users/")) {
+            const resolve = () => {
+              const data = userDocs[docPath];
+              return { exists: data != null, data: () => data };
+            };
+            if (delayedUserPaths.has(docPath)) {
+              // Resolves later than an "earlier" ticket's lookup would,
+              // proving Promise.all preserves ticket order regardless of
+              // which underlying read settles first.
+              await new Promise((r) => setTimeout(r, 5));
+            }
+            return resolve();
+          }
+          if (docPath.startsWith("enseignes/")) {
+            return { exists: shopExists, data: () => shopData };
+          }
+          throw new Error(`fake db.doc(${docPath}).get() not stubbed`);
+        },
+      };
+    },
+    collection(name) {
+      assert.equal(name, "prizes", "ce fake ne modelise que la collection prizes au niveau racine");
+      return makePrizesQuery(existingPrizeId);
+    },
+  };
+}
+
+test("reproduction : buildReportForGame fonctionne de bout en bout sur un jeu avec plusieurs participants (fake Firestore)", async () => {
+  const db = makeFakeDb({
+    participantRefs: [{ path: "users/a" }, { path: "users/b" }],
+    userDocs: { "users/a": { first_name: "Alice" }, "users/b": { first_name: "Bob" } },
+    shopExists: true,
+    shopData: { owner_id: { path: "users/merchant" } },
+  });
+  const game = {
+    hasMainPrize: true,
+    hasWinner: false,
+    end_date: ts("2026-09-30T00:00:00Z"),
+    enseigne_id: ref("enseignes/kids_troc"),
+  };
+  const report = await buildReportForGame(db, KIDS_TROC_GAME_ID, game, NOW);
+  assert.equal(report.category, "READY_TO_DRAW");
+  assert.equal(report.participantsCount, 2);
+  assert.equal(report.eligibleParticipantsCount, 2);
+});
+
+test("reproduction : les lectures de participants restent dans l'ordre des tickets meme resolues de facon concurrente et desordonnee", async () => {
+  const db = makeFakeDb({
+    participantRefs: [{ path: "users/first" }, { path: "users/second" }, { path: "users/third" }],
+    userDocs: {
+      "users/first": { first_name: "First" },
+      "users/second": { first_name: "Second" },
+      "users/third": { first_name: "Third" },
+    },
+    // Le premier ticket resout plus tard que les suivants : si le code
+    // repassait a une boucle sequentielle ou perdait l'ordre, ce test le
+    // detecterait.
+    delayedUserPaths: new Set(["users/first"]),
+    shopExists: true,
+    shopData: { owner_id: { path: "users/merchant" } },
+  });
+  const game = {
+    hasMainPrize: true,
+    hasWinner: false,
+    end_date: ts("2026-09-30T00:00:00Z"),
+    enseigne_id: ref("enseignes/kids_troc"),
+  };
+  const report = await buildReportForGame(db, "ordering_check", game, NOW);
+  assert.equal(report.eligibleParticipantsCount, 3);
+});
+
+test("reproduction : un jeu dont l'analyse echoue (lecture participants en erreur) n'interrompt pas l'audit -- safelyBuildReport isole l'erreur", async () => {
+  const brokenDb = makeFakeDb({ throwOnParticipantsGet: true });
+  const workingDb = makeFakeDb({
+    participantRefs: [{ path: "users/a" }],
+    userDocs: { "users/a": { first_name: "Alice" } },
+    shopExists: true,
+    shopData: { owner_id: { path: "users/merchant" } },
+  });
+  const brokenGame = { hasMainPrize: true, hasWinner: false, end_date: ts("2026-09-30T00:00:00Z") };
+  const okGame = {
+    hasMainPrize: true,
+    hasWinner: false,
+    end_date: ts("2026-09-30T00:00:00Z"),
+    enseigne_id: ref("enseignes/ok_shop"),
+  };
+
+  const progressLines = [];
+  const onProgress = (m) => progressLines.push(m);
+
+  // Exactly the shape of the main() scan loop: one throwing game must not
+  // prevent the next one from being analyzed.
+  const results = [];
+  results.push(await safelyBuildReport(brokenDb, "broken_game", brokenGame, NOW, onProgress));
+  results.push(await safelyBuildReport(workingDb, "ok_game", okGame, NOW, onProgress));
+
+  assert.equal(results[0].category, "ANALYSIS_ERROR");
+  assert.equal(results[0].gameId, "broken_game");
+  assert.match(results[0].error, /simulated participants read failure/);
+  assert.equal(results[1].category, "READY_TO_DRAW", "le 2e jeu doit etre analyse normalement malgre l'echec du premier");
+  assert.ok(
+    progressLines.some((l) => l.includes("broken_game") && l.includes("ERREUR")),
+    "l'erreur doit etre rapportee via onProgress",
+  );
+});
+
+test("logProgress ecrit sur stderr, jamais sur stdout, pour ne pas polluer le JSON final", () => {
+  const originalStderrWrite = process.stderr.write;
+  const originalStdoutWrite = process.stdout.write;
+  const stderrChunks = [];
+  const stdoutChunks = [];
+  process.stderr.write = (chunk) => {
+    stderrChunks.push(chunk);
+    return true;
+  };
+  process.stdout.write = (chunk) => {
+    stdoutChunks.push(chunk);
+    return true;
+  };
+  try {
+    logProgress("ceci doit atterrir sur stderr uniquement");
+  } finally {
+    process.stderr.write = originalStderrWrite;
+    process.stdout.write = originalStdoutWrite;
+  }
+  assert.equal(stdoutChunks.length, 0, "logProgress ne doit jamais ecrire sur stdout");
+  assert.equal(stderrChunks.length, 1);
+  assert.match(stderrChunks[0], /ceci doit atterrir sur stderr uniquement/);
+  assert.match(stderrChunks[0], /\[audit_missed_main_prize_draws\]/);
 });

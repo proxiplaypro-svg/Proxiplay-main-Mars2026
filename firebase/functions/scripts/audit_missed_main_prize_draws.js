@@ -58,6 +58,19 @@
 // document ids to cross-check against the console. This block is also
 // included in every other mode's output, so any run can be checked for
 // consistency after the fact.
+//
+// Progress: every mode writes timestamped progress lines to STDERR
+// (never stdout, which stays clean JSON) -- the games scanned so far,
+// each candidate as it's found ([scanned/total] gameId - name), and
+// each sub-step of a candidate's analysis (participants/prizes/
+// enseigne). A full scan used to run completely silent until the very
+// end, which with hundreds or thousands of participants to check per
+// candidate (sequential, one Firestore round-trip at a time, before this
+// change) could take long enough to look indistinguishable from a hang.
+// Participant reads are now fetched concurrently (Promise.all) instead
+// of one at a time, and one candidate's analysis throwing an error no
+// longer aborts the whole run: it is caught, reported as an
+// ANALYSIS_ERROR row, and the scan continues with the next candidate.
 const fs = require("node:fs");
 const path = require("node:path");
 const { gameOwnership } = require("../merchant_ownership");
@@ -456,53 +469,75 @@ function writeIfRequested(filePath, content) {
   fs.writeFileSync(resolved, content);
 }
 
+function noopProgress() {}
+
+// Writes to stderr, never stdout -- stdout must stay clean, parseable
+// JSON (the final summary, optionally piped to --json-out). This is the
+// single progress sink every mode funnels through below.
+function logProgress(message) {
+  process.stderr.write(`[audit_missed_main_prize_draws] ${new Date().toISOString()} ${message}\n`);
+}
+
 // The only Firestore-touching helpers below -- each is a plain read
 // (.get()), nothing else. All decision logic they feed into is pure and
 // lives above.
-async function loadParticipantsContext(db, gameRef) {
+//
+// loadParticipantsContext used to fetch each participant's user document
+// ONE AT A TIME in a sequential for-loop. A game with hundreds or
+// thousands of participants (Kids Troc alone has 1576) turned this into
+// that many sequential network round-trips with zero progress output --
+// easily tens of minutes of real work that looks exactly like a hang
+// from the outside. Fetching them concurrently via Promise.all fixes the
+// performance problem without changing the result: eligibility is still
+// computed the same way, in the same order, over the same data.
+async function loadParticipantsContext(db, gameRef, onProgress = noopProgress) {
   const ticketsSnap = await gameRef.collection("participants").get();
-  const participants = [];
-  for (const doc of ticketsSnap.docs) {
-    const ref = doc.data().user_id;
-    const validRef = isValidUserRef(ref);
-    let userExists = false;
-    let userData = null;
-    if (validRef) {
+  onProgress(`participants: ${ticketsSnap.docs.length} ticket(s) a verifier`);
+  const participants = await Promise.all(
+    ticketsSnap.docs.map(async (doc) => {
+      const ref = doc.data().user_id;
+      const validRef = isValidUserRef(ref);
+      if (!validRef) return { validRef, userExists: false, userData: null };
       const userSnap = await db.doc(ref.path).get();
-      userExists = userSnap.exists;
-      userData = userSnap.exists ? userSnap.data() : null;
-    }
-    participants.push({ validRef, userExists, userData });
-  }
+      return { validRef, userExists: userSnap.exists, userData: userSnap.exists ? userSnap.data() : null };
+    }),
+  );
+  onProgress(`participants: ${participants.length} lecture(s) terminee(s)`);
   return participants;
 }
 
-async function loadExistingPrincipalPrizeId(db, gameRef) {
+async function loadExistingPrincipalPrizeId(db, gameRef, onProgress = noopProgress) {
+  onProgress("prizes: verification d'un prize 'principal' existant...");
   const snap = await db
     .collection("prizes")
     .where("game_id", "==", gameRef)
     .where("prize_type", "==", "principal")
     .limit(1)
     .get();
+  onProgress(`prizes: ${snap.empty ? "aucun" : "un"} prize 'principal' existant`);
   return snap.empty ? null : snap.docs[0].id;
 }
 
-async function loadShopInfo(db, game) {
+async function loadShopInfo(db, game, onProgress = noopProgress) {
   const enseigneRef = game.enseigne_id || game.enseigne_ref;
   const refPathValue = enseigneRef?.path || "";
   if (!/^enseignes\/[^/]+$/.test(refPathValue)) {
+    onProgress("enseigne: reference absente ou mal formee");
     return { enseigneRefPath: refPathValue || null, exists: false, data: null };
   }
+  onProgress(`enseigne: verification de ${refPathValue}...`);
   const snap = await db.doc(refPathValue).get();
+  onProgress(`enseigne: ${snap.exists ? "trouvee" : "introuvable"}`);
   return { enseigneRefPath: refPathValue, exists: snap.exists, data: snap.exists ? snap.data() : null };
 }
 
-async function buildReportForGame(db, gameId, data, nowTimestamp) {
+async function buildReportForGame(db, gameId, data, nowTimestamp, onProgress = noopProgress) {
   const gameRef = db.doc(`games/${gameId}`);
+  const tagged = (message) => onProgress(`[${gameId}] ${message}`);
   const [participants, existingPrizeId, shopInfo] = await Promise.all([
-    loadParticipantsContext(db, gameRef),
-    loadExistingPrincipalPrizeId(db, gameRef),
-    loadShopInfo(db, data),
+    loadParticipantsContext(db, gameRef, tagged),
+    loadExistingPrincipalPrizeId(db, gameRef, tagged),
+    loadShopInfo(db, data, tagged),
   ]);
   return buildMissedDrawReport({
     gameId,
@@ -512,6 +547,27 @@ async function buildReportForGame(db, gameId, data, nowTimestamp) {
     existingPrizeId,
     shopInfo,
   });
+}
+
+// Isolates one game's analysis from all the others: if anything above
+// throws (a bad reference, a transient network error, a permission
+// issue on one specific document...), this catches it, reports it as an
+// ANALYSIS_ERROR row instead of a simulated category, and lets the
+// caller move on to the next candidate instead of losing the entire
+// audit run to a single bad document.
+async function safelyBuildReport(db, gameId, data, nowTimestamp, onProgress = noopProgress) {
+  try {
+    return await buildReportForGame(db, gameId, data, nowTimestamp, onProgress);
+  } catch (error) {
+    onProgress(`[${gameId}] ERREUR pendant l'analyse : ${error.message} -- jeu ignore, poursuite de l'audit`);
+    return {
+      gameId,
+      name: data.name || data.title || null,
+      category: "ANALYSIS_ERROR",
+      reason: "analysis_threw",
+      error: error.message,
+    };
+  }
 }
 
 async function main() {
@@ -526,11 +582,15 @@ async function main() {
   const nowTimestamp = admin.firestore.Timestamp.now();
   const nowMs = nowTimestamp.toMillis();
 
+  logProgress(`demarrage -- project=${args.project} app=${app.name} mode=${args.connectionDiagnostic ? "connection-diagnostic" : args.gameId ? "single-game" : "full-scan"}`);
+
   // Computed once, on every mode: this is the proof the user asked for
   // that the script opens exactly <requestedProjectId>/(default) and not
   // some other project/database -- a cheap aggregate count() plus a
   // 5-document sample, never the full collection.
+  logProgress("verification de connexion : count() sur 'games'...");
   const countSnap = await db.collection("games").count().get();
+  logProgress(`verification de connexion : ${countSnap.data().count} document(s) 'games' au total`);
   const sampleSnap = await db
     .collection("games")
     .orderBy(admin.firestore.FieldPath.documentId())
@@ -566,6 +626,7 @@ async function main() {
   if (args.gameId) {
     // Single-document diagnostic mode: direct db.doc().get(), no
     // collection scan, no candidate filter applied before the raw dump.
+    logProgress(`mode single-game-diagnostic : lecture directe de games/${args.gameId}`);
     const snap = await db.doc(`games/${args.gameId}`).get();
     const diagnostic = buildRawFieldDump({
       exists: snap.exists,
@@ -573,7 +634,7 @@ async function main() {
       data: snap.exists ? snap.data() : null,
     });
     const report = snap.exists
-      ? await buildReportForGame(db, args.gameId, snap.data() || {}, nowTimestamp)
+      ? await safelyBuildReport(db, args.gameId, snap.data() || {}, nowTimestamp, logProgress)
       : null;
     const summary = {
       generatedAt: new Date().toISOString(),
@@ -593,7 +654,13 @@ async function main() {
 
   const reports = [];
   let scanned = 0;
+  let candidateIndex = 0;
   let lastDoc = null;
+  const totalGames = connection.gamesCollectionCount;
+
+  logProgress(
+    `scan complet demarre -- ${totalGames} document(s) 'games' attendu(s) au total (count() live), page-size=${args.pageSize}`,
+  );
 
   while (true) {
     let query = db.collection("games").orderBy(admin.firestore.FieldPath.documentId()).limit(args.pageSize);
@@ -601,21 +668,27 @@ async function main() {
     const snapshot = await query.get();
     if (snapshot.empty) break;
     lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    logProgress(`page recue : ${snapshot.docs.length} document(s)`);
 
     for (const doc of snapshot.docs) {
       scanned += 1;
       const data = doc.data() || {};
       if (!isMissedDrawCandidate(data, nowMs)) continue;
+      candidateIndex += 1;
+      logProgress(`[${scanned}/${totalGames}] candidat #${candidateIndex} : ${doc.id} - ${data.name || data.title || "(sans nom)"}`);
       // eslint-disable-next-line no-await-in-loop
-      reports.push(await buildReportForGame(db, doc.id, data, nowTimestamp));
+      reports.push(await safelyBuildReport(db, doc.id, data, nowTimestamp, logProgress));
     }
   }
+
+  logProgress(`scan complet termine : ${scanned} jeu(x) scanne(s), ${candidateIndex} candidat(s) detecte(s)`);
 
   // Kids Troc always gets a direct, unconditional lookup -- independent
   // of whether the generic candidate filter above matched it -- so
   // "kidsTroc" in the output is never silently null: it is either the
   // full simulated report, or an explicit NOT_FOUND row, and
   // kidsTrocDiagnostic always shows the raw values actually read.
+  logProgress(`verification directe de games/${KIDS_TROC_GAME_ID} (Kids Troc)`);
   const kidsTrocSnap = await db.doc(`games/${KIDS_TROC_GAME_ID}`).get();
   const kidsTrocDiagnostic = buildRawFieldDump({
     exists: kidsTrocSnap.exists,
@@ -625,7 +698,7 @@ async function main() {
   let kidsTroc = reports.find((r) => r.gameId === KIDS_TROC_GAME_ID) || null;
   if (!kidsTroc) {
     kidsTroc = kidsTrocSnap.exists
-      ? await buildReportForGame(db, KIDS_TROC_GAME_ID, kidsTrocSnap.data() || {}, nowTimestamp)
+      ? await safelyBuildReport(db, KIDS_TROC_GAME_ID, kidsTrocSnap.data() || {}, nowTimestamp, logProgress)
       : { gameId: KIDS_TROC_GAME_ID, category: "NOT_FOUND", reason: "document_not_found" };
   }
 
@@ -668,6 +741,9 @@ module.exports = {
   isValidUserRef,
   simulateMainPrizeDraw,
   buildMissedDrawReport,
+  buildReportForGame,
+  safelyBuildReport,
+  logProgress,
   KIDS_TROC_GAME_ID,
   ADMIN_APP_NAME,
 };
