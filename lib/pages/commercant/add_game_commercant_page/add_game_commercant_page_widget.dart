@@ -1264,10 +1264,13 @@ class _AddGameCommercantPageWidgetState
                                         setState(() {
                                           _model.mainPrizeEnabled = val;
                                           if (!val) {
+                                            // textController4 (Titre du jeu)
+                                            // n'est pas efface ici : c'est un
+                                            // champ independant du lot
+                                            // principal, pas un de ses champs.
                                             _model.textController1?.clear();
                                             _model.textController2?.clear();
                                             _model.textController3?.clear();
-                                            _model.textController4?.clear();
                                           }
                                         });
                                       },
@@ -1298,12 +1301,6 @@ class _AddGameCommercantPageWidgetState
                                       hintText: 'ex : Un dîner pour 2',
                                     ),
                                     style: _fieldTextStyle(context),
-                                    onChanged: (value) {
-                                      if (_model.mainPrizeEnabled) {
-                                        _model.textController4?.text =
-                                            value.trim();
-                                      }
-                                    },
                                     validator: _model.textController1Validator
                                         .asValidator(context),
                                   ),
@@ -1466,27 +1463,30 @@ class _AddGameCommercantPageWidgetState
                             ),
                           ),
                             const SizedBox(height: 12.0),
+                          // Le titre du jeu est une propriete du jeu dans son
+                          // ensemble : il ne doit jamais dependre de
+                          // mainPrizeEnabled ni de secondaryPrizesEnabled
+                          // (regression 664a8def -- voir
+                          // test/add_game_commercant_title_field_test.dart).
+                          TextFormField(
+                            controller: _model.textController4,
+                            focusNode: _model.textFieldFocusNode4,
+                            autofocus: false,
+                            obscureText: false,
+                            decoration: _fieldDecoration(
+                              context,
+                              label: 'Titre du jeu',
+                            ),
+                            style: _fieldTextStyle(context),
+                            validator: _model.textController4Validator
+                                .asValidator(context),
+                          ),
+                          const SizedBox(height: 12.0),
                           if (_model.secondaryPrizesEnabled) ...[
                             Divider(
                               thickness: 1.0,
                               color: FlutterFlowTheme.of(context).alternate,
                             ),
-                            if (!_model.mainPrizeEnabled) ...[
-                              const SizedBox(height: 12.0),
-                              TextFormField(
-                                controller: _model.textController4,
-                                focusNode: _model.textFieldFocusNode4,
-                                autofocus: false,
-                                obscureText: false,
-                                decoration: _fieldDecoration(
-                                  context,
-                                  label: 'Titre du jeu',
-                                ),
-                                style: _fieldTextStyle(context),
-                                validator: _model.textController4Validator
-                                    .asValidator(context),
-                              ),
-                            ],
                             const SizedBox(height: 12.0),
                             ...List.generate(
                               _model.secondaryPrizes.length,
