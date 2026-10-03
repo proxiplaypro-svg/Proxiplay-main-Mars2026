@@ -292,10 +292,46 @@ void main() {
     expect(selectedTabIndex(tester), 1,
         reason: 'the Professionnel tab (index 1) must be pre-selected');
 
+    // The merchant signup FORM itself must actually be showing, not just
+    // the tab selector - the Joueur tab's own "Mail"/"Mot de passe" fields
+    // are gated behind _showEmailForm (false by default, it only shows
+    // "Continuer avec Google"/"Continuer avec l'e-mail" buttons), so a
+    // single match here can only come from the Professionnel form.
+    expect(find.text('Mail'), findsOneWidget,
+        reason: 'the merchant signup form fields must be visible, not just '
+            'the tab selector');
+    expect(find.text('Code de parrainage (facultatif)'), findsOneWidget);
+
     // "role=commercant" must only select the tab - nothing else observable
     // on FFAppState changes as a side effect of this navigation.
     expect(FFAppState().pendingReferralCode, pendingBefore);
     expect(FFAppState().isGuest, guestBefore);
+  });
+
+  testWidgets(
+      '2. manual access to both Joueur and Professionnel tabs keeps working '
+      '(the new entry point only adds a shortcut, it does not replace '
+      'manual tab selection)', (tester) async {
+    await pump(tester, buildRouter());
+
+    // No ?role query param: lands on the default Joueur tab, exactly as
+    // before this entry point existed.
+    await tester.ensureVisible(find.text(' Inscription'));
+    await tester.tap(find.text(' Inscription'));
+    await tester.pumpAndSettle();
+    expect(selectedTabIndex(tester), 0,
+        reason: 'manual entry still defaults to the Joueur tab');
+
+    await tester.tap(find.text('Professionnel'));
+    await tester.pumpAndSettle();
+    expect(selectedTabIndex(tester), 1,
+        reason: 'manually tapping the Professionnel tab must still work');
+    expect(find.text('Mail'), findsOneWidget);
+
+    await tester.tap(find.text('Joueur'));
+    await tester.pumpAndSettle();
+    expect(selectedTabIndex(tester), 0,
+        reason: 'manually tapping back to the Joueur tab must still work');
   });
 
   testWidgets(
