@@ -149,6 +149,47 @@ service cloud.firestore {
         data.get('participations', 0) == 0;
     }
 
+    // Un jeu dont le tirage/l'attribution du lot principal est deja
+    // finalise (voir main_prize_draw.js, qui n'ecrit jamais ces 4 champs
+    // ensemble autrement que depuis le resultat d'un vrai tirage) ne doit
+    // plus jamais pouvoir redevenir une "nouvelle edition" sur le MEME
+    // document -- c'est exactement ce qui a permis la reactivation
+    // accidentelle en production d'un jeu deja clos (instant_winners et
+    // participants de l'ancienne edition restes en place, nouveau
+    // draw_status jamais tente car main_prize_draw.js le voit deja
+    // "already_finalized"). Organiser une nouvelle edition passe par
+    // Dupliquer (nouveau gameId), jamais par une correction de ce
+    // document-ci.
+    function isGameFinalized(data) {
+      return data.get('hasWinner', false) == true ||
+        data.get('main_prize_winner', null) != null ||
+        data.get('draw_status', null) in
+          ['completed', 'no_main_prize', 'no_eligible_entries'] ||
+        data.get('drawn_at', null) != null;
+    }
+
+    // Un jeu finalise reste corrigeable (titre, description, photo...)
+    // tant que la correction ne touche ni ses marqueurs de finalisation
+    // (jamais de reecriture/effacement d'un historique reel) ni les
+    // champs qui le feraient revivre comme actif/visible : date de fin,
+    // statut, visibilite publique.
+    function isSafeFinalizedGameUpdate() {
+      return resource.data.get('end_date', null) ==
+          request.resource.data.get('end_date', null) &&
+        resource.data.get('status', null) ==
+          request.resource.data.get('status', null) &&
+        resource.data.get('visible_public', null) ==
+          request.resource.data.get('visible_public', null) &&
+        resource.data.get('hasWinner', false) ==
+          request.resource.data.get('hasWinner', false) &&
+        resource.data.get('main_prize_winner', null) ==
+          request.resource.data.get('main_prize_winner', null) &&
+        resource.data.get('draw_status', null) ==
+          request.resource.data.get('draw_status', null) &&
+        resource.data.get('drawn_at', null) ==
+          request.resource.data.get('drawn_at', null);
+    }
+
     function isMerchantOwnerOfEnseigne(enseigneRef) {
       return isSignedIn() &&
         enseigneRef != null &&
@@ -351,7 +392,8 @@ service cloud.firestore {
           isSafeMerchantGameCreate(request.resource.data)
         );
       allow read: if true;
-      allow update: if isAdmin() ||
+      allow update: if (isAdmin() &&
+          (!isGameFinalized(resource.data) || isSafeFinalizedGameUpdate())) ||
         (ownsGame(resource.data) &&
           isSafeMerchantGameUpdate());
       allow delete: if isAdmin() ||
