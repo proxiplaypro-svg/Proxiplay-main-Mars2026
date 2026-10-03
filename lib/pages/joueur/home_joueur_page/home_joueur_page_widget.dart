@@ -517,7 +517,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           );
         }
 
-        if (!showReferralGameCard) {
+        if (!showReferralGameCard ||
+            isGuestOrAnonymous ||
+            currentUserUid.isEmpty) {
           return buildCarousel(hasActiveReferralGame: false);
         }
 

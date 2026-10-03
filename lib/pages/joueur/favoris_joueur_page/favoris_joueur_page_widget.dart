@@ -126,8 +126,13 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
   }
 
   Future<List<_FavoriteGameListItem>> _loadSortedFavoriteGames() async {
+    final userReference = currentUserReference;
+    if (userReference == null) {
+      return const [];
+    }
+
     final favoriteRecords = await queryFavoriteGamesRecordOnce(
-      parent: currentUserReference,
+      parent: userReference,
     );
 
     final items = await Future.wait(
