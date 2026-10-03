@@ -21,14 +21,18 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const os = require("node:os");
 const {
   assertReadOnlySource,
   describeType,
   buildRawFieldDump,
+  describeAuthSource,
+  buildConnectionDiagnostic,
   isMissedDrawCandidate,
   simulateMainPrizeDraw,
   buildMissedDrawReport,
   KIDS_TROC_GAME_ID,
+  ADMIN_APP_NAME,
 } = require("../scripts/audit_missed_main_prize_draws");
 
 const ref = (p) => ({ path: p });
@@ -340,4 +344,144 @@ test("buildMissedDrawReport ne mute jamais les objets source passes en entree (l
     shopInfo: { exists: false, data: null, enseigneRefPath: null },
   });
   assert.deepEqual({ hasMainPrize: data.hasMainPrize, hasWinner: data.hasWinner }, snapshot);
+});
+
+// --- Connection diagnostic: describeAuthSource / buildConnectionDiagnostic ---
+// Exercises the exact ADC lookup order Google's client libraries follow,
+// using throwaway temp files -- never the user's real credentials -- and
+// proves the result never carries a private_key or token.
+
+test("ADMIN_APP_NAME est un nom d'app dedie, jamais l'app par defaut implicite", () => {
+  assert.equal(typeof ADMIN_APP_NAME, "string");
+  assert.ok(ADMIN_APP_NAME.length > 0);
+  assert.notEqual(ADMIN_APP_NAME, "[DEFAULT]");
+});
+
+test("describeAuthSource : GOOGLE_APPLICATION_CREDENTIALS pointe vers un fichier de service account valide", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "audit-auth-test-"));
+  const keyPath = path.join(dir, "fake-service-account.json");
+  try {
+    fs.writeFileSync(
+      keyPath,
+      JSON.stringify({
+        type: "service_account",
+        project_id: "proxi-play-odzp2e",
+        client_email: "fake@proxi-play-odzp2e.iam.gserviceaccount.com",
+        private_key: "-----BEGIN PRIVATE KEY-----\nSECRET_DO_NOT_LEAK\n-----END PRIVATE KEY-----\n",
+      }),
+    );
+    const result = describeAuthSource({ GOOGLE_APPLICATION_CREDENTIALS: keyPath });
+    assert.equal(result.mechanism, "GOOGLE_APPLICATION_CREDENTIALS");
+    assert.equal(result.credentialFileExists, true);
+    assert.equal(result.credentialFileType, "service_account");
+    assert.equal(result.credentialFileProjectId, "proxi-play-odzp2e");
+    assert.equal(result.credentialFileClientEmail, "fake@proxi-play-odzp2e.iam.gserviceaccount.com");
+    assert.equal("private_key" in result, false, "le resultat ne doit jamais contenir la cle privee");
+    assert.ok(!JSON.stringify(result).includes("SECRET_DO_NOT_LEAK"), "aucun secret ne doit fuiter dans la sortie");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("describeAuthSource : GOOGLE_APPLICATION_CREDENTIALS pointe vers un fichier absent", () => {
+  const result = describeAuthSource({ GOOGLE_APPLICATION_CREDENTIALS: "/nonexistent/path/key.json" });
+  assert.equal(result.mechanism, "GOOGLE_APPLICATION_CREDENTIALS");
+  assert.equal(result.credentialFileExists, false);
+});
+
+test("describeAuthSource : pas de GOOGLE_APPLICATION_CREDENTIALS mais un fichier ADC gcloud present", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "audit-auth-test-home-"));
+  const gcloudDir = path.join(dir, ".config", "gcloud");
+  fs.mkdirSync(gcloudDir, { recursive: true });
+  try {
+    fs.writeFileSync(
+      path.join(gcloudDir, "application_default_credentials.json"),
+      JSON.stringify({ type: "authorized_user", client_id: "fake-client-id.apps.googleusercontent.com" }),
+    );
+    const result = describeAuthSource({ HOME: dir });
+    assert.match(result.mechanism, /gcloud user ADC/);
+    assert.equal(result.credentialFileExists, true);
+    assert.equal(result.credentialFileType, "authorized_user");
+    assert.ok(result.note, "doit preciser que ce fichier n'a pas de project_id propre");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("describeAuthSource : aucune methode ADC locale detectee -> mecanisme metadata server suppose", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "audit-auth-test-empty-"));
+  try {
+    const result = describeAuthSource({ HOME: dir });
+    assert.equal(result.credentialFileExists, false);
+    assert.equal(result.credentialFilePath, null);
+    assert.match(result.mechanism, /metadata server/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("buildConnectionDiagnostic : projectIdMatches reflete fidelement requested vs effectif", () => {
+  const match = buildConnectionDiagnostic({
+    requestedProjectId: "proxi-play-odzp2e",
+    effectiveProjectId: "proxi-play-odzp2e",
+    databaseId: "(default)",
+    appName: ADMIN_APP_NAME,
+    authSource: { mechanism: "test" },
+    gamesCollectionCount: 138,
+    sampleGameIds: ["a", "b"],
+    env: {},
+  });
+  assert.equal(match.projectIdMatches, true);
+
+  const mismatch = buildConnectionDiagnostic({
+    requestedProjectId: "proxi-play-odzp2e",
+    effectiveProjectId: "un-autre-projet",
+    databaseId: "(default)",
+    appName: ADMIN_APP_NAME,
+    authSource: { mechanism: "test" },
+    gamesCollectionCount: 0,
+    sampleGameIds: [],
+    env: {},
+  });
+  assert.equal(mismatch.projectIdMatches, false);
+});
+
+test("buildConnectionDiagnostic : expose FIRESTORE_EMULATOR_HOST et les variables d'env demandees, sans secret", () => {
+  const result = buildConnectionDiagnostic({
+    requestedProjectId: "proxi-play-odzp2e",
+    effectiveProjectId: "proxi-play-odzp2e",
+    databaseId: "(default)",
+    appName: ADMIN_APP_NAME,
+    authSource: { mechanism: "test" },
+    gamesCollectionCount: 138,
+    sampleGameIds: ["poq44UWwkSvKa9N3lbUj"],
+    env: {
+      FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080",
+      GOOGLE_CLOUD_PROJECT: "proxi-play-odzp2e",
+      GCLOUD_PROJECT: null,
+      FIREBASE_CONFIG: '{"projectId":"proxi-play-odzp2e"}',
+      GOOGLE_APPLICATION_CREDENTIALS: "/path/to/key.json",
+    },
+  });
+  assert.equal(result.firestoreEmulatorHost, "127.0.0.1:8080");
+  assert.equal(result.env.GOOGLE_CLOUD_PROJECT, "proxi-play-odzp2e");
+  assert.equal(result.env.FIREBASE_CONFIG_present, true);
+  assert.equal(result.env.GOOGLE_APPLICATION_CREDENTIALS, "/path/to/key.json");
+  assert.equal(result.gamesCollectionCount, 138);
+  assert.deepEqual(result.sampleGameIds, ["poq44UWwkSvKa9N3lbUj"]);
+  assert.ok(!JSON.stringify(result).match(/private_key|AIza|token/i), "aucun secret ne doit apparaitre dans le diagnostic de connexion");
+});
+
+test("buildConnectionDiagnostic : FIRESTORE_EMULATOR_HOST absent -> null, pas une chaine vide trompeuse", () => {
+  const result = buildConnectionDiagnostic({
+    requestedProjectId: "proxi-play-odzp2e",
+    effectiveProjectId: "proxi-play-odzp2e",
+    databaseId: "(default)",
+    appName: ADMIN_APP_NAME,
+    authSource: { mechanism: "test" },
+    gamesCollectionCount: 0,
+    sampleGameIds: [],
+    env: {},
+  });
+  assert.equal(result.firestoreEmulatorHost, null);
 });

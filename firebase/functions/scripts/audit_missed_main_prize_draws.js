@@ -35,7 +35,7 @@
 //
 // Usage:
 //   node scripts/audit_missed_main_prize_draws.js --project <firebase-project-id> \
-//     [--page-size 200] [--json-out report.json] [--game-id <id>]
+//     [--page-size 200] [--json-out report.json] [--game-id <id>] [--connection-diagnostic]
 //
 // --game-id switches to a single-document diagnostic mode: it fetches
 // that one games/{id} document DIRECTLY (db.doc().get(), no collection
@@ -47,6 +47,17 @@
 // simulateMainPrizeDraw() ever run on it. This is the fastest way to
 // see exactly why a specific document (e.g. Kids Troc) was or wasn't
 // picked up by the general scan below, without guessing at its schema.
+//
+// --connection-diagnostic answers a more basic question first: is this
+// script even connected to the same project/database the person is
+// looking at in Firebase Console? It prints the requested vs. effective
+// project id, the Firestore database id actually opened, whether
+// FIRESTORE_EMULATOR_HOST is set, which ADC mechanism is in use (by file
+// path and non-secret identity fields only -- never a token or private
+// key), a live count() of the "games" collection, and a handful of real
+// document ids to cross-check against the console. This block is also
+// included in every other mode's output, so any run can be checked for
+// consistency after the fact.
 const fs = require("node:fs");
 const path = require("node:path");
 const { gameOwnership } = require("../merchant_ownership");
@@ -54,6 +65,16 @@ const { prizeFulfillment } = require("../prize_fulfillment");
 const { excluded } = require("../prize_integrity");
 
 const KIDS_TROC_GAME_ID = "poq44UWwkSvKa9N3lbUj";
+
+// Dedicated, explicitly-named Firebase app for this script. The old code
+// did `if (!admin.apps.length) admin.initializeApp(...)` -- if ANY
+// default app already existed in the Node process for any reason, that
+// check would silently skip initialization and --project would be
+// ignored entirely, reusing whatever project/credential that other app
+// was bound to. A uniquely-named app removes that ambiguity: this
+// script's Firestore connection is never shared with, or silently
+// inherited from, another app.
+const ADMIN_APP_NAME = "audit_missed_main_prize_draws";
 
 // Any match here means this file is no longer read-only and must not run
 // against a real project. Deliberately avoids native Map.set()/Set.add()
@@ -294,6 +315,7 @@ function parseArgs(argv) {
     pageSize: 200,
     jsonOut: "",
     gameId: "",
+    connectionDiagnostic: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -309,6 +331,8 @@ function parseArgs(argv) {
     } else if (arg === "--game-id" && i + 1 < argv.length) {
       args.gameId = String(argv[i + 1] || "").trim();
       i += 1;
+    } else if (arg === "--connection-diagnostic") {
+      args.connectionDiagnostic = true;
     }
   }
   return args;
@@ -318,10 +342,111 @@ function ensureFirestore(admin, projectId) {
   if (!projectId) {
     throw new Error("Project id manquant. Utilisez --project <firebase-project-id>.");
   }
-  if (!admin.apps.length) {
-    admin.initializeApp({ credential: admin.credential.applicationDefault(), projectId });
+  const existing = admin.apps.find((a) => a && a.name === ADMIN_APP_NAME);
+  const app =
+    existing ||
+    admin.initializeApp({ credential: admin.credential.applicationDefault(), projectId }, ADMIN_APP_NAME);
+  return { app, db: admin.firestore(app) };
+}
+
+/** Pure (takes env as a plain object, no Firestore access). Identifies
+ * which ADC mechanism firebase-admin will actually use, following the
+ * same lookup order Google's client libraries document, without ever
+ * reading or returning a private_key or any token. Only non-secret
+ * identity fields (project_id, client_email, client_id, credential
+ * type) are surfaced -- exactly enough to tell whether the credential
+ * in use is plausibly tied to the intended project. */
+function describeAuthSource(env = process.env) {
+  const gacPath = env.GOOGLE_APPLICATION_CREDENTIALS || "";
+  if (gacPath) {
+    const resolved = path.resolve(gacPath);
+    const result = {
+      mechanism: "GOOGLE_APPLICATION_CREDENTIALS",
+      credentialFilePath: resolved,
+      credentialFileExists: fs.existsSync(resolved),
+      credentialFileType: null,
+      credentialFileProjectId: null,
+      credentialFileClientEmail: null,
+      readError: null,
+    };
+    if (result.credentialFileExists) {
+      try {
+        const raw = JSON.parse(fs.readFileSync(resolved, "utf8"));
+        result.credentialFileType = raw.type || null;
+        result.credentialFileProjectId = raw.project_id || null;
+        result.credentialFileClientEmail = raw.client_email || null;
+      } catch (error) {
+        result.readError = error.message;
+      }
+    }
+    return result;
   }
-  return admin.firestore();
+  const gcloudAdcPath = path.join(
+    env.HOME || env.USERPROFILE || "",
+    ".config",
+    "gcloud",
+    "application_default_credentials.json",
+  );
+  if (fs.existsSync(gcloudAdcPath)) {
+    const result = {
+      mechanism: "gcloud user ADC (application_default_credentials.json)",
+      credentialFilePath: gcloudAdcPath,
+      credentialFileExists: true,
+      credentialFileType: null,
+      credentialFileClientId: null,
+      note:
+        "Identifiants utilisateur gcloud : pas de project_id propre dans ce fichier -- le routage vers un projet vient de --project (passe explicitement a initializeApp), pas de ce fichier.",
+    };
+    try {
+      const raw = JSON.parse(fs.readFileSync(gcloudAdcPath, "utf8"));
+      result.credentialFileType = raw.type || null;
+      result.credentialFileClientId = raw.client_id || null;
+    } catch (_) {
+      // Non bloquant pour ce diagnostic -- la presence du fichier suffit a identifier le mecanisme.
+    }
+    return result;
+  }
+  return {
+    mechanism:
+      "aucun fichier ADC local detecte (GOOGLE_APPLICATION_CREDENTIALS absent, pas de fichier gcloud ADC) -- un service account de metadata server (GCE/Cloud Run/Cloud Functions) est probable si la connexion a reussi malgre tout",
+    credentialFilePath: null,
+    credentialFileExists: false,
+  };
+}
+
+/** Pure. Assembles the connection-proof block from already-resolved
+ * values -- no Firestore access happens inside this function itself.
+ * Never includes a token, a private key, or any secret: only project
+ * ids, the database id actually opened, which ADC mechanism was used
+ * (by file path and non-secret identity fields), and whether the
+ * requested and effective project ids actually match. */
+function buildConnectionDiagnostic({
+  requestedProjectId,
+  effectiveProjectId,
+  databaseId,
+  appName,
+  authSource,
+  gamesCollectionCount,
+  sampleGameIds,
+  env = process.env,
+}) {
+  return {
+    requestedProjectId,
+    effectiveProjectId,
+    projectIdMatches: requestedProjectId === effectiveProjectId,
+    databaseId,
+    appName,
+    firestoreEmulatorHost: env.FIRESTORE_EMULATOR_HOST || null,
+    authSource,
+    env: {
+      GOOGLE_CLOUD_PROJECT: env.GOOGLE_CLOUD_PROJECT || null,
+      GCLOUD_PROJECT: env.GCLOUD_PROJECT || null,
+      FIREBASE_CONFIG_present: Boolean(env.FIREBASE_CONFIG),
+      GOOGLE_APPLICATION_CREDENTIALS: env.GOOGLE_APPLICATION_CREDENTIALS || null,
+    },
+    gamesCollectionCount,
+    sampleGameIds,
+  };
 }
 
 function writeIfRequested(filePath, content) {
@@ -397,9 +522,46 @@ async function main() {
   // with fixtures.
   const admin = require("firebase-admin");
   const args = parseArgs(process.argv.slice(2));
-  const db = ensureFirestore(admin, args.project);
+  const { app, db } = ensureFirestore(admin, args.project);
   const nowTimestamp = admin.firestore.Timestamp.now();
   const nowMs = nowTimestamp.toMillis();
+
+  // Computed once, on every mode: this is the proof the user asked for
+  // that the script opens exactly <requestedProjectId>/(default) and not
+  // some other project/database -- a cheap aggregate count() plus a
+  // 5-document sample, never the full collection.
+  const countSnap = await db.collection("games").count().get();
+  const sampleSnap = await db
+    .collection("games")
+    .orderBy(admin.firestore.FieldPath.documentId())
+    .limit(5)
+    .get();
+  const connection = buildConnectionDiagnostic({
+    requestedProjectId: args.project,
+    effectiveProjectId: app.options.projectId || null,
+    databaseId: db.databaseId || "(default)",
+    appName: app.name,
+    authSource: describeAuthSource(),
+    gamesCollectionCount: countSnap.data().count,
+    sampleGameIds: sampleSnap.docs.map((d) => d.id),
+  });
+
+  if (args.connectionDiagnostic) {
+    const kidsTrocSnap = await db.doc(`games/${KIDS_TROC_GAME_ID}`).get();
+    const summary = {
+      generatedAt: new Date().toISOString(),
+      readOnly: true,
+      mode: "connection-diagnostic",
+      connection,
+      kidsTrocDirectLookup: {
+        path: `games/${KIDS_TROC_GAME_ID}`,
+        exists: kidsTrocSnap.exists,
+      },
+    };
+    writeIfRequested(args.jsonOut, `${JSON.stringify(summary, null, 2)}\n`);
+    console.log(JSON.stringify(summary, null, 2));
+    return;
+  }
 
   if (args.gameId) {
     // Single-document diagnostic mode: direct db.doc().get(), no
@@ -419,6 +581,7 @@ async function main() {
       mode: "single-game-diagnostic",
       project: args.project,
       gameId: args.gameId,
+      connection,
       diagnostic,
       wouldBeCandidate: snap.exists ? isMissedDrawCandidate(snap.data() || {}, nowMs) : false,
       report,
@@ -474,6 +637,7 @@ async function main() {
   const summary = {
     generatedAt: new Date().toISOString(),
     readOnly: true,
+    connection,
     scannedGames: scanned,
     candidateCount: reports.length,
     byCategory,
@@ -497,10 +661,13 @@ module.exports = {
   assertReadOnlySource,
   describeType,
   buildRawFieldDump,
+  describeAuthSource,
+  buildConnectionDiagnostic,
   deriveHasMainPrize,
   isMissedDrawCandidate,
   isValidUserRef,
   simulateMainPrizeDraw,
   buildMissedDrawReport,
   KIDS_TROC_GAME_ID,
+  ADMIN_APP_NAME,
 };
