@@ -337,4 +337,30 @@ void main() {
       );
     });
   });
+
+  group('resolveInitialSignupRole', () {
+    // Bug: a new merchant opening the app only ever saw the login form,
+    // with no way to land directly on the "Professionnel" signup tab -
+    // the entry point ("Créer un compte" on the login screen)
+    // routes to InscriptionPage with ?role=commercant, resolved here.
+    test('1. role=commercant pre-selects the merchant tab for a logged-out '
+        'visitor', () {
+      expect(resolveInitialSignupRole('commercant'), Roles.commercant);
+    });
+
+    test('5. no regression: an absent role param keeps the player default',
+        () {
+      expect(resolveInitialSignupRole(null), isNull);
+    });
+
+    test('5. no regression: role=joueur (player entry point) keeps the '
+        'player default', () {
+      expect(resolveInitialSignupRole('joueur'), isNull);
+    });
+
+    test('an unrecognized role value falls back to the player default '
+        'instead of crashing', () {
+      expect(resolveInitialSignupRole('not-a-role'), isNull);
+    });
+  });
 }

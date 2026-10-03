@@ -310,7 +310,11 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
             FFRoute(
               name: InscriptionPageWidget.routeName,
               path: InscriptionPageWidget.routePath,
-              builder: (context, params) => const InscriptionPageWidget(),
+              builder: (context, params) => InscriptionPageWidget(
+                initialRole: resolveInitialSignupRole(
+                  params.getParam('role', ParamType.String),
+                ),
+              ),
             ),
             FFRoute(
               name: InscriptionInformationsPageWidget.routeName,

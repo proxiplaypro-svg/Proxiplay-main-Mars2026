@@ -50,6 +50,15 @@ SafePopFallbackHome resolveSafePopFallbackHome(Roles? role) {
   }
 }
 
+/// Pre-selects InscriptionPage's "Professionnel" tab when a prospective
+/// merchant is routed there directly via `?role=commercant` (e.g. the
+/// "Créer un compte" entry point on the login screen), instead
+/// of always defaulting new visitors to the "Joueur" tab. Any other value,
+/// including an absent param, keeps the existing default (null -> joueur
+/// tab), so the player signup entry point is unaffected.
+Roles? resolveInitialSignupRole(String? roleQueryParam) =>
+    roleQueryParam == 'commercant' ? Roles.commercant : null;
+
 AuthenticatedHomeTarget resolveTargetFromResolvedRole({
   required bool documentExists,
   required Roles? effectiveRole,
