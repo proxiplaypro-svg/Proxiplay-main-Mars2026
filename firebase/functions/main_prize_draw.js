@@ -8,20 +8,51 @@ const {publicPrize}=require('./public_winners');
 const {runScheduledDraws}=require('./scheduled_draw_runner');
 const db=admin.firestore();
 
-// Bounded/batched replacement for a sequential "await tx.get(ref)" per
-// participant. A game with hundreds or thousands of tickets (Kids Troc:
-// 1576) used to cost one Firestore round-trip per participant, one after
-// another, inside the transaction -- the dominant reason pickMainPrizeWinners
-// kept exceeding even a 300s timeout. transaction.getAll() reads several
-// document references in a single batched call; refs are deduplicated
-// (the same user can legitimately hold several tickets, so a duplicate
-// ref is fetched once and reused for every one of their entries below --
-// eligibility, multiplicity and the final random draw are unaffected).
-// Chunking caps how many refs go into any single getAll() call: a bounded,
-// predictable number of batched round-trips, never one unbounded burst of
-// 1500+ simultaneous reads and never 1500+ sequential ones either.
+// "Moteur C": drawMainPrize() is split into three phases so the ONLY
+// Firestore transaction it opens stays O(1) relative to participant
+// count, matching the pre-07520aa5 architecture's cost profile while
+// keeping every business protection added since (ownership, fulfillment,
+// prize_usage_deadline, existing-prize guard, claim code registry,
+// excluded-account filtering). See docs/incident notes: the regression
+// that broke large-participant draws (Kids Troc: 1576, the 04/10 games:
+// ~3000) was introduced in a single commit (7520aa5, 09/09) that moved
+// the full participant/user eligibility scan INSIDE the transaction,
+// one sequential tx.get() per participant. Batching (tx.getAll()) later
+// reduced the round-trip count but the transaction's cost was still
+// proportional to participant count and vulnerable to Firestore
+// transaction retries on any contended read. Phase 1 below now does
+// that scan OUTSIDE any transaction; Phase 3 only re-reads the single
+// candidate chosen in Phase 2, plus the handful of fixed-size documents
+// (game, enseigne, existing-prize query, claim code registry) needed to
+// keep the final write atomically consistent.
+//
+// Phase 1 and Phase 3 intentionally duplicate the same non-participant
+// checks (already_finalized, not_due, inactive, hasMain, prize_usage_
+// deadline, ownership, fulfillment, existing principal prize): Phase 1
+// decides whether a draw should be attempted at all and builds the
+// eligible pool; Phase 3 re-verifies every one of those conditions
+// against freshly re-read documents at commit time, because Phase 1's
+// reads are NOT atomic with the final write and anything could have
+// changed in between (including a concurrent execution of the very same
+// scheduled job on the same game).
+
 const PARTICIPANT_USER_BATCH_SIZE = 300;
-async function loadEligibleParticipants(tx, ticketDocs) {
+// Explicit bound on Phase 3's candidate retry loop (see loadEligibleParticipants
+// below for why eligible still has one entry per eligible TICKET, not per
+// user): guarantees termination even in the pathological case of a mass
+// ban/suspension landing between Phase 1 and Phase 3, without ever
+// re-scanning the full participants collection to find a replacement.
+const MAX_CANDIDATE_ATTEMPTS = 20;
+
+// Batched user-doc loader. Works with ANY reader exposing getAll(...refs) --
+// a plain Firestore instance (used by Phase 1, outside any transaction)
+// or a Transaction (kept for backward compatibility / tests). Dedup +
+// chunking unchanged from the batching fix: the same user can legitimately
+// hold several tickets, so a duplicate ref is fetched once and reused for
+// every one of their entries -- eligibility, multiplicity (ticket-weighted
+// odds) and the final random draw are unaffected, since `entries` below
+// still has one item per TICKET, not per unique user.
+async function loadEligibleParticipants(reader, ticketDocs) {
   const entries = ticketDocs
     .map(doc => doc.data().user_id)
     .filter(ref => /^users\/[^/]+$/.test(ref?.path || ''));
@@ -31,7 +62,7 @@ async function loadEligibleParticipants(tx, ticketDocs) {
   const snapshotByPath = new Map();
   for (let i = 0; i < uniqueRefs.length; i += PARTICIPANT_USER_BATCH_SIZE) {
     const chunk = uniqueRefs.slice(i, i + PARTICIPANT_USER_BATCH_SIZE);
-    const snaps = await tx.getAll(...chunk);
+    const snaps = await reader.getAll(...chunk);
     for (const snap of snaps) snapshotByPath.set(snap.ref.path, snap);
   }
   const eligible = [];
@@ -42,110 +73,198 @@ async function loadEligibleParticipants(tx, ticketDocs) {
   return eligible;
 }
 
+// Pure, no I/O. Mirrors drawMainPrize()'s own already_finalized check.
+function isAlreadyFinalized(game) {
+  return !!(game.hasWinner || game.main_prize_winner || ['no_eligible_entries','no_main_prize'].includes(game.draw_status));
+}
+function isNotDue(game, now) {
+  return !game.end_date?.toMillis || game.end_date.toMillis() > now.toMillis();
+}
+function isInactiveStatus(game) {
+  return ['draft','cancelled','canceled','disabled'].includes(game.status);
+}
+function resolveHasMainPrize(game) {
+  return typeof game.hasMainPrize==='boolean' ? game.hasMainPrize : !!(
+    game.prize_value!=null ||
+    (typeof game.main_prize_title==='string'&&game.main_prize_title.trim()) ||
+    (typeof game.main_prize_description==='string'&&game.main_prize_description.trim())
+  );
+}
+function isExpiredPrizeDeadline(game, now) {
+  return game.prize_usage_deadline != null &&
+    (typeof game.prize_usage_deadline.toMillis !== 'function' || game.prize_usage_deadline.toMillis()<=now.toMillis());
+}
+
+// Short, O(1) transaction shared by both no-winner terminal outcomes
+// (no_main_prize: no prize configured at all; no_eligible_entries:
+// nobody left after Phase 1's eligibility scan). Re-reads the game fresh
+// so a concurrent execution that already finalized it by ANY path --
+// including a real winner -- is detected instead of silently overwritten.
+async function finalizeWithoutPrize(gameRef, drawStatus, now) {
+  return db.runTransaction(async tx => {
+    const snap = await tx.get(gameRef);
+    if (!snap.exists) return {status:'not_found'};
+    const game = snap.data();
+    if (isAlreadyFinalized(game)) return {status:'already_finalized'};
+    tx.update(gameRef, {status:'ended', draw_status:drawStatus, drawn_at:now});
+    return {status:drawStatus};
+  });
+}
+
+function pickRandomCandidate(pool) {
+  return pool[crypto.randomInt(pool.length)];
+}
+
 async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
   const gameRef=db.doc(`games/${gameId}`);
-  // Diagnostic-only timing, added to find out WHERE inside a single draw
-  // the time goes for large-participant games (OukffvTfzHyvxYRzNN3F: 3078,
-  // RQ8EIKYXMnJbHpz2pmbW: 2984) that kept exceeding even a 300s/1GB
-  // pickMainPrizeWinners run without ever producing a DRAW_SUCCESS/
-  // DRAW_FAILED log line for them -- i.e. the function hard-timed-out
-  // while still awaiting this single draw's transaction, with the memory
-  // bump alone not fixing it. t0 is captured once per drawMainPrize()
-  // call, outside db.runTransaction(); Firestore retries the whole
-  // callback on contention (a concurrent write invalidating a document
-  // this transaction already read), so if 'game_read' is logged more than
-  // once with growing elapsedMs, that is itself evidence of transaction
-  // retries -- a candidate explanation distinct from raw CPU/memory.
-  // Pure logging: no business logic, write, or return value is changed.
+  // Diagnostic-only timing (kept from the Oct 3-4 incident response while
+  // the restructuring above is validated in production). Pure logging:
+  // no business logic, write, or return value depends on it.
   const t0=Date.now();
-  let attempt=0;
-  const step=(label)=>functions.logger.info('DRAW_STEP_TIMING',{job:'pickMainPrizeWinners',gameId,attempt,step:label,elapsedMs:Date.now()-t0});
-  return db.runTransaction(async tx=>{
-    attempt+=1;
-    step('attempt_start');
-    const snap=await tx.get(gameRef);
-    step('game_read');
-    if(!snap.exists) return {status:'not_found'};
-    const game=snap.data();
-    if(game.hasWinner || game.main_prize_winner || ['no_eligible_entries','no_main_prize'].includes(game.draw_status)) return {status:'already_finalized'};
-    if(!game.end_date?.toMillis || game.end_date.toMillis()>now.toMillis()) return {status:'not_due'};
-    const hasMain=typeof game.hasMainPrize==='boolean'?game.hasMainPrize:!!(
-      game.prize_value!=null ||
-      (typeof game.main_prize_title==='string'&&game.main_prize_title.trim()) ||
-      (typeof game.main_prize_description==='string'&&game.main_prize_description.trim())
-    );
-    if(['draft','cancelled','canceled','disabled'].includes(game.status)) return {status:'inactive'};
-    if(!hasMain) {
+  const step=(label)=>functions.logger.info('DRAW_STEP_TIMING',{job:'pickMainPrizeWinners',gameId,step:label,elapsedMs:Date.now()-t0});
+
+  // ---------------- Phase 1: outside any transaction ----------------
+  // Everything that CAN be decided or read without atomicity. No winner
+  // is picked or written here.
+  const snap = await gameRef.get();
+  step('phase1_game_read');
+  if (!snap.exists) return {status:'not_found'};
+  const game = snap.data();
+  if (isAlreadyFinalized(game)) return {status:'already_finalized'};
+  if (isNotDue(game, now)) return {status:'not_due'};
+  if (isInactiveStatus(game)) return {status:'inactive'};
+  if (!resolveHasMainPrize(game)) {
+    const result = await finalizeWithoutPrize(gameRef, 'no_main_prize', now);
+    step(`phase1_short_circuit:${result.status}`);
+    return result;
+  }
+  if (isExpiredPrizeDeadline(game, now)) return review(gameId,'invalid_or_expired_prize_deadline');
+  const enseigneRef=game.enseigne_id||game.enseigne_ref;
+  if(!/^enseignes\/[^/]+$/.test(enseigneRef?.path||'')) return review(gameId,'missing_enseigne');
+  const shop = await enseigneRef.get();
+  step('phase1_enseigne_read');
+  const ownership = gameOwnership(game, shop.data());
+  if (!shop.exists || !ownership.valid) return review(gameId,'invalid_merchant_owner');
+  try { require('./prize_fulfillment').prizeFulfillment(game, shop.data()); }
+  catch (_) { return review(gameId,'invalid_prize_fulfillment'); }
+  const existing = await db.collection('prizes').where('game_id','==',gameRef).where('prize_type','==','principal').get();
+  step('phase1_existing_prize_query');
+  if (!existing.empty) return review(existing.docs[0].id,'prize_exists_without_final_draw');
+  const tickets = await gameRef.collection('participants').get();
+  step(`phase1_participants_read:count=${tickets.docs.length}`);
+  const eligible = await loadEligibleParticipants(db, tickets.docs);
+  step(`phase1_eligible_loaded:count=${eligible.length}`);
+  if (!eligible.length) {
+    const result = await finalizeWithoutPrize(gameRef, 'no_eligible_entries', now);
+    step(`phase1_short_circuit:${result.status}`);
+    return result;
+  }
+
+  // ---------------- Phase 2: pure selection, no I/O ----------------
+  // Exactly the same probabilistic semantics as before the split: a
+  // uniform pick over the ticket-weighted eligible array (one entry per
+  // eligible TICKET, so a user holding several tickets is proportionally
+  // more likely to be selected).
+  const initialCandidate = pickRandomCandidate(eligible);
+
+  // ---------------- Phase 3: short transaction, O(1) ----------------
+  // Re-verifies every condition above against freshly re-read documents,
+  // then re-reads ONLY the chosen candidate (retrying within the
+  // already-eligible local pool, bounded, if that candidate turns out to
+  // have become ineligible since Phase 1) before writing. Never re-reads
+  // the participants subcollection or any other participant's user doc.
+  const initialPool=[initialCandidate, ...eligible.filter(c=>c!==initialCandidate)];
+
+  return db.runTransaction(async tx => {
+    step('phase3_attempt_start');
+    const freshSnap = await tx.get(gameRef);
+    step('phase3_game_read');
+    if (!freshSnap.exists) return {status:'not_found'};
+    const freshGame = freshSnap.data();
+    if (isAlreadyFinalized(freshGame)) return {status:'already_finalized'};
+    if (isNotDue(freshGame, now)) return {status:'not_due'};
+    if (isInactiveStatus(freshGame)) return {status:'inactive'};
+    if (!resolveHasMainPrize(freshGame)) {
       tx.update(gameRef,{status:'ended',draw_status:'no_main_prize',drawn_at:now});
       return {status:'no_main_prize'};
     }
-    // Cheap, single-document/single-query checks moved before the
-    // participants scan: a game permanently stuck on deadline, enseigne,
-    // ownership or fulfillment now fails fast without ever touching its
-    // participants subcollection at all -- same outcome, same reasons,
-    // just reached without paying for a scan nothing downstream needed.
-    if(game.prize_usage_deadline != null &&
-      (typeof game.prize_usage_deadline.toMillis !== 'function' || game.prize_usage_deadline.toMillis()<=now.toMillis())) {
-      return review(gameId,'invalid_or_expired_prize_deadline');
-    }
-    const enseigneRef=game.enseigne_id||game.enseigne_ref;
-    if(!/^enseignes\/[^/]+$/.test(enseigneRef?.path||'')) return review(gameId,'missing_enseigne');
-    const shop=await tx.get(enseigneRef);
-    step('enseigne_read');
-    const ownership=gameOwnership(game,shop.data());
-    if(!shop.exists||!ownership.valid) return review(gameId,'invalid_merchant_owner');
+    if (isExpiredPrizeDeadline(freshGame, now)) return review(gameId,'invalid_or_expired_prize_deadline');
+
+    const freshShop = await tx.get(enseigneRef);
+    step('phase3_enseigne_read');
+    const freshOwnership = gameOwnership(freshGame, freshShop.data());
+    if (!freshShop.exists || !freshOwnership.valid) return review(gameId,'invalid_merchant_owner');
     let fulfillment;
-    try { fulfillment=require('./prize_fulfillment').prizeFulfillment(game,shop.data()); }
+    try { fulfillment=require('./prize_fulfillment').prizeFulfillment(freshGame, freshShop.data()); }
     catch (_) { return review(gameId,'invalid_prize_fulfillment'); }
-    const existing=await tx.get(db.collection('prizes').where('game_id','==',gameRef).where('prize_type','==','principal'));
-    step('existing_prize_query');
-    if(!existing.empty) return review(existing.docs[0].id,'prize_exists_without_final_draw');
-    const tickets=await tx.get(gameRef.collection('participants'));
-    step(`participants_read:count=${tickets.docs.length}`);
-    const eligible=await loadEligibleParticipants(tx,tickets.docs);
-    step(`eligible_loaded:count=${eligible.length}`);
-    if(!eligible.length){
-      tx.update(gameRef,{status:'ended',draw_status:'no_eligible_entries',drawn_at:now});
-      return {status:'no_eligible_entries'};
+
+    const freshExisting = await tx.get(db.collection('prizes').where('game_id','==',gameRef).where('prize_type','==','principal'));
+    step('phase3_existing_prize_query');
+    if (!freshExisting.empty) return review(freshExisting.docs[0].id,'prize_exists_without_final_draw');
+
+    let winner=null;
+    let pool=initialPool;
+    let attempt=0;
+    for (; attempt<MAX_CANDIDATE_ATTEMPTS && pool.length>0; attempt+=1) {
+      const candidate = attempt===0 ? pool[0] : pickRandomCandidate(pool);
+      const userSnap = await tx.get(candidate.ref);
+      step(`phase3_candidate_read:attempt=${attempt}`);
+      if (userSnap.exists && !excluded(userSnap.data())) { winner={ref:candidate.ref, data:userSnap.data()}; break; }
+      // The candidate's own account is gone/excluded: every one of their
+      // other tickets would fail the exact same check, so drop them all
+      // at once rather than wasting further attempts re-reading the same
+      // now-invalid user doc.
+      pool=pool.filter(c=>c.ref.path!==candidate.ref.path);
     }
-    const winner=eligible[crypto.randomInt(eligible.length)];
+    if (!winner) {
+      if (pool.length===0) {
+        // Every single Phase-1 candidate was actually tried and is now
+        // ineligible: a genuinely verified "nobody left". Safe to finalize.
+        tx.update(gameRef,{status:'ended',draw_status:'no_eligible_entries',drawn_at:now});
+        return {status:'no_eligible_entries'};
+      }
+      // The retry bound was hit while candidates from Phase 1 remain
+      // UNTESTED: we do not know whether any of them is still eligible,
+      // so we must never claim there is no one. Writing nothing is the
+      // correctness guarantee here -- the game document stays exactly as
+      // needsMainPrizeDraw() already saw it, so the next scheduled run
+      // (or a fresh manual trigger) picks it up again as an ordinary
+      // candidate and runs a brand new Phase 1 against current data,
+      // which may well find the untested candidates still eligible.
+      functions.logger.warn('DRAW_CANDIDATE_RETRY_BUDGET_EXCEEDED',{job:'pickMainPrizeWinners',gameId,triedCount:attempt,untestedRemaining:pool.length});
+      return {status:'retry_needed',reason:'candidate_retry_budget_exceeded'};
+    }
+
     const prizeRef=db.collection('prizes').doc();
     const claimCode=await reserveClaimCode(tx,db);
-    step('claim_code_reserved');
+    step('phase3_claim_code_reserved');
     const first=String(winner.data.first_name||winner.data.firstName||'').split(/\s+/)[0];
     const city=String(winner.data.city||'');
-    const prize={prize_type:'principal',...gamePrizeOwnership(db,ownership,enseigneRef,fulfillment),partner_delivery_eligible:fulfillment.type==='partner'&&game.partner_delivery_enabled===true,name:game.name||'Lot principal',description:game.description||'',
-      winner_id:winner.ref,game_id:gameRef,enseigne_id:enseigneRef,enseigne_name:shop.data().name||game.enseigne_name||'',
+    const prize={prize_type:'principal',...gamePrizeOwnership(db,freshOwnership,enseigneRef,fulfillment),partner_delivery_eligible:fulfillment.type==='partner'&&freshGame.partner_delivery_enabled===true,name:freshGame.name||'Lot principal',description:freshGame.description||'',
+      winner_id:winner.ref,game_id:gameRef,enseigne_id:enseigneRef,enseigne_name:freshShop.data().name||freshGame.enseigne_name||'',
       claim_code:claimCode,claimed:false,win_date:now,
-      prize_value:Number.isFinite(Number(game.prize_value))?Number(game.prize_value):0,
+      prize_value:Number.isFinite(Number(freshGame.prize_value))?Number(freshGame.prize_value):0,
       winnerFirstName:first,winnerCity:city,winner_first_name:first,winner_city:city,
-      ...(game.prize_usage_deadline?{usage_deadline:game.prize_usage_deadline}:{}),};
+      ...(freshGame.prize_usage_deadline?{usage_deadline:freshGame.prize_usage_deadline}:{}),};
     tx.update(gameRef,{hasWinner:true,main_prize_winner:winner.ref,status:'ended',draw_status:'completed',drawn_at:now,
       winnerFirstName:first,winnerCity:city,winner_first_name:first,winner_city:city});
     tx.set(prizeRef,prize);
     tx.set(winner.ref.collection('my_lots').doc(prizeRef.id),{prize_id:prizeRef});
     tx.set(db.doc(`public_prize_winners/${prizeRef.id}`),publicPrize(prize,winner.data));
     return {status:'completed',prizeId:prizeRef.id};
-  }).then(result=>{ step(`transaction_settled:${result?.status||'unknown'}`); return result; },
-    error=>{ step(`transaction_failed:${error?.code||error?.message||'unknown'}`); throw error; });
+  }).then(result=>{ step(`phase3_settled:${result?.status||'unknown'}`); return result; },
+    error=>{ step(`phase3_failed:${error?.code||error?.message||'unknown'}`); throw error; });
 }
 // Pure. Mirrors EVERY one of drawMainPrize()'s own early-return branches
 // that writes nothing to Firestore -- already_finalized (no_main_prize,
 // no_eligible_entries: there is no winner to record, so hasWinner never
 // becomes true) AND inactive (draft/cancelled/canceled/disabled: that
-// branch returns {status:'inactive'} with no tx.update at all, confirmed
-// by reading drawMainPrize() itself). Both kinds permanently never
-// resolve themselves in the data, so without this filter they accumulate
-// forever and get re-opened in a transaction every single night just to
-// immediately bail out again. That ever-growing graveyard is what pushed
-// pickMainPrizeWinners past its Gen1 timeout and starved genuinely
-// pending games (Kids Troc, Char a voile, support smartphone) that never
-// got reached. The first fix for this only covered the draw_status pair
-// and missed the status/inactive branch -- still a real, demonstrated
-// gap, since a stale draft/cancelled/disabled game with hasWinner:false
-// and a past end_date keeps matching the query exactly like the others.
-// Filtering here, on data already in hand from the list query, skips all
-// of them before they ever cost a transaction. The only remaining
+// branch returns {status:'inactive'} with no write at all, confirmed by
+// reading drawMainPrize() itself). Both kinds permanently never resolve
+// themselves in the data, so without this filter they accumulate forever
+// and get re-opened every single night just to immediately bail out
+// again. Filtering here, on data already in hand from the list query,
+// skips all of them before Phase 1 even runs. The only remaining
 // no-write branch, not_due, is structurally excluded by the query's own
 // end_date<=now bound and needs no filter here.
 function needsMainPrizeDraw(data) {
@@ -155,17 +274,10 @@ function needsMainPrizeDraw(data) {
   return true;
 }
 
-// Gen1 Cloud Functions allocate CPU proportionally to configured memory;
-// at the 256MB default this function barely gets a sliver of vCPU.
-// Production logs show single, uncontended draws (no duplicate trigger)
-// still taking 1.5-3 minutes per large-participant game even with
-// batched reads -- a gap never reproduced locally, where the host has
-// full CPU. Deserializing/filtering thousands of Firestore documents for
-// several concurrent large draws (concurrency:8) is CPU-bound work that
-// a CPU-starved instance does far slower, and plausibly serializes
-// draws that should run in parallel. Bumping memory (hence CPU) is a
-// configuration change, not a logic change: nothing about eligibility,
-// the random draw, or the final writes is touched.
+// timeoutSeconds/memory kept at the Oct 3-4 incident values while the
+// Phase 1/2/3 restructuring is validated against production traffic;
+// revisit once a transaction-cost-independent-of-participant-count is
+// confirmed live.
 const pickMainPrizeWinners=functions.runWith({timeoutSeconds:300,memory:'1GB'}).pubsub.schedule('0 0 * * *').timeZone('Europe/Paris').onRun(async()=>{
   const now=admin.firestore.Timestamp.now();
   return runScheduledDraws({name:'pickMainPrizeWinners',logger:functions.logger,
@@ -183,4 +295,4 @@ const pickMainPrizeWinners=functions.runWith({timeoutSeconds:300,memory:'1GB'}).
     },
     draw:doc=>drawMainPrize(doc.id,{now})});
 });
-module.exports={drawMainPrize,pickMainPrizeWinners,needsMainPrizeDraw,loadEligibleParticipants,PARTICIPANT_USER_BATCH_SIZE};
+module.exports={drawMainPrize,pickMainPrizeWinners,needsMainPrizeDraw,loadEligibleParticipants,PARTICIPANT_USER_BATCH_SIZE,MAX_CANDIDATE_ATTEMPTS};
