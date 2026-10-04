@@ -45,8 +45,8 @@ const NOW_MS = NOW.toMillis();
 
 const eligibleParticipant = { validRef: true, userExists: true, userData: { first_name: "Alice", city: "Paris" } };
 
-test("KIDS_TROC_GAME_ID matches the real production id from the user's report", () => {
-  assert.equal(KIDS_TROC_GAME_ID, "poq44UWwkSvKa9N3lbUj");
+test("KIDS_TROC_GAME_ID matches the real production id (capital I, not lowercase l, after N3)", () => {
+  assert.equal(KIDS_TROC_GAME_ID, "poq44UWwkSvKa9N3IbUj");
 });
 
 test("le fichier du script lui-meme ne contient aucun pattern d'ecriture Firestore", () => {

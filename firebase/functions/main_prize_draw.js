@@ -111,6 +111,45 @@ async function finalizeWithoutPrize(gameRef, drawStatus, now) {
   });
 }
 
+// draw_status value persisted for the 5 genuine review() branches inside
+// drawMainPrize() (invalid_or_expired_prize_deadline, missing_enseigne,
+// invalid_merchant_owner, invalid_prize_fulfillment,
+// prize_exists_without_final_draw) -- NEVER for retry_needed, a thrown
+// Firestore error, a timeout, or two concurrent executions racing on
+// already_finalized: those are not business-data problems and must keep
+// being retried automatically. review() itself (prize_integrity.js) is
+// shared by several other modules (referral games, monthly challenge,
+// animation draws, prize/my_lots repair) and stays untouched -- the
+// persistence below is local to main_prize_draw.js's own 5 call sites.
+const MANUAL_REVIEW_DRAW_STATUS = 'manual_review_required';
+
+// Reversible: nothing here is a dead end. Clearing draw_status (and
+// draw_review_reason/draw_review_at) on the game document -- e.g. once
+// the underlying data problem (missing enseigne, broken ownership, an
+// orphaned prize) is corrected -- makes needsMainPrizeDraw() treat the
+// game as an ordinary candidate again on the very next scheduled run,
+// with no other state to reset.
+function reviewInTransaction(tx, gameRef, reviewTargetId, reason, now) {
+  tx.update(gameRef, {draw_status:MANUAL_REVIEW_DRAW_STATUS, draw_review_reason:reason, draw_review_at:now});
+  return review(reviewTargetId, reason);
+}
+
+// Phase 1 equivalent: no transaction is open yet, so this opens its own
+// short, O(1) one just to persist the marker -- re-reading the game
+// fresh first so a concurrent execution that already finalized it (by
+// any path) or already persisted the same marker is never overwritten.
+async function finalizeWithManualReview(gameRef, reviewTargetId, reason, now) {
+  const result = review(reviewTargetId, reason);
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(gameRef);
+    if (!snap.exists) return;
+    const game = snap.data();
+    if (isAlreadyFinalized(game) || game.draw_status === MANUAL_REVIEW_DRAW_STATUS) return;
+    tx.update(gameRef, {draw_status:MANUAL_REVIEW_DRAW_STATUS, draw_review_reason:reason, draw_review_at:now});
+  });
+  return result;
+}
+
 function pickRandomCandidate(pool) {
   return pool[crypto.randomInt(pool.length)];
 }
@@ -138,18 +177,18 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
     step(`phase1_short_circuit:${result.status}`);
     return result;
   }
-  if (isExpiredPrizeDeadline(game, now)) return review(gameId,'invalid_or_expired_prize_deadline');
+  if (isExpiredPrizeDeadline(game, now)) return finalizeWithManualReview(gameRef, gameId,'invalid_or_expired_prize_deadline', now);
   const enseigneRef=game.enseigne_id||game.enseigne_ref;
-  if(!/^enseignes\/[^/]+$/.test(enseigneRef?.path||'')) return review(gameId,'missing_enseigne');
+  if(!/^enseignes\/[^/]+$/.test(enseigneRef?.path||'')) return finalizeWithManualReview(gameRef, gameId,'missing_enseigne', now);
   const shop = await enseigneRef.get();
   step('phase1_enseigne_read');
   const ownership = gameOwnership(game, shop.data());
-  if (!shop.exists || !ownership.valid) return review(gameId,'invalid_merchant_owner');
+  if (!shop.exists || !ownership.valid) return finalizeWithManualReview(gameRef, gameId,'invalid_merchant_owner', now);
   try { require('./prize_fulfillment').prizeFulfillment(game, shop.data()); }
-  catch (_) { return review(gameId,'invalid_prize_fulfillment'); }
+  catch (_) { return finalizeWithManualReview(gameRef, gameId,'invalid_prize_fulfillment', now); }
   const existing = await db.collection('prizes').where('game_id','==',gameRef).where('prize_type','==','principal').get();
   step('phase1_existing_prize_query');
-  if (!existing.empty) return review(existing.docs[0].id,'prize_exists_without_final_draw');
+  if (!existing.empty) return finalizeWithManualReview(gameRef, existing.docs[0].id,'prize_exists_without_final_draw', now);
   const tickets = await gameRef.collection('participants').get();
   step(`phase1_participants_read:count=${tickets.docs.length}`);
   const eligible = await loadEligibleParticipants(db, tickets.docs);
@@ -188,19 +227,19 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
       tx.update(gameRef,{status:'ended',draw_status:'no_main_prize',drawn_at:now});
       return {status:'no_main_prize'};
     }
-    if (isExpiredPrizeDeadline(freshGame, now)) return review(gameId,'invalid_or_expired_prize_deadline');
+    if (isExpiredPrizeDeadline(freshGame, now)) return reviewInTransaction(tx, gameRef, gameId,'invalid_or_expired_prize_deadline', now);
 
     const freshShop = await tx.get(enseigneRef);
     step('phase3_enseigne_read');
     const freshOwnership = gameOwnership(freshGame, freshShop.data());
-    if (!freshShop.exists || !freshOwnership.valid) return review(gameId,'invalid_merchant_owner');
+    if (!freshShop.exists || !freshOwnership.valid) return reviewInTransaction(tx, gameRef, gameId,'invalid_merchant_owner', now);
     let fulfillment;
     try { fulfillment=require('./prize_fulfillment').prizeFulfillment(freshGame, freshShop.data()); }
-    catch (_) { return review(gameId,'invalid_prize_fulfillment'); }
+    catch (_) { return reviewInTransaction(tx, gameRef, gameId,'invalid_prize_fulfillment', now); }
 
     const freshExisting = await tx.get(db.collection('prizes').where('game_id','==',gameRef).where('prize_type','==','principal'));
     step('phase3_existing_prize_query');
-    if (!freshExisting.empty) return review(freshExisting.docs[0].id,'prize_exists_without_final_draw');
+    if (!freshExisting.empty) return reviewInTransaction(tx, gameRef, freshExisting.docs[0].id,'prize_exists_without_final_draw', now);
 
     let winner=null;
     let pool=initialPool;
@@ -240,7 +279,7 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
     step('phase3_claim_code_reserved');
     const first=String(winner.data.first_name||winner.data.firstName||'').split(/\s+/)[0];
     const city=String(winner.data.city||'');
-    const prize={prize_type:'principal',...gamePrizeOwnership(db,freshOwnership,enseigneRef,fulfillment),partner_delivery_eligible:fulfillment.type==='partner'&&freshGame.partner_delivery_enabled===true,name:freshGame.name||'Lot principal',description:freshGame.description||'',
+    const prize={prize_type:'principal',...gamePrizeOwnership(db,freshOwnership,enseigneRef,fulfillment),partner_delivery_eligible:fulfillment==='partner'&&freshGame.partner_delivery_enabled===true,name:freshGame.name||'Lot principal',description:freshGame.description||'',
       winner_id:winner.ref,game_id:gameRef,enseigne_id:enseigneRef,enseigne_name:freshShop.data().name||freshGame.enseigne_name||'',
       claim_code:claimCode,claimed:false,win_date:now,
       prize_value:Number.isFinite(Number(freshGame.prize_value))?Number(freshGame.prize_value):0,
@@ -267,9 +306,21 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
 // skips all of them before Phase 1 even runs. The only remaining
 // no-write branch, not_due, is structurally excluded by the query's own
 // end_date<=now bound and needs no filter here.
+//
+// MANUAL_REVIEW_DRAW_STATUS is excluded for the same reason as
+// no_main_prize/no_eligible_entries -- a genuine business-data problem
+// (invalid ownership, expired deadline, orphaned prize...) does not fix
+// itself overnight, so re-opening the game in a transaction every single
+// run would only reproduce the identical AWARD_MANUAL_REVIEW_REQUIRED
+// log and, since runScheduledDraws() treats that status as a failure,
+// the identical DRAW_FAILED noise -- forever, until a human clears the
+// marker (see finalizeWithManualReview()/reviewInTransaction() above).
+// retry_needed is deliberately NOT in this list: it is a transient,
+// self-correcting condition (an in-flight candidate race), not a
+// business-data problem, and must keep being retried automatically.
 function needsMainPrizeDraw(data) {
   if (data.hasWinner === true || data.main_prize_winner != null) return false;
-  if (['no_eligible_entries', 'no_main_prize'].includes(data.draw_status)) return false;
+  if (['no_eligible_entries', 'no_main_prize', MANUAL_REVIEW_DRAW_STATUS].includes(data.draw_status)) return false;
   if (['draft', 'cancelled', 'canceled', 'disabled'].includes(data.status)) return false;
   return true;
 }
@@ -295,4 +346,4 @@ const pickMainPrizeWinners=functions.runWith({timeoutSeconds:300,memory:'1GB'}).
     },
     draw:doc=>drawMainPrize(doc.id,{now})});
 });
-module.exports={drawMainPrize,pickMainPrizeWinners,needsMainPrizeDraw,loadEligibleParticipants,PARTICIPANT_USER_BATCH_SIZE,MAX_CANDIDATE_ATTEMPTS};
+module.exports={drawMainPrize,pickMainPrizeWinners,needsMainPrizeDraw,loadEligibleParticipants,PARTICIPANT_USER_BATCH_SIZE,MAX_CANDIDATE_ATTEMPTS,MANUAL_REVIEW_DRAW_STATUS};

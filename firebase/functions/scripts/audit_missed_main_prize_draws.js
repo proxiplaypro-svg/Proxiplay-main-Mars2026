@@ -7,7 +7,7 @@
 // excluded) -- to classify every "games" document whose main prize draw
 // should already have happened but never produced a finalization result.
 //
-// Context: games/poq44UWwkSvKa9N3lbUj ("jeu de Xbox one", Kids Troc) is
+// Context: games/poq44UWwkSvKa9N3IbUj ("jeu de Xbox one", Kids Troc) is
 // hasMainPrize:true, end_date 30/09/2026 passed, 1576 participations,
 // 289 unique players -- yet hasWinner:false with no main_prize_winner,
 // draw_status or drawn_at at all. The leading hypothesis is that commit
@@ -77,7 +77,13 @@ const { gameOwnership } = require("../merchant_ownership");
 const { prizeFulfillment } = require("../prize_fulfillment");
 const { excluded } = require("../prize_integrity");
 
-const KIDS_TROC_GAME_ID = "poq44UWwkSvKa9N3lbUj";
+// Capital I (not lowercase l) after "N3" -- confirmed via
+// search_games_by_keyword.js against production after the lowercase-l
+// version returned document_not_found / NOT_FOUND here. The two
+// characters are visually indistinguishable in most fonts; if this ID
+// is ever retyped by hand, re-verify it the same way rather than
+// trusting a visual read.
+const KIDS_TROC_GAME_ID = "poq44UWwkSvKa9N3IbUj";
 
 // Dedicated, explicitly-named Firebase app for this script. The old code
 // did `if (!admin.apps.length) admin.initializeApp(...)` -- if ANY
