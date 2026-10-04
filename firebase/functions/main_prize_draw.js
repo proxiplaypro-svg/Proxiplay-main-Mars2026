@@ -44,8 +44,27 @@ async function loadEligibleParticipants(tx, ticketDocs) {
 
 async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
   const gameRef=db.doc(`games/${gameId}`);
+  // Diagnostic-only timing, added to find out WHERE inside a single draw
+  // the time goes for large-participant games (OukffvTfzHyvxYRzNN3F: 3078,
+  // RQ8EIKYXMnJbHpz2pmbW: 2984) that kept exceeding even a 300s/1GB
+  // pickMainPrizeWinners run without ever producing a DRAW_SUCCESS/
+  // DRAW_FAILED log line for them -- i.e. the function hard-timed-out
+  // while still awaiting this single draw's transaction, with the memory
+  // bump alone not fixing it. t0 is captured once per drawMainPrize()
+  // call, outside db.runTransaction(); Firestore retries the whole
+  // callback on contention (a concurrent write invalidating a document
+  // this transaction already read), so if 'game_read' is logged more than
+  // once with growing elapsedMs, that is itself evidence of transaction
+  // retries -- a candidate explanation distinct from raw CPU/memory.
+  // Pure logging: no business logic, write, or return value is changed.
+  const t0=Date.now();
+  let attempt=0;
+  const step=(label)=>functions.logger.info('DRAW_STEP_TIMING',{job:'pickMainPrizeWinners',gameId,attempt,step:label,elapsedMs:Date.now()-t0});
   return db.runTransaction(async tx=>{
+    attempt+=1;
+    step('attempt_start');
     const snap=await tx.get(gameRef);
+    step('game_read');
     if(!snap.exists) return {status:'not_found'};
     const game=snap.data();
     if(game.hasWinner || game.main_prize_winner || ['no_eligible_entries','no_main_prize'].includes(game.draw_status)) return {status:'already_finalized'};
@@ -72,15 +91,19 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
     const enseigneRef=game.enseigne_id||game.enseigne_ref;
     if(!/^enseignes\/[^/]+$/.test(enseigneRef?.path||'')) return review(gameId,'missing_enseigne');
     const shop=await tx.get(enseigneRef);
+    step('enseigne_read');
     const ownership=gameOwnership(game,shop.data());
     if(!shop.exists||!ownership.valid) return review(gameId,'invalid_merchant_owner');
     let fulfillment;
     try { fulfillment=require('./prize_fulfillment').prizeFulfillment(game,shop.data()); }
     catch (_) { return review(gameId,'invalid_prize_fulfillment'); }
     const existing=await tx.get(db.collection('prizes').where('game_id','==',gameRef).where('prize_type','==','principal'));
+    step('existing_prize_query');
     if(!existing.empty) return review(existing.docs[0].id,'prize_exists_without_final_draw');
     const tickets=await tx.get(gameRef.collection('participants'));
+    step(`participants_read:count=${tickets.docs.length}`);
     const eligible=await loadEligibleParticipants(tx,tickets.docs);
+    step(`eligible_loaded:count=${eligible.length}`);
     if(!eligible.length){
       tx.update(gameRef,{status:'ended',draw_status:'no_eligible_entries',drawn_at:now});
       return {status:'no_eligible_entries'};
@@ -88,6 +111,7 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
     const winner=eligible[crypto.randomInt(eligible.length)];
     const prizeRef=db.collection('prizes').doc();
     const claimCode=await reserveClaimCode(tx,db);
+    step('claim_code_reserved');
     const first=String(winner.data.first_name||winner.data.firstName||'').split(/\s+/)[0];
     const city=String(winner.data.city||'');
     const prize={prize_type:'principal',...gamePrizeOwnership(db,ownership,enseigneRef,fulfillment),partner_delivery_eligible:fulfillment.type==='partner'&&game.partner_delivery_enabled===true,name:game.name||'Lot principal',description:game.description||'',
@@ -102,7 +126,8 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
     tx.set(winner.ref.collection('my_lots').doc(prizeRef.id),{prize_id:prizeRef});
     tx.set(db.doc(`public_prize_winners/${prizeRef.id}`),publicPrize(prize,winner.data));
     return {status:'completed',prizeId:prizeRef.id};
-  });
+  }).then(result=>{ step(`transaction_settled:${result?.status||'unknown'}`); return result; },
+    error=>{ step(`transaction_failed:${error?.code||error?.message||'unknown'}`); throw error; });
 }
 // Pure. Mirrors EVERY one of drawMainPrize()'s own early-return branches
 // that writes nothing to Firestore -- already_finalized (no_main_prize,
