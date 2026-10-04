@@ -130,7 +130,18 @@ function needsMainPrizeDraw(data) {
   return true;
 }
 
-const pickMainPrizeWinners=functions.runWith({timeoutSeconds:300}).pubsub.schedule('0 0 * * *').timeZone('Europe/Paris').onRun(async()=>{
+// Gen1 Cloud Functions allocate CPU proportionally to configured memory;
+// at the 256MB default this function barely gets a sliver of vCPU.
+// Production logs show single, uncontended draws (no duplicate trigger)
+// still taking 1.5-3 minutes per large-participant game even with
+// batched reads -- a gap never reproduced locally, where the host has
+// full CPU. Deserializing/filtering thousands of Firestore documents for
+// several concurrent large draws (concurrency:8) is CPU-bound work that
+// a CPU-starved instance does far slower, and plausibly serializes
+// draws that should run in parallel. Bumping memory (hence CPU) is a
+// configuration change, not a logic change: nothing about eligibility,
+// the random draw, or the final writes is touched.
+const pickMainPrizeWinners=functions.runWith({timeoutSeconds:300,memory:'1GB'}).pubsub.schedule('0 0 * * *').timeZone('Europe/Paris').onRun(async()=>{
   const now=admin.firestore.Timestamp.now();
   return runScheduledDraws({name:'pickMainPrizeWinners',logger:functions.logger,
     concurrency:8,
