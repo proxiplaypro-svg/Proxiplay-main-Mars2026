@@ -1,19 +1,31 @@
-// Deployment gate: exercise real list queries as well as document permissions.
-// Both rule files must preserve legitimate merchant operations. Only strict
-// rules promise prize read confidentiality during/after coexistence.
+// Deployment gate: exercise real list queries as well as document permissions,
+// against the single canonical rules file (firebase/firestore.rules).
+//
+// This originally ran the same suite against BOTH firestore.rules and the
+// now-deleted firestore.legacy-prizes.rules (a temporary compatibility
+// bridge from the Sept. 2026 migration, which kept prizes reads looser
+// during coexistence with pre-migration mobile clients). That bridge file
+// and its firebase.rollout.json deploy target are gone -- the mobile app
+// stopped depending on the old prize queries in d35264b (09/09/2026), and
+// the bridge file itself had drifted behind firestore.rules by three
+// security fixes (isGameFinalized reactivation guard, isSafeMerchantGameCreate,
+// prizes.get/list confidentiality) by the time it was removed. Only the
+// 'strict' mode survives here; the mode parametrization and its
+// mode==='strict' conditionals are removed since there is now only one
+// mode to run.
 const {describe,it,before,after,beforeEach}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {initializeTestEnvironment,assertSucceeds,assertFails}=require('@firebase/rules-unit-testing');
 
-for(const mode of ['strict','transitional']) describe(`rollout merchant business access: ${mode}`,()=>{
+describe('rollout merchant business access: strict',()=>{
   let env;
   const context=uid=>env.authenticatedContext(uid).firestore();
   before(async()=>{
-    env=await initializeTestEnvironment({projectId:`demo-proxiplay-rollout-${mode}`,
+    env=await initializeTestEnvironment({projectId:'demo-proxiplay-rollout-strict',
       firestore:{host:'127.0.0.1',port:8080,rules:fs.readFileSync(path.resolve(__dirname,
-        mode==='strict'?'../../firestore.rules':'../../firestore.legacy-prizes.rules'),'utf8')}});
+        '../../firestore.rules'),'utf8')}});
   });
   after(async()=>env?.cleanup());
   beforeEach(async()=>{
@@ -80,11 +92,9 @@ for(const mode of ['strict','transitional']) describe(`rollout merchant business
     const db=context('other');
     await assertFails(db.doc('prizes/modern').update({claimed:true}));
     await assertFails(db.collection('users/winner/my_lots').get());
-    if(mode==='strict') {
-      await assertFails(db.doc('prizes/modern').get());
-      await assertFails(db.collection('prizes').where('owner_id','==',db.doc('users/merchant')).get());
-      await assertFails(db.collection('prizes').where('enseigne_id','==',db.doc('enseignes/shop')).get());
-    }
+    await assertFails(db.doc('prizes/modern').get());
+    await assertFails(db.collection('prizes').where('owner_id','==',db.doc('users/merchant')).get());
+    await assertFails(db.collection('prizes').where('enseigne_id','==',db.doc('enseignes/shop')).get());
   });
   it('6 game created by admin remains readable and hideable by the real owner',async()=>{
     const db=context('merchant');
@@ -112,7 +122,7 @@ for(const mode of ['strict','transitional']) describe(`rollout merchant business
   it('7 no owner AND no shop: winner keeps access, merchant needs manual review',async()=>{
     await assertSucceeds(context('winner').doc('prizes/legacy_unrouted').get());
     await assertFails(context('merchant').doc('prizes/legacy_unrouted').update({claimed:true}));
-    if(mode==='strict') await assertFails(context('merchant').doc('prizes/legacy_unrouted').get());
+    await assertFails(context('merchant').doc('prizes/legacy_unrouted').get());
   });
   it('expired, used and platform prizes stay protected; admin can handle platform prize',async()=>{
     for(const id of ['expired','used','platform']) await assertFails(context('merchant').doc(`prizes/${id}`).update({claimed:true}));

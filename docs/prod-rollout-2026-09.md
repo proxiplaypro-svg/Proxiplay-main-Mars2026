@@ -1,3 +1,5 @@
+> **OBSOLÈTE — NE PAS UTILISER.** `firebase/firestore.legacy-prizes.rules` et `firebase.rollout.json`, cibles des commandes `--config firebase.rollout.json` de ce document, ont été supprimés (chantier `claude/remove-legacy-firestore-rules`, voir ce commit). Ces commandes ne fonctionnent plus et ne doivent pas être copiées : le seul déploiement Firestore valide est `firebase deploy --only firestore:rules` (configuration canonique unique, `firebase.json` → `firebase/firestore.rules`). Le fichier legacy datait du 09/09/2026 et avait pris trois correctifs de sécurité de retard (garde anti-réactivation d'un jeu finalisé, création marchand sécurisée, confidentialité des lots partenaire/plateforme) au moment de sa suppression.
+>
 > **Historique de l’audit initial, avant correction B1/B2/B3.** Les constats de code et nombres de tests ci-dessous décrivent cet état antérieur. Pour l’état local actuel, les corrections, fichiers et verdicts, lire [le rapport de correction](compatibility-fixes-2026-09.md). Les procédures de déploiement restent non exécutées.
 
 # Mise en production progressive C → B — préparation du 9 septembre 2026
@@ -260,8 +262,9 @@ firebase deploy --only 'functions:pickMainPrizeWinners,functions:drawAnimationWi
 # 2C : worker/bonus avant acceptation ; tester et vérifier le job chaque minute.
 firebase deploy --only 'functions:retryReferralRewards,functions:grantReferralReward' --project $RolloutProject
 firebase deploy --only 'functions:registerReferralAcceptance,functions:participateInGameTransaction,functions:generateInstantWinnersForGame,functions:notifyPrizeWon' --project $RolloutProject
-# 2D : accès projections + durcissements compatibles, lecture prizes encore publique.
-firebase deploy --only firestore:rules --config firebase.rollout.json --project $RolloutProject
+# 2D : OBSOLETE -- firebase.rollout.json et firestore.legacy-prizes.rules
+# ont ete supprimes. Deployer les rules canoniques directement :
+# firebase deploy --only firestore:rules --project $RolloutProject
 ```
 
 Les pauses ne sont pas une protection contre les callables de tirage manuel : désigner l'opérateur et interdire ces actions dans la fenêtre. Un déploiement peut recréer/réactiver un job : relire son état après chaque sous-phase ; ne pas supposer qu'une pause reste effective. Chaque étape doit être observée avant la suivante.
@@ -341,7 +344,7 @@ gcloud scheduler jobs resume $DrawJob --location=$DrawLocation --project=$Rollou
 
 | Incident | Réponse préparée ; opérations futures uniquement |
 |---|---|
-| Rules strictes trop restrictives | `firebase deploy --only firestore:rules --config firebase.rollout.json --project $RolloutProject` après accord opérateur. Rouvre prizes mais garde les autres durcissements. Si le problème porte sur games/owner, ce rollback ne suffit pas : corriger le contrat ou restaurer un ruleset de secours explicitement testé, pas toute la base. |
+| Rules strictes trop restrictives | **OBSOLÈTE** : la commande `--config firebase.rollout.json` ne fonctionne plus (fichier supprimé). Un rollback de rules doit maintenant partir d'une version antérieure explicitement testée de `firebase/firestore.rules` lui-même (ex. `git show <sha>:firebase/firestore.rules`), jamais d'un second fichier de rules parallèle. |
 | Index manquant/non READY | Ne pas activer sa Function ; si déjà active, suspendre le job d'attribution touché et attendre l'index. Ne pas supprimer la queue ; une erreur trigger n'est pas forcément rejouée automatiquement. |
 | Function auxiliaire incompatible | Déploiement sélectif d'une version compatible revue, conserver nouveaux champs/documents. Pas de commande globale de rollback au commit parent, car les clients déjà diffusés en dépendent. |
 | Mobile déjà diffusé | Arrêter la diffusion et publier un correctif ultérieurement ; maintenir getMerchantGames/projections/réponse animation. La suppression d'un endpoint ne désinstalle pas l'app. |

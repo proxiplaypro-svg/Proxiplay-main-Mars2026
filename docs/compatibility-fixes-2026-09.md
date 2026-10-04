@@ -1,5 +1,7 @@
 # Corrections locales de compatibilité C → B — 9 septembre 2026
 
+> **OBSOLÈTE — NE PAS UTILISER pour un déploiement.** `firebase/firestore.legacy-prizes.rules` et `firebase.rollout.json`, mentionnés ci-dessous comme pont de compatibilité temporaire, ont été supprimés (chantier `claude/remove-legacy-firestore-rules`). Le seul déploiement Firestore valide est désormais `firebase deploy --only firestore:rules` sans `--config` (configuration canonique unique `firebase.json` → `firebase/firestore.rules`). Conservé ici comme historique de la migration, pas comme procédure utilisable.
+
 Ce rapport remplace les constats B1/B2/B3 du plan initial pour l'état local corrigé. Aucun déploiement, accès aux données Firebase de production, apply, commit ou push. Le dépôt mobile reste sur `develop`. La copie admin est restée sur sa branche initiale `wip/commercant-du-mois` ; aucune branche `main` modifiée.
 
 ## Les trois incompatibilités

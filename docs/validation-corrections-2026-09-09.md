@@ -1,5 +1,7 @@
 # Validation des corrections — 9 septembre 2026
 
+> **OBSOLÈTE — NE PAS UTILISER pour un déploiement.** `firebase/firestore.legacy-prizes.rules` et `firebase.rollout.json`, mentionnés en section C comme étape de compatibilité temporaire, ont été supprimés (chantier `claude/remove-legacy-firestore-rules`). L'affirmation ci-dessous selon laquelle ce fichier "conserve le P0 de lecture publique des prizes" était déjà périmée avant sa suppression : au 28/09/2026 (commit `752fb37`), ce fichier avait été mis à jour pour retirer cette lecture publique, sans pour autant recevoir les correctifs de sécurité ultérieurs (garde anti-réactivation, création marchand sécurisée) — voir le rapport du chantier de suppression pour le détail exact. Le seul déploiement Firestore valide est désormais `firebase deploy --only firestore:rules` sans `--config`.
+
 Cette phase reprend la checklist de l'audit critique du 8 septembre, conservé dans `audit-complet-2026-09-08.md`. Elle corrige le code sur **develop**. Aucun déploiement, push, audit distant ou changement de données distantes n'a été exécuté.
 
 ## A. Nouvelle note
