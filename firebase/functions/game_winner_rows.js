@@ -121,9 +121,13 @@ function buildCsv(rows) {
 async function loadGameWinners(db, gameRef, {prizeIds, fulfillmentType} = {}) {
   const docs = prizeIds ? (prizeIds.length ? await db.getAll(...prizeIds.map(id=>db.doc('prizes/'+id))) : [])
     : (await db.collection('prizes').where('game_id','==',gameRef).get()).docs;
+  // (e.prize.fulfillment_type ?? 'merchant') : meme defaut que isMerchantPrize()
+  // (firestore.rules) et ownsPrize() (merchant_ownership.js) -- un lot
+  // historique sans ce champ reste un lot 'merchant' implicite, jamais
+  // exclu d'un export marchand par la seule absence du champ.
   const entries=docs.filter(d=>d.exists).map(d=>({prizeId:d.id,prize:d.data()})).filter(e=>
     e.prize.game_id?.path===gameRef.path && /^users\/[^/]+$/.test(e.prize.winner_id?.path||'') &&
-    (!fulfillmentType || e.prize.fulfillment_type===fulfillmentType));
+    (!fulfillmentType || (e.prize.fulfillment_type ?? 'merchant')===fulfillmentType));
   const refs=[...new Map(entries.map(e=>[e.prize.winner_id.path,e.prize.winner_id])).values()];
   const users=new Map((refs.length?await db.getAll(...refs):[]).map(d=>[d.ref.path,d.data()||{}]));
   return entries.map(e=>{const user=users.get(e.prize.winner_id.path)||{};return {...e,user,row:{

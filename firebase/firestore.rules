@@ -396,8 +396,20 @@ service cloud.firestore {
           (!isGameFinalized(resource.data) || isSafeFinalizedGameUpdate())) ||
         (ownsGame(resource.data) &&
           isSafeMerchantGameUpdate());
+      // isGameFinalized() : meme definition canonique que pour l'update
+      // ci-dessus (jamais une deuxieme regle de "jeu finalise"). Un
+      // commercant garde la suppression de ses jeux non finalises, mais
+      // des qu'un jeu porte un vrai marqueur de resultat (hasWinner,
+      // main_prize_winner, draw_status terminal, drawn_at), la suppression
+      // directe cote client est refusee -- sinon un commercant pouvait
+      // effacer la preuve d'un tirage deja effectue (gagnant designe ou
+      // etat terminal sans gagnant) en supprimant le document games/{id}
+      // lui-meme, contournement non couvert par isSafeMerchantGameUpdate()
+      // qui ne protege que les mises a jour, pas la suppression. Admin
+      // volontairement non restreint ici (comportement de confiance
+      // existant, inchange).
       allow delete: if isAdmin() ||
-        ownsGame(resource.data);
+        (ownsGame(resource.data) && !isGameFinalized(resource.data));
     }
 
     // Collection legacy pour les jeux a scanner geres via la console admin
@@ -524,14 +536,26 @@ service cloud.firestore {
         ownsMerchantPrize(resource.data)
       );
       // PRIZES_READ_POLICY: strict; rollout compatibility file is explicit and temporary.
+      // isMerchantPrize() d'abord : ownsMerchantPrize() prouve seulement la
+      // PROPRIETE du document (owner_id, ou repli enseigne), jamais le ROLE
+      // du marchand sur CE lot precis. Un lot partner/platform peut
+      // legitimement porter owner_id == le marchand hebergeant le jeu
+      // (gamePrizeOwnership() le pose ainsi des que l'enseigne a un
+      // proprietaire, quel que soit le fulfillment_type) sans que ce
+      // marchand ait quoi que ce soit a remettre -- c'est le partenaire ou
+      // la plateforme qui gere la remise. Sans ce garde-fou, ownsMerchantPrize()
+      // seul suffisait a lire get() le document prizes COMPLET, claim_code
+      // inclus, sur un lot qui ne le concerne pas. isMerchantPrize() est deja
+      // le contrat utilise par isPrizeClaimValidationUpdate() ci-dessus pour
+      // la meme question sur l'ecriture -- pas une deuxieme definition.
       allow get: if isAdmin() ||
         isOwnerRef(resource.data.get('winner_id', null)) ||
-        ownsMerchantPrize(resource.data);
+        (isMerchantPrize(resource.data) && ownsMerchantPrize(resource.data));
       // Historical fallback is resolved by getMerchantPrizes, followed by get.
       // A broad enseigne query cannot guarantee explicit-owner priority.
       allow list: if isAdmin() ||
         isOwnerRef(resource.data.get('winner_id', null)) ||
-        isUserIdentity(resource.data.get('owner_id', null));
+        (isMerchantPrize(resource.data) && isUserIdentity(resource.data.get('owner_id', null)));
     }
 
     match /public_prize_winners/{document} {

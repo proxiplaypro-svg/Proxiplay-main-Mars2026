@@ -27,7 +27,20 @@ function gameOwnership(game = {}, shop = {}) {
     : {valid: false};
 }
 function gamePrizeOwnership(db, ownership, shopRef, fulfillmentType) {
-  return {owner_id: ownership.ownerPath ? db.doc(ownership.ownerPath) : null,
+  // owner_id identifie le RESPONSABLE DE LA REMISE, jamais seulement
+  // l'enseigne hote. Pour 'partner' comme pour 'platform', ce n'est jamais
+  // le marchand : le partenaire externe (email, hors Firestore) ou la
+  // plateforme (admin) remettent le lot, meme quand l'enseigne du jeu a un
+  // proprietaire par ailleurs. Avant ce correctif, seul 'partner' etait
+  // structurellement protege (prizeFulfillment() interdit cette valeur des
+  // qu'un proprietaire existe) ; 'platform' n'avait pas cette garde et
+  // heritait quand meme de owner_id == marchand, permettant a ce dernier de
+  // lire le prize complet (claim_code inclus) via les chemins qui prouvent
+  // la propriete (Rules get/list, ownsPrize()/getMerchantPrizes).
+  // enseigne_id (trace de "dans quelle boutique le jeu a eu lieu") reste
+  // ecrit separement par chaque appelant, hors de cette fonction : ne pas
+  // le confondre avec le responsable de remise.
+  return {owner_id: (fulfillmentType === 'merchant' && ownership.ownerPath) ? db.doc(ownership.ownerPath) : null,
     fulfillment_type: fulfillmentType,
     ...(fulfillmentType === 'partner' ? {partner_ref: shopRef} : {})};
 }
@@ -39,6 +52,18 @@ async function ownedShops(db,uid){
     .filter(d=>shopOwnerPath(d.data())===ref.path);
 }
 function ownsPrize(prize,uid,shopPaths){
+  // Meme garde-fou que isMerchantPrize() cote firestore.rules (prizes/{id}
+  // allow get/list) : gamePrizeOwnership() pose owner_id des que l'enseigne
+  // a un proprietaire, quel que soit le fulfillment_type -- un lot
+  // partner/platform peut donc porter owner_id == ce marchand sans qu'il
+  // ait a le remettre. Sans ce filtre ici, getMerchantPrizes renvoyait des
+  // ids que le client ne pouvait de toute facon plus lire (regle resserree),
+  // et loadMerchantPrizes() (Future.wait sur des .get() individuels)
+  // echouait entierement a la premiere permission-denied au lieu de
+  // simplement omettre ce lot.
+  const fulfillment = Object.prototype.hasOwnProperty.call(prize, 'fulfillment_type')
+    ? prize.fulfillment_type : 'merchant';
+  if (fulfillment !== 'merchant') return false;
   // An explicit merchant owner retains read access even for operator delivery.
   if(prize.owner_id!=null) return userPath(prize.owner_id)==='users/'+uid;
   return shopPaths.has(prize.enseigne_id?.path);

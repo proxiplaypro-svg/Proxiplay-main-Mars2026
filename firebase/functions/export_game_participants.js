@@ -95,7 +95,19 @@ exports.exportGameParticipantsCallable = functions
     // export never disagree). game_id on prizes is a DocumentReference, so
     // the query must compare against gameRef, not the raw gameId string --
     // a bare-string comparison here previously never matched anything.
-    const rows = (await require('./game_winner_rows').loadGameWinners(firestore, gameRef)).map(e=>e.row);
+    //
+    // fulfillmentType:'merchant' for a merchant caller only -- mirrors the
+    // filter partner_prize_delivery.js already applies for its own audience
+    // (fulfillmentType:'partner'). Without it, this export included every
+    // prize linked to the game regardless of who is responsible for its
+    // delivery: a merchant hosting a platform/partner-fulfilled prize could
+    // download its claim_code in this CSV even though Rules correctly deny
+    // them a direct read of that same prize document. Admin keeps the
+    // unrestricted view it already had (not a merchant-facing permission,
+    // and not something this export is meant to narrow).
+    const rows = (await require('./game_winner_rows').loadGameWinners(
+      firestore, gameRef, isCallerAdmin ? {} : {fulfillmentType: 'merchant'},
+    )).map(e=>e.row);
 
     const csv = buildCsv(rows);
     const fileName = `proxiplay_gagnants_${slugify(gameData.name)}_${new Date().toISOString().slice(0, 10)}.csv`;

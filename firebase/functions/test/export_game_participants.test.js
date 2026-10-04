@@ -519,6 +519,84 @@ test("nombreux gagnants (50) -> tous exportes, un seul batch de lecture users", 
   assert.ok(csv.includes("Joueur49;Test;joueur49@example.com"));
 });
 
+// FAILLE 2 (suite) : un marchand ne doit recevoir dans son export que les
+// lots dont il est reellement responsable de la remise. loadGameWinners()
+// est appele avec {fulfillmentType:'merchant'} pour un appelant non-admin
+// (voir export_game_participants.js) -- meme mecanisme que
+// partner_prize_delivery.js utilise deja pour son propre public
+// ({fulfillmentType:'partner'}), pas une nouvelle abstraction.
+test("marchand : le lot fulfillment_type:'merchant' apparait, code inclus", async () => {
+  const gameRef = firestore.collection("games").doc("game_fulfillment");
+  await gameRef.set({
+    name: "Jeu multi fulfillment",
+    owner_id: firestore.doc("users/merchant_uid"),
+    enseigne_id: firestore.doc("enseignes/ens1"),
+  });
+  await firestore.collection("prizes").doc("prize_fulfillment_merchant").set({
+    game_id: gameRef,
+    winner_id: firestore.doc("users/alice_uid"),
+    name: "Lot remis par le marchand",
+    fulfillment_type: "merchant",
+    owner_id: firestore.doc("users/merchant_uid"),
+    claim_code: "MERCHANT_CODE",
+  });
+  await firestore.collection("prizes").doc("prize_fulfillment_partner").set({
+    game_id: gameRef,
+    winner_id: firestore.doc("users/alice_uid"),
+    name: "Lot remis par un partenaire",
+    fulfillment_type: "partner",
+    owner_id: null,
+    claim_code: "PARTNER_SECRET",
+  });
+  await firestore.collection("prizes").doc("prize_fulfillment_platform").set({
+    game_id: gameRef,
+    winner_id: firestore.doc("users/alice_uid"),
+    name: "Lot remis par ProxiPlay",
+    fulfillment_type: "platform",
+    owner_id: null,
+    claim_code: "PLATFORM_SECRET",
+  });
+
+  const result = await wrapped({gameId: "game_fulfillment", format: "csv"}, {auth: {uid: "merchant_uid"}});
+  const csv = decodeCsv(result);
+  assert.equal(result.rowCount, 1, "seul le lot merchant doit produire une ligne pour ce marchand");
+  assert.ok(csv.includes("Lot remis par le marchand;MERCHANT_CODE"));
+});
+
+test("marchand : le lot fulfillment_type:'partner' est absent de l'export, code non exposable", async () => {
+  const result = await wrapped({gameId: "game_fulfillment", format: "csv"}, {auth: {uid: "merchant_uid"}});
+  const csv = decodeCsv(result);
+  assert.ok(!csv.includes("PARTNER_SECRET"));
+  assert.ok(!csv.includes("Lot remis par un partenaire"));
+});
+
+test("marchand : le lot fulfillment_type:'platform' est absent de l'export, code non exposable", async () => {
+  const result = await wrapped({gameId: "game_fulfillment", format: "csv"}, {auth: {uid: "merchant_uid"}});
+  const csv = decodeCsv(result);
+  assert.ok(!csv.includes("PLATFORM_SECRET"));
+  assert.ok(!csv.includes("Lot remis par ProxiPlay"));
+});
+
+test("admin : comportement existant preserve, les trois fulfillment_type restent exportes", async () => {
+  const result = await wrapped({gameId: "game_fulfillment", format: "csv"}, {auth: {uid: "admin_uid"}});
+  const csv = decodeCsv(result);
+  assert.equal(result.rowCount, 3, "l'admin garde sa vue complete, non restreinte par ce correctif");
+  assert.ok(csv.includes("MERCHANT_CODE"));
+  assert.ok(csv.includes("PARTNER_SECRET"));
+  assert.ok(csv.includes("PLATFORM_SECRET"));
+});
+
+test("aucune donnee indirecte de l'export marchand ne permet de reconstruire un claim_code exclu", async () => {
+  const result = await wrapped({gameId: "game_fulfillment", format: "csv"}, {auth: {uid: "merchant_uid"}});
+  const csv = decodeCsv(result);
+  // Ni le nom du lot, ni son statut, ni une sous-chaine du code exclu ne
+  // doivent fuiter -- seule la ligne 'merchant' doit etre presente.
+  assert.ok(!csv.includes("PARTNER_SECRET".slice(0, 4)));
+  assert.ok(!csv.includes("PLATFORM_SECRET".slice(0, 4)));
+  assert.ok(!csv.toLowerCase().includes("partenaire"));
+  assert.ok(!csv.toLowerCase().includes("proxiplay"));
+});
+
 test("un log d'audit est ecrit sans donnees personnelles", async () => {
   const before = await firestore.collection("_export_audit_logs")
     .where("gameId", "==", "game1").get();
