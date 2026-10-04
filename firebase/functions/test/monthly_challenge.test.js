@@ -566,16 +566,26 @@ test("changement de target_days apres demarrage ne retro-qualifie pas", async ()
 });
 
 test("tirage avant draw_date refuse", async () => {
+  // Date calculee relativement au moment d'execution du test (jamais figee)
+  // pour que ce test reste valide quelle que soit la date reelle du jour :
+  // drawWinnerForMonthlyChallenge n'accepte pas de "now" injecte, il compare
+  // toujours draw_date a l'horloge reelle (admin.firestore.Timestamp.now()).
+  const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 400);
+  const futureMonth = `${future.getUTCFullYear()}-${String(future.getUTCMonth() + 1).padStart(2, "0")}`;
+  const futureDrawDate = new Date(Date.UTC(
+    future.getUTCFullYear(), future.getUTCMonth() + 1, 1, 9, 0, 0,
+  )).toISOString();
+
   await seedConfig({
-    month: "2026-08",
-    drawDate: "2026-10-01T09:00:00.000Z",
+    month: futureMonth,
+    drawDate: futureDrawDate,
   });
   await seedUser("u1");
 
   await assert.rejects(
     () => drawWinnerForMonthlyChallenge(buildConfigForDraw({
-      month: "2026-08",
-      drawDate: "2026-10-01T09:00:00.000Z",
+      month: futureMonth,
+      drawDate: futureDrawDate,
     }), "too-early"),
     (error) => error.code === "failed-precondition",
   );

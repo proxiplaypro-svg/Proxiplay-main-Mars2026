@@ -127,66 +127,153 @@ function buildPrizePayload(animationId, animationData, winnerRef, drawnAt, claim
   };
 }
 
-// Tirage transactionnel : selection du gagnant, ecriture du winner/current,
-// du statut de l'animation, du prize (id deterministe animation_<id>, donc
-// idempotent) et de my_lots se font dans UNE seule transaction Firestore.
-// Avant ce correctif ces 5 ecritures etaient successives et independantes :
-// un crash de la Function entre l'ecriture de winner_uid et la creation du
-// prize laissait un "gagnant" officiel sans aucun lot dans "Mes lots", et le
-// cron suivant ne le detectait jamais puisqu'il ne traite que les animations
-// SANS winner_uid.
+// "Phase 1/2/3" (meme principe que main_prize_draw.js apres l'incident
+// Kids Troc) : avant ce correctif, drawWinnerForAnimation faisait UNE
+// boucle "for (const entryDoc of entriesSnap.docs) { await transaction.get(
+// userRef) }" -- une lecture Firestore sequentielle par participant,
+// A L'INTERIEUR de la transaction (introduit par bb55f91, 29/08/2026,
+// jamais touche depuis). Exactement le motif qui a cause les timeouts de
+// production sur le tirage principal (Kids Troc : 1576 participants).
+// Phase 1 fait maintenant ce travail HORS transaction (lecture batchee des
+// utilisateurs via getAll). Phase 3 ne relit que l'animation, le candidat
+// choisi et le prize -- un cout constant quel que soit le nombre
+// d'entries qualifiees. Phase 1 et Phase 3 dupliquent volontairement les
+// memes verifications bon marche (deja_tire, deja_finalise) : Phase 1
+// decide s'il faut tenter un tirage, Phase 3 revalide tout au moment du
+// commit car rien ne garantit l'atomicite entre les deux (y compris une
+// deuxieme execution concurrente du meme scheduler sur la meme animation).
+const ANIMATION_PARTICIPANT_USER_BATCH_SIZE = 300;
+// Borne explicite sur la boucle de repli de Phase 3 (candidat devenu
+// inexclu/non qualifie entre Phase 1 et Phase 3) : garantit la
+// terminaison sans jamais rescanner la collection entries.
+const ANIMATION_MAX_CANDIDATE_ATTEMPTS = 20;
+
+function isAnimationAlreadyFinalized(animationData) {
+  return !!(getTrimmedString(animationData.winner_uid) || animationData.draw_status === 'no_eligible_entries');
+}
+
+// Lecture batchee des comptes utilisateurs pour un ensemble de candidats
+// qualifies (un seul entry par uid par construction : l'id du doc entries
+// EST le uid -- pas de ponderation/multiplicite a preserver ici, a la
+// difference du tirage principal ou du parrainage). Fonctionne avec
+// n'importe quel lecteur exposant getAll (Firestore nu en Phase 1, ou une
+// Transaction en Phase 3 pour la relecture bornee du candidat).
+async function loadEligibleAnimationCandidates(reader, entryDocs) {
+  const uids = entryDocs.map((doc) => doc.id);
+  const userRefs = uids.map((uid) => db.collection("users").doc(uid));
+  const snapshotByPath = new Map();
+  for (let i = 0; i < userRefs.length; i += ANIMATION_PARTICIPANT_USER_BATCH_SIZE) {
+    const chunk = userRefs.slice(i, i + ANIMATION_PARTICIPANT_USER_BATCH_SIZE);
+    // eslint-disable-next-line no-await-in-loop
+    const snaps = await reader.getAll(...chunk);
+    for (const snap of snaps) snapshotByPath.set(snap.ref.path, snap);
+  }
+  const candidates = [];
+  for (const uid of uids) {
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = snapshotByPath.get(userRef.path);
+    if (userSnap && userSnap.exists && !isExcludedAccount(userSnap.data() || {})) {
+      candidates.push({uid, userRef, userData: userSnap.data()});
+    }
+  }
+  return candidates;
+}
+
+// Transaction courte partagee par les deux issues "sans gagnant" (aucune
+// entry qualifiee en Phase 1, ou plus aucun candidat eligible apres la
+// boucle de repli de Phase 3). Relit l'animation pour detecter une
+// execution concurrente qui l'aurait deja finalisee.
+async function finalizeAnimationWithoutWinner(animationRef, now) {
+  return db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(animationRef);
+    if (!snap.exists) return {status: "not_found"};
+    const data = snap.data() || {};
+    if (isAnimationAlreadyFinalized(data)) return {status: "already_finalized"};
+    transaction.set(animationRef, {status: "ended", draw_status: "no_eligible_entries", drawn_at: now}, {merge: true});
+    return {status: "no_eligible_entries"};
+  });
+}
+
 async function drawWinnerForAnimation(animationId, { now = admin.firestore.Timestamp.now() } = {}) {
   const animationRef = db.collection("animations").doc(animationId);
+  const t0 = Date.now();
+  const step = (label) => functions.logger.info('DRAW_STEP_TIMING', {job: 'drawAnimationWinners', animationId, step: label, elapsedMs: Date.now() - t0});
+
+  // ---------------- Phase 1 : hors transaction ----------------
+  const animationSnap = await animationRef.get();
+  step('phase1_animation_read');
+  if (!animationSnap.exists) return {status: "not_found"};
+  const animationData = animationSnap.data() || {};
+  if (isAnimationAlreadyFinalized(animationData)) {
+    return getTrimmedString(animationData.winner_uid)
+      ? {status: "already_drawn", winnerUid: getTrimmedString(animationData.winner_uid)}
+      : {status: "already_finalized"};
+  }
+
+  // Joueurs qualifies : animations/{id}/entries/{uid} avec
+  // threshold_reached == true. Ecrit par participateInGameTransaction
+  // (source de verite CF).
+  const entriesSnap = await animationRef.collection("entries").where("threshold_reached", "==", true).get();
+  step(`phase1_entries_read:count=${entriesSnap.docs.length}`);
+  if (entriesSnap.empty) {
+    const result = await finalizeAnimationWithoutWinner(animationRef, now);
+    step(`phase1_short_circuit:${result.status}`);
+    return result.status === 'no_eligible_entries' ? {...result, status: 'no_qualified_entries'} : result;
+  }
+
+  const eligible = await loadEligibleAnimationCandidates(db, entriesSnap.docs);
+  step(`phase1_eligible_loaded:count=${eligible.length}`);
+  if (eligible.length === 0) {
+    const result = await finalizeAnimationWithoutWinner(animationRef, now);
+    step(`phase1_short_circuit:${result.status}`);
+    return result;
+  }
+
+  // ---------------- Phase 2 : selection pure, aucune I/O ----------------
+  // Meme semantique probabiliste qu'avant la restructuration (tirage
+  // uniforme) ; le generateur (Math.random, distinct de crypto.randomInt
+  // utilise par les autres moteurs) est volontairement laisse inchange --
+  // ce n'est pas l'objet de ce chantier.
+  const initialCandidate = eligible[Math.floor(Math.random() * eligible.length)];
+
+  // ---------------- Phase 3 : transaction courte, O(1) ----------------
+  const initialPool = [initialCandidate, ...eligible.filter((c) => c !== initialCandidate)];
 
   const result = await db.runTransaction(async (transaction) => {
-    const animationSnap = await transaction.get(animationRef);
-    if (!animationSnap.exists) {
-      return { status: "not_found" };
-    }
-    const animationData = animationSnap.data() || {};
-
-    if (getTrimmedString(animationData.winner_uid)) {
-      return { status: "already_drawn", winnerUid: getTrimmedString(animationData.winner_uid) };
-    }
-    if (animationData.draw_status === 'no_eligible_entries') {
-      return {status: 'already_finalized'};
+    step('phase3_attempt_start');
+    const freshSnap = await transaction.get(animationRef);
+    step('phase3_animation_read');
+    if (!freshSnap.exists) return {status: "not_found"};
+    const freshData = freshSnap.data() || {};
+    if (isAnimationAlreadyFinalized(freshData)) {
+      return getTrimmedString(freshData.winner_uid)
+        ? {status: "already_drawn", winnerUid: getTrimmedString(freshData.winner_uid)}
+        : {status: "already_finalized"};
     }
 
-    // Joueurs qualifies : animations/{id}/entries/{uid} avec
-    // threshold_reached == true. Ecrit par participateInGameTransaction
-    // (source de verite CF).
-    const entriesSnap = await transaction.get(
-      animationRef.collection("entries").where("threshold_reached", "==", true),
-    );
-
-    if (entriesSnap.empty) {
-      transaction.set(animationRef, {
-        status: 'ended', draw_status: 'no_eligible_entries', drawn_at: now,
-      }, {merge: true});
-      return { status: "no_qualified_entries" };
-    }
-
-    const candidates = [];
-    for (const entryDoc of entriesSnap.docs) {
-      const uid = entryDoc.id;
-      const userRef = db.collection("users").doc(uid);
-      const userSnap = await transaction.get(userRef);
-      if (!userSnap.exists || isExcludedAccount(userSnap.data() || {})) {
-        continue;
+    let winner = null;
+    let pool = initialPool;
+    let attempt = 0;
+    for (; attempt < ANIMATION_MAX_CANDIDATE_ATTEMPTS && pool.length > 0; attempt += 1) {
+      const candidate = attempt === 0 ? pool[0] : pool[Math.floor(Math.random() * pool.length)];
+      // eslint-disable-next-line no-await-in-loop
+      const userSnap = await transaction.get(candidate.userRef);
+      step(`phase3_candidate_read:attempt=${attempt}`);
+      if (userSnap.exists && !isExcludedAccount(userSnap.data() || {})) {
+        winner = {...candidate, userData: userSnap.data()};
+        break;
       }
-      candidates.push({ uid, userRef, userData: userSnap.data() || {} });
+      pool = pool.filter((c) => c.uid !== candidate.uid);
+    }
+    if (!winner) {
+      if (pool.length === 0) {
+        transaction.set(animationRef, {status: "ended", draw_status: "no_eligible_entries", drawn_at: now}, {merge: true});
+        return {status: "no_eligible_entries"};
+      }
+      functions.logger.warn('DRAW_CANDIDATE_RETRY_BUDGET_EXCEEDED', {job: 'drawAnimationWinners', animationId, triedCount: attempt, untestedRemaining: pool.length});
+      return {status: "retry_needed", reason: "candidate_retry_budget_exceeded"};
     }
 
-    if (candidates.length === 0) {
-      transaction.set(
-        animationRef,
-        { status: "ended", draw_status: "no_eligible_entries", drawn_at: now },
-        { merge: true },
-      );
-      return { status: "no_eligible_entries" };
-    }
-
-    const winner = candidates[Math.floor(Math.random() * candidates.length)];
     const winnerLabel = buildWinnerLabel(winner.userData);
     const winnerEmail = getTrimmedString(winner.userData.email);
     const claimCode = generateClaimCode();
@@ -195,12 +282,13 @@ async function drawWinnerForAnimation(animationId, { now = admin.firestore.Times
     // meme animation reutilise le meme prize au lieu d'en creer un second.
     const prizeRef = db.collection("prizes").doc(`animation_${animationId}`);
     const prizeSnap = await transaction.get(prizeRef);
+    step('phase3_prize_read');
     const integrity = await checkAwardLinks(transaction, {prizeRef, winnerRef: winner.userRef, sourceField: 'animation_id', sourceValue: animationId, prizeSnap});
     if (integrity.status !== 'consistent') return integrity;
     if (!prizeSnap.exists) {
       transaction.set(
         prizeRef,
-        buildPrizePayload(animationId, animationData, winner.userRef, now, claimCode, winner.userData),
+        buildPrizePayload(animationId, freshData, winner.userRef, now, claimCode, winner.userData),
       );
     }
 
@@ -233,9 +321,10 @@ async function drawWinnerForAnimation(animationId, { now = admin.firestore.Times
       claimCode,
       prizeId: prizeRef.id,
       qualifiedCount: entriesSnap.size,
-      eligibleCount: candidates.length,
+      eligibleCount: eligible.length,
     };
-  });
+  }).then((r) => { step(`phase3_settled:${r?.status || 'unknown'}`); return r; },
+    (error) => { step(`phase3_failed:${error?.code || error?.message || 'unknown'}`); throw error; });
 
   if (result.status === "completed") {
     await notifyAnimationWinner(animationId, animationRef, result);
@@ -411,7 +500,20 @@ async function notifyAnimationWinner(animationId, animationRef, drawResult) {
 
 // Tourne chaque nuit à minuit (Europe/Paris).
 // Traite toutes les animations "active" dont end_date est passée et sans gagnant.
-exports.drawAnimationWinners = functions.pubsub
+//
+// runWith/concurrency/timeBudgetMs ajoutes avec la restructuration Phase
+// 1/2/3 ci-dessus, par coherence avec pickMainPrizeWinners (main_prize_
+// draw.js) qui avait besoin exactement de la meme marge pour la meme
+// raison : Phase 1 fait maintenant un travail O(N) (lectures batchees)
+// HORS transaction -- deplace, pas supprime -- donc le meme besoin de
+// marge CPU/temps pour deserialiser potentiellement des milliers
+// d'entries s'applique ici. Avant ce changement, cette fonction tournait
+// aux limites Gen1 par defaut (60s/256MB, jamais declarees explicitement)
+// ET en serie stricte (concurrency implicite = 1, aucun budget temps) :
+// une seule animation bloquee (ex. en boucle de repli) aurait empeche
+// toutes les suivantes d'etre meme tentees avant le timeout de la
+// invocation entiere -- risque explicitement souleve par l'audit.
+exports.drawAnimationWinners = functions.runWith({timeoutSeconds: 300, memory: "1GB"}).pubsub
   .schedule("0 0 * * *")
   .timeZone("Europe/Paris")
   .onRun(async () => {
@@ -420,6 +522,8 @@ exports.drawAnimationWinners = functions.pubsub
     return runScheduledDraws({
       name: "drawAnimationWinners",
       logger: functions.logger,
+      concurrency: 8,
+      timeBudgetMs: 270000,
       load: async () => {
         const animationsSnap = await db
           .collection("animations")
@@ -438,3 +542,5 @@ exports.drawAnimationWinners = functions.pubsub
 exports.drawWinnerForAnimation = drawWinnerForAnimation;
 exports.repairAnimationDraw = repairAnimationDraw;
 exports.isExcludedAccount = isExcludedAccount;
+exports.loadEligibleAnimationCandidates = loadEligibleAnimationCandidates;
+exports.ANIMATION_MAX_CANDIDATE_ATTEMPTS = ANIMATION_MAX_CANDIDATE_ATTEMPTS;

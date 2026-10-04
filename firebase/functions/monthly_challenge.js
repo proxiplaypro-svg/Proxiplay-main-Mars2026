@@ -1171,138 +1171,223 @@ async function queueMonthlyChallengeNotifications(uid, notifications, monthKey) 
   }
 }
 
+// "Phase 1/2/3" (meme principe que main_prize_draw.js apres l'incident
+// Kids Troc) : avant ce correctif, la boucle "for (const entryDoc of
+// entriesSnap.docs) { await transaction.get(userRef) }" lisait un compte
+// utilisateur a la fois, A L'INTERIEUR de la transaction -- code original
+// du tout premier commit de ce fichier (dc64459, 19/08/2026), jamais
+// touche depuis. Phase 1 fait ce travail HORS transaction (lectures
+// utilisateur batchees). Phase 3 ne relit que le draw, le prize et le
+// candidat choisi -- cout constant quel que soit le nombre d'entrees
+// qualifiees. Optimisation supplementaire, dans l'esprit de la
+// restructuration : la verification "deja finalise"/"prize deja existant"
+// passe maintenant AVANT reconcileMonthlyChallengeEligibility (qui fait
+// sa propre requete collectionGroup potentiellement couteuse) au lieu
+// d'apres -- un defi deja tire n'a plus besoin de payer cette
+// reconciliation chaque nuit.
+const MONTHLY_CHALLENGE_PARTICIPANT_USER_BATCH_SIZE = 300;
+// Borne explicite sur la boucle de repli de Phase 3 (candidat devenu
+// inexclu entre Phase 1 et Phase 3).
+const MONTHLY_CHALLENGE_MAX_CANDIDATE_ATTEMPTS = 20;
+
+// Lecture batchee des comptes utilisateur qualifies (un entry par
+// utilisateur par construction : id de l'entry = `${challengeId}_${uid}`
+// -- pas de ponderation a preserver ici, a la difference du tirage
+// principal ou du parrainage).
+async function loadEligibleMonthlyChallengeEntries(reader, entryDocs, challengeId) {
+  const relevant = entryDocs.filter((doc) => getTrimmedString((doc.data() || {}).challenge_id || (doc.data() || {}).month) === challengeId);
+  const withRef = relevant.filter((doc) => {
+    const userRef = (doc.data() || {}).user_ref;
+    return userRef && typeof userRef.get === "function";
+  });
+  const uniqueRefsByPath = new Map();
+  for (const doc of withRef) {
+    const userRef = doc.data().user_ref;
+    if (!uniqueRefsByPath.has(userRef.path)) uniqueRefsByPath.set(userRef.path, userRef);
+  }
+  const uniqueRefs = [...uniqueRefsByPath.values()];
+  const snapshotByPath = new Map();
+  for (let i = 0; i < uniqueRefs.length; i += MONTHLY_CHALLENGE_PARTICIPANT_USER_BATCH_SIZE) {
+    const chunk = uniqueRefs.slice(i, i + MONTHLY_CHALLENGE_PARTICIPANT_USER_BATCH_SIZE);
+    // eslint-disable-next-line no-await-in-loop
+    const snaps = await reader.getAll(...chunk);
+    for (const snap of snaps) snapshotByPath.set(snap.ref.path, snap);
+  }
+
+  const evaluatedEntries = [];
+  for (const entryDoc of relevant) {
+    const entryData = entryDoc.data() || {};
+    const userRef = entryData.user_ref;
+    if (!userRef || typeof userRef.get !== "function") {
+      evaluatedEntries.push({entryDoc, exclusionStatus: "excluded_invalid_user_ref"});
+      continue;
+    }
+    const userSnap = snapshotByPath.get(userRef.path);
+    if (!userSnap || !userSnap.exists) {
+      evaluatedEntries.push({entryDoc, userRef, exclusionStatus: "excluded_missing_user"});
+      continue;
+    }
+    const userData = userSnap.data() || {};
+    const exclusionStatus = isUserExcludedFromDraw(userData);
+    if (exclusionStatus) {
+      evaluatedEntries.push({entryDoc, userRef, userData, exclusionStatus});
+      continue;
+    }
+    evaluatedEntries.push({entryDoc, userRef, userData});
+  }
+  return evaluatedEntries;
+}
+
 async function drawWinnerForMonthlyChallenge(config, triggerSource) {
   config = normalizeMonthlyChallengeConfig(config || {});
   const monthKey = config.month;
   const challengeId = config.challenge_id || getChallengeId(config.type, monthKey);
   const now = getNowTimestamp(admin);
+  const t0 = Date.now();
+  const step = (label) => functions.logger.info('DRAW_STEP_TIMING', {job: 'drawMonthlyChallengeWinner', challengeId, step: label, elapsedMs: Date.now() - t0});
   validateDrawExecutionOrThrow(config, now);
-  await reconcileMonthlyChallengeEligibility(config, now);
 
   const drawRef = getMonthlyChallengeDrawRef(challengeId);
-  const entriesQuery = db
-    .collection("monthly_challenge_entries")
-    .where("month", "==", monthKey)
-    .where("status", "==", "qualified");
+  const prizeRef = db.collection("prizes").doc(`monthly_challenge_${challengeId}`);
 
+  // ---------------- Phase 1 : hors transaction ----------------
+  const drawSnap = await drawRef.get();
+  step('phase1_draw_read');
+  if (drawSnap.exists && isFinalDrawStatus(drawSnap.data()?.status)) {
+    const drawData = drawSnap.data() || {};
+    return {
+      status: getTrimmedString(drawData.status) === "completed" ? "already_completed" : "already_finalized",
+      month: monthKey, challengeId,
+      eligibleCount: normalizeNumber(drawData.eligible_count, 0),
+      winnerUid: getTrimmedString(drawData.winner_uid),
+    };
+  }
+  const prizeSnap = await prizeRef.get();
+  step('phase1_prize_read');
+  if (prizeSnap.exists) return review(prizeRef.id, 'prize_exists_without_final_draw');
+
+  await reconcileMonthlyChallengeEligibility(config, now);
+  step('phase1_reconciled');
+
+  const entriesQuery = db.collection("monthly_challenge_entries")
+    .where("month", "==", monthKey).where("status", "==", "qualified");
+  const entriesSnap = await entriesQuery.get();
+  step(`phase1_entries_read:count=${entriesSnap.docs.length}`);
+
+  const evaluatedEntries = await loadEligibleMonthlyChallengeEntries(db, entriesSnap.docs, challengeId);
+  const eligibleDocs = evaluatedEntries.filter((entry) => !entry.exclusionStatus);
+  step(`phase1_eligible_loaded:count=${eligibleDocs.length}`);
+
+  // Marquage des entrees exclues : pure bookkeeping, ne conditionne jamais
+  // la selection (qui relit toujours l'etat live du compte), donc sans
+  // danger a ecrire tot, hors transaction. Legere difference avec l'ancien
+  // code : celui-ci ne marquait PAS ces entrees si checkAwardLinks echouait
+  // ensuite (round sans finalisation) ; desormais elles le sont quand
+  // meme -- le statut d'exclusion reste exact independamment de l'issue du
+  // tirage, et rien ne consomme ce champ pour la selection future.
+  const toMarkExcluded = evaluatedEntries.filter((entry) => entry.exclusionStatus);
+  if (toMarkExcluded.length > 0) {
+    const batch = db.batch();
+    for (const entry of toMarkExcluded) {
+      batch.update(entry.entryDoc.ref, {status: entry.exclusionStatus, updated_at: admin.firestore.FieldValue.serverTimestamp()});
+    }
+    await batch.commit();
+    step(`phase1_excluded_marked:count=${toMarkExcluded.length}`);
+  }
+
+  if (eligibleDocs.length === 0) {
+    const result = await db.runTransaction(async (transaction) => {
+      const freshDrawSnap = await transaction.get(drawRef);
+      if (freshDrawSnap.exists && isFinalDrawStatus(freshDrawSnap.data()?.status)) {
+        const drawData = freshDrawSnap.data() || {};
+        return {
+          status: getTrimmedString(drawData.status) === "completed" ? "already_completed" : "already_finalized",
+          month: monthKey, challengeId,
+          eligibleCount: normalizeNumber(drawData.eligible_count, 0),
+          winnerUid: getTrimmedString(drawData.winner_uid),
+        };
+      }
+      transaction.set(drawRef, {
+        month: monthKey, challenge_id: challengeId, type: config.type,
+        status: "no_eligible_users", eligible_count: 0, drawn_at: now,
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+      return {status: "no_eligible_users", month: monthKey, eligibleCount: 0};
+    });
+    step(`phase1_short_circuit:${result.status}`);
+    return result;
+  }
+
+  // ---------------- Phase 2 : selection pure, aucune I/O ----------------
+  // Meme semantique probabiliste qu'avant : tirage uniforme, un element
+  // par utilisateur qualifie (pas de ponderation dans ce moteur).
+  const initialCandidate = eligibleDocs[crypto.randomInt(0, eligibleDocs.length)];
+  const initialPool = [initialCandidate, ...eligibleDocs.filter((c) => c !== initialCandidate)];
+
+  // ---------------- Phase 3 : transaction courte, O(1) ----------------
   return db.runTransaction(async (transaction) => {
-    const [drawSnap, entriesSnap] = await Promise.all([
+    step('phase3_attempt_start');
+    const [freshDrawSnap, freshPrizeSnap] = await Promise.all([
       transaction.get(drawRef),
-      transaction.get(entriesQuery),
+      transaction.get(prizeRef),
     ]);
-
-    if (drawSnap.exists && isFinalDrawStatus(drawSnap.data()?.status)) {
-      const drawData = drawSnap.data() || {};
+    step('phase3_draw_and_prize_read');
+    if (freshDrawSnap.exists && isFinalDrawStatus(freshDrawSnap.data()?.status)) {
+      const drawData = freshDrawSnap.data() || {};
       return {
-        status: getTrimmedString(drawData.status) === "completed" ?
-          "already_completed" :
-          "already_finalized",
-        month: monthKey,
-        challengeId,
+        status: getTrimmedString(drawData.status) === "completed" ? "already_completed" : "already_finalized",
+        month: monthKey, challengeId,
         eligibleCount: normalizeNumber(drawData.eligible_count, 0),
         winnerUid: getTrimmedString(drawData.winner_uid),
       };
     }
+    if (freshPrizeSnap.exists) return review(prizeRef.id, 'prize_exists_without_final_draw');
 
-    const prizeRef = db.collection("prizes").doc(`monthly_challenge_${challengeId}`);
-    const prizeSnap = await transaction.get(prizeRef);
-    if (prizeSnap.exists) return review(prizeRef.id, 'prize_exists_without_final_draw');
-    const evaluatedEntries = [];
-    for (const entryDoc of entriesSnap.docs) {
-      const entryData = entryDoc.data() || {};
-      if (getTrimmedString(entryData.challenge_id || entryData.month) !== challengeId) {
-        continue;
+    let selected = null;
+    let pool = initialPool;
+    let attempt = 0;
+    const retryExcluded = [];
+    for (; attempt < MONTHLY_CHALLENGE_MAX_CANDIDATE_ATTEMPTS && pool.length > 0; attempt += 1) {
+      const candidate = attempt === 0 ? pool[0] : pool[crypto.randomInt(0, pool.length)];
+      // eslint-disable-next-line no-await-in-loop
+      const userSnap = await transaction.get(candidate.userRef);
+      step(`phase3_candidate_read:attempt=${attempt}`);
+      const exclusionStatus = userSnap.exists ? isUserExcludedFromDraw(userSnap.data() || {}) : "excluded_missing_user";
+      if (!exclusionStatus) { selected = {...candidate, userData: userSnap.data()}; break; }
+      retryExcluded.push({entryDoc: candidate.entryDoc, exclusionStatus});
+      pool = pool.filter((c) => c.userRef.path !== candidate.userRef.path);
+    }
+    if (!selected) {
+      if (pool.length === 0) {
+        for (const entry of retryExcluded) {
+          transaction.update(entry.entryDoc.ref, {status: entry.exclusionStatus, updated_at: admin.firestore.FieldValue.serverTimestamp()});
+        }
+        transaction.set(drawRef, {
+          month: monthKey, challenge_id: challengeId, type: config.type,
+          status: "no_eligible_users", eligible_count: 0, drawn_at: now,
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        }, {merge: true});
+        return {status: "no_eligible_users", month: monthKey, eligibleCount: 0};
       }
-      const userRef = entryData.user_ref;
-      if (!userRef || typeof userRef.get !== "function") {
-        evaluatedEntries.push({
-          entryDoc,
-          exclusionStatus: "excluded_invalid_user_ref",
-        });
-        continue;
-      }
-      const userSnap = await transaction.get(userRef);
-      if (!userSnap.exists) {
-        evaluatedEntries.push({
-          entryDoc,
-          userRef,
-          exclusionStatus: "excluded_missing_user",
-        });
-        continue;
-      }
-      const userData = userSnap.data() || {};
-      const exclusionStatus = isUserExcludedFromDraw(userData);
-      if (exclusionStatus) {
-        evaluatedEntries.push({
-          entryDoc,
-          userRef,
-          userData,
-          exclusionStatus,
-        });
-        continue;
-      }
-      evaluatedEntries.push({entryDoc, userRef, userData});
+      functions.logger.warn('DRAW_CANDIDATE_RETRY_BUDGET_EXCEEDED', {job: 'drawMonthlyChallengeWinner', challengeId, triedCount: attempt, untestedRemaining: pool.length});
+      return {status: "retry_needed", reason: "candidate_retry_budget_exceeded"};
     }
 
-    const eligibleDocs = evaluatedEntries.filter(
-      (entry) => !entry.exclusionStatus,
-    );
-
-
-    if (eligibleDocs.length === 0) {
-    for (const entry of evaluatedEntries) {
-      if (!entry.exclusionStatus) {
-        continue;
-      }
-      transaction.update(entry.entryDoc.ref, {
-        status: entry.exclusionStatus,
-        updated_at: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    }
-      transaction.set(drawRef, {
-        month: monthKey,
-        challenge_id: challengeId,
-        type: config.type,
-        status: "no_eligible_users",
-        eligible_count: 0,
-        drawn_at: now,
-        updated_at: admin.firestore.FieldValue.serverTimestamp(),
-      }, {merge: true});
-      return {
-        status: "no_eligible_users",
-        month: monthKey,
-        eligibleCount: 0,
-      };
-    }
-
-    const selected = eligibleDocs[crypto.randomInt(0, eligibleDocs.length)];
     const winnerUid = selected.userRef.id;
     const winnerStateRef = getMonthlyChallengeUserStateRef(selected.userRef, challengeId);
     const claimCode = generateClaimCode();
-    const integrity = await checkAwardLinks(transaction, {prizeRef, winnerRef:selected.userRef, sourceField:'monthly_challenge_draw_ref', sourceValue:drawRef, prizeSnap});
+    const integrity = await checkAwardLinks(transaction, {prizeRef, winnerRef: selected.userRef, sourceField: 'monthly_challenge_draw_ref', sourceValue: drawRef, prizeSnap: freshPrizeSnap});
     if (integrity.status !== 'consistent') return integrity;
-    for (const entry of evaluatedEntries) {
-      if (entry.exclusionStatus) transaction.update(entry.entryDoc.ref, {
-        status:entry.exclusionStatus, updated_at:admin.firestore.FieldValue.serverTimestamp(),
-      });
+    for (const entry of retryExcluded) {
+      transaction.update(entry.entryDoc.ref, {status: entry.exclusionStatus, updated_at: admin.firestore.FieldValue.serverTimestamp()});
     }
     const winnerFirstName = getTrimmedString(
       selected.userData.first_name || selected.userData.firstName,
     ).split(/\s+/)[0] || "";
     const winnerCity = getTrimmedString(selected.userData.city);
     const denormalizedWinnerFields = {
-      ...(winnerFirstName ?
-        {
-          winnerFirstName,
-          winner_first_name: winnerFirstName,
-        } :
-        {}),
-      ...(winnerCity ?
-        {
-          winnerCity,
-          winner_city: winnerCity,
-        } :
-        {}),
+      ...(winnerFirstName ? {winnerFirstName, winner_first_name: winnerFirstName} : {}),
+      ...(winnerCity ? {winnerCity, winner_city: winnerCity} : {}),
     };
 
     transaction.set(drawRef, {
@@ -1361,7 +1446,8 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
       prizeId: prizeRef.id,
       triggerSource,
     };
-  }).then(async (result) => {
+  }).then((r) => { step(`phase3_settled:${r?.status || 'unknown'}`); return r; },
+    (error) => { step(`phase3_failed:${error?.code || error?.message || 'unknown'}`); throw error; }).then(async (result) => {
     if (result.status === "completed" && result.winnerUid) {
       await createPushNotificationRequestIfAbsent(
         `monthly_challenge_draw_${challengeId}_${result.winnerUid}`,
@@ -1571,7 +1657,16 @@ const adminRunMonthlyChallengeDrawCallable = functions
     return drawWinnerForMonthlyChallenge(config, "admin");
   });
 
-const drawMonthlyChallengeWinnerScheduled = functions.pubsub
+// runWith/concurrency/timeBudgetMs ajoutes avec la restructuration Phase
+// 1/2/3 de drawWinnerForMonthlyChallenge, par coherence avec
+// pickMainPrizeWinners qui avait besoin exactement de la meme marge pour
+// la meme raison. Le nombre d'elements traites par load() ici est petit
+// (un par type de defi actif, pas par participant), donc le risque de
+// blocage mutuel est moindre qu'au tirage principal -- mais il n'est pas
+// nul (un defi avec une tres large base d'utilisateurs actifs pourrait
+// bloquer au-dela de 60s), et la coherence avec les 3 autres moteurs de
+// tirage vaut mieux qu'une exception non justifiee.
+const drawMonthlyChallengeWinnerScheduled = functions.runWith({timeoutSeconds: 300, memory: "1GB"}).pubsub
   .schedule("0 1 * * *")
   .timeZone(kTimeZone)
   .onRun(async () => {
@@ -1579,6 +1674,8 @@ const drawMonthlyChallengeWinnerScheduled = functions.pubsub
     return runScheduledDraws({
       name: "drawMonthlyChallengeWinner",
       logger: functions.logger,
+      concurrency: 8,
+      timeBudgetMs: 270000,
       load: async () => {
         const [configsSnap, legacySnap] = await Promise.all([
           db.collection(kMonthlyChallengesCollection).where("enabled", "==", true).get(),
@@ -1632,4 +1729,6 @@ module.exports = {
   getParisMidnightTimestamp,
   getInclusivePeriodDays,
   validateMonthlyChallengeConfig,
+  loadEligibleMonthlyChallengeEntries,
+  MONTHLY_CHALLENGE_MAX_CANDIDATE_ATTEMPTS,
 };
