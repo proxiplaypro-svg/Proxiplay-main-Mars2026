@@ -1046,7 +1046,21 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
             (gameDoc.mainPrizeWinner != null);
         final hasMainPrizeFlag = gameDoc.hasMainPrize == true;
         final prizeValue = gameDoc.prizeValue;
-        final mainPrizeDescription = gameDoc.description.trim();
+        // `description` is the game/event presentation. Older documents used
+        // it for the main prize, so keep that as a fallback only for them.
+        final canonicalGameDescription = gameDoc.description.trim();
+        final storedMainPrizeDescription =
+            (gameDoc.snapshotData['main_prize_description'] as String? ?? '')
+                .trim();
+        final mainPrizeDescription = storedMainPrizeDescription.isNotEmpty
+            ? storedMainPrizeDescription
+            : canonicalGameDescription;
+        final gameDescription = gameDoc.accessMode == AccessMode.qr_only &&
+                canonicalGameDescription.isNotEmpty &&
+                (!gameDoc.hasMainPrize ||
+                    canonicalGameDescription != mainPrizeDescription)
+            ? canonicalGameDescription
+            : '';
         // Regle produit :
         // Le lot principal doit etre monetaire.
         // On affiche uniquement si hasMainPrize == true ET prizeValue > 0
@@ -1576,6 +1590,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               letterSpacing: -0.5,
                                             ),
                                           ),
+                                          if (gameDescription.isNotEmpty) ...[
+                                            const SizedBox(height: 12.0),
+                                            Text(
+                                              gameDescription,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 15.0,
+                                                fontWeight: FontWeight.w500,
+                                                color: const Color(0xFF4B5563),
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          ],
                                           const SizedBox(height: 24.0),
                                           // Action Buttons Column
                                           Column(
