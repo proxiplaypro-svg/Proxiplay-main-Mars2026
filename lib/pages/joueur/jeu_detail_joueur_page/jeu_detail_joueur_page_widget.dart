@@ -17,6 +17,7 @@ import '/utils/game_launch_coordinator.dart';
 import '/utils/minor_restricted_game_access.dart';
 import '/utils/main_prize_ticket_presentation.dart';
 import '/utils/share_links.dart';
+import '/utils/qr_game_presentation.dart';
 import '/utils/game_view_tracker.dart';
 import '/utils/winner_identity.dart';
 import '/widgets/proxiplay_network_image.dart';
@@ -1098,7 +1099,15 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
           hasMainPrize: gameDoc.hasHasMainPrize() ? gameDoc.hasMainPrize : null,
         );
         final prizeValue = gameDoc.prizeValue;
-        final mainPrizeDescription = gameDoc.description.trim();
+        final qrGamePresentation = resolveQrGamePresentation(
+          description: gameDoc.description,
+          mainPrizeDescription:
+              gameDoc.snapshotData['main_prize_description'],
+          mainPrizeTitle: gameDoc.snapshotData['main_prize_title'],
+          isQrOnly: gameDoc.accessMode == AccessMode.qr_only,
+        );
+        final mainPrizeDescription = qrGamePresentation.mainPrizeDescription;
+        final gameDescription = qrGamePresentation.gameDescription;
         // Regle produit :
         // Le lot principal doit etre monetaire.
         // On affiche uniquement si hasMainPrize == true ET prizeValue > 0
@@ -1628,6 +1637,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               letterSpacing: -0.5,
                                             ),
                                           ),
+                                          if (gameDescription.isNotEmpty) ...[
+                                            const SizedBox(height: 12.0),
+                                            Text(
+                                              gameDescription,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 15.0,
+                                                fontWeight: FontWeight.w500,
+                                                color: const Color(0xFF4B5563),
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          ],
                                           const SizedBox(height: 12.0),
                                           if (showShopCard &&
                                               effectiveEnseigneDoc != null) ...[
