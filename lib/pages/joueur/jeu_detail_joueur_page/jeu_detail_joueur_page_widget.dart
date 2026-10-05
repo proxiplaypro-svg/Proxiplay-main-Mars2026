@@ -491,7 +491,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                 ),
           label: Text(_isLaunchingGame ? 'Chargement du jeu\u2026' : 'Jouer'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFC0392B),
+            backgroundColor: FlutterFlowTheme.of(context).primary,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14.0),
@@ -580,7 +580,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         ),
         label: const Text('Scanner le QR code en boutique'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFC0392B),
+          backgroundColor: FlutterFlowTheme.of(context).primary,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14.0),
