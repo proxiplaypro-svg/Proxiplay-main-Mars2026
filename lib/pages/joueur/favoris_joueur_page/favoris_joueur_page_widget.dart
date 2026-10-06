@@ -10,6 +10,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/utils/winner_identity.dart';
 import '/widgets/proxiplay_network_image.dart';
+import '/utils/player_game_visibility.dart';
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -49,6 +50,12 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
   }
 
   bool _isGameVisibleForPlayer(GamesRecord game) {
+    if (isGameDraftHiddenFromPlayer(
+      hasVisiblePublicField: game.hasVisiblePublic(),
+      visiblePublic: game.visiblePublic,
+    )) {
+      return false;
+    }
     final now = getCurrentTimestamp;
     final endDate = game.endDate;
     if (endDate == null) {
