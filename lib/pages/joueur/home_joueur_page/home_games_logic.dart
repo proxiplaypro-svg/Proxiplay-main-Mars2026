@@ -1,15 +1,6 @@
-/// A game still in draft (visible_public:false, set by the client at
-/// creation and flipped to true only by the server once the instant
-/// winners calendar is confirmed complete) must never appear in player
-/// carousels. A legacy game that never had this field stays visible --
-/// same "absent = public" convention as the admin console
-/// (lib/firebase/*Queries.ts: `visible_public !== false`), so only an
-/// explicit `false` hides the game.
-bool isGameDraftHiddenFromPlayer({
-  required bool hasVisiblePublicField,
-  required bool visiblePublic,
-}) =>
-    hasVisiblePublicField && !visiblePublic;
+import '/utils/player_game_visibility.dart';
+
+export '/utils/player_game_visibility.dart' show isGameDraftHiddenFromPlayer;
 
 bool isPlayerHomeGameVisible({
   required DateTime now,

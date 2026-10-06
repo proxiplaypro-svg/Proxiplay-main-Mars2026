@@ -5,6 +5,7 @@ import '/backend/schema/enums/enums.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
+import '/utils/player_game_visibility.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -78,6 +79,10 @@ class _AnimationDetailPageState extends State<AnimationDetailPage> {
         .map(
           (snapshot) => snapshot.docs
               .map((doc) => GamesRecord.fromSnapshot(doc))
+              .where((game) => !isGameDraftHiddenFromPlayer(
+                    hasVisiblePublicField: game.hasVisiblePublic(),
+                    visiblePublic: game.visiblePublic,
+                  ))
               .toList(),
         );
   }

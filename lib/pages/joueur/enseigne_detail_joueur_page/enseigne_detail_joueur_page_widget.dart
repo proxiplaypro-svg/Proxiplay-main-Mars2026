@@ -9,6 +9,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/widgets/proxiplay_loading_logo.dart';
 import '/widgets/proxiplay_network_image.dart';
+import '/utils/player_game_visibility.dart';
 
 import '/index.dart';
 import 'dart:async';
@@ -43,6 +44,12 @@ class _EnseigneDetailJoueurPageWidgetState
   String? _ongoingGamesFutureKey;
 
   bool _isGameVisibleForPlayer(GamesRecord game) {
+    if (isGameDraftHiddenFromPlayer(
+      hasVisiblePublicField: game.hasVisiblePublic(),
+      visiblePublic: game.visiblePublic,
+    )) {
+      return false;
+    }
     final now = getCurrentTimestamp;
     final endDate = game.endDate;
     if (endDate == null || !endDate.isAfter(now)) {

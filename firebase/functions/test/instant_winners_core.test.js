@@ -7,6 +7,7 @@ const path = require("node:path");
 
 const {
   buildInstantWinnerDocId,
+  buildInstantWinnerConfigurationFingerprint,
   buildInstantWinnerPayloads,
   buildOccurrenceKey,
   expandSecondaryPrizes,
@@ -14,6 +15,22 @@ const {
   planInstantWinnerReconciliation,
   pickDueInstantWinner,
 } = require("../lib/instant_winners_core");
+
+function persistedEntriesFromPlan(plan) {
+  return [...plan.missingPayloads, ...(plan.replacementPayloads || [])].map(({docId, payload}) => ({
+    id: docId,
+    dateMs: payload.dateMs,
+    hasWinner: false,
+    claimed: false,
+    configuration_fingerprint: plan.configurationFingerprint,
+    secondary_prize_index: payload.secondary_prize_index,
+    secondary_prize_occurrence_index: payload.secondary_prize_occurrence_index,
+    secondary_prize_name: payload.secondary_prize_name,
+    ...(payload.secondary_prize_presentation
+      ? {secondary_prize_presentation: payload.secondary_prize_presentation}
+      : {}),
+  }));
+}
 
 test("each secondary prize occurrence receives an instant", () => {
   const payloads = buildInstantWinnerPayloads({
@@ -223,18 +240,27 @@ test("deterministic doc id is stable per game and occurrence", () => {
 });
 
 test("partial generation preserves existing instants and creates only missing occurrences", () => {
+  const configurationFingerprint = buildInstantWinnerConfigurationFingerprint({
+    startDateMs: 0,
+    endDateMs: 1000,
+    secondaryPrizes: [{name: "Lot A", count: 4}],
+  });
   const existingEntries = [
     {
       id: "instant_game-1_spi_0_occ_0",
       secondary_prize_index: 0,
       secondary_prize_occurrence_index: 0,
       dateMs: 111,
+      configuration_fingerprint: configurationFingerprint,
+      secondary_prize_name: "Lot A",
     },
     {
       id: "instant_game-1_spi_0_occ_1",
       secondary_prize_index: 0,
       secondary_prize_occurrence_index: 1,
       dateMs: 222,
+      configuration_fingerprint: configurationFingerprint,
+      secondary_prize_name: "Lot A",
     },
   ];
 
@@ -321,12 +347,19 @@ test("simultaneous generation attempts converge on the same missing occurrence i
 });
 
 test("quantity increase before game start adds only newly missing occurrences", () => {
+  const configurationFingerprint = buildInstantWinnerConfigurationFingerprint({
+    startDateMs: 0,
+    endDateMs: 1000,
+    secondaryPrizes: [{name: "Lot A", count: 3}],
+  });
   const existingEntries = [
     {
       id: "instant_game-4_spi_0_occ_0",
       secondary_prize_index: 0,
       secondary_prize_occurrence_index: 0,
       dateMs: 100,
+      configuration_fingerprint: configurationFingerprint,
+      secondary_prize_name: "Lot A",
     },
   ];
 
@@ -447,6 +480,154 @@ test("unchanged prize text does not produce a stale entry", () => {
   });
 
   assert.equal(plan.staleTextEntries.length, 0);
+});
+
+test("first generation schedules every occurrence from the current future window", () => {
+  const plan = planInstantWinnerReconciliation({
+    gameId: "first-generation",
+    startDateMs: 100,
+    endDateMs: 1000,
+    nowMs: 200,
+    secondaryPrizes: [{name: "Lot", count: 2}],
+    randomUnit: () => 0,
+  });
+  assert.equal(plan.missingPayloads.length, 2);
+  plan.missingPayloads.forEach(({payload}) => assert.equal(payload.dateMs, 200));
+});
+
+test("unchanged regeneration is idempotent", () => {
+  const initial = planInstantWinnerReconciliation({
+    gameId: "idempotent", startDateMs: 100, endDateMs: 1000, nowMs: 100,
+    secondaryPrizes: [{name: "Lot", description: "Texte", count: 2}], randomUnit: () => 0.5,
+  });
+  const retry = planInstantWinnerReconciliation({
+    gameId: "idempotent", startDateMs: 100, endDateMs: 1000, nowMs: 100,
+    secondaryPrizes: [{name: "Lot", description: "Texte", count: 2}],
+    existingEntries: persistedEntriesFromPlan(initial), randomUnit: () => 0,
+  });
+  assert.equal(retry.missingPayloads.length, 0);
+  assert.equal(retry.replacementPayloads.length, 0);
+  assert.equal(retry.deleteEntries.length, 0);
+  assert.equal(retry.preservedEntries.length, 2);
+});
+
+test("changed dates replace unassigned occurrences and discard their former dates", () => {
+  const initial = planInstantWinnerReconciliation({
+    gameId: "date-change", startDateMs: 0, endDateMs: 1000,
+    secondaryPrizes: [{name: "Lot", count: 1}], randomUnit: () => 0.1,
+  });
+  const regenerated = planInstantWinnerReconciliation({
+    gameId: "date-change", startDateMs: 2000, endDateMs: 3000, nowMs: 2100,
+    secondaryPrizes: [{name: "Lot", count: 1}],
+    existingEntries: persistedEntriesFromPlan(initial), randomUnit: () => 0,
+  });
+  assert.equal(regenerated.replacementPayloads.length, 1);
+  assert.ok(regenerated.replacementPayloads[0].payload.dateMs >= 2100);
+  assert.ok(regenerated.replacementPayloads[0].payload.dateMs <= 3000);
+  assert.notEqual(regenerated.replacementPayloads[0].payload.dateMs, 100);
+});
+
+test("a started game schedules new unassigned occurrences from server now", () => {
+  const plan = planInstantWinnerReconciliation({
+    gameId: "started", startDateMs: 0, endDateMs: 1000, nowMs: 600,
+    secondaryPrizes: [{name: "Lot", count: 1}], randomUnit: () => 0,
+  });
+  assert.equal(plan.missingPayloads[0].payload.dateMs, 600);
+});
+
+test("a game without a future scheduling window fails before mutations", () => {
+  assert.throws(() => planInstantWinnerReconciliation({
+    gameId: "ended", startDateMs: 0, endDateMs: 1000, nowMs: 1000,
+    secondaryPrizes: [{name: "Lot", count: 1}],
+  }), /future scheduling window/);
+});
+
+test("quantity increase, reduction, removal, and reorder reconcile unassigned occurrences", () => {
+  const initial = planInstantWinnerReconciliation({
+    gameId: "shape", startDateMs: 0, endDateMs: 1000,
+    secondaryPrizes: [{name: "A", count: 2}, {name: "B", count: 1}], randomUnit: () => 0.1,
+  });
+  const entries = persistedEntriesFromPlan(initial);
+  const increased = planInstantWinnerReconciliation({
+    gameId: "shape", startDateMs: 0, endDateMs: 1000,
+    secondaryPrizes: [{name: "A", count: 3}, {name: "B", count: 1}], existingEntries: entries,
+  });
+  assert.equal(increased.replacementPayloads.length, 3);
+  assert.equal(increased.missingPayloads.length, 1);
+  const reduced = planInstantWinnerReconciliation({
+    gameId: "shape", startDateMs: 0, endDateMs: 1000,
+    secondaryPrizes: [{name: "A", count: 1}], existingEntries: entries,
+  });
+  assert.equal(reduced.replacementPayloads.length, 1);
+  assert.equal(reduced.deleteEntries.length, 2);
+  const reordered = planInstantWinnerReconciliation({
+    gameId: "shape", startDateMs: 0, endDateMs: 1000,
+    secondaryPrizes: [{name: "B", count: 1}, {name: "A", count: 2}], existingEntries: entries,
+  });
+  assert.equal(reordered.replacementPayloads.length, 2);
+  assert.equal(reordered.missingPayloads.length, 1);
+  assert.equal(reordered.deleteEntries.length, 1);
+});
+
+test("name, presentation, and a cleared presentation replace non-assigned snapshots", () => {
+  const initial = planInstantWinnerReconciliation({
+    gameId: "snapshot", startDateMs: 0, endDateMs: 1000,
+    secondaryPrizes: [{name: "Ancien", description: "Ancienne presentation", count: 1}],
+  });
+  const withNewText = planInstantWinnerReconciliation({
+    gameId: "snapshot", startDateMs: 0, endDateMs: 1000,
+    secondaryPrizes: [{name: "Nouveau", description: "Nouvelle presentation", count: 1}],
+    existingEntries: persistedEntriesFromPlan(initial),
+  });
+  assert.equal(withNewText.replacementPayloads[0].payload.secondary_prize_name, "Nouveau");
+  assert.equal(withNewText.replacementPayloads[0].payload.secondary_prize_presentation, "Nouvelle presentation");
+  const cleared = planInstantWinnerReconciliation({
+    gameId: "snapshot", startDateMs: 0, endDateMs: 1000,
+    secondaryPrizes: [{name: "Nouveau", description: "", count: 1}],
+    existingEntries: persistedEntriesFromPlan(withNewText),
+  });
+  assert.equal("secondary_prize_presentation" in cleared.replacementPayloads[0].payload, false);
+});
+
+test("assigned occurrences remain immutable while non-assigned occurrences reconcile", () => {
+  const initial = planInstantWinnerReconciliation({
+    gameId: "mixed", startDateMs: 0, endDateMs: 1000,
+    secondaryPrizes: [{name: "A", count: 2}], randomUnit: () => 0.1,
+  });
+  const entries = persistedEntriesFromPlan(initial);
+  entries[0] = {...entries[0], hasWinner: true, player_id: "player"};
+  const regenerated = planInstantWinnerReconciliation({
+    gameId: "mixed", startDateMs: 100, endDateMs: 2000,
+    secondaryPrizes: [{name: "A", count: 2}], existingEntries: entries, randomUnit: () => 0.5,
+  });
+  assert.equal(regenerated.preservedEntries.length, 1);
+  assert.equal(regenerated.preservedEntries[0].id, entries[0].id);
+  assert.equal(regenerated.replacementPayloads.length, 1);
+  assert.ok(regenerated.replacementPayloads[0].payload.dateMs >= 100);
+});
+
+test("assigned occurrences that conflict with removal are preserved and reported", () => {
+  const initial = planInstantWinnerReconciliation({
+    gameId: "assigned-removal", startDateMs: 0, endDateMs: 1000,
+    secondaryPrizes: [{name: "A", count: 1}, {name: "B", count: 1}],
+  });
+  const entries = persistedEntriesFromPlan(initial);
+  entries[1] = {...entries[1], claimed: true};
+  const plan = planInstantWinnerReconciliation({
+    gameId: "assigned-removal", startDateMs: 0, endDateMs: 1000,
+    secondaryPrizes: [{name: "A", count: 1}], existingEntries: entries,
+  });
+  assert.equal(plan.deleteEntries.length, 0);
+  assert.deepEqual(plan.assignedConflicts.map((entry) => entry.id), [entries[1].id]);
+});
+
+test("unassigned legacy excess occurrences are deleted", () => {
+  const plan = planInstantWinnerReconciliation({
+    gameId: "excess", startDateMs: 0, endDateMs: 1000,
+    secondaryPrizes: [],
+    existingEntries: [{id: "obsolete", secondary_prize_index: 4, secondary_prize_occurrence_index: 0, hasWinner: false}],
+  });
+  assert.deepEqual(plan.deleteEntries.map((entry) => entry.id), ["obsolete"]);
 });
 
 test("player-readable instant_winners access is not allowed in Firestore rules", () => {
