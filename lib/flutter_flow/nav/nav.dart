@@ -669,6 +669,13 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               builder: (context, params) => const ParrainageJoueurPageWidget(),
             ),
             FFRoute(
+              name: ParrainageCommercantPageWidget.routeName,
+              path: ParrainageCommercantPageWidget.routePath,
+              requireAuth: true,
+              builder: (context, params) =>
+                  const ParrainageCommercantPageWidget(),
+            ),
+            FFRoute(
               name: ReferralGameDetailJoueurPageWidget.routeName,
               path: ReferralGameDetailJoueurPageWidget.routePath,
               requireAuth: true,

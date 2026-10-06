@@ -610,6 +610,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Active/desactive le bloc "Parrainer un commercant" de la Home joueur
+    // sans nouvelle release (meme pattern que app_config/share_promo).
+    // Fail-closed cote app : un etat non charge/erreur masque le bloc.
+    match /app_config/merchant_referral {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /app_config/monthly_challenge {
       allow read: if true;
       allow write: if isAdmin();

@@ -28,6 +28,7 @@ import '/utils/share_links.dart';
 import '/utils/winner_identity.dart';
 import 'home_games_logic.dart';
 import 'share_promo_banner_logic.dart';
+import 'merchant_referral_banner_logic.dart';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -92,6 +93,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   DateTime? _lastResumeRefresh;
   late Future<SharePromoStateViewModel?> _sharePromoFuture;
   SharePromoStateViewModel? _latestSharePromoState;
+  // Bloc "Parrainer un commercant" (bas de Home), pilotable sans release
+  // depuis app_config/merchant_referral.enabled -- meme logique fail-closed
+  // que le bonus de parrainage joueur ci-dessus (voir
+  // merchant_referral_banner_logic.dart).
+  late Future<bool?> _merchantReferralEnabledFuture;
   late Future<List<MonthlyChallengeStateViewModel>> _monthlyChallengeFuture;
   List<MonthlyChallengeStateViewModel> _latestMonthlyChallengeStates = const [];
   final _monthlyChallengeService = MonthlyChallengeService();
@@ -144,6 +150,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
     _sharePromoFuture = _loadSharePromoState();
+    _merchantReferralEnabledFuture = _loadMerchantReferralEnabled();
     _monthlyChallengeFuture = _loadMonthlyChallengeState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureTickerLoaded();
@@ -739,6 +746,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       return state;
     } catch (_) {
       _latestSharePromoState = null;
+      return null;
+    }
+  }
+
+  Future<bool?> _loadMerchantReferralEnabled() async {
+    try {
+      final snapshot =
+          await FirebaseFirestore.instance.doc('app_config/merchant_referral').get();
+      return snapshot.data()?['enabled'] as bool?;
+    } catch (_) {
       return null;
     }
   }
@@ -1578,6 +1595,50 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     );
   }
 
+  // Bloc permanent "Parrainer un commercant", en bas de Home, apres les
+  // jeux -- contenu secondaire, jamais une popup, jamais affiche a chaque
+  // ouverture (c'est un bloc de contenu, pas un dialog). Reutilise
+  // SharePromoBanner (meme composant que le bonus de parrainage joueur)
+  // pour rester coherent avec le style graphique existant. Fail-closed :
+  // masque tant que app_config/merchant_referral.enabled n'est pas
+  // confirme a true par le serveur (config pas chargee, en cours de
+  // chargement ou erreur -> masque, sans espace reserve).
+  Widget _buildMerchantReferralZone(BuildContext context) {
+    return FutureBuilder<bool?>(
+      future: _merchantReferralEnabledFuture,
+      builder: (context, snapshot) {
+        if (!shouldShowMerchantReferralBanner(snapshot.data)) {
+          return const SizedBox.shrink();
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 24.0),
+          child: SharePromoBanner(
+            data: const SharePromoData(
+              kind: SharePromoKind.defaultInvite,
+              title: 'Parrainez un commerçant',
+              subtitle:
+                  'Recommandez ProxiPlay à un commerçant du Dunkerquois et recevez 100 € s\'il devient client.',
+              ctaLabel: 'Parrainer un commerçant',
+              icon: Icons.storefront_rounded,
+              primaryColor: Color(0xFFF5F6FB),
+              secondaryColor: Color(0xFFA0134D),
+              titleColor: Color(0xFF2C2F5B),
+              subtitleColor: Color(0xFF2C2F5B),
+              buttonColor: Color(0xFF2C2F5B),
+              buttonTextColor: Colors.white,
+              iconBackgroundColor: Color(0xFFF7E6EE),
+              iconColor: Color(0xFFA0134D),
+            ),
+            onTap: () {
+              context.pushNamed(ParrainageCommercantPageWidget.routeName);
+            },
+          ),
+        );
+      },
+    );
+  }
+
   String _buildRandomShareMessage({
     required String shareLink,
     required String? referralCode,
@@ -1902,6 +1963,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   Future<void> _refreshHomeContent() async {
     await refreshCurrentUserDocument();
     _sharePromoFuture = _loadSharePromoState();
+    _merchantReferralEnabledFuture = _loadMerchantReferralEnabled();
     // Vider les caches d'enseignes pour forcer le rechargement des données fraîches.
     _featuredEnseignesSectionCache.clear();
     _endingSoonEnseignesSectionCache.clear();
@@ -3394,6 +3456,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                             },
                                                           ),
                                                           ),
+                                                          _buildMerchantReferralZone(
+                                                              context),
                                                         ],
                                                       ),
                                                     ),
@@ -4273,6 +4337,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         ],
                                                       ),
                                                     ),
+                                                  _buildMerchantReferralZone(
+                                                      context),
                                                 ].divide(const SizedBox(
                                                     height: 3.0)),
                                               ),
@@ -5164,6 +5230,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         height: 5.0)),
                                                   ),
                                                 ),
+                                              _buildMerchantReferralZone(
+                                                  context),
                                             ].divide(
                                                 const SizedBox(height: 3.0)),
                                           ),

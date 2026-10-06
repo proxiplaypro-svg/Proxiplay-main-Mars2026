@@ -33,8 +33,16 @@ test.beforeEach(async () => {
       inviter_user_id: db.doc('users/player_inviter'),
       status: 'linked',
     });
+    // Un second parrainage, par un AUTRE parrain, pour prouver que la liste
+    // filtree ne renvoie jamais les parrainages d'un tiers.
+    await db.doc('merchant_referrals/other_merchant').set({
+      merchant_user_id: db.doc('users/other_merchant'),
+      inviter_user_id: db.doc('users/other_inviter'),
+      status: 'eligible',
+    });
     await db.doc('merchant_referral_codes/ABCD1234').set({inviter_user_id: db.doc('users/player_inviter')});
     await db.doc('stripe_webhook_events/evt_1').set({type: 'invoice.paid', status: 'done'});
+    await db.doc('app_config/merchant_referral').set({enabled: true});
   });
 });
 
@@ -95,6 +103,41 @@ test('stripe_webhook_events is never readable nor writable by any client, admin 
   const admin = env.authenticatedContext('admin_uid', {admin: true}).firestore();
   await assertFails(admin.doc('stripe_webhook_events/evt_1').get());
   await assertFails(admin.doc('stripe_webhook_events/evt_2').set({type: 'fake'}));
+});
+
+test('a signed-out visitor can read the merchant_referral feature flag, but never write it', async () => {
+  const anon = env.unauthenticatedContext().firestore();
+  await assertSucceeds(anon.doc('app_config/merchant_referral').get());
+  await assertFails(anon.doc('app_config/merchant_referral').set({enabled: false}));
+
+  const player = env.authenticatedContext('player_inviter').firestore();
+  await assertFails(player.doc('app_config/merchant_referral').update({enabled: false}));
+
+  const admin = env.authenticatedContext('admin_uid', {admin: true}).firestore();
+  await assertSucceeds(admin.doc('app_config/merchant_referral').set({enabled: false}));
+});
+
+test('a player can list exactly their own merchant referrals (suivi parrainage), never a third party\'s', async () => {
+  const inviterDb = env.authenticatedContext('player_inviter').firestore();
+
+  const ownSnap = await assertSucceeds(
+    inviterDb.collection('merchant_referrals')
+      .where('inviter_user_id', '==', inviterDb.doc('users/player_inviter'))
+      .get(),
+  );
+  assert.equal(ownSnap.size, 1);
+  assert.equal(ownSnap.docs[0].id, 'merchant');
+
+  // Une liste non filtree (ou filtree sur l'identite d'un tiers) ne peut
+  // jamais etre prouvee par les regles a partir des seuls filtres de la
+  // requete : elle echoue entierement plutot que de fuiter des documents
+  // d'un autre parrain.
+  await assertFails(inviterDb.collection('merchant_referrals').get());
+  await assertFails(
+    inviterDb.collection('merchant_referrals')
+      .where('inviter_user_id', '==', inviterDb.doc('users/other_inviter'))
+      .get(),
+  );
 });
 
 test('admin can read subscriptions, custom offers and referrals across all merchants', async () => {
