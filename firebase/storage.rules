@@ -34,6 +34,11 @@ service firebase.storage {
       allow write: if isAdmin();
     }
 
+    match /ads/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /admin/animations/{allPaths=**} {
       allow read: if true;
       allow write: if isAdmin();

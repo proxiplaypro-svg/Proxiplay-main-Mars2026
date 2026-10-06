@@ -16,6 +16,8 @@ import '/models/monthly_challenge_models.dart';
 import '/services/share_promo_service.dart';
 import '/services/monthly_challenge_service.dart';
 import '/services/global_ticker_service.dart';
+import '/services/ad_system_service.dart';
+import '/utils/ad_system_utils.dart';
 import '/widgets/recent_winners_ticker.dart';
 import '/widgets/proxiplay_loading_logo.dart';
 import '/widgets/proxiplay_network_image.dart';
@@ -29,6 +31,7 @@ import '/utils/winner_identity.dart';
 import 'home_games_logic.dart';
 import 'share_promo_banner_logic.dart';
 import 'merchant_referral_banner_logic.dart';
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -98,6 +101,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   // que le bonus de parrainage joueur ci-dessus (voir
   // merchant_referral_banner_logic.dart).
   late Future<bool?> _merchantReferralEnabledFuture;
+  // Bandeau publicitaire Home (apres "JEUX A LA UNE"), meme doctrine
+  // fail-closed, config dans ads/home_banner (systeme publicitaire vendu
+  // en direct, pas AdMob -- voir ad_system_utils.dart).
+  late Future<AdPlacementConfig?> _adHomeBannerFuture;
+  bool _adHomeBannerImpressionRecorded = false;
+  final _adSystemService = AdSystemService();
   late Future<List<MonthlyChallengeStateViewModel>> _monthlyChallengeFuture;
   List<MonthlyChallengeStateViewModel> _latestMonthlyChallengeStates = const [];
   final _monthlyChallengeService = MonthlyChallengeService();
@@ -151,6 +160,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     _model.textFieldFocusNode ??= FocusNode();
     _sharePromoFuture = _loadSharePromoState();
     _merchantReferralEnabledFuture = _loadMerchantReferralEnabled();
+    _adHomeBannerFuture = _loadAdHomeBannerConfig();
     _monthlyChallengeFuture = _loadMonthlyChallengeState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureTickerLoaded();
@@ -755,6 +765,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       final snapshot =
           await FirebaseFirestore.instance.doc('app_config/merchant_referral').get();
       return snapshot.data()?['enabled'] as bool?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<AdPlacementConfig?> _loadAdHomeBannerConfig() async {
+    try {
+      return await _adSystemService.getPlacementConfig('home_banner');
     } catch (_) {
       return null;
     }
@@ -1639,6 +1657,87 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     );
   }
 
+  // Bandeau publicitaire Home (vendu en direct par ProxiPlay, pas AdMob),
+  // place juste apres le carrousel "JEUX A LA UNE" dans les 3 variantes de
+  // Home -- les jeux restent le tout premier contenu visible, la pub reste
+  // secondaire. Fail-closed comme le bloc parrainage commercant : toute
+  // config absente/desactivee/hors fenetre masque le bandeau sans espace
+  // reserve.
+  Widget _buildAdHomeBannerZone(BuildContext context) {
+    return FutureBuilder<AdPlacementConfig?>(
+      future: _adHomeBannerFuture,
+      builder: (context, snapshot) {
+        final config = snapshot.data;
+        if (config == null ||
+            !isAdPlacementEnabled(
+              enabled: config.enabled,
+              startAt: config.startAt,
+              endAt: config.endAt,
+              now: DateTime.now(),
+            ) ||
+            !config.hasUsableCreative) {
+          return const SizedBox.shrink();
+        }
+
+        if (!_adHomeBannerImpressionRecorded) {
+          _adHomeBannerImpressionRecorded = true;
+          unawaited(_adSystemService.recordImpression('home_banner'));
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 16.0),
+          child: Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16.0),
+                child: InkWell(
+                  onTap: () async {
+                    if (config.destinationUrl.isEmpty) return;
+                    unawaited(_adSystemService.recordClick('home_banner'));
+                    try {
+                      await launchURL(config.destinationUrl);
+                    } catch (_) {
+                      // Une destination mal configuree ne doit jamais
+                      // faire planter la Home.
+                    }
+                  },
+                  child: Image.network(
+                    config.imageUrl,
+                    width: double.infinity,
+                    height: 90.0,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 6.0,
+                left: 10.0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 6.0, vertical: 2.0),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(6.0),
+                  ),
+                  child: const Text(
+                    'Publicité',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10.0,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   String _buildRandomShareMessage({
     required String shareLink,
     required String? referralCode,
@@ -1964,6 +2063,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     await refreshCurrentUserDocument();
     _sharePromoFuture = _loadSharePromoState();
     _merchantReferralEnabledFuture = _loadMerchantReferralEnabled();
+    _adHomeBannerFuture = _loadAdHomeBannerConfig();
+    _adHomeBannerImpressionRecorded = false;
     // Vider les caches d'enseignes pour forcer le rechargement des données fraîches.
     _featuredEnseignesSectionCache.clear();
     _endingSoonEnseignesSectionCache.clear();
@@ -2699,6 +2800,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                         ),
                                                       ),
                                                     ),
+                                                    _buildAdHomeBannerZone(
+                                                        context),
                                                     _buildActiveAnimationsSection(
                                                       context,
                                                       leadingGap:
@@ -3700,6 +3803,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                       ],
                                                     ),
                                                   ),
+                                                  _buildAdHomeBannerZone(
+                                                      context),
                                                   Container(
                                                     width: double.infinity,
                                                     decoration:
@@ -4647,6 +4752,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                       height: 5.0)),
                                                 ),
                                               ),
+                                              _buildAdHomeBannerZone(context),
                                               Container(
                                                 width: double.infinity,
                                                 decoration:

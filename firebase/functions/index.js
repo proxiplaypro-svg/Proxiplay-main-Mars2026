@@ -32,6 +32,9 @@ exports.listMerchantOffers = functions
   .region("us-central1")
   .runWith({timeoutSeconds: 10, memory: "128MB"})
   .https.onCall(() => ({offers: require('./merchant_offers').publicOfferCatalog()}));
+
+// Systeme publicitaire ProxiPlay (vendu en direct, pas AdMob).
+exports.recordAdEvent = require('./ad_system').recordAdEvent;
 const participateInGameTransaction = require("./participate_in_game_transaction.js");
 const {
   expandSecondaryPrizes,

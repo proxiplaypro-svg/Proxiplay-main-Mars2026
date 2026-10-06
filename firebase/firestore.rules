@@ -633,6 +633,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Systeme publicitaire ProxiPlay (vendu en direct, pas AdMob). Deux
+    // documents singleton -- un par emplacement -- plutot qu'une collection
+    // avec requetes/index : un seul encart actif par emplacement a la fois
+    // suffit au besoin exprime (pas de rotation multi-annonces en V1).
+    // Lecture publique necessaire : la pub s'affiche aussi aux invites.
+    // Ecriture reservee a l'Admin ; impressions/clics jamais incrementes
+    // directement par un client (voir la Callable recordAdEvent, SDK admin).
+    match /ads/{placement} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /referrals/{referralId} {
       allow read: if isAdmin() ||
         (isSignedIn() && (

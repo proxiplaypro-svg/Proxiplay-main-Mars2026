@@ -40,6 +40,11 @@ class FFAppState extends ChangeNotifier {
               _globalTickerTotalMerchants;
       _globalTickerMessages = prefs.getStringList('ff_globalTickerMessages') ??
           _globalTickerMessages;
+      final adOpenLastShownAtMillis =
+          prefs.getInt('ff_adOpenLastShownAtMillis');
+      _adOpenLastShownAt = adOpenLastShownAtMillis != null
+          ? DateTime.fromMillisecondsSinceEpoch(adOpenLastShownAtMillis)
+          : _adOpenLastShownAt;
       final updatedAtMillis = prefs.getInt('ff_globalTickerUpdatedAtMillis');
       _globalTickerUpdatedAt = updatedAtMillis != null
           ? DateTime.fromMillisecondsSinceEpoch(updatedAtMillis)
@@ -309,6 +314,24 @@ class FFAppState extends ChangeNotifier {
           'ff_globalTickerUpdatedAtMillis',
           _globalTickerUpdatedAt!.millisecondsSinceEpoch,
         );
+      }
+    }
+  }
+
+  // Derniere fois que l'interstitiel publicitaire d'ouverture a ete montre
+  // sur cet appareil -- permet d'appliquer le plafond de frequence
+  // (ads/open.frequency_cap_hours) cote client, par appareil, sans
+  // infrastructure serveur de suivi par utilisateur.
+  DateTime? _adOpenLastShownAt;
+  DateTime? get adOpenLastShownAt => _adOpenLastShownAt;
+  set adOpenLastShownAt(DateTime? value) {
+    _adOpenLastShownAt = value;
+    if (_prefsReady) {
+      if (value == null) {
+        prefs.remove('ff_adOpenLastShownAtMillis');
+      } else {
+        prefs.setInt(
+            'ff_adOpenLastShownAtMillis', value.millisecondsSinceEpoch);
       }
     }
   }
