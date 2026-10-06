@@ -35,6 +35,13 @@ exports.listMerchantOffers = functions
 
 // Systeme publicitaire ProxiPlay (vendu en direct, pas AdMob).
 exports.recordAdEvent = require('./ad_system').recordAdEvent;
+
+// Destination cliquable d'une notification push (jeu/commerce/ecran interne/URL).
+const {
+  resolveNotificationDestination,
+  buildGameDestinationFromRefs,
+  buildInternalDestination,
+} = require('./notification_destination');
 const participateInGameTransaction = require("./participate_in_game_transaction.js");
 const {
   expandSecondaryPrizes,
@@ -1038,6 +1045,13 @@ async function queueFavoriteMerchantNewGameNotifications(gameDoc, gameData) {
     return;
   }
 
+  // Destination cliquable : le jeu concerne (meme reference pour tous les
+  // destinataires de cette notification).
+  const gameDestination = buildGameDestinationFromRefs({
+    gameRef: gameDoc.ref,
+    enseigneRef,
+  });
+
   const favoriteSnap = await firestore
     .collectionGroup("favorite_enseignes")
     .where("enseigne_id", "==", enseigneRef)
@@ -1081,6 +1095,8 @@ async function queueFavoriteMerchantNewGameNotifications(gameDoc, gameData) {
           : `Un commer\u00E7ant favori vient de publier ${gameName}.`,
         userUid,
         createdBy: `system/favorite_merchant_new_game/${gameDoc.id}`,
+        initialPageName: gameDestination.initialPageName,
+        parameterData: gameDestination.parameterData,
       });
 
       if (queuedNow) {
@@ -1112,6 +1128,12 @@ async function queueFollowedGameEndingSoonNotifications(gameDoc, config) {
     console.log(`[followedGameEndingSoon] game=${gameId} disabled in config, skipping`);
     return;
   }
+
+  // Destination cliquable : le jeu qui se termine bientot.
+  const gameDestination = buildGameDestinationFromRefs({
+    gameRef: gameDoc.ref,
+    enseigneRef: toDocRef(gameData.enseigne_id),
+  });
 
   // Récupérer city du commerce si filtrage activé
   let enseigneCity = null;
@@ -1199,6 +1221,8 @@ async function queueFollowedGameEndingSoonNotifications(gameDoc, config) {
         body: notificationBody,
         userUid,
         createdBy: `system/game_ending/${gameId}`,
+        initialPageName: gameDestination.initialPageName,
+        parameterData: gameDestination.parameterData,
       });
 
       if (queuedNow) {
@@ -2205,6 +2229,8 @@ async function queuePrizePushNotification({
   body,
   userRefPath,
   createdBy = "system/prize_notifications",
+  initialPageName = "",
+  parameterData = "",
 }) {
   const ref = firestore.collection(kPushNotificationsCollection).doc(docId);
   const existing = await ref.get();
@@ -2217,6 +2243,8 @@ async function queuePrizePushNotification({
       body,
       userRefs: userRefPath,
       createdBy,
+      initialPageName,
+      parameterData,
     }),
   );
 }
@@ -4406,11 +4434,21 @@ exports.createAdminPushNotification = functions.https.onCall(
       );
     }
 
+    // La destination est resolue (et validee) une fois, a la creation, pour
+    // qu'une notification programmee la conserve jusqu'a l'envoi : elle est
+    // deja ecrite dans initial_page_name/parameter_data du document.
+    const {initialPageName, parameterData} = await resolveNotificationDestination({
+      destinationType: data.destinationType,
+      destinationId: data.destinationId,
+    });
+
     const doc = {
       ...buildPushNotificationRequestData({
         title,
         body,
         imageUrl,
+        initialPageName,
+        parameterData,
         targetAudience: targetDevice, // existing field (device_type)
         targetUserGroup, // new field (role targeting)
         userRefs: userRefs.length ? userRefs.join(",") : "",
@@ -5545,11 +5583,15 @@ exports.notifyPrizeWon = functions
         updates.player_push_skip_reason = "missing_winner_ref";
       } else {
         try {
+          // Destination cliquable : "Mes lots" (le lot gagne y est visible).
+          const playerPushDestination = buildInternalDestination("gagnants");
           await queuePrizePushNotification({
             docId: `prize_${prizeId}_player_push`,
             title: playerPushTitle,
             body: playerPushBody,
             userRefPath: winnerRefPath,
+            initialPageName: playerPushDestination.initialPageName,
+            parameterData: playerPushDestination.parameterData,
           });
           updates.player_push_queued = true;
           updates.player_push_skipped = admin.firestore.FieldValue.delete();

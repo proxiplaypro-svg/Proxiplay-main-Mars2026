@@ -4,6 +4,7 @@ import 'serialization_util.dart';
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '../../flutter_flow/flutter_flow_util.dart';
+import '../../utils/notification_destination_utils.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -45,6 +46,23 @@ class _PushNotificationsHandlerState extends State<PushNotificationsHandler> {
     FirebaseMessaging.onMessageOpenedApp.listen(_handlePushNotification);
   }
 
+  /// Verifie qu'un document Firestore existe encore avant d'y naviguer.
+  /// Echec reseau/permission/chemin invalide -> traite comme "n'existe plus"
+  /// (jamais de navigation vers une fiche cassee, jamais de crash).
+  Future<bool> _documentStillExists(String? path) async {
+    final trimmed = path?.trim() ?? '';
+    if (trimmed.isEmpty) {
+      return false;
+    }
+    try {
+      final snapshot = await FirebaseFirestore.instance.doc(trimmed).get();
+      return snapshot.exists;
+    } catch (e) {
+      debugPrint('Push notification destination check failed: $e');
+      return false;
+    }
+  }
+
   Future _handlePushNotification(RemoteMessage message) async {
     if (_handledMessageIds.contains(message.messageId)) {
       return;
@@ -53,11 +71,53 @@ class _PushNotificationsHandlerState extends State<PushNotificationsHandler> {
 
     safeSetState(() => _loading = true);
     try {
-      final initialPageName = _normalizeInitialPageName(
-        message.data['initialPageName'] as String,
-      );
+      final rawPageName =
+          (message.data['initialPageName'] as String?)?.trim() ?? '';
+      if (rawPageName.isEmpty) {
+        // Notification sans destination (destination_type: none, ou
+        // notification legacy) : comportement actuel, ouverture normale.
+        return;
+      }
+
       final initialParameterData = getInitialParameterData(message.data);
-      final parametersBuilder = parametersBuilderMap[initialPageName];
+
+      if (rawPageName == kExternalUrlRedirectPageName) {
+        final url = initialParameterData['url'] as String?;
+        if (isHttpsUrl(url)) {
+          try {
+            await launchURL(url!.trim());
+          } catch (e) {
+            debugPrint('Push notification external URL launch failed: $e');
+          }
+        }
+        return;
+      }
+
+      var pageName = _normalizeInitialPageName(rawPageName);
+
+      // Le jeu/commerce vise a-t-il disparu entre l'envoi et le clic ?
+      // Fallback propre vers la Home plutot qu'une fiche cassee.
+      if (pageName == 'JeuDetailJoueurPage') {
+        final stillExists = await _documentStillExists(
+          initialParameterData['gameDoc'] as String?,
+        );
+        if (!stillExists) {
+          debugPrint(
+              'Push notification: jeu introuvable, fallback vers Home.');
+          pageName = 'HomeJoueurPage';
+        }
+      } else if (pageName == 'EnseigneDetailJoueurPage') {
+        final stillExists = await _documentStillExists(
+          initialParameterData['enseigneDoc'] as String?,
+        );
+        if (!stillExists) {
+          debugPrint(
+              'Push notification: commerce introuvable, fallback vers Home.');
+          pageName = 'HomeJoueurPage';
+        }
+      }
+
+      final parametersBuilder = parametersBuilderMap[pageName];
       if (parametersBuilder != null) {
         final parameterData = await parametersBuilder(initialParameterData);
         final extraWithSource = <String, dynamic>{
@@ -66,13 +126,13 @@ class _PushNotificationsHandlerState extends State<PushNotificationsHandler> {
         };
         if (mounted) {
           context.pushNamed(
-            initialPageName,
+            pageName,
             pathParameters: parameterData.pathParameters,
             extra: extraWithSource,
           );
         } else {
           appNavigatorKey.currentContext?.pushNamed(
-            initialPageName,
+            pageName,
             pathParameters: parameterData.pathParameters,
             extra: extraWithSource,
           );
@@ -212,6 +272,8 @@ final parametersBuilderMap =
       ),
   'rejetInscriptionPage': ParameterData.none(),
   'LotsJoueurPage': ParameterData.none(),
+  'ParrainageJoueurPage': ParameterData.none(),
+  'ParrainageCommercantPage': ParameterData.none(),
   'lotDetailJoueurPage': (data) async => ParameterData(
         allParams: {
           'lot': await getDocumentParameter<PrizesRecord>(
