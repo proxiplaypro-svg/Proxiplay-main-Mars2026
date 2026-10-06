@@ -703,5 +703,56 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+
+    // Abonnement Stripe d'une enseigne (chantier paiement commercant,
+    // proxiplay.fr). Stripe est la source de verite financiere : ce document
+    // n'est qu'un miroir ecrit UNIQUEMENT par les Cloud Functions (webhook +
+    // callables, SDK admin, hors regles). Aucun client -- commercant inclus
+    // -- ne peut jamais s'attribuer subscriptionStatus=active ou modifier une
+    // reference Stripe. Le marchand proprietaire peut seulement lire son
+    // propre etat pour l'espace commercant du site.
+    match /merchant_subscriptions/{enseigneId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && ownsShopData(get(/databases/$(database)/documents/enseignes/$(enseigneId)).data));
+      allow write: if false;
+    }
+
+    // Parrainage commercant (prime de 100 EUR). Document d'id = enseigneId :
+    // la cle d'unicite est l'enseigne parrainee elle-meme (coherente avec
+    // "un abonnement par enseigne"), ce qui empeche structurellement plus
+    // d'une prime pour la meme enseigne. Ecrit uniquement par les Cloud
+    // Functions (lien a la creation du Checkout, transition eligible au
+    // premier paiement confirme par webhook, decisions Admin). Un
+    // commercant ou un joueur ne peut jamais lire le lien d'un tiers ni
+    // ecrire quelque champ que ce soit -- notamment pas son propre statut
+    // de recompense.
+    match /merchant_referrals/{enseigneId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && (
+          ownsShopData(get(/databases/$(database)/documents/enseignes/$(enseigneId)).data) ||
+          resource.data.inviter_user_id == /databases/$(database)/documents/users/$(request.auth.uid)
+        ));
+      allow write: if false;
+    }
+
+    // Codes de parrainage commercant, distincts des codes du parrainage
+    // joueur existant (share_promo) : programme different (100 EUR cash vs
+    // bonus en jeu), espace de codes separe pour ne jamais les confondre.
+    // Genere uniquement par la Callable generateMerchantReferralCode (SDK
+    // admin) -- jamais en ecriture directe client, pour empecher la
+    // generation massive/predictible de codes. Un joueur peut lire
+    // uniquement son propre code.
+    match /merchant_referral_codes/{code} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && resource.data.inviter_user_id ==
+          /databases/$(database)/documents/users/$(request.auth.uid));
+      allow write: if false;
+    }
+
+    // Deduplication des evenements webhook Stripe : jamais ecrit ni lu par
+    // un client, seulement par la Cloud Function stripeWebhook (SDK admin).
+    match /stripe_webhook_events/{eventId} {
+      allow read, write: if false;
+    }
   }
 }

@@ -12,6 +12,24 @@ exports.getMerchantPrizes=require('./merchant_prizes').getMerchantPrizes;
 exports.syncPrizeLotSnapshot = require('./prize_lot_snapshot').syncPrizeLotSnapshot;
 exports.getMerchantGames = require('./merchant_games').getMerchantGames;
 exports.syncPublicPrizeWinner = require("./public_winners").syncPublicPrizeWinner;
+
+// Paiement commercant Stripe (proxiplay.fr) -- hors perimetre app mobile.
+exports.createMerchantCheckoutSession = require('./merchant_checkout').createMerchantCheckoutSession;
+exports.stripeWebhook = require('./stripe_webhook').stripeWebhook;
+exports.createMerchantBillingPortalSession =
+  require('./merchant_billing_portal').createMerchantBillingPortalSession;
+exports.generateMerchantReferralCode =
+  require('./merchant_referral_engine').generateMerchantReferralCode;
+exports.adminApproveMerchantReferral =
+  require('./merchant_referral_engine').adminApproveMerchantReferral;
+exports.adminRejectMerchantReferral =
+  require('./merchant_referral_engine').adminRejectMerchantReferral;
+exports.adminMarkMerchantReferralPaid =
+  require('./merchant_referral_engine').adminMarkMerchantReferralPaid;
+exports.listMerchantOffers = functions
+  .region("us-central1")
+  .runWith({timeoutSeconds: 10, memory: "128MB"})
+  .https.onCall(() => ({offers: require('./merchant_offers').publicOfferCatalog()}));
 const participateInGameTransaction = require("./participate_in_game_transaction.js");
 const {
   expandSecondaryPrizes,

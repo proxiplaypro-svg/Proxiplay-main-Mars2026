@@ -17,7 +17,7 @@
     "pdfkit": "^0.20.2",
     "qs": "^6.7.0",
     "razorpay": "^2.8.4",
-    "stripe": "^8.0.1"
+    "stripe": "^17.4.0"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
