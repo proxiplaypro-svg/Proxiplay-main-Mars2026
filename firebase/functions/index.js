@@ -38,6 +38,11 @@ const {
   planInstantWinnerReconciliation,
   toMillis,
 } = require("./lib/instant_winners_core");
+
+// Firestore transactions are atomic but capped at 500 writes. Leave room for
+// a publication update and future bookkeeping instead of silently chunking a
+// calendar rewrite into partial commits.
+const MAX_INSTANT_WINNER_RECONCILIATION_WRITES = 450;
 const {sendTextEmail} = require("./lib/notifications/email_sender");
 const {
   queuePushNotificationRequest,
@@ -155,6 +160,7 @@ const generateInstantWinnersForGameCallable = functions
 
     const startDateMs = toMillis(gameData.start_date);
     const endDateMs = toMillis(gameData.end_date);
+    const serverNowMs = Date.now();
     const expandedSecondaryPrizes = expandSecondaryPrizes(gameData.secondary_prizes);
 
     if (expandedSecondaryPrizes.length === 0) {
@@ -204,6 +210,7 @@ const generateInstantWinnersForGameCallable = functions
         endDateMs,
         secondaryPrizes: gameData.secondary_prizes,
         existingEntries: [],
+        nowMs: serverNowMs,
       });
     } catch (error) {
       throw new functions.https.HttpsError(
@@ -223,6 +230,7 @@ const generateInstantWinnersForGameCallable = functions
       }
 
       const freshGameData = freshGameSnap.data() || {};
+      const transactionNowMs = Date.now();
       const freshPlan = planInstantWinnerReconciliation({
         gameId,
         startDateMs: toMillis(freshGameData.start_date),
@@ -232,10 +240,11 @@ const generateInstantWinnersForGameCallable = functions
           id: doc.id,
           ...doc.data(),
         })),
+        nowMs: transactionNowMs,
       });
       const hasAssignedInstantWinner = existingSnap.docs.some((doc) => {
         const data = doc.data() || {};
-        return data.hasWinner === true || !!data.player_id;
+        return data.hasWinner === true || data.claimed === true || !!data.player_id;
       });
       const freshStartDateMs = toMillis(freshGameData.start_date);
       const freshGameAlreadyStarted =
@@ -248,7 +257,9 @@ const generateInstantWinnersForGameCallable = functions
       // gagnant, meme lors d'une premiere generation : le resultat du jeu
       // est deja fige, en generer maintenant reviendrait a choisir un
       // gagnant a coup sur.
-      if (freshGameAlreadyEnded && freshPlan.missingPayloads.length > 0) {
+      const scheduledWriteCount =
+        freshPlan.missingPayloads.length + freshPlan.replacementPayloads.length;
+      if (freshGameAlreadyEnded && scheduledWriteCount > 0) {
         throw new functions.https.HttpsError(
           "failed-precondition",
           "Instant winners cannot be generated for a game that has already ended.",
@@ -268,7 +279,7 @@ const generateInstantWinnersForGameCallable = functions
         !isFreshGeneration &&
         !isCallerAdmin &&
         freshGameAlreadyStarted &&
-        freshPlan.missingPayloads.length > 0
+        scheduledWriteCount > 0
       ) {
         throw new functions.https.HttpsError(
           "failed-precondition",
@@ -282,6 +293,22 @@ const generateInstantWinnersForGameCallable = functions
           "Instant winners cannot be changed after a secondary prize has been assigned.",
         );
       }
+
+      const deleteDocIds = new Set(freshPlan.deleteEntries.map((entry) => entry.id));
+      freshPlan.replacementPayloads.forEach(({docId, previousDocId}) => {
+        if (previousDocId && previousDocId !== docId) deleteDocIds.add(previousDocId);
+      });
+      const mutationCount = deleteDocIds.size + scheduledWriteCount;
+      if (mutationCount > MAX_INSTANT_WINNER_RECONCILIATION_WRITES) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Too many instant winners to reconcile atomically. Reduce the calendar size or use a dedicated migration.",
+        );
+      }
+
+      deleteDocIds.forEach((docId) => {
+        transaction.delete(instantWinnersRef.doc(docId));
+      });
 
       freshPlan.missingPayloads.forEach(({docId, payload}) => {
         logHasWinnerWrite({
@@ -300,6 +327,7 @@ const generateInstantWinnersForGameCallable = functions
           date: admin.firestore.Timestamp.fromMillis(payload.dateMs),
           hasWinner: false,
           claimed: false,
+          configuration_fingerprint: freshPlan.configurationFingerprint,
           secondary_prize_index: payload.secondary_prize_index,
           secondary_prize_occurrence_index:
             payload.secondary_prize_occurrence_index,
@@ -313,12 +341,27 @@ const generateInstantWinnersForGameCallable = functions
         });
       });
 
-      // Un jeu duplique (bug de creation) puis nettoye peut avoir des lots
-      // instant_winners generes avec l'ancienne description du jeu d'origine.
-      // On rattrape ici le texte des occurrences pas encore gagnees pour
-      // qu'il suive la description actuelle du jeu.
-      freshPlan.staleTextEntries.forEach(({docId, patch}) => {
-        transaction.update(instantWinnersRef.doc(docId), patch);
+      // A non-assigned occurrence belongs to the current configuration, not
+      // to the first configuration that happened to create its document.
+      // set() deliberately replaces the whole document: an emptied
+      // presentation must remove its former snapshot too.
+      freshPlan.replacementPayloads.forEach(({docId, payload}) => {
+        transaction.set(instantWinnersRef.doc(docId), {
+          date: admin.firestore.Timestamp.fromMillis(payload.dateMs),
+          hasWinner: false,
+          claimed: false,
+          configuration_fingerprint: freshPlan.configurationFingerprint,
+          secondary_prize_index: payload.secondary_prize_index,
+          secondary_prize_occurrence_index:
+            payload.secondary_prize_occurrence_index,
+          secondary_prize_name: payload.secondary_prize_name,
+          ...(payload.secondary_prize_presentation
+            ? {
+                secondary_prize_presentation:
+                  payload.secondary_prize_presentation,
+              }
+            : {}),
+        });
       });
 
       // Publication serveur, dans la meme transaction que la creation des
@@ -341,7 +384,7 @@ const generateInstantWinnersForGameCallable = functions
         const previouslyAutoPublished =
           freshGameData.visible_public_auto_published === true;
         const calendarComplete =
-          freshPlan.existingCount + freshPlan.missingPayloads.length >=
+          freshPlan.preservedEntries.length + scheduledWriteCount >=
           freshPlan.desiredCount;
         if (alreadyPublished) {
           published = true;
@@ -360,11 +403,14 @@ const generateInstantWinnersForGameCallable = functions
 
       return {
         desiredCount: freshPlan.desiredCount,
-        existingCount: freshPlan.existingCount,
-        createdCount: freshPlan.missingPayloads.length,
-        refreshedTextCount: freshPlan.staleTextEntries.length,
+        existingCount: freshPlan.preservedEntries.length,
+        totalExistingCount: freshPlan.existingCount,
+        createdCount: scheduledWriteCount,
+        deletedCount: deleteDocIds.size,
+        refreshedTextCount: 0,
         duplicateExistingKeys: freshPlan.duplicateExistingKeys,
         unexpectedExistingCount: freshPlan.unexpectedExistingEntries.length,
+        assignedConflictCount: freshPlan.assignedConflicts.length,
         hasAssignedInstantWinner,
         published,
       };
@@ -376,17 +422,18 @@ const generateInstantWinnersForGameCallable = functions
       status:
         transactionResult.createdCount > 0
           ? transactionResult.existingCount > 0
-            ? "completed_missing_occurrences"
+            ? "reconciled"
             : "created"
-          : transactionResult.refreshedTextCount > 0
-            ? "refreshed_stale_text"
-            : "already_complete",
+          : "already_complete",
       createdCount: transactionResult.createdCount,
       refreshedTextCount: transactionResult.refreshedTextCount,
       desiredCount: transactionResult.desiredCount,
       existingCount: transactionResult.existingCount,
+      totalExistingCount: transactionResult.totalExistingCount,
+      deletedCount: transactionResult.deletedCount,
       duplicateExistingKeys: transactionResult.duplicateExistingKeys,
       unexpectedExistingCount: transactionResult.unexpectedExistingCount,
+      assignedConflictCount: transactionResult.assignedConflictCount,
       hasAssignedInstantWinner: transactionResult.hasAssignedInstantWinner,
       published: transactionResult.published,
       idStrategy:
