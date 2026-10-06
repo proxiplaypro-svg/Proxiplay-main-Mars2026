@@ -704,32 +704,44 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Abonnement Stripe d'une enseigne (chantier paiement commercant,
-    // proxiplay.fr). Stripe est la source de verite financiere : ce document
-    // n'est qu'un miroir ecrit UNIQUEMENT par les Cloud Functions (webhook +
-    // callables, SDK admin, hors regles). Aucun client -- commercant inclus
-    // -- ne peut jamais s'attribuer subscriptionStatus=active ou modifier une
-    // reference Stripe. Le marchand proprietaire peut seulement lire son
+    // Abonnement Stripe d'un commercant (chantier paiement commercant,
+    // proxiplay.fr). Un seul abonnement par compte commercant (document
+    // d'id = l'uid du commercant), qui couvre TOUTES ses enseignes -- pas
+    // un abonnement par enseigne. Stripe est la source de verite
+    // financiere : ce document n'est qu'un miroir ecrit UNIQUEMENT par les
+    // Cloud Functions (webhook + callables, SDK admin, hors regles). Aucun
+    // client ne peut jamais s'attribuer subscriptionStatus=active ou
+    // modifier une reference Stripe. Le commercant peut seulement lire son
     // propre etat pour l'espace commercant du site.
-    match /merchant_subscriptions/{enseigneId} {
-      allow read: if isAdmin() ||
-        (isSignedIn() && ownsShopData(get(/databases/$(database)/documents/enseignes/$(enseigneId)).data));
+    match /merchant_subscriptions/{merchantUserId} {
+      allow read: if isAdmin() || isSelf(merchantUserId);
       allow write: if false;
     }
 
-    // Parrainage commercant (prime de 100 EUR). Document d'id = enseigneId :
-    // la cle d'unicite est l'enseigne parrainee elle-meme (coherente avec
-    // "un abonnement par enseigne"), ce qui empeche structurellement plus
-    // d'une prime pour la meme enseigne. Ecrit uniquement par les Cloud
-    // Functions (lien a la creation du Checkout, transition eligible au
-    // premier paiement confirme par webhook, decisions Admin). Un
-    // commercant ou un joueur ne peut jamais lire le lien d'un tiers ni
+    // Tarif negocie pour un commercant multi-enseignes ("Grandes enseignes
+    // a partir de 1825EUR/an" peut etre ajuste au cas par cas). Fixe
+    // UNIQUEMENT par l'Admin (callable adminSetMerchantCustomOffer, SDK
+    // admin) ; jamais un montant que le commercant ou un joueur pourrait
+    // choisir ou modifier lui-meme.
+    match /merchant_custom_offers/{merchantUserId} {
+      allow read: if isAdmin() || isSelf(merchantUserId);
+      allow write: if false;
+    }
+
+    // Parrainage commercant (prime de 100 EUR). Document d'id = l'uid du
+    // commercant parraine : la cle d'unicite est le compte commercant
+    // lui-meme (coherent avec "un paiement par commercant"), ce qui
+    // empeche structurellement plus d'une prime pour le meme commercant,
+    // quel que soit le nombre d'enseignes qu'il possede. Ecrit uniquement
+    // par les Cloud Functions (lien a la creation du Checkout, transition
+    // eligible au premier paiement confirme par webhook, decisions Admin).
+    // Un commercant ou un joueur ne peut jamais lire le lien d'un tiers ni
     // ecrire quelque champ que ce soit -- notamment pas son propre statut
     // de recompense.
-    match /merchant_referrals/{enseigneId} {
+    match /merchant_referrals/{merchantUserId} {
       allow read: if isAdmin() ||
         (isSignedIn() && (
-          ownsShopData(get(/databases/$(database)/documents/enseignes/$(enseigneId)).data) ||
+          request.auth.uid == merchantUserId ||
           resource.data.inviter_user_id == /databases/$(database)/documents/users/$(request.auth.uid)
         ));
       allow write: if false;

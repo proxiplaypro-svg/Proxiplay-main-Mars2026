@@ -26,6 +26,8 @@ exports.adminRejectMerchantReferral =
   require('./merchant_referral_engine').adminRejectMerchantReferral;
 exports.adminMarkMerchantReferralPaid =
   require('./merchant_referral_engine').adminMarkMerchantReferralPaid;
+exports.adminSetMerchantCustomOffer =
+  require('./merchant_referral_engine').adminSetMerchantCustomOffer;
 exports.listMerchantOffers = functions
   .region("us-central1")
   .runWith({timeoutSeconds: 10, memory: "128MB"})

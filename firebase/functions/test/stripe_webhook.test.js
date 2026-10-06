@@ -67,12 +67,12 @@ test('an invalid signature is rejected with 400 and nothing is written', async (
 });
 
 test('invoice.paid (first payment) activates the subscription and makes a linked referral eligible', async () => {
-  await db.doc('merchant_referrals/shop').set({status: 'linked'});
+  await db.doc('merchant_referrals/merchant1').set({status: 'linked'});
   const subscription = {
     id: 'sub_1', status: 'active', current_period_end: Math.floor(Date.now() / 1000) + 3600,
     cancel_at_period_end: false,
     items: {data: [{price: {id: 'price_proximite'}}]},
-    metadata: {enseigneId: 'shop', merchantUserId: 'merchant'},
+    metadata: {merchantUserId: 'merchant1'},
   };
   stripeClientModule.getStripeClient = () => makeFakeStripe({subscriptionsById: {sub_1: subscription}});
 
@@ -83,21 +83,21 @@ test('invoice.paid (first payment) activates the subscription and makes a linked
   await stripeWebhookHandler(signedRequest(event), res);
   assert.equal(res.statusCode, 200);
 
-  const subSnap = await db.doc('merchant_subscriptions/shop').get();
+  const subSnap = await db.doc('merchant_subscriptions/merchant1').get();
   assert.equal(subSnap.data().subscription_status, 'active');
   assert.ok(subSnap.data().first_payment_confirmed_at);
 
-  const referralSnap = await db.doc('merchant_referrals/shop').get();
+  const referralSnap = await db.doc('merchant_referrals/merchant1').get();
   assert.equal(referralSnap.data().status, 'eligible');
   assert.equal(referralSnap.data().subscription_amount_ht_cents, 36500);
 });
 
 test('the same event ID replayed is processed only once (idempotence)', async () => {
-  await db.doc('merchant_referrals/shop').set({status: 'linked'});
+  await db.doc('merchant_referrals/merchant1').set({status: 'linked'});
   const subscription = {
     id: 'sub_1', status: 'active', current_period_end: Math.floor(Date.now() / 1000) + 3600,
     cancel_at_period_end: false, items: {data: [{price: {id: 'price_proximite'}}]},
-    metadata: {enseigneId: 'shop'},
+    metadata: {merchantUserId: 'merchant1'},
   };
   let retrieveCount = 0;
   stripeClientModule.getStripeClient = () => ({
@@ -114,16 +114,16 @@ test('the same event ID replayed is processed only once (idempotence)', async ()
   await stripeWebhookHandler(req2, fakeResponse());
 
   assert.equal(retrieveCount, 1, 'le second envoi du meme evenement ne doit jamais retraiter');
-  const referralSnap = await db.doc('merchant_referrals/shop').get();
+  const referralSnap = await db.doc('merchant_referrals/merchant1').get();
   assert.equal(referralSnap.data().status, 'eligible'); // pas une deuxieme transition
 });
 
 test('a renewal (billing_reason=subscription_cycle) never re-triggers referral eligibility nor a new reward', async () => {
-  await db.doc('merchant_referrals/shop').set({status: 'paid', paid_reference: 'VIR-1'});
+  await db.doc('merchant_referrals/merchant1').set({status: 'paid', paid_reference: 'VIR-1'});
   const subscription = {
     id: 'sub_1', status: 'active', current_period_end: Math.floor(Date.now() / 1000) + 3600,
     cancel_at_period_end: false, items: {data: [{price: {id: 'price_proximite'}}]},
-    metadata: {enseigneId: 'shop'},
+    metadata: {merchantUserId: 'merchant1'},
   };
   stripeClientModule.getStripeClient = () => makeFakeStripe({subscriptionsById: {sub_1: subscription}});
 
@@ -132,34 +132,34 @@ test('a renewal (billing_reason=subscription_cycle) never re-triggers referral e
   });
   await stripeWebhookHandler(signedRequest(event), fakeResponse());
 
-  const referralSnap = await db.doc('merchant_referrals/shop').get();
+  const referralSnap = await db.doc('merchant_referrals/merchant1').get();
   assert.equal(referralSnap.data().status, 'paid'); // inchange : pas de nouvelle prime au renouvellement
   assert.equal(referralSnap.data().paid_reference, 'VIR-1');
 });
 
 test('customer.subscription.deleted cancels a not-yet-paid referral but leaves an already-paid one untouched', async () => {
-  await db.doc('merchant_referrals/shop_linked').set({status: 'linked'});
-  await db.doc('merchant_referrals/shop_paid').set({status: 'paid', paid_reference: 'VIR-9'});
+  await db.doc('merchant_referrals/merchant_linked').set({status: 'linked'});
+  await db.doc('merchant_referrals/merchant_paid').set({status: 'paid', paid_reference: 'VIR-9'});
   stripeClientModule.getStripeClient = () => makeFakeStripe();
 
   const event1 = fakeEvent('evt_del_1', 'customer.subscription.deleted', {
-    id: 'sub_x', metadata: {enseigneId: 'shop_linked'},
+    id: 'sub_x', metadata: {merchantUserId: 'merchant_linked'},
   });
   await stripeWebhookHandler(signedRequest(event1), fakeResponse());
-  assert.equal((await db.doc('merchant_referrals/shop_linked').get()).data().status, 'cancelled');
+  assert.equal((await db.doc('merchant_referrals/merchant_linked').get()).data().status, 'cancelled');
 
   const event2 = fakeEvent('evt_del_2', 'customer.subscription.deleted', {
-    id: 'sub_y', metadata: {enseigneId: 'shop_paid'},
+    id: 'sub_y', metadata: {merchantUserId: 'merchant_paid'},
   });
   await stripeWebhookHandler(signedRequest(event2), fakeResponse());
-  const paidSnap = await db.doc('merchant_referrals/shop_paid').get();
+  const paidSnap = await db.doc('merchant_referrals/merchant_paid').get();
   assert.equal(paidSnap.data().status, 'paid');
   assert.equal(paidSnap.data().paid_reference, 'VIR-9');
 });
 
 test('charge.refunded cancels an eligible-but-not-yet-approved referral', async () => {
-  await db.doc('merchant_referrals/shop').set({status: 'eligible'});
-  const subscription = {id: 'sub_1', metadata: {enseigneId: 'shop'}};
+  await db.doc('merchant_referrals/merchant1').set({status: 'eligible'});
+  const subscription = {id: 'sub_1', metadata: {merchantUserId: 'merchant1'}};
   const invoice = {id: 'in_1', subscription: 'sub_1'};
   stripeClientModule.getStripeClient = () => makeFakeStripe({
     subscriptionsById: {sub_1: subscription}, invoicesById: {in_1: invoice},
@@ -168,5 +168,5 @@ test('charge.refunded cancels an eligible-but-not-yet-approved referral', async 
   const event = fakeEvent('evt_refund', 'charge.refunded', {id: 'ch_1', invoice: 'in_1'});
   await stripeWebhookHandler(signedRequest(event), fakeResponse());
 
-  assert.equal((await db.doc('merchant_referrals/shop').get()).data().status, 'cancelled');
+  assert.equal((await db.doc('merchant_referrals/merchant1').get()).data().status, 'cancelled');
 });

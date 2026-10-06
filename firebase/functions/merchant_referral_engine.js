@@ -1,9 +1,10 @@
 // Parrainage commercant (prime de 100 EUR), chantier paiement Stripe.
 // Programme distinct du parrainage joueur existant (share_promo) : code,
 // recompense et regles anti-fraude propres. La cle d'unicite d'une prime
-// est l'enseigne parrainee (doc id = enseigneId sous merchant_referrals),
-// coherente avec la decision "un abonnement par enseigne" : impossible
-// structurellement qu'une meme enseigne genere deux primes.
+// est le COMPTE commercant parraine (doc id = merchantUserId sous
+// merchant_referrals), coherente avec la decision "un paiement par
+// commercant" : impossible structurellement qu'un meme commercant genere
+// deux primes, quel que soit le nombre d'enseignes qu'il possede.
 //
 // La recompense n'est JAMAIS acquise avant confirmation serveur du premier
 // paiement Stripe (invoice.paid, billing_reason=subscription_create) --
@@ -76,8 +77,8 @@ async function generateMerchantReferralCodeHandler(data, context) {
  * 'linked' -- un replay d'evenement ou un appel apres rejet/annulation est
  * un no-op silencieux, jamais une double eligibilite.
  */
-async function markReferralEligibleOnFirstPayment(db, {enseigneId, subscriptionAmountHtCents, stripeSubscriptionId}) {
-  const referralRef = db.collection(kMerchantReferralsCollection).doc(enseigneId);
+async function markReferralEligibleOnFirstPayment(db, {merchantUserId, subscriptionAmountHtCents, stripeSubscriptionId}) {
+  const referralRef = db.collection(kMerchantReferralsCollection).doc(merchantUserId);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(referralRef);
     if (!snap.exists) return; // pas de parrainage sur cette enseigne : rien a faire
@@ -98,15 +99,15 @@ async function markReferralEligibleOnFirstPayment(db, {enseigneId, subscriptionA
  * litige. Ne bloque que les primes pas encore payees (jamais de
  * recuperation automatique d'argent deja verse -- cf. section 9).
  */
-async function cancelReferralIfNotYetPaid(db, enseigneId, reason) {
-  const referralRef = db.collection(kMerchantReferralsCollection).doc(enseigneId);
+async function cancelReferralIfNotYetPaid(db, merchantUserId, reason) {
+  const referralRef = db.collection(kMerchantReferralsCollection).doc(merchantUserId);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(referralRef);
     if (!snap.exists) return;
     const status = snap.data().status;
     if (status === "approved" || status === "paid") {
       console.warn("[MERCHANT_REFERRAL] evenement d'annulation recu pour une prime deja " +
-        `${status} (enseigneId=${enseigneId}, reason=${reason}) -- aucune recuperation automatique.`);
+        `${status} (merchantUserId=${merchantUserId}, reason=${reason}) -- aucune recuperation automatique.`);
       return;
     }
     if (status !== "linked" && status !== "eligible") return; // deja rejete/annule : no-op
@@ -121,9 +122,9 @@ async function cancelReferralIfNotYetPaid(db, enseigneId, reason) {
 async function adminApproveMerchantReferralHandler(data, context) {
   const db = admin.firestore();
   await assertCallerIsAdmin(db, context);
-  const enseigneId = typeof data?.enseigneId === "string" ? data.enseigneId.trim() : "";
-  if (!enseigneId) throw new functions.https.HttpsError("invalid-argument", "enseigneId requis.");
-  const referralRef = db.collection(kMerchantReferralsCollection).doc(enseigneId);
+  const merchantUserId = typeof data?.merchantUserId === "string" ? data.merchantUserId.trim() : "";
+  if (!merchantUserId) throw new functions.https.HttpsError("invalid-argument", "merchantUserId requis.");
+  const referralRef = db.collection(kMerchantReferralsCollection).doc(merchantUserId);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(referralRef);
     if (!snap.exists) throw new functions.https.HttpsError("not-found", "Parrainage introuvable.");
@@ -149,12 +150,12 @@ async function adminApproveMerchantReferralHandler(data, context) {
 async function adminRejectMerchantReferralHandler(data, context) {
   const db = admin.firestore();
   await assertCallerIsAdmin(db, context);
-  const enseigneId = typeof data?.enseigneId === "string" ? data.enseigneId.trim() : "";
+  const merchantUserId = typeof data?.merchantUserId === "string" ? data.merchantUserId.trim() : "";
   const reason = typeof data?.reason === "string" ? data.reason.trim() : "";
-  if (!enseigneId || !reason) {
-    throw new functions.https.HttpsError("invalid-argument", "enseigneId et reason sont requis.");
+  if (!merchantUserId || !reason) {
+    throw new functions.https.HttpsError("invalid-argument", "merchantUserId et reason sont requis.");
   }
-  const referralRef = db.collection(kMerchantReferralsCollection).doc(enseigneId);
+  const referralRef = db.collection(kMerchantReferralsCollection).doc(merchantUserId);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(referralRef);
     if (!snap.exists) throw new functions.https.HttpsError("not-found", "Parrainage introuvable.");
@@ -181,12 +182,12 @@ async function adminRejectMerchantReferralHandler(data, context) {
 async function adminMarkMerchantReferralPaidHandler(data, context) {
   const db = admin.firestore();
   await assertCallerIsAdmin(db, context);
-  const enseigneId = typeof data?.enseigneId === "string" ? data.enseigneId.trim() : "";
+  const merchantUserId = typeof data?.merchantUserId === "string" ? data.merchantUserId.trim() : "";
   const paidReference = typeof data?.paidReference === "string" ? data.paidReference.trim() : "";
-  if (!enseigneId || !paidReference) {
-    throw new functions.https.HttpsError("invalid-argument", "enseigneId et paidReference sont requis.");
+  if (!merchantUserId || !paidReference) {
+    throw new functions.https.HttpsError("invalid-argument", "merchantUserId et paidReference sont requis.");
   }
-  const referralRef = db.collection(kMerchantReferralsCollection).doc(enseigneId);
+  const referralRef = db.collection(kMerchantReferralsCollection).doc(merchantUserId);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(referralRef);
     if (!snap.exists) throw new functions.https.HttpsError("not-found", "Parrainage introuvable.");
@@ -205,6 +206,41 @@ async function adminMarkMerchantReferralPaidHandler(data, context) {
     });
   });
   return {status: "paid"};
+}
+
+/**
+ * Fixe (ou retire) un tarif negocie pour un commercant multi-enseignes.
+ * Reserve a l'Admin : un commercant ou un joueur ne peut jamais choisir ou
+ * modifier ce montant lui-meme (regles Firestore : write toujours false
+ * sur merchant_custom_offers). amountHtCents=null retire le tarif negocie
+ * (le commercant retombe sur le catalogue standard au prochain Checkout).
+ */
+async function adminSetMerchantCustomOfferHandler(data, context) {
+  const db = admin.firestore();
+  await assertCallerIsAdmin(db, context);
+  const merchantUserId = typeof data?.merchantUserId === "string" ? data.merchantUserId.trim() : "";
+  if (!merchantUserId) {
+    throw new functions.https.HttpsError("invalid-argument", "merchantUserId requis.");
+  }
+  const customOfferRef = db.collection("merchant_custom_offers").doc(merchantUserId);
+  if (data?.amountHtCents === null) {
+    await customOfferRef.delete();
+    return {status: "removed"};
+  }
+  const amountHtCents = Number(data?.amountHtCents);
+  const label = typeof data?.label === "string" ? data.label.trim() : "";
+  if (!Number.isInteger(amountHtCents) || amountHtCents <= 0) {
+    throw new functions.https.HttpsError("invalid-argument", "amountHtCents doit etre un entier positif (centimes).");
+  }
+  await customOfferRef.set({
+    merchant_user_id: db.doc(`users/${merchantUserId}`),
+    amount_ht_cents: amountHtCents,
+    label: label || "Abonnement ProxiPlay (tarif negocie)",
+    created_by: context.auth.uid,
+    created_at: admin.firestore.FieldValue.serverTimestamp(),
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+  }, {merge: true});
+  return {status: "set"};
 }
 
 exports.generateMerchantReferralCode = functions
@@ -227,6 +263,11 @@ exports.adminMarkMerchantReferralPaid = functions
   .runWith({timeoutSeconds: 30, memory: "256MB"})
   .https.onCall(adminMarkMerchantReferralPaidHandler);
 
+exports.adminSetMerchantCustomOffer = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 30, memory: "256MB"})
+  .https.onCall(adminSetMerchantCustomOfferHandler);
+
 // Exposes pour le webhook et les tests directs (hors onCall).
 exports.markReferralEligibleOnFirstPayment = markReferralEligibleOnFirstPayment;
 exports.cancelReferralIfNotYetPaid = cancelReferralIfNotYetPaid;
@@ -234,4 +275,5 @@ exports.generateMerchantReferralCodeHandler = generateMerchantReferralCodeHandle
 exports.adminApproveMerchantReferralHandler = adminApproveMerchantReferralHandler;
 exports.adminRejectMerchantReferralHandler = adminRejectMerchantReferralHandler;
 exports.adminMarkMerchantReferralPaidHandler = adminMarkMerchantReferralPaidHandler;
+exports.adminSetMerchantCustomOfferHandler = adminSetMerchantCustomOfferHandler;
 exports.kRewardAmountCents = kRewardAmountCents;

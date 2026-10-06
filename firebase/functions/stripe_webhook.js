@@ -24,8 +24,8 @@ const kFunctionsRegion = "us-central1";
 const kMerchantSubscriptionsCollection = "merchant_subscriptions";
 const kStripeWebhookEventsCollection = "stripe_webhook_events";
 
-function enseigneIdFromSubscription(subscription) {
-  return subscription?.metadata?.enseigneId || null;
+function merchantUserIdFromSubscription(subscription) {
+  return subscription?.metadata?.merchantUserId || null;
 }
 
 /**
@@ -70,10 +70,10 @@ async function handleInvoicePaid(db, invoice) {
   if (!subscriptionId) return; // facture hors abonnement (hors perimetre) : rien a faire
   const stripe = stripeClientModule.getStripeClient();
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-  const enseigneId = enseigneIdFromSubscription(subscription);
-  if (!enseigneId) return;
+  const merchantUserId = merchantUserIdFromSubscription(subscription);
+  if (!merchantUserId) return;
 
-  const subscriptionRef = db.collection(kMerchantSubscriptionsCollection).doc(enseigneId);
+  const subscriptionRef = db.collection(kMerchantSubscriptionsCollection).doc(merchantUserId);
   await subscriptionRef.set({
     stripe_subscription_id: subscription.id,
     stripe_price_id: subscription.items?.data?.[0]?.price?.id || null,
@@ -86,14 +86,14 @@ async function handleInvoicePaid(db, invoice) {
 
   const isFirstPayment = invoice.billing_reason === "subscription_create";
   if (isFirstPayment) {
-    await db.collection(kMerchantSubscriptionsCollection).doc(enseigneId).set({
+    await db.collection(kMerchantSubscriptionsCollection).doc(merchantUserId).set({
       first_payment_confirmed_at: admin.firestore.FieldValue.serverTimestamp(),
     }, {merge: true});
     // Le renouvellement (N+1, billing_reason=subscription_cycle) ne doit
     // JAMAIS passer par cette branche : la prime concerne uniquement le
     // premier abonnement qualifiant.
     await markReferralEligibleOnFirstPayment(db, {
-      enseigneId,
+      merchantUserId,
       subscriptionAmountHtCents: invoice.subtotal, // montant HT de la ligne, en centimes
       stripeSubscriptionId: subscription.id,
     });
@@ -106,9 +106,9 @@ async function handleInvoicePaymentFailed(db, invoice) {
   if (!subscriptionId) return;
   const stripe = stripeClientModule.getStripeClient();
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-  const enseigneId = enseigneIdFromSubscription(subscription);
-  if (!enseigneId) return;
-  await db.collection(kMerchantSubscriptionsCollection).doc(enseigneId).set({
+  const merchantUserId = merchantUserIdFromSubscription(subscription);
+  if (!merchantUserId) return;
+  await db.collection(kMerchantSubscriptionsCollection).doc(merchantUserId).set({
     last_payment_failed_at: admin.firestore.FieldValue.serverTimestamp(),
     subscription_status: subscription.status,
     updated_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -116,9 +116,9 @@ async function handleInvoicePaymentFailed(db, invoice) {
 }
 
 async function handleSubscriptionUpdated(db, subscription) {
-  const enseigneId = enseigneIdFromSubscription(subscription);
-  if (!enseigneId) return;
-  await db.collection(kMerchantSubscriptionsCollection).doc(enseigneId).set({
+  const merchantUserId = merchantUserIdFromSubscription(subscription);
+  if (!merchantUserId) return;
+  await db.collection(kMerchantSubscriptionsCollection).doc(merchantUserId).set({
     stripe_subscription_id: subscription.id,
     subscription_status: subscription.status,
     current_period_end: admin.firestore.Timestamp.fromMillis(subscription.current_period_end * 1000),
@@ -128,17 +128,17 @@ async function handleSubscriptionUpdated(db, subscription) {
 }
 
 async function handleSubscriptionDeleted(db, subscription) {
-  const enseigneId = enseigneIdFromSubscription(subscription);
-  if (!enseigneId) return;
-  await db.collection(kMerchantSubscriptionsCollection).doc(enseigneId).set({
+  const merchantUserId = merchantUserIdFromSubscription(subscription);
+  if (!merchantUserId) return;
+  await db.collection(kMerchantSubscriptionsCollection).doc(merchantUserId).set({
     subscription_status: "canceled",
     ended_at: admin.firestore.FieldValue.serverTimestamp(),
     updated_at: admin.firestore.FieldValue.serverTimestamp(),
   }, {merge: true});
-  await cancelReferralIfNotYetPaid(db, enseigneId, "subscription_cancelled");
+  await cancelReferralIfNotYetPaid(db, merchantUserId, "subscription_cancelled");
 }
 
-async function enseigneIdFromCharge(charge) {
+async function merchantUserIdFromCharge(charge) {
   const subscriptionId = charge.invoice ?
     (await stripeClientModule.getStripeClient().invoices.retrieve(
       typeof charge.invoice === "string" ? charge.invoice : charge.invoice.id,
@@ -146,13 +146,13 @@ async function enseigneIdFromCharge(charge) {
   if (!subscriptionId) return null;
   const subId = typeof subscriptionId === "string" ? subscriptionId : subscriptionId.id;
   const subscription = await stripeClientModule.getStripeClient().subscriptions.retrieve(subId);
-  return enseigneIdFromSubscription(subscription);
+  return merchantUserIdFromSubscription(subscription);
 }
 
 async function handleChargeRefunded(db, charge) {
-  const enseigneId = await enseigneIdFromCharge(charge);
-  if (!enseigneId) return;
-  await cancelReferralIfNotYetPaid(db, enseigneId, "refunded");
+  const merchantUserId = await merchantUserIdFromCharge(charge);
+  if (!merchantUserId) return;
+  await cancelReferralIfNotYetPaid(db, merchantUserId, "refunded");
 }
 
 async function handleChargeDisputeCreated(db, dispute) {
@@ -160,9 +160,9 @@ async function handleChargeDisputeCreated(db, dispute) {
   const charge = await stripe.charges.retrieve(
     typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id,
   );
-  const enseigneId = await enseigneIdFromCharge(charge);
-  if (!enseigneId) return;
-  await cancelReferralIfNotYetPaid(db, enseigneId, "dispute");
+  const merchantUserId = await merchantUserIdFromCharge(charge);
+  if (!merchantUserId) return;
+  await cancelReferralIfNotYetPaid(db, merchantUserId, "dispute");
 }
 
 async function dispatchEvent(db, event) {

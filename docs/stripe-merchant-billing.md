@@ -4,6 +4,15 @@ Ce document liste **uniquement** ce que Pascal doit faire manuellement. Rien
 dans le code n'invente de clé Stripe ; rien ne doit jamais être collé en
 clair dans Git.
 
+**Modèle de facturation : un paiement par compte commerçant**, pas par
+enseigne. Un commerçant possédant plusieurs enseignes paie un seul
+abonnement qui couvre toutes ses enseignes. Pour un commerçant
+multi-enseignes dont le tarif de catalogue standard ne convient pas, un
+**tarif négocié** peut être fixé depuis l'Admin (page *Abonnements
+commerçants* → « Fixer un tarif ») : il remplace alors le catalogue pour ce
+compte, sans qu'aucun produit/prix Stripe dédié n'ait besoin d'être créé à
+l'avance (le prix négocié est envoyé à Stripe au moment du paiement).
+
 ## 1. Compte Stripe (mode TEST d'abord)
 
 **Où aller** → https://dashboard.stripe.com → créer un compte (ou utiliser
