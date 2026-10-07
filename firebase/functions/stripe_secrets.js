@@ -1,24 +1,37 @@
-// Secrets Stripe du chantier paiement commercant (proxiplay.fr). Suit la
-// meme convention que GOOGLE_PLACES_API_KEY (google_places_secret.js) :
-// une seule declaration defineSecret() ici, importee partout ailleurs.
+// Configuration Stripe du chantier paiement commercant (proxiplay.fr).
+//
+// IMPORTANT : ce module est importe par index.js pendant la decouverte de
+// TOUTES les Functions. defineSecret() enregistre un parametre obligatoire
+// globalement, ce qui faisait demander STRIPE_SECRET_KEY meme lors du
+// deploiement d'une Function non-Stripe. Les secrets restent rattaches aux
+// seuls endpoints Stripe par leurs runWith({secrets: [...]}) respectifs ;
+// ces accesseurs paresseux ne lisent donc jamais une valeur Stripe tant que
+// ces endpoints ne sont pas executes.
+//
 // Jamais de valeur en dur, jamais de cle LIVE dans un test.
 //
 //   firebase functions:secrets:set STRIPE_SECRET_KEY
 //   firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
 
-const {defineSecret, defineString} = require("firebase-functions/params");
+function environmentParameter(name) {
+  return Object.freeze({
+    value() {
+      return process.env[name] || "";
+    },
+  });
+}
 
-const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
-const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
+const stripeSecretKey = environmentParameter("STRIPE_SECRET_KEY");
+const stripeWebhookSecret = environmentParameter("STRIPE_WEBHOOK_SECRET");
 
-// Les ID de prix Stripe ne sont pas des secrets (ils apparaissent dans les
-// URLs Stripe Dashboard et ne donnent aucun droit), mais n'existent pas
-// avant que Pascal cree les produits/prix reels dans Stripe -- params non
-// secrets pour pouvoir les configurer sans redeploiement de code.
-const stripePriceProximite = defineString("STRIPE_PRICE_PROXIMITE");
-const stripePriceSecteursSpecifiques = defineString("STRIPE_PRICE_SECTEURS_SPECIFIQUES");
-const stripePriceGrandesEnseignes = defineString("STRIPE_PRICE_GRANDES_ENSEIGNES");
-const stripeTaxRateId = defineString("STRIPE_TAX_RATE_TVA_20");
+// Les ID de prix Stripe ne sont pas des secrets. Ils sont lus au moment de
+// l'execution de l'endpoint Stripe, comme les deux secrets ci-dessus, afin
+// qu'une configuration Stripe absente ne bloque jamais la decouverte des
+// Functions non-Stripe.
+const stripePriceProximite = environmentParameter("STRIPE_PRICE_PROXIMITE");
+const stripePriceSecteursSpecifiques = environmentParameter("STRIPE_PRICE_SECTEURS_SPECIFIQUES");
+const stripePriceGrandesEnseignes = environmentParameter("STRIPE_PRICE_GRANDES_ENSEIGNES");
+const stripeTaxRateId = environmentParameter("STRIPE_TAX_RATE_TVA_20");
 
 module.exports = {
   stripeSecretKey,
