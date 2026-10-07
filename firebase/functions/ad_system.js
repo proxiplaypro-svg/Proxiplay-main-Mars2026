@@ -1,5 +1,6 @@
 // Systeme publicitaire ProxiPlay (vendu en direct, pas AdMob). La config
-// de chaque emplacement (ads/open, ads/home_banner) est lue directement
+// de chaque emplacement (ads/open, ads/home_banner,
+// ads/home_banner_referral) est lue directement
 // par le client (regles: read:true) -- aucune Callable necessaire pour
 // ca. Seuls les compteurs impressions/clics passent ici, pour ne jamais
 // laisser un client ecrire une valeur arbitraire sur ces champs (les
@@ -15,7 +16,11 @@ const admin = require("firebase-admin");
 const kFunctionsRegion = "us-central1";
 const kAdsCollection = "ads";
 const kCampaignsCollection = "ad_campaigns";
-const kValidPlacements = new Set(["open", "home_banner"]);
+const kValidPlacements = new Set([
+  "open",
+  "home_banner",
+  "home_banner_referral",
+]);
 const kValidEventTypes = new Set(["impression", "click"]);
 
 async function recordAdEventHandler(data) {

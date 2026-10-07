@@ -106,6 +106,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   // en direct, pas AdMob -- voir ad_system_utils.dart).
   late Future<AdPlacementConfig?> _adHomeBannerFuture;
   bool _adHomeBannerImpressionRecorded = false;
+  // Second bandeau Home, juste sous le bloc de parrainage commerçant.
+  late Future<AdPlacementConfig?> _adHomeReferralBannerFuture;
+  bool _adHomeReferralBannerImpressionRecorded = false;
   final _adSystemService = AdSystemService();
   late Future<List<MonthlyChallengeStateViewModel>> _monthlyChallengeFuture;
   List<MonthlyChallengeStateViewModel> _latestMonthlyChallengeStates = const [];
@@ -161,6 +164,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     _sharePromoFuture = _loadSharePromoState();
     _merchantReferralEnabledFuture = _loadMerchantReferralEnabled();
     _adHomeBannerFuture = _loadAdHomeBannerConfig();
+    _adHomeReferralBannerFuture = _loadAdHomeReferralBannerConfig();
     _monthlyChallengeFuture = _loadMonthlyChallengeState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureTickerLoaded();
@@ -773,6 +777,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   Future<AdPlacementConfig?> _loadAdHomeBannerConfig() async {
     try {
       return await _adSystemService.getPlacementConfig('home_banner');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<AdPlacementConfig?> _loadAdHomeReferralBannerConfig() async {
+    try {
+      return await _adSystemService.getPlacementConfig(
+        'home_banner_referral',
+      );
     } catch (_) {
       return null;
     }
@@ -1664,8 +1678,34 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   // config absente/desactivee/hors fenetre masque le bandeau sans espace
   // reserve.
   Widget _buildAdHomeBannerZone(BuildContext context) {
+    return _buildAdBannerZone(
+      context,
+      placement: 'home_banner',
+      configFuture: _adHomeBannerFuture,
+      impressionRecorded: _adHomeBannerImpressionRecorded,
+      markImpressionRecorded: () => _adHomeBannerImpressionRecorded = true,
+    );
+  }
+
+  Widget _buildAdHomeReferralBannerZone(BuildContext context) {
+    return _buildAdBannerZone(
+      context,
+      placement: 'home_banner_referral',
+      configFuture: _adHomeReferralBannerFuture,
+      impressionRecorded: _adHomeReferralBannerImpressionRecorded,
+      markImpressionRecorded: () => _adHomeReferralBannerImpressionRecorded = true,
+    );
+  }
+
+  Widget _buildAdBannerZone(
+    BuildContext context, {
+    required String placement,
+    required Future<AdPlacementConfig?> configFuture,
+    required bool impressionRecorded,
+    required VoidCallback markImpressionRecorded,
+  }) {
     return FutureBuilder<AdPlacementConfig?>(
-      future: _adHomeBannerFuture,
+      future: configFuture,
       builder: (context, snapshot) {
         final config = snapshot.data;
         if (config == null ||
@@ -1679,9 +1719,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           return const SizedBox.shrink();
         }
 
-        if (!_adHomeBannerImpressionRecorded) {
-          _adHomeBannerImpressionRecorded = true;
-          unawaited(_adSystemService.recordImpression('home_banner'));
+        if (!impressionRecorded) {
+          markImpressionRecorded();
+          unawaited(_adSystemService.recordImpression(placement));
         }
 
         return Padding(
@@ -1693,7 +1733,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                 child: InkWell(
                   onTap: () async {
                     if (config.destinationUrl.isEmpty) return;
-                    unawaited(_adSystemService.recordClick('home_banner'));
+                    unawaited(_adSystemService.recordClick(placement));
                     try {
                       await launchURL(config.destinationUrl);
                     } catch (_) {
@@ -2065,6 +2105,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     _merchantReferralEnabledFuture = _loadMerchantReferralEnabled();
     _adHomeBannerFuture = _loadAdHomeBannerConfig();
     _adHomeBannerImpressionRecorded = false;
+    _adHomeReferralBannerFuture = _loadAdHomeReferralBannerConfig();
+    _adHomeReferralBannerImpressionRecorded = false;
     // Vider les caches d'enseignes pour forcer le rechargement des données fraîches.
     _featuredEnseignesSectionCache.clear();
     _endingSoonEnseignesSectionCache.clear();
@@ -3561,6 +3603,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                           ),
                                                           _buildMerchantReferralZone(
                                                               context),
+                                                          _buildAdHomeReferralBannerZone(
+                                                              context),
                                                         ],
                                                       ),
                                                     ),
@@ -4443,6 +4487,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                       ),
                                                     ),
                                                   _buildMerchantReferralZone(
+                                                      context),
+                                                  _buildAdHomeReferralBannerZone(
                                                       context),
                                                 ].divide(const SizedBox(
                                                     height: 3.0)),
@@ -5337,6 +5383,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                   ),
                                                 ),
                                               _buildMerchantReferralZone(
+                                                  context),
+                                              _buildAdHomeReferralBannerZone(
                                                   context),
                                             ].divide(
                                                 const SizedBox(height: 3.0)),

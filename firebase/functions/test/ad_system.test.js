@@ -46,6 +46,28 @@ test('records a click on the exact placement doc, distinct field from impression
   assert.equal(snap.data().clicks, 1);
 });
 
+test('tracks the referral Home banner independently with its campaign history', async () => {
+  await db.doc('ads/home_banner_referral').set({
+    campaign_id: 'campaign_referral_banner',
+    impressions: 2,
+    clicks: 3,
+  });
+  await db.doc('ad_campaigns/campaign_referral_banner').set({
+    impressions: 2,
+    clicks: 3,
+  });
+
+  await recordAdEventHandler({placement: 'home_banner_referral', type: 'impression'});
+  await recordAdEventHandler({placement: 'home_banner_referral', type: 'click'});
+
+  const placement = (await db.doc('ads/home_banner_referral').get()).data();
+  const campaign = (await db.doc('ad_campaigns/campaign_referral_banner').get()).data();
+  assert.equal(placement.impressions, 3);
+  assert.equal(placement.clicks, 4);
+  assert.equal(campaign.impressions, 3);
+  assert.equal(campaign.clicks, 4);
+});
+
 test('increments atomically across repeated calls (no overwrite/race)', async () => {
   await Promise.all([
     recordAdEventHandler({placement: 'open', type: 'impression'}),
