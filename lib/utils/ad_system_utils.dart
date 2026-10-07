@@ -29,8 +29,9 @@ bool isAdPlacementEnabled({
 
 /// Plafond de frequence de l'interstitiel d'ouverture : vrai si on peut
 /// (re)montrer la pub maintenant. Fail-open : pas de plafond configure, ou
-/// jamais montree -> autorise. Un plafond <= 0 est traite comme absent
-/// (pas de blocage sur une configuration invalide).
+/// jamais montree -> autorise. Un plafond a 0 signifie explicitement qu'il
+/// n'y a aucun delai entre deux lancements a froid. Une valeur negative reste
+/// fail-open pour ne jamais bloquer l'acces a ProxiPlay.
 bool isOpenAdFrequencyElapsed({
   required DateTime? lastShownAt,
   required int? frequencyCapHours,
@@ -39,7 +40,10 @@ bool isOpenAdFrequencyElapsed({
   if (lastShownAt == null) {
     return true;
   }
-  if (frequencyCapHours == null || frequencyCapHours <= 0) {
+  if (frequencyCapHours == null || frequencyCapHours == 0) {
+    return true;
+  }
+  if (frequencyCapHours < 0) {
     return true;
   }
   final nextEligibleAt =

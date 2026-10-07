@@ -82,7 +82,7 @@ void main() {
       );
     });
 
-    test('9. invalid (zero/negative) frequency cap -> treated as absent, allowed', () {
+    test('9. cap=0 -> allowed at every cold launch', () {
       expect(
         isOpenAdFrequencyElapsed(
           lastShownAt: now.subtract(const Duration(minutes: 1)),
@@ -93,7 +93,18 @@ void main() {
       );
     });
 
-    test('10. shown 1 hour ago, cap=24h -> not yet elapsed, blocked', () {
+    test('10. negative cap -> fail-open, allowed', () {
+      expect(
+        isOpenAdFrequencyElapsed(
+          lastShownAt: now.subtract(const Duration(minutes: 1)),
+          frequencyCapHours: -1,
+          now: now,
+        ),
+        isTrue,
+      );
+    });
+
+    test('11. shown 1 hour ago, cap=24h -> not yet elapsed, blocked', () {
       expect(
         isOpenAdFrequencyElapsed(
           lastShownAt: now.subtract(const Duration(hours: 1)),
@@ -104,7 +115,7 @@ void main() {
       );
     });
 
-    test('11. shown exactly 24 hours ago, cap=24h -> elapsed, allowed', () {
+    test('12. shown exactly 24 hours ago, cap=24h -> elapsed, allowed', () {
       expect(
         isOpenAdFrequencyElapsed(
           lastShownAt: now.subtract(const Duration(hours: 24)),
@@ -115,7 +126,7 @@ void main() {
       );
     });
 
-    test('12. shown 25 hours ago, cap=24h -> elapsed, allowed', () {
+    test('13. shown 25 hours ago, cap=24h -> elapsed, allowed', () {
       expect(
         isOpenAdFrequencyElapsed(
           lastShownAt: now.subtract(const Duration(hours: 25)),
@@ -128,7 +139,7 @@ void main() {
   });
 
   group('shouldShowOpenAd (combines activation + schedule + frequency)', () {
-    test('13. all conditions satisfied -> show', () {
+    test('14. all conditions satisfied -> show', () {
       expect(
         shouldShowOpenAd(
           enabled: true,
@@ -142,7 +153,7 @@ void main() {
       );
     });
 
-    test('14. disabled, even with frequency elapsed -> never show', () {
+    test('15. disabled, even with frequency elapsed -> never show', () {
       expect(
         shouldShowOpenAd(
           enabled: false,
@@ -156,7 +167,7 @@ void main() {
       );
     });
 
-    test('15. enabled but frequency not elapsed -> do not show again yet', () {
+    test('16. enabled but frequency not elapsed -> do not show again yet', () {
       expect(
         shouldShowOpenAd(
           enabled: true,
@@ -170,7 +181,7 @@ void main() {
       );
     });
 
-    test('16. enabled, frequency elapsed, but outside schedule window -> do not show', () {
+    test('17. enabled, frequency elapsed, but outside schedule window -> do not show', () {
       expect(
         shouldShowOpenAd(
           enabled: true,
