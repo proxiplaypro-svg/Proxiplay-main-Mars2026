@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '/app_state.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/services/ad_system_service.dart';
 import '/utils/ad_system_utils.dart';
@@ -41,7 +40,16 @@ class _OpenAdGateState extends State<OpenAdGate> {
     super.initState();
     if (!_attemptedThisProcess) {
       _attemptedThisProcess = true;
-      unawaited(_tryLoadAd());
+      // `precacheImage` construit une ImageConfiguration a partir du
+      // BuildContext (dont DefaultAssetBundle). Cela depend de widgets
+      // herites et ne peut donc pas etre execute depuis initState. Attendre
+      // le premier frame garantit que l'arbre MaterialApp est pret avant de
+      // lire/precharger la creativite.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(_tryLoadAd());
+        }
+      });
     }
   }
 

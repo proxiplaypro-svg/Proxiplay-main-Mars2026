@@ -14,6 +14,7 @@ const admin = require("firebase-admin");
 
 const kFunctionsRegion = "us-central1";
 const kAdsCollection = "ads";
+const kCampaignsCollection = "ad_campaigns";
 const kValidPlacements = new Set(["open", "home_banner"]);
 const kValidEventTypes = new Set(["impression", "click"]);
 
@@ -28,9 +29,21 @@ async function recordAdEventHandler(data) {
   }
 
   const field = type === "impression" ? "impressions" : "clicks";
-  await admin.firestore().doc(`${kAdsCollection}/${placement}`).set({
-    [field]: admin.firestore.FieldValue.increment(1),
-  }, {merge: true});
+  const db = admin.firestore();
+  const placementRef = db.doc(`${kAdsCollection}/${placement}`);
+  await db.runTransaction(async (transaction) => {
+    const placementSnapshot = await transaction.get(placementRef);
+    const campaignId = placementSnapshot.data()?.campaign_id;
+    transaction.set(placementRef, {[field]: admin.firestore.FieldValue.increment(1)}, {merge: true});
+    // Compatibilite totale avec les anciennes projections : sans campaign_id,
+    // seul le compteur historique ads/{placement} est mis a jour.
+    if (typeof campaignId === "string" && campaignId) {
+      transaction.set(db.collection(kCampaignsCollection).doc(campaignId), {
+        [field]: admin.firestore.FieldValue.increment(1),
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      }, {merge: true});
+    }
+  });
 
   return {status: "recorded"};
 }

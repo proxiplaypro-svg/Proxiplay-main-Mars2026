@@ -9,8 +9,8 @@ const db = admin.firestore();
 const {recordAdEventHandler} = require('../ad_system');
 
 async function clearCollections() {
-  const snap = await db.collection('ads').get();
-  await Promise.all(snap.docs.map((d) => d.ref.delete()));
+  const [ads, campaigns] = await Promise.all([db.collection('ads').get(), db.collection('ad_campaigns').get()]);
+  await Promise.all([...ads.docs, ...campaigns.docs].map((d) => d.ref.delete()));
 }
 
 test.beforeEach(async () => {
@@ -60,4 +60,12 @@ test('works even if the placement document does not exist yet (merge-create)', a
   await recordAdEventHandler({placement: 'open', type: 'click'});
   const snap = await db.doc('ads/open').get();
   assert.equal(snap.data().clicks, 1);
+});
+
+test('preserves campaign history by incrementing the projected campaign counters too', async () => {
+  await db.doc('ads/open').set({campaign_id: 'campaign_1', impressions: 4, clicks: 1});
+  await db.doc('ad_campaigns/campaign_1').set({impressions: 4, clicks: 1});
+  await recordAdEventHandler({placement: 'open', type: 'impression'});
+  assert.equal((await db.doc('ads/open').get()).data().impressions, 5);
+  assert.equal((await db.doc('ad_campaigns/campaign_1').get()).data().impressions, 5);
 });
