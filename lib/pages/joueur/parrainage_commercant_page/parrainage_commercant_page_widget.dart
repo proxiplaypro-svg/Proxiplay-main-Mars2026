@@ -140,8 +140,10 @@ class _ParrainageCommercantPageWidgetState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Wrap(
+            spacing: 8.0,
+            runSpacing: 2.0,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 'Parrainez un commerçant',

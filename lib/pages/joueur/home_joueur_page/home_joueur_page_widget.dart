@@ -1481,7 +1481,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                         bottom: titleGap ?? 16.0,
                       ),
                       child: Text(
-                        'SCANS EN BOUTIQUE',
+                        'JEUX À SCANNER',
                         style: FlutterFlowTheme.of(context).titleLarge.override(
                               font: GoogleFonts.interTight(
                                 fontWeight: FlutterFlowTheme.of(context)
@@ -1645,29 +1645,187 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
         return Padding(
           padding: const EdgeInsets.only(top: 24.0),
-          child: SharePromoBanner(
-            data: const SharePromoData(
-              kind: SharePromoKind.defaultInvite,
-              title: 'Parrainez un commerçant',
-              subtitle:
-                  'Recommandez ProxiPlay à un commerçant du Dunkerquois et recevez 100 € s\'il devient client.',
-              ctaLabel: 'Parrainer un commerçant',
-              icon: Icons.storefront_rounded,
-              primaryColor: Color(0xFFF5F6FB),
-              secondaryColor: Color(0xFFA0134D),
-              titleColor: Color(0xFF2C2F5B),
-              subtitleColor: Color(0xFF2C2F5B),
-              buttonColor: Color(0xFF2C2F5B),
-              buttonTextColor: Colors.white,
-              iconBackgroundColor: Color(0xFFF7E6EE),
-              iconColor: Color(0xFFA0134D),
-            ),
-            onTap: () {
-              context.pushNamed(ParrainageCommercantPageWidget.routeName);
-            },
-          ),
+          child: _buildMerchantReferralCard(context),
         );
       },
+    );
+  }
+
+  Widget _buildMerchantReferralCard(BuildContext context) {
+    const navy = Color(0xFF2C2F5B);
+    const cardBackground = Color(0xFFF5F6FB);
+    const iconBackground = Color(0xFFEAEFFD);
+    final theme = FlutterFlowTheme.of(context);
+
+    final actionButton = SizedBox(
+      height: 44.0,
+      child: ElevatedButton(
+        onPressed: () {
+          context.pushNamed(ParrainageCommercantPageWidget.routeName);
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: navy,
+          foregroundColor: Colors.white,
+          elevation: 0.0,
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14.0),
+          ),
+        ),
+        child: Text(
+          'Je parraine →',
+          softWrap: false,
+          style: theme.bodyMedium.override(
+            font: GoogleFonts.inter(
+              fontWeight: FontWeight.w700,
+              fontStyle: theme.bodyMedium.fontStyle,
+            ),
+            color: Colors.white,
+            letterSpacing: 0.0,
+            fontWeight: FontWeight.w700,
+            fontStyle: theme.bodyMedium.fontStyle,
+          ),
+        ),
+      ),
+    );
+
+    return Semantics(
+      container: true,
+      label: 'Parrainez un commerçant. Votre récompense : 100 euros.',
+      child: Material(
+        color: Colors.transparent,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: cardBackground,
+            borderRadius: BorderRadius.circular(18.0),
+            border: Border.all(color: navy.withValues(alpha: 0.14)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 48.0,
+                      height: 48.0,
+                      decoration: BoxDecoration(
+                        color: iconBackground,
+                        borderRadius: BorderRadius.circular(14.0),
+                      ),
+                      child: const Icon(
+                        Icons.storefront_rounded,
+                        color: navy,
+                        size: 25.0,
+                      ),
+                    ),
+                    const SizedBox(width: 12.0),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Parrainez un commerçant !',
+                            style: theme.titleMedium.override(
+                              font: GoogleFonts.interTight(
+                                fontWeight: FontWeight.w700,
+                                fontStyle: theme.titleMedium.fontStyle,
+                              ),
+                              color: navy,
+                              letterSpacing: 0.0,
+                              fontWeight: FontWeight.w700,
+                              fontStyle: theme.titleMedium.fontStyle,
+                            ),
+                          ),
+                          const SizedBox(height: 4.0),
+                          Text(
+                            'Recommandez ProxiPlay à vos commerces préférés.',
+                            style: theme.bodySmall.override(
+                              font: GoogleFonts.inter(
+                                fontWeight: FontWeight.w500,
+                                fontStyle: theme.bodySmall.fontStyle,
+                              ),
+                              color: navy.withValues(alpha: 0.78),
+                              letterSpacing: 0.0,
+                              fontWeight: FontWeight.w500,
+                              fontStyle: theme.bodySmall.fontStyle,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14.0),
+                  child: Divider(color: navy.withValues(alpha: 0.12), height: 1.0),
+                ),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final reward = Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Votre récompense',
+                          style: theme.bodySmall.override(
+                            font: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              fontStyle: theme.bodySmall.fontStyle,
+                            ),
+                            color: navy.withValues(alpha: 0.72),
+                            letterSpacing: 0.0,
+                            fontWeight: FontWeight.w600,
+                            fontStyle: theme.bodySmall.fontStyle,
+                          ),
+                        ),
+                        const SizedBox(height: 2.0),
+                        Text(
+                          '100 €',
+                          style: theme.headlineSmall.override(
+                            font: GoogleFonts.interTight(
+                              fontWeight: FontWeight.w800,
+                              fontStyle: theme.headlineSmall.fontStyle,
+                            ),
+                            color: navy,
+                            letterSpacing: 0.0,
+                            fontWeight: FontWeight.w800,
+                            fontStyle: theme.headlineSmall.fontStyle,
+                          ),
+                        ),
+                      ],
+                    );
+
+                    if (constraints.maxWidth < 340.0) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          reward,
+                          const SizedBox(height: 12.0),
+                          actionButton,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(child: reward),
+                        const SizedBox(width: 12.0),
+                        actionButton,
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1684,6 +1842,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       configFuture: _adHomeBannerFuture,
       impressionRecorded: _adHomeBannerImpressionRecorded,
       markImpressionRecorded: () => _adHomeBannerImpressionRecorded = true,
+      trailingSpace: 16.0,
     );
   }
 
@@ -1703,6 +1862,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     required Future<AdPlacementConfig?> configFuture,
     required bool impressionRecorded,
     required VoidCallback markImpressionRecorded,
+    double trailingSpace = 0.0,
   }) {
     return FutureBuilder<AdPlacementConfig?>(
       future: configFuture,
@@ -1725,7 +1885,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         }
 
         return Padding(
-          padding: const EdgeInsets.only(top: 16.0),
+          padding: EdgeInsets.only(top: 16.0, bottom: trailingSpace),
           child: Stack(
             children: [
               ClipRRect(
