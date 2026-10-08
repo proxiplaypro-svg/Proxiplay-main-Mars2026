@@ -516,13 +516,13 @@ void main() {
           width: 320,
           scale: 2);
       if (deadline == null) {
-        expect(find.textContaining('Lot à utiliser avant le'), findsNothing);
+        expect(find.textContaining('Lot à retirer avant le'), findsNothing);
         expect(find.byIcon(Icons.calendar_today_outlined), findsNothing);
         expect(tester.getTopLeft(find.text('Suite des règles')).dy, 0);
       } else {
         expect(
             find.text(
-                'Lot à utiliser avant le ${deadline.year == 2026 ? '31/10/2026' : '02/01/2020'}'),
+                'Lot à retirer avant le ${deadline.year == 2026 ? '31/10/2026' : '02/01/2020'}'),
             findsOneWidget);
         expect(find.byIcon(Icons.calendar_today_outlined), findsOneWidget);
       }

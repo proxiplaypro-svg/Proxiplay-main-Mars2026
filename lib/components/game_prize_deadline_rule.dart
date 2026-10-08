@@ -21,7 +21,7 @@ class GamePrizeDeadlineRule extends StatelessWidget {
             size: 16, color: Color(0xFF6B7280)),
         const SizedBox(width: 8),
         Expanded(
-            child: Text('Lot à utiliser avant le $formatted', style: style)),
+            child: Text('Lot à retirer avant le $formatted', style: style)),
       ]),
     );
   }
