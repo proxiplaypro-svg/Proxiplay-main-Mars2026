@@ -136,6 +136,17 @@ test("jeux : un joueur sans lien avec l'enseigne ne peut pas modifier le jeu", a
   );
 });
 
+test("games : un joueur ne peut pas rendre un QR gratuit", async () => {
+  const player = testEnv.authenticatedContext("player_uid", {
+    email: "player@example.test",
+  });
+  await assertFails(
+    player.firestore().collection("games").doc("classic_game1").update({
+      qr_consumes_participation: false,
+    }),
+  );
+});
+
 test("jeux : lecture publique (comme games)", async () => {
   const anon = testEnv.unauthenticatedContext();
   await assertSucceeds(anon.firestore().collection("jeux").doc("qr_game1").get());

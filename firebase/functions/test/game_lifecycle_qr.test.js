@@ -18,6 +18,68 @@ test('missing QR, forged boolean/token and another game capability are refused',
   assert.equal((await db.doc('users/player').get()).data().remaining_part, 30);
   assert.equal((await db.collection('prizes').get()).size, 0);
 });
+test('server game configuration alone decides whether a QR participation consumes a chance', async () => {
+  // A non-QR game always consumes, even if a client/admin accidentally puts
+  // the QR-only flag on it.
+  await game('classic_with_part', {qr_consumes_participation: false});
+  await db.doc('users/player').update({remaining_part: 3});
+  await participate('classic_with_part', 'player', {qr_consumes_participation: false});
+  assert.equal((await db.doc('users/player').get()).data().remaining_part, 2);
+  await game('classic_without_part');
+  await db.doc('users/player').update({remaining_part: 0});
+  await assert.rejects(participate('classic_without_part'), {code: 'failed-precondition'});
+
+  // Explicitly-free QR games work at zero credits and leave an existing
+  // balance untouched. Client input cannot turn a paid QR game into a free one.
+  await game('free_qr_with_part', {access_mode: 'qr_only', qr_consumes_participation: false});
+  await db.doc('users/player').update({remaining_part: 3});
+  let token = (await mint('free_qr_with_part')).token;
+  await participate('free_qr_with_part', 'player', {qr_token: token, qr_consumes_participation: true});
+  assert.equal((await db.doc('users/player').get()).data().remaining_part, 3);
+  await game('free_qr_without_part', {access_mode: 'qr_only', qr_consumes_participation: false});
+  await db.doc('users/player').update({remaining_part: 0});
+  token = (await mint('free_qr_without_part')).token;
+  await participate('free_qr_without_part', 'player', {qr_token: token});
+  assert.equal((await db.doc('users/player').get()).data().remaining_part, 0);
+
+  await game('paid_qr_with_part', {access_mode: 'qr_only', qr_consumes_participation: true});
+  await db.doc('users/player').update({remaining_part: 3});
+  token = (await mint('paid_qr_with_part')).token;
+  await participate('paid_qr_with_part', 'player', {qr_token: token, qr_consumes_participation: false});
+  assert.equal((await db.doc('users/player').get()).data().remaining_part, 2);
+  await game('paid_qr_without_part', {access_mode: 'qr_only', qr_consumes_participation: true});
+  await db.doc('users/player').update({remaining_part: 0});
+  token = (await mint('paid_qr_without_part')).token;
+  await assert.rejects(participate('paid_qr_without_part', 'player', {qr_token: token}), {code: 'failed-precondition'});
+
+  // Missing field is the historical, paid behavior.
+  await game('historic_qr', {access_mode: 'qr_only'});
+  await db.doc('users/player').update({remaining_part: 3});
+  token = (await mint('historic_qr')).token;
+  await participate('historic_qr', 'player', {qr_token: token});
+  assert.equal((await db.doc('users/player').get()).data().remaining_part, 2);
+});
+test('free QR preserves instant prizes and the tenth-play +3 bonus', async () => {
+  await game('free_qr_bonus', {
+    access_mode: 'qr_only', qr_consumes_participation: false,
+    participations: 9,
+  });
+  await instant('free_qr_bonus');
+  await db.doc('users/player').update({remaining_part: 0});
+  const token = (await mint('free_qr_bonus')).token;
+  const result = await participate('free_qr_bonus', 'player', {qr_token: token});
+  assert.equal(result.isWin, true);
+  assert.match(result.messageBonus, /3 parties/);
+  assert.equal((await db.doc('users/player').get()).data().remaining_part, 3);
+  assert.equal((await db.collection('prizes').get()).size, 1);
+});
+test('unlimited access remains free for a paid QR game at zero credits', async () => {
+  await game('paid_qr_unlimited', {access_mode: 'qr_only', qr_consumes_participation: true});
+  await db.doc('users/player').update({remaining_part: 0, allGamesAccessUntil: time('2026-10-01')});
+  const token = (await mint('paid_qr_unlimited')).token;
+  await participate('paid_qr_unlimited', 'player', {qr_token: token});
+  assert.equal((await db.doc('users/player').get()).data().remaining_part, 0);
+});
 test('QR issuance is restricted and private; admin-created game belongs to merchant', async () => {
   await game('game', {access_mode: 'qr_only'});
   for (const uid of ['other','player']) await assert.rejects(mint('game', uid), {code: 'permission-denied'});
