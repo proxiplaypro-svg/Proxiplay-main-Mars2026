@@ -13,7 +13,7 @@ import 'package:share_plus/share_plus.dart';
 import 'parrainage_commercant_page_model.dart';
 export 'parrainage_commercant_page_model.dart';
 
-/// Page joueur : parrainer un commercant et recevoir 100 EUR s'il devient
+/// Page joueur : parrainer un commercant et recevoir 50 EUR s'il devient
 /// client payant dans les conditions du programme. Programme distinct du
 /// parrainage joueur existant (bonus de jeu, voir parrainage_joueur_page) :
 /// code et suivi gérés par un espace backend séparé
@@ -66,7 +66,8 @@ class _ParrainageCommercantPageWidgetState
       _loadError = null;
     });
     try {
-      final code = await _merchantReferralService.generateMerchantReferralCode();
+      final code =
+          await _merchantReferralService.generateMerchantReferralCode();
       if (!mounted) return;
       setState(() {
         _code = code;
@@ -133,7 +134,7 @@ class _ParrainageCommercantPageWidgetState
       'Vous lui transmettez votre code personnel.',
       'Le commerçant s\'inscrit sur Proxiplay.fr et renseigne votre code.',
       'Lorsqu\'il devient client payant dans les conditions du programme, '
-          'vous pouvez recevoir 100 €.',
+          'vous pouvez recevoir 50 €.',
     ];
 
     return _card(
@@ -157,7 +158,7 @@ class _ParrainageCommercantPageWidgetState
               ),
               const SizedBox(width: 8.0),
               Text(
-                '100 €',
+                '50 €',
                 style: GoogleFonts.interTight(
                   fontWeight: FontWeight.w900,
                   fontSize: 22.0,
@@ -168,7 +169,7 @@ class _ParrainageCommercantPageWidgetState
           ),
           const SizedBox(height: 4.0),
           Text(
-            'Recevez 100 € si le commerçant devient client dans les '
+            'Recevez 50 € si le commerçant devient client dans les '
             'conditions du programme.',
             style: FlutterFlowTheme.of(context).bodyMedium.override(
                   font: GoogleFonts.inter(fontWeight: FontWeight.w400),
@@ -236,7 +237,8 @@ class _ParrainageCommercantPageWidgetState
         children: [
           Text(
             'Votre code personnel',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15.0, color: ink),
+            style: GoogleFonts.inter(
+                fontWeight: FontWeight.w700, fontSize: 15.0, color: ink),
           ),
           const SizedBox(height: 12.0),
           if (_loadingCode)
@@ -254,7 +256,8 @@ class _ParrainageCommercantPageWidgetState
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_loadError!, style: GoogleFonts.inter(color: muted, fontSize: 13.0)),
+                Text(_loadError!,
+                    style: GoogleFonts.inter(color: muted, fontSize: 13.0)),
                 const SizedBox(height: 8.0),
                 OutlinedButton(
                   onPressed: _loadCode,
@@ -265,7 +268,8 @@ class _ParrainageCommercantPageWidgetState
           else ...[
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 16.0),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 14.0, horizontal: 16.0),
               decoration: BoxDecoration(
                 color: const Color(0xFFF7F6FB),
                 borderRadius: BorderRadius.circular(16.0),
@@ -294,7 +298,8 @@ class _ParrainageCommercantPageWidgetState
                       foregroundColor: ink,
                       side: const BorderSide(color: Color(0xFFE4E2F2)),
                       padding: const EdgeInsets.symmetric(vertical: 14.0),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16.0)),
                     ),
                   ),
                 ),
@@ -308,7 +313,8 @@ class _ParrainageCommercantPageWidgetState
                       backgroundColor: accent,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14.0),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16.0)),
                     ),
                   ),
                 ),
@@ -360,11 +366,17 @@ class _ParrainageCommercantPageWidgetState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
-                  decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(10.0)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10.0, vertical: 4.0),
+                  decoration: BoxDecoration(
+                      color: background,
+                      borderRadius: BorderRadius.circular(10.0)),
                   child: Text(
                     label,
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12.0, color: color),
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12.0,
+                        color: color),
                   ),
                 ),
                 const SizedBox(height: 6.0),
@@ -404,13 +416,15 @@ class _ParrainageCommercantPageWidgetState
               padding: const EdgeInsets.only(left: 4.0, bottom: 12.0),
               child: Text(
                 'Mes parrainages commerçants',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15.0, color: ink),
+                style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700, fontSize: 15.0, color: ink),
               ),
             ),
             if (docs.isEmpty)
               const ListEmptyComponentWidget(
                 title: 'Aucun parrainage pour le moment',
-                description: 'Les commerçants que vous parrainez apparaîtront ici dès qu\'ils auront utilisé votre code.',
+                description:
+                    'Les commerçants que vous parrainez apparaîtront ici dès qu\'ils auront utilisé votre code.',
               )
             else
               ...docs.map((doc) => _buildReferralRow(context, doc)),
@@ -444,11 +458,13 @@ class _ParrainageCommercantPageWidgetState
           'Parrainage commerçant',
           style: FlutterFlowTheme.of(context).headlineMedium.override(
                 font: GoogleFonts.interTight(
-                  fontWeight: FlutterFlowTheme.of(context).headlineMedium.fontWeight,
+                  fontWeight:
+                      FlutterFlowTheme.of(context).headlineMedium.fontWeight,
                 ),
                 fontSize: 20.0,
                 letterSpacing: 0.0,
-                fontWeight: FlutterFlowTheme.of(context).headlineMedium.fontWeight,
+                fontWeight:
+                    FlutterFlowTheme.of(context).headlineMedium.fontWeight,
               ),
         ),
         actions: const [],

@@ -1,4 +1,4 @@
-// Parrainage commercant (prime de 100 EUR), chantier paiement Stripe.
+// Parrainage commercant (prime de 50 EUR), chantier paiement Stripe.
 // Programme distinct du parrainage joueur existant (share_promo) : code,
 // recompense et regles anti-fraude propres. La cle d'unicite d'une prime
 // est le COMPTE commercant parraine (doc id = merchantUserId sous
@@ -17,7 +17,9 @@ const {isTrustedAdmin} = require("./admin_identity");
 const kFunctionsRegion = "us-central1";
 const kMerchantReferralsCollection = "merchant_referrals";
 const kMerchantReferralCodesCollection = "merchant_referral_codes";
-const kRewardAmountCents = 10000;
+// Ce montant ne s'applique qu'au passage futur vers `paid`. Les montants
+// historises dans les parrainages deja payes ne sont jamais modifies.
+const kRewardAmountCents = 5000;
 const kCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sans 0/O/1/I ambigus
 const kCodeLength = 8;
 

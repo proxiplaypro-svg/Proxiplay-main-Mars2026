@@ -1,4 +1,4 @@
-// Parrainage commercant (recompense de 100 EUR) : liens de partage et
+// Parrainage commercant (recompense de 50 EUR) : liens de partage et
 // libelles de statut affiches au joueur. Fonctions pures, testables sans
 // Firebase -- voir test/merchant_referral_utils_test.dart.
 
@@ -65,7 +65,7 @@ String merchantReferralStatusDescription(String? status) {
     case 'approved':
       return 'La récompense a été approuvée.';
     case 'paid':
-      return 'Les 100 € ont été versés.';
+      return 'Les 50 € ont été versés.';
     case 'rejected':
     case 'cancelled':
       return 'Ce parrainage ne remplit pas les conditions du programme.';

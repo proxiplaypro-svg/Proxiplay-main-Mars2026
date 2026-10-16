@@ -14,6 +14,7 @@ const {
   adminRejectMerchantReferralHandler,
   adminMarkMerchantReferralPaidHandler,
   adminSetMerchantCustomOfferHandler,
+  kRewardAmountCents,
 } = require('../merchant_referral_engine');
 
 async function clearCollections() {
@@ -135,6 +136,8 @@ test('admin markPaid requires status=approved and a non-empty payment reference'
   assert.equal(result.status, 'paid');
   const snap = await db.doc('merchant_referrals/merchant1').get();
   assert.equal(snap.data().paid_reference, 'VIR-42');
+  assert.equal(kRewardAmountCents, 5000);
+  assert.equal(snap.data().reward_amount_cents, 5000);
   assert.ok(snap.data().paid_at);
 });
 

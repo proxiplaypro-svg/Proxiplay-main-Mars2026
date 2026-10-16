@@ -1,4 +1,4 @@
-# Paiement commerçant Stripe + parrainage commerçant 100 € — guide Pascal
+# Paiement commerçant Stripe + parrainage commerçant 50 € — guide Pascal
 
 Ce document liste **uniquement** ce que Pascal doit faire manuellement. Rien
 dans le code n'invente de clé Stripe ; rien ne doit jamais être collé en

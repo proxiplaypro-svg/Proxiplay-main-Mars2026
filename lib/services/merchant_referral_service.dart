@@ -1,6 +1,6 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
-/// Parrainage commercant (recompense de 100 EUR), chantier paiement Stripe.
+/// Parrainage commercant (recompense de 50 EUR), chantier paiement Stripe.
 /// Programme distinct du parrainage joueur existant (voir
 /// share_promo_service.dart) : code et recompense geres par un espace
 /// Firestore separe (merchant_referral_codes / merchant_referrals), jamais
