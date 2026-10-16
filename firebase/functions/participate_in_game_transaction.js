@@ -597,6 +597,15 @@ exports.participateInGameTransaction = functions.https.onCall(
           normalizedRemainingPart === null ? 3 : normalizedRemainingPart;
         const alreadyParticipatedToday = participantTodayDoc.exists;
         const unlimitedAccessActive = hasUnlimitedAccess(userData, now);
+        // A QR game explicitly configured as free never consumes a daily
+        // participation.  This decision is intentionally derived from the
+        // game document read in this transaction, never from callable input:
+        // historical QR games (field absent) and all non-QR games keep the
+        // normal debit behavior.
+        const qrConsumesParticipation = !(
+          gameData.access_mode === "qr_only" &&
+          gameData.qr_consumes_participation === false
+        );
         let uniquePlayerNew = false;
         const participantDetailData = participantDetailDoc.exists
           ? participantDetailDoc.data()
@@ -610,6 +619,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           dayKey,
           remainingPart,
           unlimitedAccessActive,
+          qrConsumesParticipation,
           alreadyParticipatedToday,
           participantTodayExists: participantTodayDoc.exists,
           participantDetailExists: participantDetailDoc.exists,
@@ -873,7 +883,11 @@ exports.participateInGameTransaction = functions.https.onCall(
         // (remaining_part deja decremente sur cette meme partie) ne doit
         // jamais tomber sur ce message a la place de son vrai resultat en
         // cache. Ne s'applique qu'a une VRAIE nouvelle participation.
-        if (remainingPart <= 0 && !unlimitedAccessActive) {
+        if (
+          remainingPart <= 0 &&
+          qrConsumesParticipation &&
+          !unlimitedAccessActive
+        ) {
           transactionDecision = "no_remaining_part";
           finalLastPlayIso = traceSerializable(participantDetailLastPlay);
           finalRemainingPartValue = remainingPart;
@@ -958,7 +972,7 @@ exports.participateInGameTransaction = functions.https.onCall(
 
         let messageBonus = "";
         let remainingPartDelta = 0;
-        if (!unlimitedAccessActive) {
+        if (qrConsumesParticipation && !unlimitedAccessActive) {
           remainingPartDelta -= 1;
         }
 
