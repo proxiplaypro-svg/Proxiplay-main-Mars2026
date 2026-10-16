@@ -18,6 +18,7 @@ import '/utils/minor_restricted_game_access.dart';
 import '/utils/main_prize_ticket_presentation.dart';
 import '/utils/main_prize_presentation.dart';
 import '/utils/share_links.dart';
+import '/utils/qr_game_presentation.dart';
 import '/utils/game_view_tracker.dart';
 import '/utils/winner_identity.dart';
 import '/widgets/proxiplay_network_image.dart';
@@ -491,7 +492,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                 ),
           label: Text(_isLaunchingGame ? 'Chargement du jeu\u2026' : 'Jouer'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFC0392B),
+            backgroundColor: FlutterFlowTheme.of(context).primary,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14.0),
@@ -580,7 +581,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         ),
         label: const Text('Scanner le QR code en boutique'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFC0392B),
+          backgroundColor: FlutterFlowTheme.of(context).primary,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14.0),
@@ -1098,13 +1099,20 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final hasMainPrizeFlag = shouldShowMainPrizeTicket(
           hasMainPrize: gameDoc.hasHasMainPrize() ? gameDoc.hasMainPrize : null,
         );
+        final qrGamePresentation = resolveQrGamePresentation(
+          description: gameDoc.description,
+          mainPrizeDescription: gameDoc.snapshotData['main_prize_description'],
+          mainPrizeTitle: gameDoc.snapshotData['main_prize_title'],
+          isQrOnly: gameDoc.accessMode == AccessMode.qr_only,
+        );
+        final gameDescription = qrGamePresentation.gameDescription;
         final mainPrize = mainPrizePresentation(
           hasMainPrize: hasMainPrizeFlag,
           title: gameDoc.mainPrizeTitle,
           description: gameDoc.mainPrizeDescription,
         );
-        // `description` de games décrit le jeu : il ne doit jamais masquer
-        // ni remplacer un lot principal. Seuls ses champs dédiés comptent.
+        // La description générale décrit le jeu. Le lot principal n'utilise que
+        // ses champs dédiés, afin de ne jamais y replier la description du jeu.
         final shouldShowMainPrize = mainPrize.hasContent;
         final shouldShowAllPrizesAttributedAnnouncement = endDate != null &&
             getCurrentTimestamp.isAfter(endDate) &&
@@ -1625,6 +1633,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                               letterSpacing: -0.5,
                                             ),
                                           ),
+                                          if (gameDescription.isNotEmpty) ...[
+                                            const SizedBox(height: 12.0),
+                                            Text(
+                                              gameDescription,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 15.0,
+                                                fontWeight: FontWeight.w500,
+                                                color: const Color(0xFF4B5563),
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          ],
                                           const SizedBox(height: 12.0),
                                           if (showShopCard &&
                                               effectiveEnseigneDoc != null) ...[
@@ -3154,7 +3174,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       },
                                                     ),
                                                     if (shouldShowMainPrize)
-                                                      _buildYourTicketsCard(detailBodyStyle),
+                                                      _buildYourTicketsCard(
+                                                          detailBodyStyle),
                                                     if (hasSecondaryPrizeContent ||
                                                         shouldShowMainPrize)
                                                       Container(
@@ -3171,7 +3192,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                           border: Border.all(
                                                             color: const Color(
                                                                 0xFFE7EAF3),
-                                                                        ),
+                                                          ),
                                                           boxShadow: [
                                                             BoxShadow(
                                                               blurRadius: 18.0,
@@ -3346,8 +3367,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                           const SizedBox(
                                                               height: 8.0),
                                                           GamePrizeDeadlineRule(
-                                                            deadline: widget.gameDoc?.prizeUsageDeadline,
-                                                            style: detailBodyStyle,
+                                                            deadline: widget
+                                                                .gameDoc
+                                                                ?.prizeUsageDeadline,
+                                                            style:
+                                                                detailBodyStyle,
                                                           ),
                                                           if (hasSecondaryPrizeContent)
                                                             Row(
@@ -3439,7 +3463,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                       ),
                                                     ),
                                                     if (shouldShowMainPrize)
-                                                      _buildYourTicketsCard(detailBodyStyle),
+                                                      _buildYourTicketsCard(
+                                                          detailBodyStyle),
                                                     if (hasSecondaryPrizeContent ||
                                                         shouldShowMainPrize)
                                                       Container(
@@ -3456,7 +3481,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                           border: Border.all(
                                                             color: const Color(
                                                                 0xFFE7EAF3),
-                                                                        ),
+                                                          ),
                                                           boxShadow: [
                                                             BoxShadow(
                                                               blurRadius: 18.0,
@@ -3631,8 +3656,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                           const SizedBox(
                                                               height: 8.0),
                                                           GamePrizeDeadlineRule(
-                                                            deadline: widget.gameDoc?.prizeUsageDeadline,
-                                                            style: detailBodyStyle,
+                                                            deadline: widget
+                                                                .gameDoc
+                                                                ?.prizeUsageDeadline,
+                                                            style:
+                                                                detailBodyStyle,
                                                           ),
                                                           if (hasSecondaryPrizeContent)
                                                             Row(
