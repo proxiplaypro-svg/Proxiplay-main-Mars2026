@@ -16,6 +16,7 @@ import '/utils/create_account_to_play_dialog.dart';
 import '/utils/game_launch_coordinator.dart';
 import '/utils/minor_restricted_game_access.dart';
 import '/utils/main_prize_ticket_presentation.dart';
+import '/utils/main_prize_presentation.dart';
 import '/utils/share_links.dart';
 import '/utils/game_view_tracker.dart';
 import '/utils/winner_identity.dart';
@@ -1097,14 +1098,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final hasMainPrizeFlag = shouldShowMainPrizeTicket(
           hasMainPrize: gameDoc.hasHasMainPrize() ? gameDoc.hasMainPrize : null,
         );
-        final prizeValue = gameDoc.prizeValue;
-        final mainPrizeDescription = gameDoc.description.trim();
-        // Regle produit :
-        // Le lot principal doit etre monetaire.
-        // On affiche uniquement si hasMainPrize == true ET prizeValue > 0
-        final shouldShowMainPrize = hasMainPrizeFlag &&
-            prizeValue > 0 &&
-            mainPrizeDescription.isNotEmpty;
+        final mainPrize = mainPrizePresentation(
+          hasMainPrize: hasMainPrizeFlag,
+          title: gameDoc.mainPrizeTitle,
+          description: gameDoc.mainPrizeDescription,
+        );
+        // `description` de games décrit le jeu : il ne doit jamais masquer
+        // ni remplacer un lot principal. Seuls ses champs dédiés comptent.
+        final shouldShowMainPrize = mainPrize.hasContent;
         final shouldShowAllPrizesAttributedAnnouncement = endDate != null &&
             getCurrentTimestamp.isAfter(endDate) &&
             !shouldShowMainPrize &&
@@ -1170,14 +1171,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
           color: const Color(0xFF374151),
           height: 1.35,
         );
-        Widget buildMainPrizeWidget(
-          String description, {
-          bool showDescription = true,
-        }) {
-          if (!showDescription) {
-            return const SizedBox.shrink();
-          }
-
+        Widget buildMainPrizeWidget(MainPrizePresentation prize) {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1199,11 +1193,14 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6.0),
-                    Text(
-                      description,
-                      style: detailBodyStyle,
-                    ),
+                    if (prize.title.isNotEmpty) ...[
+                      const SizedBox(height: 6.0),
+                      Text(prize.title, style: detailBodyStyle),
+                    ],
+                    if (prize.hasDistinctDescription) ...[
+                      const SizedBox(height: 4.0),
+                      Text(prize.description, style: detailBodyStyle),
+                    ],
                   ],
                 ),
               ),
@@ -3208,7 +3205,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     height:
                                                                         14.0),
                                                                 buildMainPrizeWidget(
-                                                                  mainPrizeDescription,
+                                                                  mainPrize,
                                                                 ),
                                                               ],
                                                               if (hasSecondaryPrizeContent) ...[
@@ -3493,7 +3490,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                     height:
                                                                         14.0),
                                                                 buildMainPrizeWidget(
-                                                                  mainPrizeDescription,
+                                                                  mainPrize,
                                                                 ),
                                                               ],
                                                               if (hasSecondaryPrizeContent) ...[

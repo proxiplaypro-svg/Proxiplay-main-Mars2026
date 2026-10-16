@@ -26,6 +26,16 @@ class GamesRecord extends FirestoreRecord {
   String get description => _description ?? '';
   bool hasDescription() => _description != null;
 
+  // "main_prize_title" field.
+  String? _mainPrizeTitle;
+  String get mainPrizeTitle => _mainPrizeTitle ?? '';
+  bool hasMainPrizeTitle() => _mainPrizeTitle != null;
+
+  // "main_prize_description" field.
+  String? _mainPrizeDescription;
+  String get mainPrizeDescription => _mainPrizeDescription ?? '';
+  bool hasMainPrizeDescription() => _mainPrizeDescription != null;
+
   // "start_date" field.
   DateTime? _startDate;
   DateTime? get startDate => _startDate;
@@ -165,6 +175,8 @@ class GamesRecord extends FirestoreRecord {
   void _initializeFields() {
     _name = snapshotData['name'] as String?;
     _description = snapshotData['description'] as String?;
+    _mainPrizeTitle = snapshotData['main_prize_title'] as String?;
+    _mainPrizeDescription = snapshotData['main_prize_description'] as String?;
     _startDate = snapshotData['start_date'] as DateTime?;
     _endDate = snapshotData['end_date'] as DateTime?;
     _prizeUsageDeadline = snapshotData['prize_usage_deadline'] as DateTime?;
@@ -234,6 +246,8 @@ class GamesRecord extends FirestoreRecord {
         <String, dynamic>{
           'name': _name,
           'description': _description,
+          'main_prize_title': _mainPrizeTitle,
+          'main_prize_description': _mainPrizeDescription,
           'start_date': _startDate,
           'end_date': _endDate,
           'prize_usage_deadline': _prizeUsageDeadline,
@@ -280,6 +294,8 @@ class GamesRecord extends FirestoreRecord {
 Map<String, dynamic> createGamesRecordData({
   String? name,
   String? description,
+  String? mainPrizeTitle,
+  String? mainPrizeDescription,
   DateTime? startDate,
   DateTime? endDate,
   DateTime? prizeUsageDeadline,
@@ -312,6 +328,8 @@ Map<String, dynamic> createGamesRecordData({
     <String, dynamic>{
       'name': name,
       'description': description,
+      'main_prize_title': mainPrizeTitle,
+      'main_prize_description': mainPrizeDescription,
       'start_date': startDate,
       'end_date': endDate,
       'prize_usage_deadline': prizeUsageDeadline,
@@ -352,6 +370,8 @@ class GamesRecordDocumentEquality implements Equality<GamesRecord> {
   bool equals(GamesRecord? e1, GamesRecord? e2) {
     return e1?.name == e2?.name &&
         e1?.description == e2?.description &&
+        e1?.mainPrizeTitle == e2?.mainPrizeTitle &&
+        e1?.mainPrizeDescription == e2?.mainPrizeDescription &&
         e1?.startDate == e2?.startDate &&
         e1?.endDate == e2?.endDate &&
         e1?.prizeUsageDeadline == e2?.prizeUsageDeadline &&
@@ -385,6 +405,8 @@ class GamesRecordDocumentEquality implements Equality<GamesRecord> {
   int hash(GamesRecord? e) => const ListEquality().hash([
         e?.name,
         e?.description,
+        e?.mainPrizeTitle,
+        e?.mainPrizeDescription,
         e?.startDate,
         e?.endDate,
         e?.prizeUsageDeadline,
