@@ -40,6 +40,196 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
   bool _isCheckingCode = false;
+  static const _suggestionMinimumCharacters = 3;
+  static const _suggestionLimit = 5;
+  static const _suggestionDebounce = Duration(milliseconds: 200);
+
+  List<PrizesRecord>? _merchantPrizeCache;
+  Future<List<PrizesRecord>>? _merchantPrizeCacheLoad;
+  String? _merchantPrizeCacheUid;
+  List<PrizesRecord> _codeSuggestions = const [];
+  Timer? _suggestionDebounceTimer;
+  bool _isLoadingSuggestions = false;
+  bool _showNoSuggestions = false;
+  bool _suggestionLoadFailed = false;
+  int _suggestionRequestId = 0;
+
+  void _invalidatePrizeSuggestionCache() {
+    _merchantPrizeCache = null;
+    _merchantPrizeCacheLoad = null;
+    _merchantPrizeCacheUid = null;
+    _codeSuggestions = const [];
+    _isLoadingSuggestions = false;
+    _showNoSuggestions = false;
+    _suggestionLoadFailed = false;
+  }
+
+  void _onWinningCodeChanged() {
+    if (_isCheckingCode) return;
+    _suggestionDebounceTimer?.cancel();
+    final requestId = ++_suggestionRequestId;
+    final normalizedCode = _normalizeClaimCode(_model.textController.text);
+    if (normalizedCode.length < _suggestionMinimumCharacters) {
+      if (mounted) {
+        setState(() {
+          _codeSuggestions = const [];
+          _isLoadingSuggestions = false;
+          _showNoSuggestions = false;
+          _suggestionLoadFailed = false;
+        });
+      }
+      return;
+    }
+    _suggestionDebounceTimer = Timer(_suggestionDebounce, () {
+      _loadCodeSuggestions(normalizedCode, requestId);
+    });
+  }
+
+  Future<void> _loadCodeSuggestions(
+      String normalizedCode, int requestId) async {
+    final uid = currentUserUid;
+    if (uid.isEmpty || requestId != _suggestionRequestId) return;
+    if (_merchantPrizeCacheUid != null && _merchantPrizeCacheUid != uid) {
+      _invalidatePrizeSuggestionCache();
+    }
+    _merchantPrizeCacheUid ??= uid;
+
+    try {
+      if (_merchantPrizeCache == null) {
+        if (mounted && requestId == _suggestionRequestId) {
+          setState(() {
+            _isLoadingSuggestions = true;
+            _suggestionLoadFailed = false;
+          });
+        }
+        _merchantPrizeCacheLoad ??= loadMerchantPrizes(
+          timeout: const Duration(seconds: 15),
+        );
+        final loadedPrizes = await _merchantPrizeCacheLoad!;
+        if (!mounted ||
+            requestId != _suggestionRequestId ||
+            currentUserUid != uid ||
+            _merchantPrizeCacheUid != uid) {
+          return;
+        }
+        _merchantPrizeCache = loadedPrizes;
+      }
+      if (!mounted ||
+          requestId != _suggestionRequestId ||
+          currentUserUid != uid) {
+        return;
+      }
+      final suggestions = _merchantPrizeCache!
+          .where((prize) =>
+              prize.fulfillmentType == 'merchant' &&
+              prize.isAvailable &&
+              prize.claimCode.trim().isNotEmpty &&
+              _normalizeClaimCode(prize.claimCode).startsWith(normalizedCode))
+          .take(_suggestionLimit)
+          .toList(growable: false);
+      setState(() {
+        _isLoadingSuggestions = false;
+        _suggestionLoadFailed = false;
+        _codeSuggestions = suggestions;
+        _showNoSuggestions = suggestions.isEmpty;
+      });
+    } catch (_) {
+      if (!mounted ||
+          requestId != _suggestionRequestId ||
+          currentUserUid != uid) {
+        return;
+      }
+      // A failed load is not cached: a later edit can retry without ever
+      // treating stale or partial data as an authorization decision.
+      _merchantPrizeCacheLoad = null;
+      setState(() {
+        _isLoadingSuggestions = false;
+        _codeSuggestions = const [];
+        _showNoSuggestions = false;
+        _suggestionLoadFailed = true;
+      });
+    }
+  }
+
+  void _selectCodeSuggestion(PrizesRecord prize) {
+    _suggestionDebounceTimer?.cancel();
+    _suggestionRequestId++;
+    _model.textController.text = _normalizeClaimCode(prize.claimCode);
+    _model.textController!.selection = TextSelection.collapsed(
+      offset: _model.textController!.text.length,
+    );
+    setState(() {
+      _codeSuggestions = const [];
+      _showNoSuggestions = false;
+      _suggestionLoadFailed = false;
+    });
+    FocusScope.of(context).unfocus();
+  }
+
+  Widget _buildCodeSuggestions() {
+    // Never render cached data for a different session, even if an auth
+    // transition happens without another keystroke.
+    if (_merchantPrizeCacheUid != null &&
+        _merchantPrizeCacheUid != currentUserUid) {
+      return const SizedBox.shrink();
+    }
+    if (_isLoadingSuggestions) {
+      return const Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 8.0),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: SizedBox(
+            width: 16.0,
+            height: 16.0,
+            child: CircularProgressIndicator(strokeWidth: 2.0),
+          ),
+        ),
+      );
+    }
+    if (_suggestionLoadFailed) {
+      return const Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 8.0),
+        child: Text('Suggestions indisponibles. Vous pouvez verifier le code.'),
+      );
+    }
+    if (_showNoSuggestions) {
+      return const Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 8.0),
+        child: Text('Aucun code correspondant'),
+      );
+    }
+    if (_codeSuggestions.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 8.0),
+      child: Material(
+        color: FlutterFlowTheme.of(context).primaryBackground,
+        borderRadius: BorderRadius.circular(12.0),
+        child: ConstrainedBox(
+          // Keep the home content usable above the Android keyboard. More
+          // than three of the five capped results remains scrollable here.
+          constraints: const BoxConstraints(maxHeight: 156.0),
+          child: ListView.separated(
+            shrinkWrap: true,
+            primary: false,
+            padding: EdgeInsets.zero,
+            itemCount: _codeSuggestions.length,
+            separatorBuilder: (_, __) => const Divider(height: 1.0),
+            itemBuilder: (context, index) {
+              final prize = _codeSuggestions[index];
+              return ListTile(
+                dense: true,
+                title: Text(prize.claimCode),
+                subtitle: prize.name.trim().isEmpty ? null : Text(prize.name),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => _selectCodeSuggestion(prize),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 
   Future<void> _checkWinningCode() async {
     if (_isCheckingCode) return;
@@ -52,7 +242,14 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
     }
 
     trace('T0 click');
-    setState(() => _isCheckingCode = true);
+    _suggestionDebounceTimer?.cancel();
+    _suggestionRequestId++;
+    setState(() {
+      _isCheckingCode = true;
+      _codeSuggestions = const [];
+      _showNoSuggestions = false;
+      _suggestionLoadFailed = false;
+    });
     FocusScope.of(context).unfocus();
     final code = _normalizeClaimCode(_model.textController.text);
     _model.textController.text = code;
@@ -93,12 +290,17 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
         ),
       );
     } else {
-      context.pushNamed(
+      await context.pushNamed(
         ValidationLotCommercantPageWidget.routeName,
         queryParameters:
             {'prize': serializeParam(prize, ParamType.Document)}.withoutNulls,
         extra: <String, dynamic>{'prize': prize},
       );
+      // A successful claim is made on the next screen. Refresh after every
+      // return so a cached code can never be suggested as still available.
+      if (mounted) {
+        setState(_invalidatePrizeSuggestionCache);
+      }
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) trace('T3 result_frame');
@@ -307,10 +509,13 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
         parameters: {'screen_name': 'HomeCommercantPage'});
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
+    _model.textController!.addListener(_onWinningCodeChanged);
   }
 
   @override
   void dispose() {
+    _suggestionDebounceTimer?.cancel();
+    _model.textController?.removeListener(_onWinningCodeChanged);
     _model.dispose();
 
     super.dispose();
@@ -579,6 +784,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                               .asValidator(context),
                                         ),
                                       ),
+                                      _buildCodeSuggestions(),
                                       Builder(
                                         builder: (context) => Padding(
                                           padding: const EdgeInsetsDirectional

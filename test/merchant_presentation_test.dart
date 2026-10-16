@@ -134,17 +134,32 @@ class _AuthStore extends auth_platform.FirebaseAuthPlatform {
   @override
   set currentUser(auth_platform.UserPlatform? value) => _currentUser = value;
   @override
-  auth_platform.FirebaseAuthPlatform delegateFor({required FirebaseApp app}) => this;
+  auth_platform.FirebaseAuthPlatform delegateFor({required FirebaseApp app}) =>
+      this;
   @override
-  auth_platform.FirebaseAuthPlatform setInitialValues({auth_platform.InternalUserDetails? currentUser, String? languageCode}) {
+  auth_platform.FirebaseAuthPlatform setInitialValues(
+      {auth_platform.InternalUserDetails? currentUser, String? languageCode}) {
     if (currentUser != null) signIn(currentUser.userInfo.uid);
     return this;
   }
-  void signIn(String uid) => _currentUser = _AuthUser(this, _AuthMultiFactor(this), auth_platform.InternalUserDetails(userInfo: auth_platform.InternalUserInfo(uid: uid, isAnonymous: false, isEmailVerified: true), providerData: const []));
+
+  void signIn(String uid) => _currentUser = _AuthUser(
+      this,
+      _AuthMultiFactor(this),
+      auth_platform.InternalUserDetails(
+          userInfo: auth_platform.InternalUserInfo(
+              uid: uid, isAnonymous: false, isEmailVerified: true),
+          providerData: const []));
   void clearSession() => _currentUser = null;
 }
-class _AuthUser extends auth_platform.UserPlatform { _AuthUser(super.auth, super.multiFactor, super.user); }
-class _AuthMultiFactor extends auth_platform.MultiFactorPlatform { _AuthMultiFactor(super.auth); }
+
+class _AuthUser extends auth_platform.UserPlatform {
+  _AuthUser(super.auth, super.multiFactor, super.user);
+}
+
+class _AuthMultiFactor extends auth_platform.MultiFactorPlatform {
+  _AuthMultiFactor(super.auth);
+}
 
 class _Functions extends functions_platform.FirebaseFunctionsPlatform {
   _Functions() : super(null, 'europe-west1');
@@ -170,7 +185,9 @@ class _Callable extends functions_platform.HttpsCallablePlatform {
       throw StateError('Unexpected callable $name');
     }
     final fake = functions as _Functions;
-    return (name == 'getMerchantPrizes' ? fake.prizeHandler ?? fake.handler : fake.handler)(parameters);
+    return (name == 'getMerchantPrizes'
+        ? fake.prizeHandler ?? fake.handler
+        : fake.handler)(parameters);
   }
 }
 
@@ -559,8 +576,16 @@ void main() {
               now.add(Duration(days: state == 'finished' ? -1 : 5))),
       }, ref('games/manage'));
       expect(canManageFinishedMerchantGame(game), state == 'finished');
-      store.data['prizes/existing-code'] = {'name': 'Lot gagné', 'claim_code': 'ABC123', 'claimed': true};
-      calls.handler = (_) async => {'ids': state == 'finished' ? ['existing-code'] : <String>[], 'hasMore': false, 'cursor': ''};
+      store.data['prizes/existing-code'] = {
+        'name': 'Lot gagné',
+        'claim_code': 'ABC123',
+        'claimed': true
+      };
+      calls.handler = (_) async => {
+            'ids': state == 'finished' ? ['existing-code'] : <String>[],
+            'hasMore': false,
+            'cursor': ''
+          };
       await pump(tester,
           JeuDetailCommercantPageWidget(gameDoc: game, enseigneDoc: null),
           width: 320, scale: 2);
@@ -577,7 +602,10 @@ void main() {
               'La suppression retire le jeu de votre liste, sans effacer les statistiques.'),
           matcher);
       await tester.scrollUntilVisible(
-          find.text(state == 'finished' ? 'Code: ABC123' : "Aucun code gagnant pour l'instant"), 300,
+          find.text(state == 'finished'
+              ? 'Code: ABC123'
+              : "Aucun code gagnant pour l'instant"),
+          300,
           scrollable: find.byType(Scrollable).first);
       expect(find.text('Actualiser les lots'), findsNothing);
       expect(tester.takeException(), isNull);
@@ -615,31 +643,56 @@ void main() {
     }
   });
 
-
-  for (final scenario in ['invalid', 'claimed', 'expired', 'network', 'slow', 'timeout', 'dispose', 'navigate']) {
-    testWidgets('winning code $scenario restores controls and ignores late results', (tester) async {
+  for (final scenario in [
+    'invalid',
+    'claimed',
+    'expired',
+    'network',
+    'slow',
+    'timeout',
+    'dispose',
+    'navigate'
+  ]) {
+    testWidgets(
+        'winning code $scenario restores controls and ignores late results',
+        (tester) async {
       final previousUser = currentUser;
       currentUser = _GainsUser();
       addTearDown(() => currentUser = previousUser);
-      calls.handler = (_) async => {'ids': <String>[], 'cursor': '', 'hasMore': false};
+      calls.handler =
+          (_) async => {'ids': <String>[], 'cursor': '', 'hasMore': false};
       final pending = Completer<dynamic>();
       var count = 0;
-      calls.prizeHandler = (_) { count++; return pending.future; };
+      calls.prizeHandler = (_) {
+        count++;
+        return pending.future;
+      };
       store.data['prizes/check'] = {
         'claim_code': 'ABC123',
         'claimed': scenario == 'claimed',
-        if (scenario == 'expired') 'usage_deadline': Timestamp.fromDate(DateTime(2020)),
+        if (scenario == 'expired')
+          'usage_deadline': Timestamp.fromDate(DateTime(2020)),
       };
       await pump(tester, const HomeCommercantPageWidget());
       await tester.enterText(find.byType(TextFormField), 'abc123');
-      final buttonSize = tester.getSize(find.widgetWithText(ElevatedButton, 'V\u00e9rifier'));
+      final buttonSize =
+          tester.getSize(find.widgetWithText(ElevatedButton, 'V\u00e9rifier'));
       await tester.tap(find.text('V\u00e9rifier'));
       await tester.tap(find.text('V\u00e9rifier'));
       await tester.pump();
       expect(find.text('V\u00e9rification...'), findsOneWidget);
-      expect(tester.widget<TextFormField>(find.byType(TextFormField)).enabled, isFalse);
-      expect(tester.widget<ElevatedButton>(find.widgetWithText(ElevatedButton, 'V\u00e9rification...')).onPressed, isNull);
-      expect(tester.getSize(find.widgetWithText(ElevatedButton, 'V\u00e9rification...')), buttonSize);
+      expect(tester.widget<TextFormField>(find.byType(TextFormField)).enabled,
+          isFalse);
+      expect(
+          tester
+              .widget<ElevatedButton>(
+                  find.widgetWithText(ElevatedButton, 'V\u00e9rification...'))
+              .onPressed,
+          isNull);
+      expect(
+          tester.getSize(
+              find.widgetWithText(ElevatedButton, 'V\u00e9rification...')),
+          buttonSize);
       expect(count, 1);
       if (scenario == 'slow') {
         await tester.pump(const Duration(seconds: 2));
@@ -649,17 +702,28 @@ void main() {
       if (scenario == 'dispose') {
         await tester.pumpWidget(const SizedBox());
       } else if (scenario == 'navigate') {
-        Navigator.of(tester.element(find.byType(TextFormField))).push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('Other page'))));
+        Navigator.of(tester.element(find.byType(TextFormField))).push(
+            MaterialPageRoute<void>(
+                builder: (_) => const Scaffold(body: Text('Other page'))));
         await tester.pump();
       } else if (scenario == 'timeout') {
         await tester.pump(const Duration(seconds: 16));
         await tester.pumpAndSettle();
-        expect(find.text('Impossible de v\u00e9rifier le code pour le moment. R\u00e9essayez.'), findsOneWidget);
+        expect(
+            find.text(
+                'Impossible de v\u00e9rifier le code pour le moment. R\u00e9essayez.'),
+            findsOneWidget);
       }
       if (scenario == 'network') {
         pending.completeError(StateError('network unavailable'));
       } else {
-        pending.complete({'ids': ['claimed', 'expired'].contains(scenario) ? ['check'] : <String>[], 'cursor': '', 'hasMore': false});
+        pending.complete({
+          'ids': ['claimed', 'expired'].contains(scenario)
+              ? ['check']
+              : <String>[],
+          'cursor': '',
+          'hasMore': false
+        });
       }
       await tester.pumpAndSettle();
       if (scenario == 'dispose' || scenario == 'navigate') {
@@ -668,16 +732,22 @@ void main() {
         final message = switch (scenario) {
           'claimed' => 'Ce lot a d\u00e9j\u00e0 \u00e9t\u00e9 retir\u00e9.',
           'expired' => 'Ce code a expir\u00e9.',
-          'network' || 'timeout' => 'Impossible de v\u00e9rifier le code pour le moment. R\u00e9essayez.',
+          'network' ||
+          'timeout' =>
+            'Impossible de v\u00e9rifier le code pour le moment. R\u00e9essayez.',
           _ => 'Code invalide',
         };
         expect(find.text(message), findsOneWidget);
         await tester.tap(find.text('Fermer'));
         await tester.pumpAndSettle();
-        expect(tester.widget<TextFormField>(find.byType(TextFormField)).enabled, isTrue);
+        expect(tester.widget<TextFormField>(find.byType(TextFormField)).enabled,
+            isTrue);
         expect(find.text('V\u00e9rifier'), findsOneWidget);
         // A timeout must permit retry; a late first response cannot replace it.
-        calls.prizeHandler = (_) async { count++; return {'ids': <String>[], 'cursor': '', 'hasMore': false}; };
+        calls.prizeHandler = (_) async {
+          count++;
+          return {'ids': <String>[], 'cursor': '', 'hasMore': false};
+        };
         await tester.tap(find.text('V\u00e9rifier'));
         await tester.pumpAndSettle();
         expect(count, 2);
@@ -688,20 +758,33 @@ void main() {
     });
   }
 
-  testWidgets('winning code valid navigates without writing or claiming', (tester) async {
+  testWidgets('winning code valid navigates without writing or claiming',
+      (tester) async {
     final previousUser = currentUser;
     currentUser = _GainsUser();
     addTearDown(() => currentUser = previousUser);
-    calls.handler = (_) async => {'ids': <String>[], 'cursor': '', 'hasMore': false};
-    calls.prizeHandler = (_) async => {'ids': ['check'], 'cursor': '', 'hasMore': false};
-    store.data['prizes/check'] = {'claim_code': 'ABC123', 'claimed': false, 'name': 'Test prize'};
+    calls.handler =
+        (_) async => {'ids': <String>[], 'cursor': '', 'hasMore': false};
+    calls.prizeHandler = (_) async => {
+          'ids': ['check'],
+          'cursor': '',
+          'hasMore': false
+        };
+    store.data['prizes/check'] = {
+      'claim_code': 'ABC123',
+      'claimed': false,
+      'name': 'Test prize'
+    };
     PrizesRecord? received;
     final router = GoRouter(routes: [
       GoRoute(path: '/', builder: (_, __) => const HomeCommercantPageWidget()),
-      GoRoute(path: '/validate', name: 'ValidationLotCommercantPage', builder: (_, state) {
-        received = (state.extra as Map)['prize'] as PrizesRecord;
-        return const Scaffold(body: Text('Confirmation s\u00e9par\u00e9e'));
-      }),
+      GoRoute(
+          path: '/validate',
+          name: 'ValidationLotCommercantPage',
+          builder: (_, state) {
+            received = (state.extra as Map)['prize'] as PrizesRecord;
+            return const Scaffold(body: Text('Confirmation s\u00e9par\u00e9e'));
+          }),
     ]);
     addTearDown(router.dispose);
     await pump(tester, MaterialApp.router(routerConfig: router));
@@ -1426,6 +1509,89 @@ void main() {
     expect(find.byType(MerchantHours), findsOneWidget);
     await capture(tester, 'pickup_point');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'merchant winning-code suggestions are local, filtered and cached',
+      (tester) async {
+    final previousUser = currentUser;
+    currentUser = _GainsUser();
+    addTearDown(() => currentUser = previousUser);
+    var prizeLoads = 0;
+    calls.handler =
+        (_) async => {'ids': <String>[], 'cursor': '', 'hasMore': false};
+    calls.prizeHandler = (_) async {
+      prizeLoads++;
+      return {
+        'ids': [
+          for (var i = 0; i < 6; i++) 'available_$i',
+          'claimed',
+          'expired',
+          'platform',
+          'partner',
+        ],
+        'hasMore': false,
+        'cursor': '',
+      };
+    };
+    final owner = FirebaseFirestore.instance.doc('users/gains-player');
+    for (var i = 0; i < 6; i++) {
+      store.data['prizes/available_$i'] = {
+        'claim_code': 'ab-c00$i',
+        'owner_id': owner,
+        'claimed': false,
+        'name': 'Lot $i',
+      };
+    }
+    store.data['prizes/claimed'] = {
+      'claim_code': 'ABC999',
+      'owner_id': owner,
+      'claimed': true
+    };
+    store.data['prizes/expired'] = {
+      'claim_code': 'ABC998',
+      'owner_id': owner,
+      'usage_deadline': Timestamp.fromDate(DateTime(2020))
+    };
+    store.data['prizes/platform'] = {
+      'claim_code': 'ABC997',
+      'owner_id': owner,
+      'fulfillment_type': 'platform'
+    };
+    store.data['prizes/partner'] = {
+      'claim_code': 'ABC996',
+      'owner_id': owner,
+      'fulfillment_type': 'partner'
+    };
+
+    await pump(tester, const HomeCommercantPageWidget());
+    await tester.enterText(find.byType(TextFormField), 'a- bc');
+    await tester.pump(const Duration(milliseconds: 199));
+    expect(prizeLoads, 0);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pumpAndSettle();
+    expect(prizeLoads, 1);
+    expect(find.text('ab-c000'), findsOneWidget);
+    expect(find.text('ABC999'), findsNothing);
+    expect(find.text('ABC998'), findsNothing);
+    expect(find.text('ABC997'), findsNothing);
+    expect(find.text('ABC996'), findsNothing);
+
+    await tester.enterText(find.byType(TextFormField), 'abc0');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(prizeLoads, 1, reason: 'the local cache serves subsequent input');
+    await tester.tap(find.text('ab-c000'));
+    await tester.pump();
+    expect(
+        tester
+            .widget<TextFormField>(find.byType(TextFormField))
+            .controller!
+            .text,
+        'ABC000');
+    expect(find.text('ab-c001'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets(
