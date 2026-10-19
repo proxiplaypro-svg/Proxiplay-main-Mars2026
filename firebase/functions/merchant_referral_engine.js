@@ -51,6 +51,10 @@ async function generateMerchantReferralCodeHandler(data, context) {
     throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
   }
   const db = admin.firestore();
+  const config = await db.doc("app_config/merchant_referral").get();
+  if (config.data()?.enabled === false) {
+    throw new functions.https.HttpsError("failed-precondition", "Le programme de parrainage est temporairement indisponible.");
+  }
   const inviterRef = db.doc(`users/${context.auth.uid}`);
   const existing = await db.collection(kMerchantReferralCodesCollection)
     .where("inviter_user_id", "==", inviterRef).limit(1).get();
@@ -203,7 +207,7 @@ async function adminMarkMerchantReferralPaidHandler(data, context) {
       status: "paid",
       paid_at: admin.firestore.FieldValue.serverTimestamp(),
       paid_reference: paidReference,
-      reward_amount_cents: kRewardAmountCents,
+      reward_amount_cents: snap.data().reward_amount_cents ?? kRewardAmountCents,
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
     });
   });
