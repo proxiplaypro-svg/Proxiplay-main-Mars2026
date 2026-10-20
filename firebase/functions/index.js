@@ -5820,6 +5820,52 @@ exports.notifyFollowedGamesEndingSoon = functions
   });
 
 /**
+ * Relance des commercants sans jeu actif (paliers 7 et 21 jours), 11h Paris.
+ * La decision "aucun jeu actif" est dans merchant_relaunch.js : tout jeu non
+ * annule relie a l'enseigne et non termine bloque la relance, et une erreur
+ * de lecture n'envoie rien.
+ */
+exports.relaunchInactiveMerchants = functions
+  .runWith(kPushNotificationRuntimeOpts)
+  .pubsub.schedule("0 11 * * *")
+  .timeZone(kParisTimeZone)
+  .onRun(async () => {
+    const startTime = Date.now();
+    let mailer = null;
+    try {
+      const stats = await require("./merchant_relaunch").runMerchantRelaunch({
+        db: firestore,
+        admin,
+        logger: console,
+        toDocRef,
+        getTrimmedString,
+        pushCollection: kPushNotificationsCollection,
+        getOwnerContact: async (ownerRef) => {
+          const [tokensSnap, ownerDataRaw] = await Promise.all([
+            ownerRef.collection(kFcmTokensCollection).limit(1).get(),
+            getDocData(ownerRef),
+          ]);
+          const ownerData = ownerDataRaw || {};
+          return {
+            hasPushToken: !tokensSnap.empty,
+            email: await resolveUserEmail(ownerRef, ownerData),
+            firstName: buildUserNameParts(ownerData, "Bonjour").firstName,
+          };
+        },
+        sendEmail: (to, subject, body) => {
+          mailer = mailer || createSmtpMailer();
+          return sendEmailNotification(mailer, to, subject, body);
+        },
+      });
+      console.log(`[relaunchInactiveMerchants] done ${JSON.stringify(stats)} elapsed=${Date.now() - startTime}ms`);
+      return null;
+    } catch (e) {
+      console.error(`[relaunchInactiveMerchants] critical error=${e.message || e}`);
+      throw e;
+    }
+  });
+
+/**
  * Relance des joueurs inactifs (V1 SIMPLE)
  * - Runs quotidiennement à 10h (Europe/Paris)
  * - Lit config depuis app_config/notifications_auto
