@@ -10,6 +10,7 @@ const {shopOwnerRef,ownsPrize}=require('./merchant_ownership');
 const {shouldNotifyMerchantForPrize,merchantNotificationSkipReason}=require('./prize_merchant_notification_policy');
 exports.getMerchantPrizes=require('./merchant_prizes').getMerchantPrizes;
 exports.searchMerchantPrizeCodes=require('./merchant_prizes').searchMerchantPrizeCodes;
+exports.syncPrizeSearchCode=require('./merchant_prizes').syncPrizeSearchCode;
 exports.syncPrizeLotSnapshot = require('./prize_lot_snapshot').syncPrizeLotSnapshot;
 exports.getMerchantGames = require('./merchant_games').getMerchantGames;
 exports.syncPublicPrizeWinner = require("./public_winners").syncPublicPrizeWinner;
