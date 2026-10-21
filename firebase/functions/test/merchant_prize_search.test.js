@@ -23,9 +23,12 @@ test('scoped prefix suggestions, historical owners and rate limiting',async()=>{
  await db.doc('prizes/after').set({owner_id:merchant,claim_code:'LONG999'});
  for(const doc of (await db.collection('prizes').get()).docs) await syncPrizeSearchCodeCore(doc.ref);
  const result=await searchMerchantPrizeCodesCore('merchant','abc');
- assert.deepEqual(new Set(result.ids),new Set(['a','b','c']));
+ assert.deepEqual(new Set(result.ids),new Set(['a','b','c','e'])); // e is claimed: listed last, flagged by the app
  assert.equal((await searchMerchantPrizeCodesCore('merchant','ZZZ')).ids.length,5);
- assert.deepEqual((await searchMerchantPrizeCodesCore('merchant','LONG')).ids,['after']);
+ // Pagination still reaches the only unclaimed code behind 55 claimed ones; claimed codes follow it.
+ const long=(await searchMerchantPrizeCodesCore('merchant','LONG')).ids;
+ assert.equal(long[0],'after');
+ assert.ok(long.slice(1).every(id=>id.startsWith('invalid')));
  await db.doc('prizes/historical').set({owner_id:merchant,claim_code:'q-r 123'});
  await syncPrizeSearchCodeCore(db.doc('prizes/historical'));
  assert.deepEqual((await searchMerchantPrizeCodesCore('merchant','q-r 1')).ids,['historical']);
