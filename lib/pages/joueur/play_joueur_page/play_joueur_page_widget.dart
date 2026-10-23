@@ -19,6 +19,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
+import '/utils/partner_play_messages.dart';
 import 'play_joueur_page_model.dart';
 export 'play_joueur_page_model.dart';
 
@@ -94,6 +95,8 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
   late PlayJoueurPageModel _model;
   String? _resultMessage;
   String? _resultMessageBonus;
+  // Partner invitation after a losing scratch (null most of the time).
+  String? _partnerPlayMessage;
   bool _isPreparingShare = false;
   bool _isShareDialogVisible = false;
   late String _preparedShareText;
@@ -141,14 +144,14 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
 
     final lowerBackendMessage = backendMessage.toLowerCase();
     final isAlreadyPlayedStatusMessage =
-        lowerBackendMessage.contains('dï¿½jï¿½ participï¿½') ||
+        lowerBackendMessage.contains('déjà participé') ||
             lowerBackendMessage.contains('deja participe');
     final isBackendStatusMessage = isAlreadyPlayedStatusMessage ||
         lowerBackendMessage.contains('plus de parties');
     if (isBackendStatusMessage) {
       if (isAlreadyPlayedStatusMessage) {
         const normalizedAlreadyPlayedMessage =
-            'Vous avez dï¿½jï¿½ participï¿½ ï¿½ ce jeu.';
+            'Vous avez déjà participé à ce jeu.';
         _logPlayPageTrace(
           'play_page_resolve_display_message_return',
           detail:
@@ -224,7 +227,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                     const SizedBox(width: 12.0),
                     Flexible(
                       child: Text(
-                        'Prï¿½paration du partage...',
+                        'Préparation du partage...',
                         style: FlutterFlowTheme.of(context).bodyMedium.override(
                               font: GoogleFonts.inter(
                                 fontWeight: FontWeight.w600,
@@ -375,13 +378,13 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     output = output.replaceAll(
         RegExp(r'[^\u0009\u000A\u000D\u0020-\u007E\u00A0-\u00FF\u20AC]'), '');
     output = output.replaceAll(RegExp(r'\s+'), ' ');
-    output = output.replaceFirst(RegExp(r'^[^A-Za-zï¿½-ï¿½ï¿½-ï¿½ï¿½-ï¿½0-9]+'), '');
+    output = output.replaceFirst(RegExp(r'^[^A-Za-zÀ-ÖØ-öø-ÿ0-9]+'), '');
     return output.trim();
   }
 
   String _tryDecodeMojibake(String input) {
     final hasMojibakeMarkers =
-        input.contains('ï¿½') || input.contains('ï¿½') || input.contains('ï¿½');
+        input.contains('Ã') || input.contains('Â') || input.contains('â');
     if (!hasMojibakeMarkers) {
       return input;
     }
@@ -557,7 +560,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     // par texte ci-dessous ne sert que de filet de securite si jamais ce
     // flag n'est pas transmis par un appelant.
     final isAlreadyPlayedStatus = widget.alreadyParticipatedToday ||
-        lowerBackendMessage.contains('dï¿½jï¿½ participï¿½') ||
+        lowerBackendMessage.contains('déjà participé') ||
         lowerBackendMessage.contains('deja participe');
     final hasMainPrizeGame =
         widget.game != null ? hasMainPrize(widget.game!) : false;
@@ -1131,6 +1134,17 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                     } else {
                                                       _model.isWin = false;
                                                       safeSetState(() {});
+                                                      // About one real losing scratch out of three
+                                                      // (never a replay of an already played game):
+                                                      // a short invitation to play at a partner.
+                                                      if (!isAlreadyPlayedStatus) {
+                                                        final partnerMessage =
+                                                            await nextPartnerPlayMessage();
+                                                        if (mounted && partnerMessage != null) {
+                                                          safeSetState(() =>
+                                                              _partnerPlayMessage = partnerMessage);
+                                                        }
+                                                      }
                                                     }
                                                     _logPlayPageTrace(
                                                       'scratch_card_setCardRevealed_exit',
@@ -1527,6 +1541,44 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                       child: Column(
                                         mainAxisSize: MainAxisSize.max,
                                         children: [
+                                          if (_partnerPlayMessage != null &&
+                                              widget.resultParticipation
+                                                      ?.isWin !=
+                                                  true)
+                                            Row(
+                                              key: const ValueKey(
+                                                  'partner-play-message'),
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.qr_code_2_rounded,
+                                                  size: 18.0,
+                                                  color: FlutterFlowTheme.of(
+                                                          context)
+                                                      .secondaryText,
+                                                ),
+                                                const SizedBox(width: 8.0),
+                                                Flexible(
+                                                  child: Text(
+                                                    _partnerPlayMessage!,
+                                                    textAlign:
+                                                        TextAlign.center,
+                                                    style: FlutterFlowTheme.of(
+                                                            context)
+                                                        .bodySmall
+                                                        .override(
+                                                          font:
+                                                              GoogleFonts.inter(),
+                                                          color: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .secondaryText,
+                                                          letterSpacing: 0.0,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           if (widget
                                                   .resultParticipation?.isWin ==
                                               true)
@@ -1596,7 +1648,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                       .routeName);
                                             },
                                             text: isAlreadyPlayedStatus
-                                                ? 'Retour ï¿½ l\'accueil'
+                                                ? 'Retour à l\'accueil'
                                                 : 'Revenez demain',
                                             options: FFButtonOptions(
                                               width: double.infinity,
