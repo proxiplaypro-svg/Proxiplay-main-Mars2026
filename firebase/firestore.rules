@@ -751,7 +751,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Parrainage commercant (prime de 50 EUR). Document d'id = l'uid du
+    // Parrainage commercant (50 EUR en bons cadeaux pour le parrain). Document d'id = l'uid du
     // commercant parraine : la cle d'unicite est le compte commercant
     // lui-meme (coherent avec "un paiement par commercant"), ce qui
     // empeche structurellement plus d'une prime pour le meme commercant,
@@ -771,7 +771,7 @@ service cloud.firestore {
     }
 
     // Codes de parrainage commercant, distincts des codes du parrainage
-    // joueur existant (share_promo) : programme different (50 EUR cash vs
+    // joueur existant (share_promo) : programme different (50 EUR en bons cadeaux vs
     // bonus en jeu), espace de codes separe pour ne jamais les confondre.
     // Genere uniquement par la Callable generateMerchantReferralCode (SDK
     // admin) -- jamais en ecriture directe client, pour empecher la

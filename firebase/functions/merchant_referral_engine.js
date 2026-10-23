@@ -1,4 +1,4 @@
-// Parrainage commercant (prime de 50 EUR), chantier paiement Stripe.
+// Parrainage commercant (50 EUR en bons cadeaux pour le parrain, jamais en especes).
 // Programme distinct du parrainage joueur existant (share_promo) : code,
 // recompense et regles anti-fraude propres. La cle d'unicite d'une prime
 // est le COMPTE commercant parraine (doc id = merchantUserId sous
@@ -123,6 +123,54 @@ async function cancelReferralIfNotYetPaid(db, merchantUserId, reason) {
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
     });
   });
+}
+
+/**
+ * Confirmation MANUELLE du premier abonnement paye, tant que Stripe n'est
+ * pas operationnel : meme transition que le webhook (linked -> eligible),
+ * tracee (reference du reglement ou de la facture, date du paiement,
+ * administrateur). Ne transitionne que depuis 'linked' : un second passage,
+ * manuel ou par le webhook, est toujours refuse ou sans effet.
+ */
+async function adminConfirmMerchantFirstPaymentHandler(data, context) {
+  const db = admin.firestore();
+  await assertCallerIsAdmin(db, context);
+  const merchantUserId = typeof data?.merchantUserId === "string" ? data.merchantUserId.trim() : "";
+  const paymentReference = typeof data?.paymentReference === "string" ? data.paymentReference.trim() : "";
+  const paidAtMs = Date.parse(typeof data?.paidAt === "string" ? data.paidAt : "");
+  if (!merchantUserId || !paymentReference || paymentReference.length > 200 ||
+      !Number.isFinite(paidAtMs) || paidAtMs > Date.now()) {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "merchantUserId, paymentReference et paidAt (date passee) sont requis.",
+    );
+  }
+  const referralRef = db.collection(kMerchantReferralsCollection).doc(merchantUserId);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(referralRef);
+    if (!snap.exists) throw new functions.https.HttpsError("not-found", "Parrainage introuvable.");
+    if (snap.data().status !== "linked") {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        `Le premier paiement ne peut etre confirme qu'une fois (statut actuel: ${snap.data().status}).`,
+      );
+    }
+    const paidAt = admin.firestore.Timestamp.fromMillis(paidAtMs);
+    tx.update(referralRef, {
+      status: "eligible",
+      first_payment_confirmed_at: paidAt,
+      eligible_at: admin.firestore.FieldValue.serverTimestamp(),
+      payment_confirmation: {
+        method: "manual",
+        reference: paymentReference,
+        paid_at: paidAt,
+        confirmed_by: context.auth.uid,
+        confirmed_at: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  });
+  return {status: "eligible"};
 }
 
 async function adminApproveMerchantReferralHandler(data, context) {
@@ -254,6 +302,11 @@ exports.generateMerchantReferralCode = functions
   .runWith({timeoutSeconds: 30, memory: "256MB"})
   .https.onCall(generateMerchantReferralCodeHandler);
 
+exports.adminConfirmMerchantFirstPayment = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 30, memory: "256MB"})
+  .https.onCall(adminConfirmMerchantFirstPaymentHandler);
+
 exports.adminApproveMerchantReferral = functions
   .region(kFunctionsRegion)
   .runWith({timeoutSeconds: 30, memory: "256MB"})
@@ -278,6 +331,7 @@ exports.adminSetMerchantCustomOffer = functions
 exports.markReferralEligibleOnFirstPayment = markReferralEligibleOnFirstPayment;
 exports.cancelReferralIfNotYetPaid = cancelReferralIfNotYetPaid;
 exports.generateMerchantReferralCodeHandler = generateMerchantReferralCodeHandler;
+exports.adminConfirmMerchantFirstPaymentHandler = adminConfirmMerchantFirstPaymentHandler;
 exports.adminApproveMerchantReferralHandler = adminApproveMerchantReferralHandler;
 exports.adminRejectMerchantReferralHandler = adminRejectMerchantReferralHandler;
 exports.adminMarkMerchantReferralPaidHandler = adminMarkMerchantReferralPaidHandler;

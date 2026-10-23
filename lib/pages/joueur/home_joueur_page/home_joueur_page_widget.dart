@@ -1661,7 +1661,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     return Semantics(
       container: true,
       button: true,
-      label: 'Parrainez un commerçant et recevez un bon cadeau de 50 euros si son abonnement est éligible et le parrainage validé.',
+      label: 'Parrainez un commerçant et recevez 50 euros en bons cadeaux après son premier abonnement réglé et la validation du parrainage.',
       child: Material(
         color: Colors.transparent,
         child: Ink(
@@ -1712,16 +1712,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                           Text.rich(
                             TextSpan(
                               children: [
-                                const TextSpan(text: 'Un '),
                                 TextSpan(
-                                  text: 'bon cadeau de 50 €',
+                                  text: '50 € en bons cadeaux',
                                   style: GoogleFonts.interTight(
                                     color: raspberry,
                                     fontSize: 19.0,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                const TextSpan(text: ' après souscription éligible et validation.'),
+                                const TextSpan(text: ' après le premier abonnement réglé et validation.'),
                               ],
                             ),
                             style: theme.bodyMedium.override(

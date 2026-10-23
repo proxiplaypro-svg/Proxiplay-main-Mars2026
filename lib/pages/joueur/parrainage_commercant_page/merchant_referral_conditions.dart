@@ -8,9 +8,9 @@ class MerchantReferralConditionsDialog extends StatelessWidget {
         title: const Text('Conditions du programme'),
         content: const SingleChildScrollView(
           child: Text(
-            'Le parrain est un joueur ProxiPlay. Il reçoit un bon cadeau de 50 € lorsque le commerçant parrainé souscrit un abonnement éligible et que le parrainage est validé. '
-            'Le code doit être renseigné lors de la souscription. Un même compte commerçant ne peut être parrainé qu’une fois. '
-            'Les modalités de remise du bon cadeau restent à préciser. '
+            'Le parrain peut être un joueur ou un commerçant ProxiPlay. Il reçoit 50 € en bons cadeaux, jamais en espèces, lorsque le commerçant parrainé a réglé son premier abonnement et que le parrainage est validé. '
+            'Le commerçant renseigne le code en créant son compte ProxiPlay. Un même compte commerçant ne peut être parrainé qu’une fois. '
+            'Les modalités de remise des bons cadeaux restent à préciser. '
             'Les droits des parrainages antérieurs restent soumis aux conditions qui leur étaient applicables.',
           ),
         ),

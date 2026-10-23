@@ -28,6 +28,28 @@ void main() {
       expect(text, isNot(contains('https://')));
       expect(text.toLowerCase(), isNot(contains('garanti')));
       expect(text.toLowerCase(), isNot(contains('automatiquement')));
+      // The merchant enters it while creating the ProxiPlay merchant account.
+      expect(text, contains('en créant votre compte commerçant ProxiPlay'));
+    });
+  });
+
+  group('merchant signup code (merchant referral program only)', () {
+    test('normalized: spaces removed, upper case, any server-side format kept', () {
+      expect(normalizeMerchantSignupCode(' ab3d e7g2 '), 'AB3DE7G2');
+      expect(normalizeMerchantSignupCode('ucdunkerque'), 'UCDUNKERQUE');
+      expect(normalizeMerchantSignupCode(null), '');
+    });
+    test('each refusal has its own message, the partner code is explicit', () {
+      expect(merchantSignupCodeErrorMessage('failed-precondition', {'reason': 'partner_code_unavailable'}),
+          contains('codes partenaires ne sont pas encore disponibles'));
+      expect(merchantSignupCodeErrorMessage('failed-precondition', {'reason': 'program_unavailable'}),
+          contains('momentanément indisponible'));
+      expect(merchantSignupCodeErrorMessage('failed-precondition', {'reason': 'code_unavailable'}),
+          contains('plus valable'));
+      expect(merchantSignupCodeErrorMessage('already-exists', {'reason': 'email_exists'}),
+          contains('possède déjà un compte'));
+      expect(merchantSignupCodeErrorMessage('not-found', null), contains('inconnu'));
+      expect(merchantSignupCodeErrorMessage('unavailable', null), contains('ne sera pas perdu'));
     });
   });
 

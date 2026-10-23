@@ -10,8 +10,10 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/index.dart';
+import '/services/merchant_referral_service.dart';
 import '/services/share_promo_service.dart';
 import '/services/referral_signup_error.dart';
+import '/utils/merchant_referral_utils.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart' as crypto;
@@ -46,6 +48,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     with TickerProviderStateMixin {
   late InscriptionPageModel _model;
   final SharePromoService _sharePromoService = SharePromoService();
+  final MerchantReferralService _merchantReferralService = MerchantReferralService();
   bool _isApplyingPendingReferralCode = false;
   bool _isSubmittingPlayerSignup = false;
   bool _isSubmittingMerchantSignup = false;
@@ -96,6 +99,9 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
 
     _model.passwordConfirmCommercantTextController ??= TextEditingController();
     _model.passwordConfirmCommercantFocusNode ??= FocusNode();
+    // Never prefilled with a player referral code from a deep link.
+    _model.merchantSignupCodeTextController ??= TextEditingController();
+    _model.merchantSignupCodeFocusNode ??= FocusNode();
 
     animationsMap.addAll({
       'containerOnPageLoadAnimation': AnimationInfo(
@@ -3033,9 +3039,156 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                         ),
                                                       ),
                                                     ),
-                                                    // No referral code here: the player referral program (share_promo) is
-                                                    // for new players only, and the merchant referral program (50 EUR in gift
-                                                    // cards for the referring player) has its own code entry.
+                                                    // Merchant referral program only (ambassador code, later partner codes),
+                                                    // checked by the server: never the player referral code (share_promo).
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsetsDirectional
+                                                              .fromSTEB(0.0,
+                                                              0.0, 0.0, 16.0),
+                                                      child: SizedBox(
+                                                        width: double.infinity,
+                                                        child: TextFormField(
+                                                          controller: _model
+                                                              .merchantSignupCodeTextController,
+                                                          focusNode: _model
+                                                              .merchantSignupCodeFocusNode,
+                                                          autofocus: false,
+                                                          autocorrect: false,
+                                                          enableSuggestions:
+                                                              false,
+                                                          textCapitalization:
+                                                              TextCapitalization
+                                                                  .characters,
+                                                          decoration:
+                                                              InputDecoration(
+                                                            labelText:
+                                                                'Code de parrainage ou partenaire (facultatif)',
+                                                            labelStyle:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .labelMedium
+                                                                    .override(
+                                                                      font: GoogleFonts
+                                                                          .inter(
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .labelMedium
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .labelMedium
+                                                                            .fontStyle,
+                                                                      ),
+                                                                      color: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .fieldText,
+                                                                      letterSpacing:
+                                                                          0.0,
+                                                                      fontWeight: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .labelMedium
+                                                                          .fontWeight,
+                                                                      fontStyle: FlutterFlowTheme.of(
+                                                                              context)
+                                                                          .labelMedium
+                                                                          .fontStyle,
+                                                                    ),
+                                                            enabledBorder:
+                                                                OutlineInputBorder(
+                                                              borderSide:
+                                                                  const BorderSide(
+                                                                color: Color(
+                                                                    0x00000000),
+                                                                width: 2.0,
+                                                              ),
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          12.0),
+                                                            ),
+                                                            focusedBorder:
+                                                                OutlineInputBorder(
+                                                              borderSide:
+                                                                  BorderSide(
+                                                                color: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .primary,
+                                                                width: 2.0,
+                                                              ),
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          12.0),
+                                                            ),
+                                                            errorBorder:
+                                                                OutlineInputBorder(
+                                                              borderSide:
+                                                                  BorderSide(
+                                                                color: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .error,
+                                                                width: 2.0,
+                                                              ),
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          12.0),
+                                                            ),
+                                                            focusedErrorBorder:
+                                                                OutlineInputBorder(
+                                                              borderSide:
+                                                                  BorderSide(
+                                                                color: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .error,
+                                                                width: 2.0,
+                                                              ),
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          12.0),
+                                                            ),
+                                                            filled: true,
+                                                            fillColor:
+                                                                FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .fieldBg,
+                                                            contentPadding:
+                                                                const EdgeInsets
+                                                                    .all(24.0),
+                                                          ),
+                                                          style: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .bodyMedium
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .fontStyle,
+                                                                ),
+                                                                color: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .primaryText,
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontWeight,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontStyle,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    ),
                                                     Padding(
                                                       padding:
                                                           const EdgeInsetsDirectional
@@ -3293,20 +3446,49 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                   true;
                                                             });
                                                             try {
-                                                              final user =
-                                                                  await authManager
-                                                                      .createAccountWithEmail(
-                                                                context,
-                                                                _model
-                                                                    .emailAddressCommercantTextController
-                                                                    .text
-                                                                    .trim(),
-                                                                _model
-                                                                    .passwordCommercantTextController
-                                                                    .text,
-                                                                roleHint: _model
-                                                                    .userType,
-                                                              );
+                                                              final merchantEmail = _model
+                                                                  .emailAddressCommercantTextController
+                                                                  .text
+                                                                  .trim();
+                                                              final merchantPassword = _model
+                                                                  .passwordCommercantTextController
+                                                                  .text;
+                                                              // Merchant referral program only: with a code
+                                                              // the server checks it, creates the account and
+                                                              // records the link. Same request id on every
+                                                              // retry, so a valid code is never lost.
+                                                              final merchantCode = normalizeMerchantSignupCode(
+                                                                  _model.merchantSignupCodeTextController?.text);
+                                                              SharedPreferences? merchantPrefs;
+                                                              String? merchantOpKey;
+                                                              if (merchantCode.isNotEmpty) {
+                                                                merchantPrefs = await SharedPreferences.getInstance();
+                                                                merchantOpKey = 'merchant_signup_${crypto.sha256.convert(utf8.encode('${merchantEmail.toLowerCase()}|$merchantCode'))}';
+                                                                final requestId = merchantPrefs.getString(merchantOpKey) ?? const Uuid().v4();
+                                                                await merchantPrefs.setString(merchantOpKey, requestId);
+                                                                try {
+                                                                  await _merchantReferralService.createMerchantAccountWithReferral(
+                                                                    email: merchantEmail,
+                                                                    password: merchantPassword,
+                                                                    code: merchantCode,
+                                                                    requestId: requestId,
+                                                                  );
+                                                                } on FirebaseFunctionsException catch (error) {
+                                                                  _showReferralErrorMessage(
+                                                                      merchantSignupCodeErrorMessage(error.code, error.details));
+                                                                  return;
+                                                                }
+                                                              }
+                                                              if (!context.mounted) return;
+                                                              final user = merchantCode.isEmpty
+                                                                  ? await authManager.createAccountWithEmail(
+                                                                      context, merchantEmail, merchantPassword,
+                                                                      roleHint: _model.userType)
+                                                                  : await authManager.signInWithEmail(
+                                                                      context, merchantEmail, merchantPassword);
+                                                              if (user != null && merchantCode.isNotEmpty) {
+                                                                await merchantPrefs!.remove(merchantOpKey!);
+                                                              }
                                                               if (user ==
                                                                   null) {
                                                                 return;

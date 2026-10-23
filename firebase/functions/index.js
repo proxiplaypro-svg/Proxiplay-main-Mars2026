@@ -30,6 +30,14 @@ exports.adminMarkMerchantReferralPaid =
   require('./merchant_referral_engine').adminMarkMerchantReferralPaid;
 exports.adminSetMerchantCustomOffer =
   require('./merchant_referral_engine').adminSetMerchantCustomOffer;
+// Parrainage commercant a l'inscription (code ambassadeur), distinct du
+// parrainage joueur, et confirmation manuelle du premier abonnement paye.
+exports.adminConfirmMerchantFirstPayment =
+  require('./merchant_referral_engine').adminConfirmMerchantFirstPayment;
+exports.createMerchantAccountWithReferral =
+  require('./merchant_signup_referral').createMerchantAccountWithReferral;
+exports.resumeMerchantSignupReferral =
+  require('./merchant_signup_referral').resumeMerchantSignupReferral;
 exports.listMerchantOffers = functions
   .region("us-central1")
   .runWith({timeoutSeconds: 10, memory: "128MB"})

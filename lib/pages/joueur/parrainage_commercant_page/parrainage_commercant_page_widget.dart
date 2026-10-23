@@ -170,9 +170,9 @@ class _ParrainageCommercantPageWidgetState
     const steps = [
       'Vous recommandez ProxiPlay à un commerçant.',
       'Vous lui transmettez votre code personnel.',
-      'Le commerçant s\'inscrit sur Proxiplay.fr et renseigne votre code.',
-      'Lorsqu\'il devient client payant dans les conditions du programme, '
-          'vous pouvez recevoir un bon cadeau de 50 € après validation.',
+      'Le commerçant renseigne votre code en créant son compte ProxiPlay.',
+      'Lorsqu\'il a réglé son premier abonnement, vous recevez 50 € '
+          'en bons cadeaux après validation.',
     ];
 
     return _card(
@@ -196,7 +196,7 @@ class _ParrainageCommercantPageWidgetState
               ),
               const SizedBox(width: 8.0),
               Text(
-                'Bon cadeau de 50 €',
+                '50 € en bons cadeaux',
                 style: GoogleFonts.interTight(
                   fontWeight: FontWeight.w900,
                   fontSize: 22.0,
@@ -207,8 +207,8 @@ class _ParrainageCommercantPageWidgetState
           ),
           const SizedBox(height: 4.0),
           Text(
-            'Recevez un bon cadeau de 50 € si le commerçant souscrit un '
-            'abonnement éligible et que le parrainage est validé.',
+            'Recevez 50 € en bons cadeaux lorsque le commerçant a réglé son '
+            'premier abonnement et que le parrainage est validé.',
             style: FlutterFlowTheme.of(context).bodyMedium.override(
                   font: GoogleFonts.inter(fontWeight: FontWeight.w400),
                   fontSize: 14.0,
