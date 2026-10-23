@@ -17,14 +17,9 @@ void main() {
     expect(describeReferralSignupError('already-exists', {'reason': 'email_exists'}).message, contains('e-mail'));
     expect(describeReferralSignupError('unavailable', null).message, contains('R\u00e9essayez'));
   });
-  test('a deleted then recreated address is told it cannot be referred', () {
-    expect(describeReferralSignupError('failed-precondition', {'reason': 'email_not_eligible'}).message,
-        contains('ne peut plus'));
-  });
   test('Google signup with a code: notice after sign-in, error before it', () {
     expect(googleReferralNotice('accepted'), isNull);
     expect(googleReferralNotice('existing_account'), contains('nouveaux comptes'));
-    expect(googleReferralNotice('not_eligible'), contains('sans parrainage'));
     expect(googleReferralNotice('refused'), contains('compte est créé'));
     expect(googleReferralErrorMessage('not-found', null), contains('invalide'));
     expect(googleReferralErrorMessage('failed-precondition', {'reason': 'referral_unavailable'}), contains('utilisé'));

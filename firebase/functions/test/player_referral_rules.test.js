@@ -1,4 +1,3 @@
-process.env.REFERRAL_EMAIL_HMAC_KEY ||= 'test-only-referral-email-hmac-key-0123456789';
 // Run only against a Firestore emulator and disposable demo project.
 const test = require('node:test');
 const assert = require('node:assert/strict');

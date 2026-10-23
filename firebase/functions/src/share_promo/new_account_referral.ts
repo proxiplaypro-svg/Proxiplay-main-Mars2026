@@ -11,57 +11,8 @@ import * as functions from 'firebase-functions';
 import { db } from './firestore';
 import { ReferralRecord } from './types';
 
-// --- Anti-abuse registry ----------------------------------------------------
-// HMAC of the normalized address, never the address itself. Written when a
-// referral is accepted and when an account is deleted, so a deleted then
-// recreated account (new for Firebase) is not referred again. Entries expire
-// after 2 years: checked on read, removed by a Firestore TTL policy on
-// expires_at once activated.
-export const kEmailRegistryRetentionMs = 730 * 24 * 60 * 60 * 1000;
-const kEmailRegistryCollection = '_referral_email_registry';
-
 export function normalizeEmail(email: unknown): string {
   return typeof email === 'string' ? email.trim().toLowerCase() : '';
-}
-
-// Throws (fail closed) when the server key is missing: no referral is then
-// accepted rather than one recorded without protection.
-export function emailRegistryKey(email: string): string {
-  const secret = process.env.REFERRAL_EMAIL_HMAC_KEY || '';
-  if (secret.length < 32) {
-    functions.logger.error('REFERRAL_EMAIL_HMAC_KEY_MISSING');
-    throw new functions.https.HttpsError('unavailable', 'Referral unavailable.');
-  }
-  return crypto.createHmac('sha256', secret).update(normalizeEmail(email)).digest('hex');
-}
-
-export const emailRegistryRef = (key: string) => db.collection(kEmailRegistryCollection).doc(key);
-
-export function isRegistryEntryActive(
-  snap: FirebaseFirestore.DocumentSnapshot,
-  nowMs: number,
-): boolean {
-  const expiresAt = snap.get('expires_at');
-  return snap.exists && typeof expiresAt?.toMillis === 'function' && expiresAt.toMillis() > nowMs;
-}
-
-function registryEntry(kind: 'referred' | 'deleted_account', nowMs: number) {
-  return {
-    kind,
-    created_at: admin.firestore.Timestamp.fromMillis(nowMs),
-    expires_at: admin.firestore.Timestamp.fromMillis(nowMs + kEmailRegistryRetentionMs),
-  };
-}
-
-// Best effort, called on account deletion: never blocks the deletion itself.
-export async function recordDeletedAccountEmail(email: unknown): Promise<void> {
-  const address = normalizeEmail(email);
-  if (!address) return;
-  try {
-    await emailRegistryRef(emailRegistryKey(address)).set(registryEntry('deleted_account', Date.now()));
-  } catch (_) {
-    functions.logger.error('REFERRAL_EMAIL_REGISTRY_DELETE_NOT_RECORDED');
-  }
 }
 
 // --- Shared acceptance --------------------------------------------------------
@@ -69,22 +20,22 @@ export type NewAccountReferralOutcome =
   | { accepted: true; inviterUid: string; alreadyAccepted: boolean }
   | { accepted: false; reason: string };
 
-// One transaction for every path: the same referral, invitee or address can
-// never be rewarded twice, even under concurrent calls. A business refusal is
+// One transaction for every path: the same referral or invitee can never be
+// rewarded twice, even under concurrent calls. A deleted then recreated
+// account is a new account (accepted trade-off: its former lots and history
+// are lost). A business refusal is
 // returned (not thrown) so the operation record is updated atomically.
 export async function acceptReferralForNewAccount(params: {
   referralRef: FirebaseFirestore.DocumentReference;
   uid: string;
-  emailKey: string;
   operationRef?: FirebaseFirestore.DocumentReference;
   referralFields?: Record<string, unknown>;
 }): Promise<NewAccountReferralOutcome> {
-  const {referralRef, uid, emailKey, operationRef} = params;
+  const {referralRef, uid, operationRef} = params;
   return db.runTransaction(async (tx) => {
-    const [referralSnap, inviteeReferrals, registrySnap] = await Promise.all([
+    const [referralSnap, inviteeReferrals] = await Promise.all([
       tx.get(referralRef),
       tx.get(db.collection('referrals').where('inviteeUid', '==', uid).limit(1)),
-      tx.get(emailRegistryRef(emailKey)),
     ]);
     const referral = referralSnap.data() as ReferralRecord | undefined;
     const nowMs = Date.now();
@@ -104,7 +55,6 @@ export async function acceptReferralForNewAccount(params: {
     if (!referral) return refuse('referral_not_found');
     if (referral.inviterUid === uid) return refuse('self_referral');
     if (!inviteeReferrals.empty) return refuse('already_referred');
-    if (isRegistryEntryActive(registrySnap, nowMs)) return refuse('email_not_eligible');
     if (referral.status !== 'pending' || referral.inviteeUid) return refuse('referral_unavailable');
 
     const acceptedAt = admin.firestore.Timestamp.fromMillis(nowMs);
@@ -121,7 +71,6 @@ export async function acceptReferralForNewAccount(params: {
       rewardValue: 1,
       metadata: {...(referral.metadata ?? {}), playerRewardRuleVersion: 2},
     });
-    tx.set(emailRegistryRef(emailKey), registryEntry('referred', nowMs));
     finish({status: 'completed', outcome: 'accepted'});
     return {accepted: true as const, inviterUid: referral.inviterUid, alreadyAccepted: false};
   });

@@ -2,21 +2,16 @@
 // code afterwards (registerReferralAcceptance). Only the session that created
 // the account, before any game, while the transition is open; never an
 // existing account, never twice. Isolated demo emulators (Firestore + Auth).
-process.env.REFERRAL_EMAIL_HMAC_KEY ||= 'test-only-referral-email-hmac-key-0123456789';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const admin = require('firebase-admin');
 if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST ||
     !String(process.env.GCLOUD_PROJECT || '').startsWith('demo-')) throw Error('Isolated demo emulators required');
-// index.js initializes the default app itself: load it first.
-const {onUserDeleted} = require('../index.js');
 if (!admin.apps.length) admin.initializeApp({projectId: process.env.GCLOUD_PROJECT});
 const db = admin.firestore();
 const ft = require('firebase-functions-test')({projectId: process.env.GCLOUD_PROJECT});
 const share = require('../lib/share_promo');
 const accept = ft.wrap(share.registerReferralAcceptance);
-const deleteTrigger = ft.wrap(onUserDeleted);
-const deleted = user => deleteTrigger(ft.auth.makeUserRecord(user));
 test.after(() => ft.cleanup());
 
 async function reset() {
@@ -106,31 +101,21 @@ test('self-referral never counts', async () => {
   assert.equal((await status('SELF')).status, 'pending');
 });
 
-test('a deleted then recreated account with the same address is not referred again', async () => {
+test('a deleted then recreated account is a new account (accepted trade-off)', async () => {
+  // A player who deletes his account loses his lots and history; the same
+  // address recreated later is a new Firebase account and may be referred.
   await reset(); await invitation('FIRST'); await invitation('AGAIN');
-  const first = await newAccount('first');
-  await accept({inviteCode: 'FIRST'}, first);
+  await accept({inviteCode: 'FIRST'}, await newAccount('first'));
   await admin.auth().deleteUser('first');
-  await deleted({uid: 'first', email: 'first@example.test'});
-  // Same address, new Firebase account: refused.
   await admin.auth().createUser({uid: 'first-again', email: 'first@example.test'});
   await db.doc('users/first-again').set({user_role: 'joueur'});
   const again = {auth: {uid: 'first-again', token: {auth_time: await creationSeconds('first-again')}}};
-  await assert.rejects(accept({inviteCode: 'AGAIN'}, again), e => e.code === 'failed-precondition' &&
-    e.details?.reason === 'email_not_eligible');
-  assert.equal((await status('AGAIN')).status, 'pending');
-  // Even an account deleted without ever being referred is remembered.
-  await invitation('NEVER');
-  await deleted({uid: 'gone', email: 'Gone@Example.test'});
-  await admin.auth().createUser({uid: 'gone-again', email: 'gone@example.test'});
-  await db.doc('users/gone-again').set({user_role: 'joueur'});
-  const goneAgain = {auth: {uid: 'gone-again', token: {auth_time: await creationSeconds('gone-again')}}};
-  await assert.rejects(accept({inviteCode: 'NEVER'}, goneAgain), {code: 'failed-precondition'});
-  // The registry holds HMACs with a 2-year expiry, never the address.
-  const entries = (await db.collection('_referral_email_registry').get()).docs.map(d => d.data());
-  assert.equal(JSON.stringify(entries).includes('example.test'), false);
-  const years = (entries[0].expires_at.toMillis() - entries[0].created_at.toMillis()) / (365 * 86400000);
-  assert.ok(years >= 2 && years < 2.01);
+  await accept({inviteCode: 'AGAIN'}, again);
+  assert.equal((await status('AGAIN')).inviteeUid, 'first-again');
+  // Still one reward per signup, and no address registry is kept.
+  await invitation('THIRD');
+  await assert.rejects(accept({inviteCode: 'THIRD'}, again), {code: 'already-exists'});
+  assert.equal((await db.collection('_referral_email_registry').get()).size, 0);
 });
 
 test('the transition closes 4 weeks after the real 1.1.2 publication date', async () => {

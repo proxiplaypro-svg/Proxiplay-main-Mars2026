@@ -39,25 +39,16 @@ import {
   acceptReferralForNewAccount,
   accountBelongsToOperation,
   authCreationMs,
-  emailRegistryKey,
-  emailRegistryRef,
   findGoogleAccount,
   googleSignupRef,
   isAccountCreationSession,
   isLegacyTransitionOpen,
-  isRegistryEntryActive,
-  kEmailRegistryRetentionMs,
   NewAccountReferralOutcome,
   readUnverifiedGoogleClaims,
   signInWithGoogleIdToken,
 } from './new_account_referral';
 
 export { remindUsersWithRemainingDailyPlays } from './daily_plays_reminder';
-
-// The anti-abuse registry key (HMAC of the address) is a Secret Manager value,
-// bound by name only to the functions that need it, like the Stripe secrets,
-// so that deploying any other function never requires it.
-const kReferralSecrets = ['REFERRAL_EMAIL_HMAC_KEY'];
 
 // Wording while a referral game runs: a referral then gives the inviter a draw
 // ticket (no "all games until midnight" access).
@@ -404,7 +395,7 @@ export const createReferral = functions
 
 // Referral signup operations are server-owned and contain no password.
 export const createReferralEmailAccount = functions.region(region)
-  .runWith({timeoutSeconds: 60, memory: '256MB', secrets: kReferralSecrets})
+  .runWith({timeoutSeconds: 60, memory: '256MB'})
   .https.onCall(async (data, context) => {
     const crypto = require('crypto');
     const hash = (value: string): string => crypto.createHash('sha256').update(value).digest('hex');
@@ -444,15 +435,6 @@ export const createReferralEmailAccount = functions.region(region)
     });
     const operationRef = db.collection('_referral_signup_operations').doc(hash(requestId));
     const uid = 'ref_' + hash(requestId).slice(0, 48);
-    // A deleted account recreated with the same address is new for Firebase,
-    // not for ProxiPlay: refused before any account is created.
-    const registryRef = emailRegistryRef(emailRegistryKey(email));
-    const blocked = isRegistryEntryActive(await registryRef.get(), Date.now()) &&
-      !(await operationRef.get()).exists;
-    if (blocked) {
-      throw new functions.https.HttpsError('failed-precondition', 'Referral unavailable.',
-        {reason: 'email_not_eligible', accountCreated: false});
-    }
     await db.runTransaction(async tx => {
       const [opSnap, referralSnap] = await Promise.all([tx.get(operationRef),tx.get(referralRef)]);
       const op = opSnap.data();
@@ -480,17 +462,15 @@ export const createReferralEmailAccount = functions.region(region)
       }
     }
     const result = await db.runTransaction(async tx => {
-      const [opSnap, referralSnap, existing, registrySnap] = await Promise.all([
+      const [opSnap, referralSnap, existing] = await Promise.all([
         tx.get(operationRef),tx.get(referralRef),tx.get(refs.referrals().where('inviteeUid','==',uid).limit(1)),
-        tx.get(registryRef),
       ]);
       const op=opSnap.data(), referral=referralSnap.data() as ReferralRecord | undefined;
       if(!op || op.uid!==uid || op.emailHash!==hash(email) || op.referralId!==referralRef.id || !referral)
         throw new functions.https.HttpsError('failed-precondition','Invalid signup operation.');
       if(referral.status==='accepted' && referral.inviteeUid===uid)
         return {inviterUid:referral.inviterUid};
-      if(referral.inviterUid===uid || !existing.empty || referral.status!=='pending' || referral.inviteeUid ||
-          isRegistryEntryActive(registrySnap, Date.now()))
+      if(referral.inviterUid===uid || !existing.empty || referral.status!=='pending' || referral.inviteeUid)
         throw new functions.https.HttpsError('already-exists','Referral unavailable.', {reason:'referral_unavailable', accountCreated:true});
       const acceptedAt=admin.firestore.Timestamp.now();
       // During an active referral game the ticket replaces the classic reward.
@@ -499,8 +479,6 @@ export const createReferralEmailAccount = functions.region(region)
       tx.update(referralRef,{inviteeUid:uid,status:'accepted',acceptedAt,rewardStatus:'available',
         rewardType:'all_games_until_midnight',rewardValue:1,
         metadata:{...(referral.metadata ?? {}),playerRewardRuleVersion:2}});
-      tx.set(registryRef,{kind:'referred',created_at:acceptedAt,
-        expires_at:admin.firestore.Timestamp.fromMillis(acceptedAt.toMillis()+kEmailRegistryRetentionMs)});
       tx.update(operationRef,{status:'completed',completedAt:admin.firestore.FieldValue.serverTimestamp()});
       return {inviterUid:referral.inviterUid};
     });
@@ -534,7 +512,7 @@ async function afterNewAccountReferral(referralId: string, outcome: NewAccountRe
 // real publication of 1.1.2 (app_config/referral_signup).
 export const registerReferralAcceptance = functions
   .region(region)
-  .runWith({ timeoutSeconds: 60, memory: '256MB', secrets: kReferralSecrets })
+  .runWith({ timeoutSeconds: 60, memory: '256MB' })
   .https.onCall(async (data, context) => {
     const auth = requireAuth(context);
     const inviteCode = normalizeString(data?.inviteCode);
@@ -567,7 +545,7 @@ export const registerReferralAcceptance = functions
     }
     // Only the session that created the account, before any game: an
     // existing account entering a code never counts, whatever its profile.
-    if (!user.email || !isAccountCreationSession(auth.token.auth_time, creationMs) ||
+    if (!isAccountCreationSession(auth.token.auth_time, creationMs) ||
         Number(invitee.games_played_count) > 0 || invitee.last_real_activity_at != null) {
       throw new functions.https.HttpsError(
         'failed-precondition',
@@ -577,11 +555,10 @@ export const registerReferralAcceptance = functions
     const outcome = await acceptReferralForNewAccount({
       referralRef,
       uid: auth.uid,
-      emailKey: emailRegistryKey(user.email),
       referralFields: {acceptedFromDeviceId: normalizeNullableString(data?.acceptedFromDeviceId)},
     });
     if (!outcome.accepted) {
-      const code = outcome.reason === 'self_referral' || outcome.reason === 'email_not_eligible' ?
+      const code = outcome.reason === 'self_referral' ?
         'failed-precondition' : 'already-exists';
       throw new functions.https.HttpsError(code, 'Referral unavailable.', {reason: outcome.reason});
     }
@@ -595,11 +572,11 @@ export const registerReferralAcceptance = functions
 // Google signup with a referral code (app 1.1.2). The app obtains the Google
 // ID token, calls this function BEFORE its own Firebase sign-in, then signs in
 // with the same token. Firebase decides whether the account is new.
-// Statuses: accepted | existing_account | not_eligible | refused.
+// Statuses: accepted | existing_account | refused.
 // Never deletes an account: after a failure the operation is resumed by the
 // next call or by the scheduled worker.
 export const createReferralGoogleAccount = functions.region(region)
-  .runWith({timeoutSeconds: 60, memory: '256MB', secrets: kReferralSecrets})
+  .runWith({timeoutSeconds: 60, memory: '256MB'})
   .https.onCall(async (data, context) => {
     const crypto = require('crypto');
     const hash = (value: string): string => crypto.createHash('sha256').update(value).digest('hex');
@@ -637,10 +614,6 @@ export const createReferralGoogleAccount = functions.region(region)
       if (!referral || referral.status !== 'pending' || referral.inviteeUid) {
         throw new functions.https.HttpsError('failed-precondition', 'Referral unavailable.', {reason: 'referral_unavailable'});
       }
-      const emailKey = emailRegistryKey(claims.email);
-      if (isRegistryEntryActive(await emailRegistryRef(emailKey).get(), Date.now())) {
-        return {status: 'not_eligible'};
-      }
       // The operation is opened only once Firebase has no account for this
       // Google identity or address. An existing account never gets one.
       const checkedAbsentAt = Date.now();
@@ -649,7 +622,7 @@ export const createReferralGoogleAccount = functions.region(region)
       }
       try {
         await operationRef.create({
-          status: 'pending', googleSub: claims.sub, referralId: referralRef.id, emailKey,
+          status: 'pending', googleSub: claims.sub, referralId: referralRef.id,
           checkedAbsentAt, created_at: admin.firestore.FieldValue.serverTimestamp(),
         });
       } catch (error: any) {
@@ -687,7 +660,7 @@ async function completeGoogleReferralSignup(
   // Recorded first: a crash below leaves a resumable operation with its uid.
   if (!op.uid) await operationRef.update({uid});
   const referralRef = refs.referrals().doc(op.referralId);
-  const outcome = await acceptReferralForNewAccount({referralRef, uid, emailKey: op.emailKey, operationRef});
+  const outcome = await acceptReferralForNewAccount({referralRef, uid, operationRef});
   await afterNewAccountReferral(referralRef.id, outcome);
   return outcome;
 }

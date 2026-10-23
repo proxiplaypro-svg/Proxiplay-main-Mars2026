@@ -14,9 +14,6 @@ ReferralSignupError describeReferralSignupError(String code, Object? details) {
       accountCreated: true,
     );
   }
-  if (data['reason'] == 'email_not_eligible') {
-    return const ReferralSignupError('Cette adresse ne peut plus être parrainée. Inscrivez-vous sans code.');
-  }
   if (data['reason'] == 'email_exists') {
     return const ReferralSignupError('Cette adresse e-mail poss\u00e8de d\u00e9j\u00e0 un compte. Connectez-vous avec vos identifiants.');
   }
@@ -43,8 +40,6 @@ String? googleReferralNotice(String status) {
       return null;
     case 'existing_account':
       return 'Ce compte Google existe déjà : le parrainage est réservé aux nouveaux comptes.';
-    case 'not_eligible':
-      return 'Cette adresse ne peut plus être parrainée. Vous êtes connecté sans parrainage.';
     default:
       return 'Votre compte est créé, mais le parrainage n’a pas pu lui être associé.';
   }

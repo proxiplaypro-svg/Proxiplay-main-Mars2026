@@ -1,25 +1,21 @@
 // Google signup with a referral code (createReferralGoogleAccount): Firebase
 // decides whether the account is new (signInWithIdp isNewUser). Covers
 // existing accounts, concurrent calls, failure then recovery, deleted then
-// recreated accounts, and reuse of the Google token by the app afterwards.
+// recreated accounts (new accounts, an accepted trade-off), and reuse of the Google token by the app afterwards.
 // Isolated demo emulators (Firestore + Auth) only; the Auth emulator accepts
 // an unsigned JSON Google ID token.
-process.env.REFERRAL_EMAIL_HMAC_KEY ||= 'test-only-referral-email-hmac-key-0123456789';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const admin = require('firebase-admin');
 if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST ||
     !String(process.env.GCLOUD_PROJECT || '').startsWith('demo-')) throw Error('Isolated demo emulators required');
-// index.js initializes the default app itself: load it first.
-const {onUserDeleted} = require('../index.js');
 if (!admin.apps.length) admin.initializeApp({projectId: process.env.GCLOUD_PROJECT});
 const db = admin.firestore();
 const ft = require('firebase-functions-test')({projectId: process.env.GCLOUD_PROJECT});
 const share = require('../lib/share_promo');
 const signup = ft.wrap(share.createReferralGoogleAccount);
 const retryWorker = ft.wrap(share.retryReferralRewards);
-const deleted = user => ft.wrap(onUserDeleted)(ft.auth.makeUserRecord(user));
 test.after(() => ft.cleanup());
 
 const AUTH = `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`;
@@ -100,7 +96,7 @@ test('an account created before a crash is completed by a retry or by the worker
   // Crash just after Firebase created the account: operation open, no acceptance.
   for (const [code, sub, email] of [['RETRY', 'g-retry', 'retry@gmail.test'], ['WORKER', 'g-worker', 'worker@gmail.test']]) {
     await db.doc('_referral_google_signups/' + subHash(sub)).set({status: 'pending', googleSub: sub,
-      referralId: code, emailKey: require('../lib/share_promo/new_account_referral').emailRegistryKey(email),
+      referralId: code,
       checkedAbsentAt: Date.now() - 5 * 60000});
     await appSignIn(googleToken(sub, email));
     assert.equal((await referral(code)).status, 'pending');
@@ -122,22 +118,25 @@ test('an account created before a crash is completed by a retry or by the worker
 test('an operation whose account was never created is closed by the worker, nothing deleted', async () => {
   await reset(); await invitation('GONE');
   await db.doc('_referral_google_signups/' + subHash('g-gave-up')).set({status: 'pending', googleSub: 'g-gave-up',
-    referralId: 'GONE', emailKey: 'x', checkedAbsentAt: Date.now() - 2 * 3600000});
+    referralId: 'GONE', checkedAbsentAt: Date.now() - 2 * 3600000});
   await retryWorker({});
   assert.equal((await db.doc('_referral_google_signups/' + subHash('g-gave-up')).get()).data().outcome, 'abandoned');
   assert.equal((await referral('GONE')).status, 'pending');
 });
 
-test('a deleted then recreated Google account is not referred again', async () => {
+test('a deleted then recreated Google account is a new account (accepted trade-off)', async () => {
   await reset(); await invitation('FIRST'); await invitation('AGAIN');
   assert.deepEqual(await call(googleToken('g-del', 'del@gmail.test'), 'FIRST'), {status: 'accepted'});
   const [account] = await accountsFor('del@gmail.test');
   await admin.auth().deleteUser(account.uid);
-  await deleted({uid: account.uid, email: 'del@gmail.test'});
-  // New for Firebase, refused by the registry, and no account is created by the server.
-  assert.deepEqual(await call(googleToken('g-del-2', 'del@gmail.test'), 'AGAIN'), {status: 'not_eligible'});
-  assert.equal((await accountsFor('del@gmail.test')).length, 0);
-  assert.equal((await referral('AGAIN')).status, 'pending');
+  // New for Firebase: created again, referred again (former lots and history are lost).
+  assert.deepEqual(await call(googleToken('g-del-2', 'del@gmail.test'), 'AGAIN'), {status: 'accepted'});
+  const [again] = await accountsFor('del@gmail.test');
+  assert.notEqual(again.uid, account.uid);
+  assert.equal((await referral('AGAIN')).inviteeUid, again.uid);
+  assert.equal(await pendingRewards(), 2);
+  // No address registry is kept.
+  assert.equal((await db.collection('_referral_email_registry').get()).size, 0);
 });
 
 test('an unknown or used code stops before any account is created', async () => {
@@ -148,17 +147,4 @@ test('an unknown or used code stops before any account is created', async () => 
     e => e.code === 'failed-precondition' && e.details?.reason === 'referral_unavailable');
   assert.equal((await accountsFor('typo@gmail.test')).length + (await accountsFor('used@gmail.test')).length, 0);
   await assert.rejects(call('not-a-token', 'USED'), {code: 'invalid-argument'});
-});
-
-test('without the server key nothing is created (fail closed)', async () => {
-  await reset(); await invitation('NOKEY');
-  const key = process.env.REFERRAL_EMAIL_HMAC_KEY;
-  delete process.env.REFERRAL_EMAIL_HMAC_KEY;
-  try {
-    await assert.rejects(call(googleToken('g-nokey', 'nokey@gmail.test'), 'NOKEY'), {code: 'unavailable'});
-  } finally {
-    process.env.REFERRAL_EMAIL_HMAC_KEY = key;
-  }
-  assert.equal((await accountsFor('nokey@gmail.test')).length, 0);
-  assert.equal((await referral('NOKEY')).status, 'pending');
 });

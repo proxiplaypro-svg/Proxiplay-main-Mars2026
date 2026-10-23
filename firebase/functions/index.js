@@ -6149,11 +6149,7 @@ function getCharForIndex(charIdx) {
     return String.fromCharCode("a".charCodeAt(0) + charIdx - 36);
   }
 }
-exports.onUserDeleted = functions.runWith({secrets: ["REFERRAL_EMAIL_HMAC_KEY"]}).auth.user().onDelete(async (user) => {
-  // A recreated account with the same address is new for Firebase, not for
-  // ProxiPlay: its address is kept (HMAC only, 2 years) so it is never
-  // referred again. Best effort: never blocks the deletion below.
-  await require("./lib/share_promo/new_account_referral").recordDeletedAccountEmail(user.email);
+exports.onUserDeleted = functions.auth.user().onDelete(async (user) => {
   let firestore = admin.firestore();
   let userRef = firestore.doc("users/" + user.uid);
   // Both fields and all legacy encodings are supported. Filter with the
