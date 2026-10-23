@@ -6,6 +6,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import '/services/share_promo_service.dart';
+import '/utils/referral_share_copy.dart';
 import '/utils/share_links.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -34,11 +35,17 @@ class _ParrainageJoueurPageWidgetState
   final _sharePromoService = SharePromoService();
   bool _isInviting = false;
   final Set<String> _relaunchingReferralIds = <String>{};
+  // Reported by the server; null until loaded (or if loading failed), in
+  // which case no reward is promised.
+  bool? _referralGameActive;
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => ParrainageJoueurPageModel());
+    _sharePromoService.getSharePromoState().then((state) {
+      if (mounted) setState(() => _referralGameActive = state.referralGameActive);
+    }).catchError((_) {});
 
     logFirebaseEvent('screen_view',
         parameters: {'screen_name': 'ParrainageJoueurPage'});
@@ -77,10 +84,12 @@ class _ParrainageJoueurPageWidgetState
           extractReferralCodeFromUri(Uri.tryParse(responseShareLink ?? ''));
       final shareLink =
           buildReferralShareLink(inviteCode ?? responseReferralCode);
-      final shareText = buildAppShareText(
-        title: 'Rejoins-moi sur ProxiPlay !',
-        description:
-            'Télécharge l\'app et débloque des parties supplémentaires pour nous deux.',
+      final referralGameActive = referralGameActiveFrom(response);
+      if (mounted && _referralGameActive != referralGameActive) {
+        setState(() => _referralGameActive = referralGameActive);
+      }
+      final shareText = buildReferralInviteMessage(
+        referralGameActive: referralGameActive,
         referralCode: inviteCode ?? responseReferralCode,
       );
 
@@ -128,9 +137,8 @@ class _ParrainageJoueurPageWidgetState
 
     try {
       final shareLink = buildReferralShareLink(inviteCode);
-      final shareText = buildAppShareText(
-        title: 'Toujours partant pour ProxiPlay ?',
-        description: 'Ton invitation t\'attend toujours, rejoins-moi !',
+      final shareText = buildReferralReminderMessage(
+        referralGameActive: _referralGameActive,
         referralCode: inviteCode,
       );
 
@@ -188,9 +196,25 @@ class _ParrainageJoueurPageWidgetState
                     fontWeight: FontWeight.w800,
                   ),
             ),
+            if (referralInviteHeadline(referralGameActive: _referralGameActive)
+                case final headline?) ...[
+              const SizedBox(height: 10.0),
+              Text(
+                headline,
+                key: const ValueKey('referral-invite-headline'),
+                style: FlutterFlowTheme.of(context).bodyLarge.override(
+                      font: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                      fontSize: 15.0,
+                      color: const Color(0xFF2D2A72),
+                      letterSpacing: 0.0,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
             const SizedBox(height: 10.0),
             Text(
-              'Chaque ami qui crée son compte grâce à toi te donne un bonus, sans limite.',
+              'Invite un ami qui n’est pas encore inscrit sur ProxiPlay. '
+              'Il pourra saisir ton code lors de son inscription.',
               style: FlutterFlowTheme.of(context).bodyMedium.override(
                     font: GoogleFonts.inter(fontWeight: FontWeight.w400),
                     fontSize: 14.0,

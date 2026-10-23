@@ -3,6 +3,19 @@ import 'package:cloud_functions/cloud_functions.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 
+/// Message shown when winning-code suggestions cannot be loaded. Manual entry
+/// and "Vérifier" keep working in every case.
+String suggestionFailureMessage(Object error) {
+  final network = error is TimeoutException ||
+      (error is FirebaseFunctionsException &&
+          (error.code == 'unavailable' || error.code == 'deadline-exceeded')) ||
+      (error is FirebaseException &&
+          (error.code == 'unavailable' || error.code == 'deadline-exceeded'));
+  return network
+      ? 'Pas de connexion : suggestions indisponibles. Saisissez le code complet puis vérifiez-le.'
+      : 'Service de suggestions indisponible. Saisissez le code complet puis vérifiez-le.';
+}
+
 String? merchantIdentityPath(dynamic value) {
   if (value is DocumentReference) return value.path;
   if (value is! String) return null;
@@ -90,4 +103,28 @@ Future<void> claimMerchantPrize(PrizesRecord original) async {
     }
     transaction.update(current.reference, {'claimed': true});
   });
+}
+
+/// Suggestions are scoped and capped by the callable; Firestore rules still
+/// independently authorize each returned prize document.
+Future<List<PrizesRecord>> searchMerchantPrizeCodes(String prefix) async {
+  final result = await FirebaseFunctions.instanceFor(region: 'europe-west1')
+      .httpsCallable('searchMerchantPrizeCodes').call({'prefix': prefix});
+  final data = Map<String, dynamic>.from(result.data as Map);
+  final ids = List<String>.from(data['ids']);
+  // A suggestion the rules refuse is skipped instead of hiding all the others.
+  final snapshots = await Future.wait(ids.map((id) => FirebaseFirestore.instance
+      .collection('prizes')
+      .doc(id)
+      .get()
+      .then<DocumentSnapshot<Map<String, dynamic>>?>((doc) => doc)
+      .catchError((Object error) => error is FirebaseException &&
+              error.code == 'permission-denied'
+          ? null
+          : throw error)));
+  return snapshots
+      .whereType<DocumentSnapshot<Map<String, dynamic>>>()
+      .where((doc) => doc.exists)
+      .map(PrizesRecord.fromSnapshot)
+      .toList();
 }

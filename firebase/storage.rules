@@ -34,8 +34,14 @@ service firebase.storage {
       allow write: if isAdmin();
     }
 
+    // Ordinary ad creatives: a known file can be fetched, the folder can never
+    // be listed (the app only uses the tokenized URLs written by the Admin).
+    // Adults-only creatives live under ads_restricted/, covered by the
+    // admin-only default above: only the tokenized URL handed by the server
+    // to a signed-in adult (getRestrictedAdCreative) gives access.
     match /ads/{allPaths=**} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isAdmin();
       allow write: if isAdmin();
     }
 

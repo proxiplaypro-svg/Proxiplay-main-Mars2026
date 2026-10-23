@@ -247,6 +247,8 @@ test("E2E periode moderne : attendance et merchant comptent tout jeu, tirent et 
     enseigne_name: "La Cocotte",
     prize_title: "Lot La Cocotte",
   };
+  // The partner shop and its merchant: the lot is collected there.
+  await firestore.doc("enseignes/merchant-1").set({name: "La Cocotte", owner_id: firestore.doc("users/cocotte-owner")});
   const now = timestampFromIso("2026-09-06T22:00:00.000Z");
   const attendanceResult = await drawWinnerForMonthlyChallenge(attendance, "test");
   const merchantResult = await drawWinnerForMonthlyChallenge(merchant, "test");
@@ -254,6 +256,10 @@ test("E2E periode moderne : attendance et merchant comptent tout jeu, tirent et 
   assert.equal(merchantResult.status, "completed");
   assert.notEqual(attendanceResult.prizeId, merchantResult.prizeId);
   assert.equal((await firestore.collection("prizes").doc(merchantResult.prizeId).get()).data()?.name, "Lot La Cocotte");
+  const merchantPrize = (await firestore.collection("prizes").doc(merchantResult.prizeId).get()).data();
+  assert.equal(merchantPrize.fulfillment_type, "merchant");
+  assert.equal(merchantPrize.owner_id.path, "users/cocotte-owner");
+  assert.equal((await firestore.collection("prizes").doc(attendanceResult.prizeId).get()).data().fulfillment_type, "platform");
   assert.equal((await firestore.collection("users").doc(merchantResult.winnerUid).collection("my_lots").doc(merchantResult.prizeId).get()).exists, true);
   assert.equal((await drawWinnerForMonthlyChallenge(attendance, "retry")).status, "already_completed");
   assert.equal((await drawWinnerForMonthlyChallenge(merchant, "retry")).status, "already_completed");

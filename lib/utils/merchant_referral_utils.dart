@@ -25,17 +25,16 @@ String buildMerchantReferralLink(String code) {
 
 String buildMerchantReferralShareText(String code) {
   final normalized = code.trim();
-  final link = buildMerchantReferralLink(normalized);
   if (normalized.isEmpty) {
-    return 'Je vous recommande ProxiPlay pour faire connaître votre commerce '
-        'auprès des joueurs du Dunkerquois.\n\n'
-        'Découvrez l\'offre commerçant sur Proxiplay.fr :\n$link';
+    return 'Je vous recommande ProxiPlay pour faire connaître votre commerce.';
   }
   return 'Je vous recommande ProxiPlay pour faire connaître votre commerce '
       'auprès des joueurs du Dunkerquois.\n\n'
-      'Découvrez l\'offre commerçant sur Proxiplay.fr et utilisez mon code '
-      '$normalized lors de votre inscription :\n$link';
+      'Utilisez mon code de parrainage $normalized lors de votre inscription.';
 }
+
+bool isValidMerchantReferralCode(String? code) =>
+    code != null && RegExp(r'^[A-HJ-NP-Z2-9]{8}$').hasMatch(code);
 
 /// Traduit un statut technique backend (merchant_referrals.status) en un
 /// libelle comprehensible pour un joueur. Ne jamais afficher les noms
@@ -48,7 +47,7 @@ String merchantReferralStatusLabel(String? status) {
     case 'approved':
       return 'Validé';
     case 'paid':
-      return 'Payé';
+      return 'Remise enregistrée';
     case 'rejected':
     case 'cancelled':
       return 'Refusé';
@@ -63,9 +62,9 @@ String merchantReferralStatusDescription(String? status) {
     case 'eligible':
       return 'Le paiement qualifiant a été détecté et le dossier est en cours de validation.';
     case 'approved':
-      return 'La récompense a été approuvée.';
+      return 'Le bon cadeau a été approuvé.';
     case 'paid':
-      return 'Les 50 € ont été versés.';
+      return 'La remise du bon cadeau a été enregistrée.';
     case 'rejected':
     case 'cancelled':
       return 'Ce parrainage ne remplit pas les conditions du programme.';

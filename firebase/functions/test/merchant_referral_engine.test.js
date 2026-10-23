@@ -1,5 +1,5 @@
-process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-process.env.GCLOUD_PROJECT = 'demo-proxiplay-merchant-referral';
+process.env.FIRESTORE_EMULATOR_HOST ||= '127.0.0.1:8080';
+process.env.GCLOUD_PROJECT ||= 'demo-proxiplay-merchant-referral';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const admin = require('firebase-admin');
@@ -26,7 +26,20 @@ async function clearCollections() {
 
 test.beforeEach(async () => {
   await clearCollections();
+  await db.doc('app_config/merchant_referral').delete();
   await db.doc('users/admin_uid').set({user_role: 'admin'});
+});
+
+test('disabled programme rejects code generation while existing rewards continue', async () => {
+  await db.doc('app_config/merchant_referral').set({enabled: false});
+  await assert.rejects(() => generateMerchantReferralCodeHandler({}, {auth: {uid: 'player1'}}),
+    (err) => err.code === 'failed-precondition');
+  await db.doc('merchant_referrals/legacy').set({status: 'approved', reward_amount_cents: 10000});
+  await adminMarkMerchantReferralPaidHandler({merchantUserId: 'legacy', paidReference: 'ref'}, {auth: {uid: 'admin_uid'}});
+  assert.equal((await db.doc('merchant_referrals/legacy').get()).data().reward_amount_cents, 10000);
+  await db.doc('app_config/merchant_referral').set({enabled: true});
+  const result = await generateMerchantReferralCodeHandler({}, {auth: {uid: 'player1'}});
+  assert.match(result.code, /^[A-HJ-NP-Z2-9]{8}$/);
 });
 
 test('generateMerchantReferralCode is idempotent: the same player always gets the same code back', async () => {

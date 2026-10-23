@@ -40,6 +40,20 @@ class SharePromoService {
     });
   }
 
+  Future<void> createReferralEmailAccount({
+    required String email,
+    required String password,
+    required String inviteCode,
+    required String requestId,
+  }) async {
+    await _call('createReferralEmailAccount', {
+      'email': email,
+      'password': password,
+      'inviteCode': inviteCode,
+      'requestId': requestId,
+    });
+  }
+
   Future<Map<String, dynamic>> registerReferralAcceptance({
     required String inviteCode,
     String? acceptedFromDeviceId,

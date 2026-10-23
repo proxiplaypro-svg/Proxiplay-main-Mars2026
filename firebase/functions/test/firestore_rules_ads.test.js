@@ -57,3 +57,31 @@ test('admin can configure and update an ad placement', async () => {
   }));
   await assertSucceeds(admin.doc('ads/new_future_placement').set({enabled: false}));
 });
+
+test('campaigns and their billing counters are never readable or writable by a client', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc('ad_campaigns/c1').set({name: 'Campagne', advertiser: 'Annonceur',
+      placement: 'home_banner', impressions: 10, clicks: 1});
+  });
+  for (const db of [env.unauthenticatedContext().firestore(), env.authenticatedContext('player').firestore()]) {
+    await assertFails(db.doc('ad_campaigns/c1').get());
+    await assertFails(db.collection('ad_campaigns').get());
+    await assertFails(db.doc('ad_campaigns/c1').update({impressions: 1000}));
+    await assertFails(db.doc('ad_campaigns/c2').set({placement: 'open'}));
+  }
+});
+
+test('adults-only creatives and anti-abuse records are never readable by a client', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await db.doc('ads_restricted/open').set({campaign_id: 'adult', image_url: 'https://x/adult.png'});
+    await db.doc('_ad_exposures/x').set({last_impression_at: new Date()});
+    await db.doc('_ad_event_rate/x').set({count: 1});
+  });
+  for (const db of [env.unauthenticatedContext().firestore(), env.authenticatedContext('player').firestore()]) {
+    for (const path of ['ads_restricted/open', '_ad_exposures/x', '_ad_event_rate/x']) {
+      await assertFails(db.doc(path).get());
+      await assertFails(db.doc(path).set({forged: true}));
+    }
+  }
+});

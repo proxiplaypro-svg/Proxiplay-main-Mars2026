@@ -66,7 +66,8 @@ export const defaultShareState: ShareStateRecord = {
   rewardAvailable: false,
   lastReferralAt: null,
   lastRewardAt: null,
-  remainingEligibleRewards: 0,
+  // Legacy numeric field: -1 means unlimited; it is not an eligibility gate.
+  remainingEligibleRewards: -1,
   currentBannerKind: null,
   currentBannerTitle: null,
   currentBannerMessage: null,
@@ -325,10 +326,7 @@ export async function recomputeShareState(
         ? null
         : ((lastRewardSnap.docs[0].get('createdAt') as
             admin.firestore.Timestamp | null) ?? null),
-    remainingEligibleRewards: Math.max(
-      0,
-      config.maxRewardsPerUser - grantedCount,
-    ),
+    remainingEligibleRewards: -1,
     currentBannerKind: availableCount > 0
         ? 'rewardAvailable'
         : pendingCount > 0
@@ -441,12 +439,15 @@ export async function applyRewardToUser(
   uid: string,
   rewardType: string,
   rewardValue: number,
+  accessUntil?: admin.firestore.Timestamp,
+  referralAccessUntil?: admin.firestore.Timestamp,
 ): Promise<void> {
   if (isAllGamesUntilMidnightReward(rewardType)) {
     transaction.set(
       refs.user(uid),
       {
-        allGamesAccessUntil: getNextMidnightTimestamp(),
+        allGamesAccessUntil: accessUntil ?? getNextMidnightTimestamp(),
+        ...(referralAccessUntil ? {referralBonusExpiresAt: referralAccessUntil} : {}),
         updated_time: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true },

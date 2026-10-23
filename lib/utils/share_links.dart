@@ -52,6 +52,18 @@ String _withQrToken(String link, String gameId, String? token) {
           .replace(queryParameters: {'qr_token': value}).toString();
 }
 
+String canonicalizeGameLink(String link) {
+  final uri = Uri.tryParse(link);
+  if (uri == null ||
+      uri.scheme != 'https' ||
+      !const {'proxiplay.fr', 'www.proxiplay.fr', 'play.proxiplay.fr'}
+          .contains(uri.host) ||
+      !uri.path.startsWith('/j/')) {
+    return link;
+  }
+  return uri.replace(host: 'play.proxiplay.fr').toString();
+}
+
 String buildGameQrLink(String gameId, {String? token}) {
   final normalizedGameId = gameId.trim();
   return _withQrToken(

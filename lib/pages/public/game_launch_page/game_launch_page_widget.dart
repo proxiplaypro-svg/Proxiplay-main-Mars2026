@@ -162,7 +162,7 @@ class _GameLaunchScreenState extends State<_GameLaunchScreen> {
 
   Future<bool> _tryLaunchNativeUrl(String url) async {
     final uri = Uri.parse(url);
-    debugPrint('[QR_LINK_NATIVE_ATTEMPT] url=$url');
+    debugPrint('[QR_LINK_NATIVE_ATTEMPT]');
     try {
       return await launchUrl(
         uri,
@@ -170,8 +170,8 @@ class _GameLaunchScreenState extends State<_GameLaunchScreen> {
             kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
         webOnlyWindowName: kIsWeb ? '_self' : null,
       );
-    } catch (error) {
-      debugPrint('[QR_LINK_NATIVE_FAILURE] url=$url error=$error');
+    } catch (_) {
+      debugPrint('[QR_LINK_NATIVE_FAILURE]');
       return false;
     }
   }

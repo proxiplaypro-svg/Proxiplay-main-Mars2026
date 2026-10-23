@@ -34,7 +34,6 @@ import 'services/remote_config_service.dart';
 import 'services/global_ticker_service.dart';
 import 'pages/status_screens/maintenance_screen.dart';
 import 'widgets/app_update_gate.dart';
-import 'widgets/open_ad_gate.dart';
 
 class AppBootstrapResult {
   const AppBootstrapResult({
@@ -506,11 +505,11 @@ class MyAppState extends State<MyApp> {
       ),
       themeMode: _themeMode,
       builder: (context, child) {
-        final app = OpenAdGate(
-          child: AppUpdateGate(
-            navigatorKey: _router.routerDelegate.navigatorKey,
-            child: child ?? const SizedBox.shrink(),
-          ),
+        // The opening interstitial lives on the player Home only (see
+        // HomeJoueurPageWidget), never over other screens.
+        final app = AppUpdateGate(
+          navigatorKey: _router.routerDelegate.navigatorKey,
+          child: child ?? const SizedBox.shrink(),
         );
         if (!FirebaseEnvironment.isLocalEmulatorMode) {
           return app;

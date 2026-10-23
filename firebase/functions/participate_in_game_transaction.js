@@ -484,22 +484,37 @@ exports.participateInGameTransaction = functions.https.onCall(
         // existing convention used throughout the admin console
         // (lib/firebase/*Queries.ts: `visible_public !== false`), so a
         // legacy game that never had this field set is still playable.
-        if (gameData.visible_public === false) {
+        // A game left with stale draft flags but proven launched by the
+        // server-side counters keeps running (see game_publication.js);
+        // cancelled, deactivated or admin-hidden games never are.
+        const publication = require('./game_publication').gamePublicationState(gameData);
+        if (!publication.playable) {
           throw new functions.https.HttpsError(
             "failed-precondition",
-            "Ce jeu n'est pas encore disponible."
+            publication.state === "draft"
+              ? "Ce jeu n'est pas encore disponible."
+              : "Ce compte ou ce jeu ne permet plus de participer."
           );
         }
+        // A scan in the shop is proven by the game's printed QR token, never
+        // by the from_qr flag. QR-only games require it; a public game may be
+        // played without it, and an absent or stale token is a normal play.
+        const qrAccess = require('./game_qr_access');
+        let scannedInShop = false;
         if (gameData.access_mode === "qr_only") {
-          await require('./game_qr_access').validateQr(
+          await qrAccess.validateQr(
+            transaction, gameRef, gameData, data.qr_token, now);
+          scannedInShop = true;
+        } else if (data.qr_token != null) {
+          scannedInShop = await qrAccess.isValidQr(
             transaction, gameRef, gameData, data.qr_token, now);
         }
         const userData = userDoc.data();
         // Apply final-draw eligibility to the participation/instant path too.
         // Otherwise an excluded account can win instantly and its activity
         // update can overwrite the suspended cached status.
-        if (excluded(userData) || ['draft', 'cancelled', 'canceled', 'disabled', 'ended']
-          .includes(String(gameData.status || '').toLowerCase())) {
+        // Draft and closed statuses are decided by gamePublicationState above.
+        if (excluded(userData) || String(gameData.status || '').toLowerCase() === 'ended') {
           throw new functions.https.HttpsError('failed-precondition',
             'Ce compte ou ce jeu ne permet plus de participer.');
         }
@@ -597,15 +612,11 @@ exports.participateInGameTransaction = functions.https.onCall(
           normalizedRemainingPart === null ? 3 : normalizedRemainingPart;
         const alreadyParticipatedToday = participantTodayDoc.exists;
         const unlimitedAccessActive = hasUnlimitedAccess(userData, now);
-        // A QR game explicitly configured as free never consumes a daily
-        // participation.  This decision is intentionally derived from the
-        // game document read in this transaction, never from callable input:
-        // historical QR games (field absent) and all non-QR games keep the
-        // normal debit behavior.
-        const qrConsumesParticipation = !(
-          gameData.access_mode === "qr_only" &&
-          gameData.qr_consumes_participation === false
-        );
+        // Playing from the shop QR never consumes a daily participation, for
+        // QR-only and public games alike. Only a token verified above counts
+        // as a scan; the former per-game qr_consumes_participation setting is
+        // no longer read.
+        const qrConsumesParticipation = !scannedInShop;
         let uniquePlayerNew = false;
         const participantDetailData = participantDetailDoc.exists
           ? participantDetailDoc.data()
@@ -1257,3 +1268,6 @@ exports.participateInGameTransaction = functions.https.onCall(
     }
   }
 );
+
+// Shared with the ad system: same adult rule as minor-restricted games.
+exports.isAdultFromBirthday = isAdultFromBirthday;

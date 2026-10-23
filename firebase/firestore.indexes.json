@@ -527,6 +527,34 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "prizes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "owner_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "claim_code_search",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "prizes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "enseigne_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "claim_code_search",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

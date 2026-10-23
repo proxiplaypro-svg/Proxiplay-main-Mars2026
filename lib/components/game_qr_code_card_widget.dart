@@ -40,7 +40,12 @@ class _GameQrCodeCardState extends State<GameQrCodeCard> {
 
   String? _issuedQrLink;
   String? _qrError;
+  // Shop QR (with its token when issued): only rendered as the QR image to
+  // display or print in the shop, where a scan makes the play free.
   String get _qrLink => _issuedQrLink ?? '';
+  // Anything shared online (texts, copied link) stays the plain public link:
+  // the shop token must never be published.
+  String get _publicLink => '$gameQrLinkBase/${widget.game.reference.id}';
 
   @override
   void initState() {
@@ -61,10 +66,8 @@ class _GameQrCodeCardState extends State<GameQrCodeCard> {
 
   Future<void> _loadQr() async {
     final gameId = widget.game.reference.id;
-    if (widget.game.snapshotData['access_mode'] != 'qr_only') {
-      setState(() => _issuedQrLink = buildGameQrLink(widget.game.reference.id));
-      return;
-    }
+    final qrOnly = widget.game.snapshotData['access_mode'] == 'qr_only';
+    // Every game gets its shop token: a verified scan never consumes a chance.
     try {
       final result = await FirebaseFunctions.instance
           .httpsCallable('issueGameQrAccess')
@@ -76,7 +79,11 @@ class _GameQrCodeCardState extends State<GameQrCodeCard> {
       }
     } catch (_) {
       if (mounted && widget.game.reference.id == gameId) {
-        setState(() => _qrError = 'Impossible de charger le QR code.');
+        // A public game stays playable from its plain link (the play is then
+        // counted); a QR-only game cannot be played without the token.
+        setState(() => qrOnly
+            ? _qrError = 'Impossible de charger le QR code.'
+            : _issuedQrLink = _publicLink);
       }
     }
   }
@@ -131,7 +138,7 @@ class _GameQrCodeCardState extends State<GameQrCodeCard> {
         '📝 $_gameDescription\n'
         '📅 Jusqu\'au $endDate\n\n'
         '📱 Jouez gratuitement sur ProxiPlay :\n'
-        '🔗 $_qrLink'
+        '🔗 $_publicLink'
         '$legalBlock\n\n'
         '#ProxiPlay #$merchantHashtag #JeuGratuit #BonPlan';
   }
@@ -144,7 +151,7 @@ class _GameQrCodeCardState extends State<GameQrCodeCard> {
   }
 
   Future<void> _copyLink(BuildContext context) async {
-    await _copyText(_qrLink, successMessage: 'Lien QR copie.');
+    await _copyText(_publicLink, successMessage: 'Lien QR copie.');
   }
 
   Future<void> _copyText(
@@ -187,7 +194,7 @@ class _GameQrCodeCardState extends State<GameQrCodeCard> {
 
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'image/png')],
-        text: _qrLink,
+        text: _publicLink,
         subject: 'QR code Proxiplay',
       );
     } catch (error) {
@@ -500,6 +507,8 @@ class _GameQrCodeCardState extends State<GameQrCodeCard> {
                   borderRadius: BorderRadius.circular(20.0),
                 ),
                 child: QrImageView(
+                  // Lets tests check what the shop QR encodes.
+                  key: ValueKey('shop-qr:$_qrLink'),
                   data: _qrLink,
                   version: QrVersions.auto,
                   size: 220.0,
@@ -512,7 +521,7 @@ class _GameQrCodeCardState extends State<GameQrCodeCard> {
           const SizedBox(height: 16.0),
           if (widget.showLinkDetails) ...[
             SelectableText(
-              _qrLink,
+              _publicLink,
               style: FlutterFlowTheme.of(context).bodySmall.override(
                     font: GoogleFonts.inter(
                       fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,

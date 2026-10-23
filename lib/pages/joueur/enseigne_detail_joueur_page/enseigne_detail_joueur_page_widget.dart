@@ -44,10 +44,7 @@ class _EnseigneDetailJoueurPageWidgetState
   String? _ongoingGamesFutureKey;
 
   bool _isGameVisibleForPlayer(GamesRecord game) {
-    if (isGameDraftHiddenFromPlayer(
-      hasVisiblePublicField: game.hasVisiblePublic(),
-      visiblePublic: game.visiblePublic,
-    )) {
+    if (isGameHiddenFromPlayer(game.snapshotData)) {
       return false;
     }
     final now = getCurrentTimestamp;

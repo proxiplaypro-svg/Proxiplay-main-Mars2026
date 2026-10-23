@@ -33,7 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.retryReferralRewards = exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.expireOldReferrals = exports.grantReferralReward = exports.adminReconcileReferralGameTickets = exports.registerReferralAcceptance = exports.createReferral = exports.getSharePromoState = exports.remindUsersWithRemainingDailyPlays = void 0;
+exports.retryReferralRewards = exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.expireOldReferrals = exports.grantReferralReward = exports.adminReconcileReferralGameTickets = exports.registerReferralAcceptance = exports.createReferralEmailAccount = exports.createReferral = exports.getSharePromoState = exports.kReferralGameInviteMessage = exports.remindUsersWithRemainingDailyPlays = void 0;
+exports.buildReferralGameShareMessage = buildReferralGameShareMessage;
 const { prepareReferralReward, processReferralReward, retryPendingReferralRewards, pendingRef } = require('../../referral_reward_queue');
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
@@ -41,6 +42,27 @@ const firestore_1 = require("./firestore");
 const referral_games_1 = require("./referral_games");
 var daily_plays_reminder_1 = require("./daily_plays_reminder");
 Object.defineProperty(exports, "remindUsersWithRemainingDailyPlays", { enumerable: true, get: function () { return daily_plays_reminder_1.remindUsersWithRemainingDailyPlays; } });
+// A referral code entered before a Google (or any non e-mail) signup is
+// accepted only for an account Firebase created moments ago: the Auth
+// creation time is set by Firebase, never by the client.
+const kReferralNewAccountWindowMs = 30 * 60 * 1000;
+// Wording while a referral game runs: a referral then gives the inviter a draw
+// ticket (no "all games until midnight" access).
+exports.kReferralGameInviteMessage = 'Invitez un ami et gagnez un ticket pour le tirage au sort !';
+function buildReferralGameShareMessage(inviteCode) {
+    return 'Rejoins-moi sur ProxiPlay avec mon code de parrainage ' + inviteCode + ' ! ' +
+        'Quand ton inscription est validée, c’est moi qui gagne un ticket pour le tirage au sort.';
+}
+// An unreadable state (e.g. two games active at once) counts as running, so
+// the "until midnight" promise is never shown when it may not apply.
+async function isReferralGameRunning() {
+    try {
+        return (await (0, referral_games_1.findActiveReferralGame)()) != null;
+    }
+    catch (_) {
+        return true;
+    }
+}
 function requireAuth(request) {
     const { auth } = request;
     if (!auth?.uid) {
@@ -82,51 +104,53 @@ async function grantReferralRewardInternal(referralId, grantedBy) {
         if (referral.status !== 'accepted' || !referral.inviteeUid) {
             return { granted: false, reason: 'referral_not_eligible' };
         }
+        if (referral.rewardStatus === 'blocked' &&
+            referral.metadata?.blockReason !== 'max_rewards_per_user_reached' &&
+            referral.metadata?.blockReason !== 'max_rewards_per_invitee_reached') {
+            return { granted: false, reason: 'reward_blocked' };
+        }
+        if (!(0, firestore_1.isAllGamesUntilMidnightReward)(referral.rewardType) &&
+            (!(0, firestore_1.isRewardPlayable)(referral.rewardType) || referral.rewardValue <= 0)) {
+            return { granted: false, reason: 'unsupported_reward' };
+        }
         const inviter = await transaction.get(firestore_1.refs.user(referral.inviterUid));
         const account = inviter.data();
         if (!inviter.exists || require('../../prize_integrity').excluded(account)) {
             return { granted: false, reason: 'inviter_ineligible' };
         }
         const durableReward = await transaction.get(pendingRef(referralId));
-        if (durableReward.exists && durableReward.data()?.mode === 'game') {
+        if (durableReward.exists && durableReward.data()?.mode === 'game' &&
+            durableReward.data()?.classic_and_game !== true) {
             return { granted: false, reason: 'game_reward_managed' };
         }
-        const [inviterGrantedSnap, inviteeGrantedSnap, eventSnap] = await Promise.all([
-            transaction.get(firestore_1.refs
-                .referrals()
-                .where('inviterUid', '==', referral.inviterUid)
-                .where('rewardStatus', '==', 'granted')),
+        const [inviteeGrantedSnap, eventSnap] = await Promise.all([
             transaction.get(firestore_1.refs
                 .referrals()
                 .where('inviteeUid', '==', referral.inviteeUid)
-                .where('rewardStatus', '==', 'granted')),
+                .where('rewardStatus', '==', 'granted').limit(1)),
             transaction.get(eventRef),
         ]);
         if (eventSnap.exists) {
             return { granted: false, reason: 'event_exists' };
         }
-        if (inviterGrantedSnap.size >= campaign.maxRewardsPerUser) {
-            transaction.update(referralRef, {
-                rewardStatus: 'blocked',
-                metadata: {
-                    ...(referral.metadata ?? {}),
-                    blockReason: 'max_rewards_per_user_reached',
-                },
-            });
-            return { granted: false, reason: 'max_rewards_per_user_reached' };
+        if (!inviteeGrantedSnap.empty) {
+            return { granted: false, reason: 'invitee_already_rewarded' };
         }
-        if (inviteeGrantedSnap.size >= campaign.maxRewardsPerInvitee) {
-            transaction.update(referralRef, {
-                rewardStatus: 'blocked',
-                metadata: {
-                    ...(referral.metadata ?? {}),
-                    blockReason: 'max_rewards_per_invitee_reached',
-                },
-            });
-            return { granted: false, reason: 'max_rewards_per_invitee_reached' };
+        const newRule = referral.metadata?.playerRewardRuleVersion === 2;
+        if (newRule && !referral.acceptedAt) {
+            return { granted: false, reason: 'missing_acceptance_date' };
         }
-        transaction.set(eventRef, (0, firestore_1.buildRewardEvent)(referral.inviterUid, referralId, campaign, grantedBy));
-        await (0, firestore_1.applyRewardToUser)(transaction, referral.inviterUid, referral.rewardType, referral.rewardValue);
+        const deadline = newRule && referral.acceptedAt
+            ? (0, firestore_1.getNextMidnightTimestamp)(referral.acceptedAt)
+            : undefined;
+        const existingAccess = account?.allGamesAccessUntil;
+        const accessUntil = deadline && existingAccess?.toMillis &&
+            existingAccess.toMillis() > deadline.toMillis() ? existingAccess : deadline;
+        const previousReferralAccess = account?.referralBonusExpiresAt;
+        const referralAccessUntil = deadline && previousReferralAccess?.toMillis &&
+            previousReferralAccess.toMillis() > deadline.toMillis() ? previousReferralAccess : deadline;
+        transaction.set(eventRef, (0, firestore_1.buildRewardEvent)(referral.inviterUid, referralId, { ...campaign, rewardType: referral.rewardType, rewardValue: referral.rewardValue }, grantedBy));
+        await (0, firestore_1.applyRewardToUser)(transaction, referral.inviterUid, referral.rewardType, referral.rewardValue, accessUntil, referralAccessUntil);
         transaction.set(firestore_1.refs.shareState(referral.inviterUid), {
             grantedCount: admin.firestore.FieldValue.increment(1),
             rewardAvailable: false,
@@ -146,7 +170,10 @@ async function grantReferralRewardInternal(referralId, grantedBy) {
             (0, firestore_1.recomputeShareState)(referral.inviterUid),
             (0, firestore_1.recomputeAdminStats)(),
         ];
-        if ((0, firestore_1.isAllGamesUntilMidnightReward)(referral.rewardType)) {
+        const validAccess = referral.metadata?.playerRewardRuleVersion !== 2 ||
+            (referral.acceptedAt != null &&
+                (0, firestore_1.getNextMidnightTimestamp)(referral.acceptedAt).toMillis() > Date.now());
+        if ((0, firestore_1.isAllGamesUntilMidnightReward)(referral.rewardType) && validAccess) {
             followUpTasks.push((0, firestore_1.queueUserPushNotification)({
                 docId: `share_promo_reward_${referralId}`,
                 title: '🎉 Ton parrainage a fonctionné !',
@@ -211,8 +238,15 @@ exports.getSharePromoState = functions
         message = campaign.message;
         action = 'defaultInvite';
     }
+    // During a referral game a new referral gives a draw ticket instead of
+    // the "all games until midnight" access this banner promises, so it is
+    // hidden (the referral game card invites instead). Unknown state hides it.
+    const referralGameActive = await isReferralGameRunning();
+    if (referralGameActive && kind != null)
+        message = exports.kReferralGameInviteMessage;
     return {
-        showBanner: kind != null,
+        showBanner: kind != null && !referralGameActive,
+        referralGameActive,
         kind,
         title,
         message,
@@ -236,15 +270,13 @@ exports.createReferral = functions
     if (!(0, firestore_1.isCampaignActive)(campaign)) {
         throw new functions.https.HttpsError('failed-precondition', 'No active share campaign is available.');
     }
-    const stateSnap = await firestore_1.refs.shareState(auth.uid).get();
-    const state = stateSnap.exists
-        ? { ...firestore_1.defaultShareState, ...stateSnap.data() }
-        : firestore_1.defaultShareState;
-    if (state.grantedCount >= campaign.maxRewardsPerUser) {
-        throw new functions.https.HttpsError('resource-exhausted', 'Your reward quota has been reached.');
-    }
     const userSnap = await firestore_1.refs.user(auth.uid).get();
     const userData = userSnap.data() ?? {};
+    const inviterRole = (0, firestore_1.normalizeString)(userData.user_role) || (0, firestore_1.normalizeString)(userData.userRole);
+    if (!userSnap.exists || inviterRole !== 'joueur' ||
+        require('../../prize_integrity').excluded(userData)) {
+        throw new functions.https.HttpsError('permission-denied', 'A player account is required.');
+    }
     const inviterPseudo = (0, firestore_1.normalizeNullableString)(userData.pseudo) ??
         (0, firestore_1.normalizeNullableString)(userData.display_name) ??
         (0, firestore_1.normalizeNullableString)(userData.first_name);
@@ -279,12 +311,126 @@ exports.createReferral = functions
         }, { merge: true }),
         (0, firestore_1.recomputeAdminStats)(),
     ]);
+    const referralGameActive = await isReferralGameRunning();
     return {
         referralId: referralRef.id,
         inviteCode,
-        shareMessage: (0, firestore_1.buildShareMessage)(campaign, inviteCode),
+        shareMessage: referralGameActive ?
+            buildReferralGameShareMessage(inviteCode) : (0, firestore_1.buildShareMessage)(campaign, inviteCode),
         shareLink: (0, firestore_1.buildShareLink)(inviteCode),
+        referralGameActive,
     };
+});
+// Referral signup operations are server-owned and contain no password.
+exports.createReferralEmailAccount = functions.region(firestore_1.region)
+    .runWith({ timeoutSeconds: 60, memory: '256MB' })
+    .https.onCall(async (data, context) => {
+    const crypto = require('crypto');
+    const hash = (value) => crypto.createHash('sha256').update(value).digest('hex');
+    const requestId = typeof data?.requestId === 'string' ? data.requestId : '';
+    const email = typeof data?.email === 'string' ? data.email.trim().toLowerCase() : '';
+    const password = typeof data?.password === 'string' ? data.password : '';
+    const inviteCode = (0, firestore_1.normalizeString)(data?.inviteCode);
+    if (!/^[0-9a-f-]{36}$/i.test(requestId) || !email.includes('@') || email.length > 254 ||
+        password.length < 6 || password.length > 128 || !inviteCode || inviteCode.length > 128) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid signup details.');
+    }
+    // The framework-resolved address depends on the deployment proxy configuration.
+    // Verify it before rollout; never log credentials or the raw address.
+    const ip = context.rawRequest?.ip || context.rawRequest?.socket?.remoteAddress;
+    if (!ip)
+        throw new functions.https.HttpsError('unavailable', 'Signup unavailable.');
+    const now = Date.now();
+    const rate = firestore_1.db.collection('_referral_signup_rate').doc(hash(ip));
+    await firestore_1.db.runTransaction(async (tx) => {
+        const previous = (await tx.get(rate)).data() ?? {};
+        const start = Number(previous.start) || 0;
+        const count = now >= start && now - start < 60000 ? Number(previous.count) || 0 : 0;
+        if (count >= 5)
+            throw new functions.https.HttpsError('resource-exhausted', 'Too many attempts.');
+        tx.set(rate, { start: count ? start : now, count: count + 1 });
+    });
+    const found = await firestore_1.refs.referrals().where('inviteCode', '==', inviteCode).limit(1).get();
+    if (found.empty)
+        throw new functions.https.HttpsError('not-found', 'Referral not found.');
+    const referralRef = found.docs[0].ref;
+    // A shared per-invitation quota also limits distributed attempts against a
+    // valid code. This supplements the network quota; it is not attestation.
+    const codeRate = firestore_1.db.collection('_referral_signup_code_rate').doc(hash(referralRef.id));
+    await firestore_1.db.runTransaction(async (tx) => {
+        const previous = (await tx.get(codeRate)).data() ?? {};
+        const start = Number(previous.start) || 0;
+        const count = now >= start && now - start < 60000 ? Number(previous.count) || 0 : 0;
+        if (count >= 10)
+            throw new functions.https.HttpsError('resource-exhausted', 'Too many attempts.');
+        tx.set(codeRate, { start: count ? start : now, count: count + 1 });
+    });
+    const operationRef = firestore_1.db.collection('_referral_signup_operations').doc(hash(requestId));
+    const uid = 'ref_' + hash(requestId).slice(0, 48);
+    await firestore_1.db.runTransaction(async (tx) => {
+        const [opSnap, referralSnap] = await Promise.all([tx.get(operationRef), tx.get(referralRef)]);
+        const op = opSnap.data();
+        const referral = referralSnap.data();
+        if (op) {
+            if (op.uid !== uid || op.emailHash !== hash(email) || op.referralId !== referralRef.id)
+                throw new functions.https.HttpsError('failed-precondition', 'Signup details changed.');
+            return;
+        }
+        if (!referral || referral.status !== 'pending' || referral.inviteeUid)
+            throw new functions.https.HttpsError('failed-precondition', 'Referral unavailable.', { reason: 'referral_unavailable', accountCreated: false });
+        tx.create(operationRef, { uid, emailHash: hash(email), referralId: referralRef.id, status: 'pending', createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    });
+    try {
+        await admin.auth().createUser({ uid, email, password });
+    }
+    catch (error) {
+        // Only recover our server-assigned UID, never a pre-existing account found
+        // by email. Other Auth errors leave the operation retryable.
+        let user;
+        try {
+            user = await admin.auth().getUser(uid);
+        }
+        catch (_) { /* no matching UID */ }
+        if (!user || user.email?.trim().toLowerCase() !== email) {
+            if (error?.code === 'auth/email-already-exists')
+                throw new functions.https.HttpsError('already-exists', 'Account already exists.', { reason: 'email_exists', accountCreated: false });
+            throw new functions.https.HttpsError('unavailable', 'Could not create account.');
+        }
+    }
+    const result = await firestore_1.db.runTransaction(async (tx) => {
+        const [opSnap, referralSnap, existing] = await Promise.all([
+            tx.get(operationRef), tx.get(referralRef), tx.get(firestore_1.refs.referrals().where('inviteeUid', '==', uid).limit(1)),
+        ]);
+        const op = opSnap.data(), referral = referralSnap.data();
+        if (!op || op.uid !== uid || op.emailHash !== hash(email) || op.referralId !== referralRef.id || !referral)
+            throw new functions.https.HttpsError('failed-precondition', 'Invalid signup operation.');
+        if (referral.status === 'accepted' && referral.inviteeUid === uid)
+            return { inviterUid: referral.inviterUid };
+        if (referral.inviterUid === uid || !existing.empty || referral.status !== 'pending' || referral.inviteeUid)
+            throw new functions.https.HttpsError('already-exists', 'Referral unavailable.', { reason: 'referral_unavailable', accountCreated: true });
+        const acceptedAt = admin.firestore.Timestamp.now();
+        // During an active referral game the ticket replaces the classic reward.
+        const event = await prepareReferralReward(tx, referralRef.id, referral.inviterUid, acceptedAt);
+        tx.create(pendingRef(referralRef.id), event);
+        tx.update(referralRef, { inviteeUid: uid, status: 'accepted', acceptedAt, rewardStatus: 'available',
+            rewardType: 'all_games_until_midnight', rewardValue: 1,
+            metadata: { ...(referral.metadata ?? {}), playerRewardRuleVersion: 2 } });
+        tx.update(operationRef, { status: 'completed', completedAt: admin.firestore.FieldValue.serverTimestamp() });
+        return { inviterUid: referral.inviterUid };
+    });
+    try {
+        await processReferralReward(referralRef.id, grantReferralRewardInternal);
+    }
+    catch (_) {
+        functions.logger.error('REFERRAL_REWARD_DEFERRED', { referralId: referralRef.id });
+    }
+    try {
+        await Promise.all([(0, firestore_1.recomputeShareState)(result.inviterUid), (0, firestore_1.recomputeAdminStats)()]);
+    }
+    catch (_) {
+        functions.logger.warn('REFERRAL_STATS_DEFERRED');
+    }
+    return { success: true };
 });
 exports.registerReferralAcceptance = functions
     .region(firestore_1.region)
@@ -303,8 +449,15 @@ exports.registerReferralAcceptance = functions
     if (referralQuery.empty) {
         throw new functions.https.HttpsError('not-found', 'Referral not found.');
     }
-    const campaign = await loadCampaign();
     const referralRef = referralQuery.docs[0].ref;
+    let authCreatedMs = NaN;
+    try {
+        authCreatedMs = Date.parse((await admin.auth().getUser(auth.uid)).metadata.creationTime);
+    }
+    catch (_) { /* Unknown account: not eligible below. */ }
+    const nowMs = Date.now();
+    const isNewAccount = Number.isFinite(authCreatedMs) &&
+        nowMs - authCreatedMs <= kReferralNewAccountWindowMs;
     const acceptanceResult = await firestore_1.db.runTransaction(async (transaction) => {
         const [referralSnap, inviteeUserSnap, existingInviteeReferralSnap] = await Promise.all([
             transaction.get(referralRef),
@@ -318,16 +471,24 @@ exports.registerReferralAcceptance = functions
         if (referral.status === 'accepted' && referral.inviteeUid === auth.uid) {
             return { inviterUid: referral.inviterUid, rewardStatus: referral.rewardStatus };
         }
+        // Only a brand-new player counts: the Auth account was created by
+        // Firebase within the window (server-controlled, not a profile field)
+        // and has not played yet. An existing account entering a code never
+        // counts, whatever its profile says.
+        const invitee = inviteeUserSnap.data() ?? {};
+        if (!isNewAccount || Number(invitee.games_played_count) > 0 ||
+            invitee.last_real_activity_at != null) {
+            throw new functions.https.HttpsError('failed-precondition', 'Referral codes are reserved to newly created accounts.');
+        }
         if (!existingInviteeReferralSnap.empty) {
             throw new functions.https.HttpsError('already-exists', 'A referral has already been used for this account.');
         }
         if (referral.status !== 'pending' || referral.inviteeUid) {
             throw new functions.https.HttpsError('already-exists', 'This referral has already been accepted.');
         }
-        const rewardStatus = campaign.requireInviteeSignup && !inviteeUserSnap.exists
-            ? 'blocked'
-            : 'available';
+        const rewardStatus = 'available';
         const acceptedAt = admin.firestore.Timestamp.now();
+        // During an active referral game the ticket replaces the classic reward.
         const rewardEvent = await prepareReferralReward(transaction, referralRef.id, referral.inviterUid, acceptedAt);
         transaction.create(pendingRef(referralRef.id), rewardEvent);
         transaction.update(referralRef, {
@@ -335,6 +496,9 @@ exports.registerReferralAcceptance = functions
             status: 'accepted',
             acceptedAt,
             acceptedFromDeviceId: (0, firestore_1.normalizeNullableString)(data?.acceptedFromDeviceId),
+            rewardType: 'all_games_until_midnight',
+            rewardValue: 1,
+            metadata: { ...(referral.metadata ?? {}), playerRewardRuleVersion: 2 },
             rewardStatus,
         });
         return { inviterUid: referral.inviterUid, rewardStatus };
@@ -383,31 +547,8 @@ exports.expireOldReferrals = functions
     .pubsub.schedule('every 24 hours')
     .timeZone('Europe/Paris')
     .onRun(async () => {
-    const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - firestore_1.defaultReferralExpirationDays * 24 * 60 * 60 * 1000);
-    const pendingSnap = await firestore_1.refs
-        .referrals()
-        .where('status', '==', 'pending')
-        .where('createdAt', '<=', cutoff)
-        .limit(300)
-        .get();
-    if (pendingSnap.empty) {
-        return null;
-    }
-    const batch = firestore_1.db.batch();
-    const inviterUids = new Set();
-    pendingSnap.docs.forEach((doc) => {
-        const referral = doc.data();
-        inviterUids.add(referral.inviterUid);
-        batch.update(doc.ref, {
-            status: 'expired',
-            expiredAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-    });
-    await batch.commit();
-    await Promise.all([
-        ...Array.from(inviterUids).map((uid) => (0, firestore_1.recomputeShareState)(uid)),
-        (0, firestore_1.recomputeAdminStats)(),
-    ]);
+    // Keep the deployed schedule compatible, but never expire invitations.
+    // Existing records, including previously expired ones, are untouched.
     return null;
 });
 exports.adminUpsertSharePromo = functions

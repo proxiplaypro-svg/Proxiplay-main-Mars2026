@@ -108,7 +108,8 @@ exports.defaultShareState = {
     rewardAvailable: false,
     lastReferralAt: null,
     lastRewardAt: null,
-    remainingEligibleRewards: 0,
+    // Legacy numeric field: -1 means unlimited; it is not an eligibility gate.
+    remainingEligibleRewards: -1,
     currentBannerKind: null,
     currentBannerTitle: null,
     currentBannerMessage: null,
@@ -305,7 +306,7 @@ async function recomputeShareState(uid) {
         lastRewardAt: lastRewardSnap.empty
             ? null
             : (lastRewardSnap.docs[0].get('createdAt') ?? null),
-        remainingEligibleRewards: Math.max(0, config.maxRewardsPerUser - grantedCount),
+        remainingEligibleRewards: -1,
         currentBannerKind: availableCount > 0
             ? 'rewardAvailable'
             : pendingCount > 0
@@ -385,10 +386,11 @@ function getNextMidnightTimestamp(now = admin.firestore.Timestamp.now(), timeZon
 function isAllGamesUntilMidnightReward(type) {
     return normalizeString(type) === 'all_games_until_midnight';
 }
-async function applyRewardToUser(transaction, uid, rewardType, rewardValue) {
+async function applyRewardToUser(transaction, uid, rewardType, rewardValue, accessUntil, referralAccessUntil) {
     if (isAllGamesUntilMidnightReward(rewardType)) {
         transaction.set(exports.refs.user(uid), {
-            allGamesAccessUntil: getNextMidnightTimestamp(),
+            allGamesAccessUntil: accessUntil ?? getNextMidnightTimestamp(),
+            ...(referralAccessUntil ? { referralBonusExpiresAt: referralAccessUntil } : {}),
             updated_time: admin.firestore.FieldValue.serverTimestamp(),
         }, { merge: true });
         return;

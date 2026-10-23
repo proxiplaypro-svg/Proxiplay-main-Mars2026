@@ -4,16 +4,17 @@ import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/services/merchant_referral_service.dart';
+import '/services/merchant_referral_actions.dart';
 import '/utils/merchant_referral_utils.dart';
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:share_plus/share_plus.dart';
 import 'parrainage_commercant_page_model.dart';
+import 'merchant_referral_conditions.dart';
 export 'parrainage_commercant_page_model.dart';
 
-/// Page joueur : parrainer un commercant et recevoir 50 EUR s'il devient
+/// Page joueur : parrainer un commercant et recevoir un bon cadeau s'il devient
 /// client payant dans les conditions du programme. Programme distinct du
 /// parrainage joueur existant (bonus de jeu, voir parrainage_joueur_page) :
 /// code et suivi gérés par un espace backend séparé
@@ -43,6 +44,9 @@ class _ParrainageCommercantPageWidgetState
   bool _loadingCode = true;
   String? _loadError;
   bool _isSharing = false;
+  bool? _programEnabled;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _configSubscription;
 
   @override
   void initState() {
@@ -51,11 +55,23 @@ class _ParrainageCommercantPageWidgetState
 
     logFirebaseEvent('screen_view',
         parameters: {'screen_name': 'ParrainageCommercantPage'});
-    _loadCode();
+    _configSubscription = FirebaseFirestore.instance
+        .doc('app_config/merchant_referral')
+        .snapshots()
+        .listen((snapshot) {
+      final enabled = snapshot.data()?['enabled'] != false;
+      if (!mounted) return;
+      final wasEnabled = _programEnabled;
+      setState(() => _programEnabled = enabled);
+      if (enabled && wasEnabled != true) _loadCode();
+    }, onError: (_) {
+      if (mounted) setState(() => _programEnabled = null);
+    });
   }
 
   @override
   void dispose() {
+    _configSubscription?.cancel();
     _model.dispose();
     super.dispose();
   }
@@ -71,6 +87,9 @@ class _ParrainageCommercantPageWidgetState
       if (!mounted) return;
       setState(() {
         _code = code;
+        _loadError = isValidMerchantReferralCode(code)
+            ? null
+            : 'Votre code est indisponible ou invalide. Réessayez.';
         _loadingCode = false;
       });
     } catch (error) {
@@ -84,9 +103,18 @@ class _ParrainageCommercantPageWidgetState
 
   Future<void> _copyCode() async {
     final code = _code;
-    if (code == null || code.isEmpty) return;
+    if (_programEnabled != true || !isValidMerchantReferralCode(code)) return;
 
-    await Clipboard.setData(ClipboardData(text: code));
+    try {
+      await copyMerchantReferralCode(code);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Copie indisponible pour le moment.')),
+        );
+      }
+      return;
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -99,13 +127,23 @@ class _ParrainageCommercantPageWidgetState
 
   Future<void> _shareCode() async {
     final code = _code;
-    if (code == null || code.isEmpty || _isSharing) return;
+    if (_programEnabled != true ||
+        !isValidMerchantReferralCode(code) ||
+        _isSharing) {
+      return;
+    }
     setState(() => _isSharing = true);
     try {
-      await Share.share(
-        buildMerchantReferralShareText(code),
-        subject: 'Parrainez un commerçant sur ProxiPlay',
-      );
+      final box = context.findRenderObject() as RenderBox?;
+      await shareMerchantReferralCode(code,
+          origin:
+              box == null ? null : box.localToGlobal(Offset.zero) & box.size);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Partage indisponible pour le moment.')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSharing = false);
     }
@@ -134,7 +172,7 @@ class _ParrainageCommercantPageWidgetState
       'Vous lui transmettez votre code personnel.',
       'Le commerçant s\'inscrit sur Proxiplay.fr et renseigne votre code.',
       'Lorsqu\'il devient client payant dans les conditions du programme, '
-          'vous pouvez recevoir 50 €.',
+          'vous pouvez recevoir un bon cadeau de 50 € après validation.',
     ];
 
     return _card(
@@ -158,7 +196,7 @@ class _ParrainageCommercantPageWidgetState
               ),
               const SizedBox(width: 8.0),
               Text(
-                '50 €',
+                'Bon cadeau de 50 €',
                 style: GoogleFonts.interTight(
                   fontWeight: FontWeight.w900,
                   fontSize: 22.0,
@@ -169,8 +207,8 @@ class _ParrainageCommercantPageWidgetState
           ),
           const SizedBox(height: 4.0),
           Text(
-            'Recevez 50 € si le commerçant devient client dans les '
-            'conditions du programme.',
+            'Recevez un bon cadeau de 50 € si le commerçant souscrit un '
+            'abonnement éligible et que le parrainage est validé.',
             style: FlutterFlowTheme.of(context).bodyMedium.override(
                   font: GoogleFonts.inter(fontWeight: FontWeight.w400),
                   fontSize: 14.0,
@@ -214,7 +252,10 @@ class _ParrainageCommercantPageWidgetState
             ),
           const SizedBox(height: 4.0),
           InkWell(
-            onTap: () => launchURL(merchantReferralConditionsUrl),
+            onTap: () => showDialog<void>(
+              context: context,
+              builder: (_) => const MerchantReferralConditionsDialog(),
+            ),
             child: Text(
               'Voir les conditions du programme',
               style: GoogleFonts.inter(
@@ -231,6 +272,14 @@ class _ParrainageCommercantPageWidgetState
   }
 
   Widget _buildCodeCard(BuildContext context) {
+    if (_programEnabled != true) {
+      return _card(
+          child: Text(
+        _programEnabled == false
+            ? 'Le programme de parrainage est temporairement indisponible. Votre historique reste accessible.'
+            : 'Impossible de vérifier la disponibilité du programme pour le moment.',
+      ));
+    }
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,7 +340,8 @@ class _ParrainageCommercantPageWidgetState
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _code == null ? null : _copyCode,
+                    onPressed:
+                        isValidMerchantReferralCode(_code) ? _copyCode : null,
                     icon: const Icon(Icons.copy_rounded, size: 18.0),
                     label: const Text('Copier le code'),
                     style: OutlinedButton.styleFrom(
@@ -306,7 +356,9 @@ class _ParrainageCommercantPageWidgetState
                 const SizedBox(width: 10.0),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: _code == null ? null : _shareCode,
+                    onPressed: isValidMerchantReferralCode(_code) && !_isSharing
+                        ? _shareCode
+                        : null,
                     icon: const Icon(Icons.share_rounded, size: 18.0),
                     label: Text(_isSharing ? 'Ouverture...' : 'Partager'),
                     style: ElevatedButton.styleFrom(
@@ -412,19 +464,18 @@ class _ParrainageCommercantPageWidgetState
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 4.0, bottom: 12.0),
-              child: Text(
-                'Mes parrainages commerçants',
-                style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w700, fontSize: 15.0, color: ink),
-              ),
-            ),
             if (docs.isEmpty)
-              const ListEmptyComponentWidget(
-                title: 'Aucun parrainage pour le moment',
-                description:
-                    'Les commerçants que vous parrainez apparaîtront ici dès qu\'ils auront utilisé votre code.',
+              // ListEmptyComponentWidget fills its parent. Inside this
+              // scroll view the height is unbounded, so layout failed and,
+              // with an accessibility service on, every frame then threw
+              // and no button of the page responded.
+              const SizedBox(
+                height: 260.0,
+                child: ListEmptyComponentWidget(
+                  title: 'Aucun parrainage pour le moment',
+                  description:
+                      'Les commerçants que vous parrainez apparaîtront ici dès qu\'ils auront utilisé votre code.',
+                ),
               )
             else
               ...docs.map((doc) => _buildReferralRow(context, doc)),

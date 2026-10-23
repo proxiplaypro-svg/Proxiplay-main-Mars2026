@@ -79,10 +79,7 @@ class _AnimationDetailPageState extends State<AnimationDetailPage> {
         .map(
           (snapshot) => snapshot.docs
               .map((doc) => GamesRecord.fromSnapshot(doc))
-              .where((game) => !isGameDraftHiddenFromPlayer(
-                    hasVisiblePublicField: game.hasVisiblePublic(),
-                    visiblePublic: game.visiblePublic,
-                  ))
+              .where((game) => !isGameHiddenFromPlayer(game.snapshotData))
               .toList(),
         );
   }

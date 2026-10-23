@@ -4,6 +4,7 @@ const admin = require("firebase-admin");
 const crypto = require("crypto");
 const {runScheduledDraws} = require("./scheduled_draw_runner");
 const {getNowTimestamp} = require("./lib/emulator_runtime");
+const {shopOwnerRef} = require("./merchant_ownership");
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
@@ -790,6 +791,13 @@ function generateClaimCode() {
   return `${timePart}${randomPart}`;
 }
 
+// Callable responses carry the partner shop as its path, never as a raw
+// DocumentReference (not serializable by the callable protocol).
+function serializeConfigForClient(config) {
+  const ref = config?.enseigne_ref;
+  return {...config, enseigne_ref: typeof ref?.path === "string" ? ref.path : ref || null};
+}
+
 async function assertIsAdmin(context) {
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -798,8 +806,9 @@ async function assertIsAdmin(context) {
     );
   }
   const userSnap = await db.collection("users").doc(context.auth.uid).get();
-  const role = getTrimmedString(userSnap.data()?.user_role || userSnap.data()?.userRole);
-  if (context.auth.token.admin === true || role === "admin") {
+  // Same admin identity as the other admin callables, so the web Admin
+  // (signed in with the ProxiPlay admin account) can manage challenges.
+  if (require("./admin_identity").isTrustedAdmin(context.auth, userSnap.data() || {})) {
     return userSnap;
   }
   throw new functions.https.HttpsError(
@@ -1207,6 +1216,20 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
     const prizeRef = db.collection("prizes").doc(`monthly_challenge_${challengeId}`);
     const prizeSnap = await transaction.get(prizeRef);
     if (prizeSnap.exists) return review(prizeRef.id, 'prize_exists_without_final_draw');
+    // A challenge with a partner shop awards a lot collected at that shop,
+    // verified by its merchant like any merchant lot; without a partner it is
+    // a ProxiPlay lot. A partner that cannot be resolved to its merchant is
+    // reviewed rather than awarded as a lot nobody could hand over.
+    let partnerShop = null;
+    if (config.enseigne_ref) {
+      const shopRef = typeof config.enseigne_ref === "string" ?
+        db.doc(config.enseigne_ref) : config.enseigne_ref;
+      const shopSnap = typeof shopRef?.path === "string" &&
+        /^enseignes\/[^/]+$/.test(shopRef.path) ? await transaction.get(shopRef) : null;
+      const ownerRef = shopSnap?.exists ? shopOwnerRef(db, shopSnap.data()) : null;
+      if (!ownerRef) return review(prizeRef.id, 'partner_shop_without_merchant');
+      partnerShop = {shopRef, ownerRef};
+    }
     const evaluatedEntries = [];
     for (const entryDoc of entriesSnap.docs) {
       const entryData = entryDoc.data() || {};
@@ -1332,7 +1355,9 @@ async function drawWinnerForMonthlyChallenge(config, triggerSource) {
 
     transaction.set(prizeRef, {
       prize_type: "monthly_challenge",
-      fulfillment_type: "platform",
+      ...(partnerShop ?
+        {fulfillment_type: "merchant", enseigne_id: partnerShop.shopRef, owner_id: partnerShop.ownerRef} :
+        {fulfillment_type: "platform"}),
       name: config.prize_title || "Defi mensuel Proxiplay",
       description: buildChallengePrizeDescription(config),
       winner_id: selected.userRef,
@@ -1455,7 +1480,16 @@ const adminGetMonthlyChallengeConfigCallable = functions
       data?.type === kLegacyRestaurantChallengeType ?
       kMerchantChallengeType : kAttendanceChallengeType;
     const month = getTrimmedString(data?.month) || getParisMonthKey();
-    return getChallengeConfigForType(type, month);
+    const config = await getChallengeConfigForType(type, month);
+    const [stored, draw] = await Promise.all([
+      getMonthlyChallengeConfigDocRef(config.challenge_id).get(),
+      getMonthlyChallengeDrawRef(config.challenge_id).get(),
+    ]);
+    return {
+      ...serializeConfigForClient(config),
+      cancelled: stored.exists && stored.data()?.cancelled === true,
+      draw_status: draw.exists ? getTrimmedString(draw.data()?.status) : "",
+    };
   });
 
 const adminUpsertMonthlyChallengeCallable = functions
@@ -1479,6 +1513,31 @@ const adminUpsertMonthlyChallengeCallable = functions
     const existingConfig = normalizeMonthlyChallengeConfig(
       existingSnap.exists ? existingSnap.data() : {},
     );
+    // Once its period has started, an enabled challenge can no longer be
+    // switched off (that would silently skip the draw of qualified players)
+    // until its draw is final. Stopping it without a draw is an explicit,
+    // recorded cancellation.
+    const cancel = data?.cancel === true;
+    const periodStartMs = existingConfig.start_date?.toMillis() ??
+      (isMonthKey(existingConfig.month) ?
+        getParisMidnightTimestamp(`${existingConfig.month}-01`).toMillis() : null);
+    const periodStarted = existingSnap.exists && existingConfig.enabled &&
+      periodStartMs != null && getNowTimestamp(admin).toMillis() >= periodStartMs;
+    if (periodStarted && !payload.enabled) {
+      const drawSnap = await getMonthlyChallengeDrawRef(payload.challenge_id).get();
+      const drawFinal = drawSnap.exists && isFinalDrawStatus(drawSnap.data()?.status);
+      if (!drawFinal && !cancel) {
+        throw new functions.https.HttpsError(
+          "failed-precondition",
+          "Ce defi a commence : il ne peut plus etre desactive. Pour l'arreter sans tirage, utilisez l'annulation.",
+        );
+      }
+    }
+    const cancellation = cancel && !payload.enabled ? {
+      cancelled: true,
+      cancelled_at: admin.firestore.FieldValue.serverTimestamp(),
+      cancelled_by: context.auth.uid,
+    } : {};
     const structuralFieldsChanged =
       existingConfig.month !== payload.month ||
       existingConfig.target_days !== payload.target_days ||
@@ -1509,6 +1568,7 @@ const adminUpsertMonthlyChallengeCallable = functions
 
     await configRef.set({
       ...payload,
+      ...cancellation,
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
       updated_by: context.auth.uid,
     }, {merge: true});
@@ -1548,7 +1608,7 @@ const adminGetMonthlyChallengeStatsCallable = functions
     const drawData = drawSnap && drawSnap.exists ? drawSnap.data() || {} : {};
     const computedStats = computeMonthlyChallengeStats(config, monthlyStates, drawData);
     return {
-      config,
+      config: serializeConfigForClient(config),
       stats: {
         ...computedStats,
       },

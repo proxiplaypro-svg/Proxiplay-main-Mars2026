@@ -1,0 +1,21 @@
+[
+  {"name": "published explicit", "game": {"visible_public": true, "status": "actif"}, "state": "published"},
+  {"name": "legacy without fields", "game": {}, "state": "published"},
+  {"name": "legacy status only", "game": {"status": "active"}, "state": "published"},
+  {"name": "published, ended by draw", "game": {"visible_public": true, "status": "ended"}, "state": "published"},
+  {"name": "real draft never launched", "game": {"visible_public": false, "status": "brouillon", "participations": 0}, "state": "draft"},
+  {"name": "draft status but visible flag", "game": {"visible_public": true, "status": "brouillon"}, "state": "draft"},
+  {"name": "english draft status", "game": {"status": "draft"}, "state": "draft"},
+  {"name": "a few test plays", "game": {"visible_public": false, "unique_players_count": 3, "participations": 9}, "state": "draft"},
+  {"name": "just under the participation fallback", "game": {"visible_public": false, "participations": 19}, "state": "draft"},
+  {"name": "La Malle aux Croquettes", "game": {"visible_public": false, "status": "brouillon", "unique_players_count": 262, "participations": 1198}, "state": "published_inconsistent"},
+  {"name": "exactly the unique player threshold", "game": {"visible_public": false, "unique_players_count": 10}, "state": "published_inconsistent"},
+  {"name": "participation fallback without unique counter", "game": {"visible_public": false, "participations": 20}, "state": "published_inconsistent"},
+  {"name": "unique counter wins over participations", "game": {"visible_public": false, "unique_players_count": 2, "participations": 500}, "state": "draft"},
+  {"name": "explicitly deactivated with players", "game": {"visible_public": false, "status": "desactive", "unique_players_count": 300}, "state": "disabled"},
+  {"name": "cancelled", "game": {"visible_public": true, "status": "cancelled"}, "state": "disabled"},
+  {"name": "accented cancellation", "game": {"status": "Annulé"}, "state": "disabled"},
+  {"name": "deleted flag", "game": {"deleted": true, "visible_public": true}, "state": "disabled"},
+  {"name": "hidden by an admin after server publication", "game": {"visible_public": false, "visible_public_auto_published": true, "unique_players_count": 500}, "state": "hidden"},
+  {"name": "auto published and still visible", "game": {"visible_public": true, "visible_public_auto_published": true}, "state": "published"}
+]

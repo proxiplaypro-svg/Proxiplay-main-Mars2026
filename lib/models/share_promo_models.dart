@@ -183,6 +183,7 @@ class SharePromoStateViewModel {
     required this.animationId,
     required this.rewardType,
     required this.rewardValue,
+    this.referralGameActive = false,
   });
 
   factory SharePromoStateViewModel.fromMap(Map<String, dynamic> map) {
@@ -199,10 +200,14 @@ class SharePromoStateViewModel {
       animationId: campaign['id'] as String?,
       rewardType: campaign['rewardType'] as String?,
       rewardValue: (campaign['rewardValue'] as num?)?.toInt(),
+      referralGameActive: map['referralGameActive'] == true,
     );
   }
 
   final bool showBanner;
+  // While a referral game runs, a referral earns the inviter a draw ticket
+  // instead of the "all games until midnight" access.
+  final bool referralGameActive;
   final String? kind;
   final String? title;
   final String? message;

@@ -25,8 +25,7 @@ void main() {
         () {
       final text = buildMerchantReferralShareText('AB3DE7G2');
       expect(text, contains('AB3DE7G2'));
-      expect(text,
-          contains('https://www.proxiplay.fr/commercant/compte/?ref=AB3DE7G2'));
+      expect(text, isNot(contains('https://')));
       expect(text.toLowerCase(), isNot(contains('garanti')));
       expect(text.toLowerCase(), isNot(contains('automatiquement')));
     });
@@ -42,8 +41,8 @@ void main() {
     test('7. approved -> Validé', () {
       expect(merchantReferralStatusLabel('approved'), 'Validé');
     });
-    test('8. paid -> Payé', () {
-      expect(merchantReferralStatusLabel('paid'), 'Payé');
+    test('8. paid -> Remise enregistrée', () {
+      expect(merchantReferralStatusLabel('paid'), 'Remise enregistrée');
     });
     test('9. rejected -> Refusé', () {
       expect(merchantReferralStatusLabel('rejected'), 'Refusé');
@@ -60,7 +59,16 @@ void main() {
   });
 
   test('le statut paid affiche la nouvelle récompense commerçant', () {
-    expect(
-        merchantReferralStatusDescription('paid'), 'Les 50 € ont été versés.');
+    expect(merchantReferralStatusDescription('paid'),
+        'La remise du bon cadeau a été enregistrée.');
+  });
+
+  test('seuls les codes de parrainage valides peuvent être partagés ou copiés',
+      () {
+    expect(isValidMerchantReferralCode('AB3DE7G2'), isTrue);
+    expect(isValidMerchantReferralCode(null), isFalse);
+    expect(isValidMerchantReferralCode(''), isFalse);
+    expect(isValidMerchantReferralCode('AB3DE7G0'), isFalse);
+    expect(isValidMerchantReferralCode(' AB3DE7G2'), isFalse);
   });
 }

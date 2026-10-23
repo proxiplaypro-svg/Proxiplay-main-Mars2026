@@ -1,4 +1,5 @@
 import '/components/merchant_games_load_error.dart';
+import '/components/merchant_home_viewport.dart';
 import '/services/merchant_prizes_service.dart';
 import '/services/merchant_games_service.dart';
 import '/auth/firebase_auth/auth_util.dart';
@@ -43,22 +44,41 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
   static const _suggestionMinimumCharacters = 3;
   static const _suggestionLimit = 5;
   static const _suggestionDebounce = Duration(milliseconds: 200);
+  // A fast answer replaces the results directly; the "searching" line only
+  // appears when the call takes longer, so typing does not make it flicker.
+  static const _searchingIndicatorDelay = Duration(milliseconds: 250);
 
-  List<PrizesRecord>? _merchantPrizeCache;
-  Future<List<PrizesRecord>>? _merchantPrizeCacheLoad;
   String? _merchantPrizeCacheUid;
   List<PrizesRecord> _codeSuggestions = const [];
   Timer? _suggestionDebounceTimer;
+  Timer? _searchingIndicatorTimer;
+  bool _showSearchingIndicator = false;
   bool _isLoadingSuggestions = false;
   bool _showNoSuggestions = false;
   bool _suggestionLoadFailed = false;
+  String _suggestionFailureMessage = '';
   int _suggestionRequestId = 0;
+  // Code the displayed suggestions were searched for, and whether the server
+  // returned every match (below the limit): only then can a partial code be
+  // resolved to its single suggestion without the merchant tapping it.
+  String? _suggestionsForCode;
+  bool _suggestionsComplete = false;
+  // Shown when "Vérifier" is pressed on a partial code that matches
+  // suggestions the merchant still has to pick from.
+  String? _pickHintForCode;
+  String _pickHintMessage = '';
+
+  void _stopSearchingIndicator() {
+    _searchingIndicatorTimer?.cancel();
+    _searchingIndicatorTimer = null;
+    _showSearchingIndicator = false;
+  }
 
   void _invalidatePrizeSuggestionCache() {
-    _merchantPrizeCache = null;
-    _merchantPrizeCacheLoad = null;
     _merchantPrizeCacheUid = null;
     _codeSuggestions = const [];
+    _suggestionsForCode = null;
+    _stopSearchingIndicator();
     _isLoadingSuggestions = false;
     _showNoSuggestions = false;
     _suggestionLoadFailed = false;
@@ -72,7 +92,9 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
     if (normalizedCode.length < _suggestionMinimumCharacters) {
       if (mounted) {
         setState(() {
+          _stopSearchingIndicator();
           _codeSuggestions = const [];
+          _suggestionsForCode = null;
           _isLoadingSuggestions = false;
           _showNoSuggestions = false;
           _suggestionLoadFailed = false;
@@ -95,45 +117,40 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
     _merchantPrizeCacheUid ??= uid;
 
     try {
-      if (_merchantPrizeCache == null) {
-        if (mounted && requestId == _suggestionRequestId) {
-          setState(() {
-            _isLoadingSuggestions = true;
-            _suggestionLoadFailed = false;
-          });
-        }
-        _merchantPrizeCacheLoad ??= loadMerchantPrizes(
-          timeout: const Duration(seconds: 15),
-        );
-        final loadedPrizes = await _merchantPrizeCacheLoad!;
-        if (!mounted ||
-            requestId != _suggestionRequestId ||
-            currentUserUid != uid ||
-            _merchantPrizeCacheUid != uid) {
-          return;
-        }
-        _merchantPrizeCache = loadedPrizes;
+      if (mounted && requestId == _suggestionRequestId) {
+        setState(() {
+          _isLoadingSuggestions = true;
+          _suggestionLoadFailed = false;
+        });
+        _searchingIndicatorTimer?.cancel();
+        _searchingIndicatorTimer = Timer(_searchingIndicatorDelay, () {
+          if (!mounted ||
+              requestId != _suggestionRequestId ||
+              !_isLoadingSuggestions) {
+            return;
+          }
+          setState(() => _showSearchingIndicator = true);
+        });
       }
-      if (!mounted ||
-          requestId != _suggestionRequestId ||
-          currentUserUid != uid) {
-        return;
-      }
-      final suggestions = _merchantPrizeCache!
-          .where((prize) =>
-              prize.fulfillmentType == 'merchant' &&
-              prize.isAvailable &&
-              prize.claimCode.trim().isNotEmpty &&
+      final loadedPrizes = await searchMerchantPrizeCodes(normalizedCode)
+          .timeout(const Duration(seconds: 15));
+      if (!mounted || requestId != _suggestionRequestId || currentUserUid != uid) return;
+      final suggestions = loadedPrizes
+          // Claimed prizes stay listed, flagged "Déjà retiré"; the server
+          // returns them after the prizes that can still be handed over.
+          .where((prize) => prize.fulfillmentType == 'merchant' && !prize.isExpired &&
               _normalizeClaimCode(prize.claimCode).startsWith(normalizedCode))
-          .take(_suggestionLimit)
-          .toList(growable: false);
+          .take(_suggestionLimit).toList(growable: false);
       setState(() {
+        _stopSearchingIndicator();
         _isLoadingSuggestions = false;
         _suggestionLoadFailed = false;
         _codeSuggestions = suggestions;
+        _suggestionsForCode = normalizedCode;
+        _suggestionsComplete = loadedPrizes.length < _suggestionLimit;
         _showNoSuggestions = suggestions.isEmpty;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted ||
           requestId != _suggestionRequestId ||
           currentUserUid != uid) {
@@ -141,12 +158,14 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
       }
       // A failed load is not cached: a later edit can retry without ever
       // treating stale or partial data as an authorization decision.
-      _merchantPrizeCacheLoad = null;
       setState(() {
+        _stopSearchingIndicator();
         _isLoadingSuggestions = false;
         _codeSuggestions = const [];
+        _suggestionsForCode = null;
         _showNoSuggestions = false;
         _suggestionLoadFailed = true;
+        _suggestionFailureMessage = suggestionFailureMessage(error);
       });
     }
   }
@@ -159,6 +178,8 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
       offset: _model.textController!.text.length,
     );
     setState(() {
+      _stopSearchingIndicator();
+      _isLoadingSuggestions = false;
       _codeSuggestions = const [];
       _showNoSuggestions = false;
       _suggestionLoadFailed = false;
@@ -173,34 +194,48 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
         _merchantPrizeCacheUid != currentUserUid) {
       return const SizedBox.shrink();
     }
-    if (_isLoadingSuggestions) {
+    final typedCode = _normalizeClaimCode(_model.textController?.text ?? '');
+    if (_showSearchingIndicator) {
       return const Padding(
+        key: ValueKey('code-search-in-progress'),
         padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 8.0),
-        child: Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: SizedBox(
-            width: 16.0,
-            height: 16.0,
-            child: CircularProgressIndicator(strokeWidth: 2.0),
-          ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16.0,
+              height: 16.0,
+              child: CircularProgressIndicator(strokeWidth: 2.0),
+            ),
+            SizedBox(width: 8.0),
+            Text('Recherche en cours…'),
+          ],
         ),
       );
     }
-    if (_suggestionLoadFailed) {
-      return const Padding(
-        padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 8.0),
-        child: Text('Suggestions indisponibles. Vous pouvez verifier le code.'),
+    // Until the delayed indicator shows, keep the previous answer on screen
+    // as long as it still fits what is typed, instead of blanking it.
+    final visibleSuggestions = _codeSuggestions
+        .where((prize) =>
+            _normalizeClaimCode(prize.claimCode).startsWith(typedCode))
+        .toList(growable: false);
+    if (_suggestionLoadFailed && !_isLoadingSuggestions) {
+      return Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 8.0),
+        child: Text(_suggestionFailureMessage),
       );
     }
-    if (_showNoSuggestions) {
+    // "No match" is a final answer: never shown while a search is running.
+    if (_showNoSuggestions &&
+        !_isLoadingSuggestions &&
+        visibleSuggestions.isEmpty) {
       return const Padding(
         padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 8.0),
         child: Text('Aucun code correspondant'),
       );
     }
-    if (_codeSuggestions.isEmpty) return const SizedBox.shrink();
+    if (visibleSuggestions.isEmpty) return const SizedBox.shrink();
 
-    return Padding(
+    final list = Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 8.0),
       child: Material(
         color: FlutterFlowTheme.of(context).primaryBackground,
@@ -213,21 +248,48 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
             shrinkWrap: true,
             primary: false,
             padding: EdgeInsets.zero,
-            itemCount: _codeSuggestions.length,
+            itemCount: visibleSuggestions.length,
             separatorBuilder: (_, __) => const Divider(height: 1.0),
             itemBuilder: (context, index) {
-              final prize = _codeSuggestions[index];
+              final prize = visibleSuggestions[index];
               return ListTile(
                 dense: true,
                 title: Text(prize.claimCode),
                 subtitle: prize.name.trim().isEmpty ? null : Text(prize.name),
-                trailing: const Icon(Icons.chevron_right_rounded),
+                trailing: prize.claimed
+                    ? const Text('Déjà retiré',
+                        style: TextStyle(
+                            color: Color(0xFF2E7D32),
+                            fontWeight: FontWeight.w600))
+                    : const Icon(Icons.chevron_right_rounded),
                 onTap: () => _selectCodeSuggestion(prize),
               );
             },
           ),
         ),
       ),
+    );
+    // The hint only applies to the code it was raised for: any edit hides it.
+    if (_pickHintForCode != typedCode) return list;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          key: const ValueKey('code-pick-hint'),
+          padding: const EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 6.0),
+          child: Text(
+            _pickHintMessage,
+            style: FlutterFlowTheme.of(context).bodySmall.override(
+                  font: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  color: FlutterFlowTheme.of(context).primary,
+                  letterSpacing: 0.0,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ),
+        list,
+      ],
     );
   }
 
@@ -242,16 +304,47 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
     }
 
     trace('T0 click');
+    var code = _normalizeClaimCode(_model.textController.text);
+    // A partial code with suggestions on screen: the merchant meant one of
+    // them. Use it when it is provably the only match, otherwise ask them to
+    // pick, instead of answering "Code invalide" next to the right lot.
+    final matches = _codeSuggestions
+        .where((p) => _normalizeClaimCode(p.claimCode).startsWith(code))
+        .toList(growable: false);
+    final isExact =
+        matches.any((p) => _normalizeClaimCode(p.claimCode) == code);
+    if (code.length >= _suggestionMinimumCharacters &&
+        !isExact &&
+        matches.isNotEmpty) {
+      final searched = _suggestionsForCode;
+      final allMatchesKnown = !_isLoadingSuggestions &&
+          searched != null &&
+          code.startsWith(searched) &&
+          (searched == code || _suggestionsComplete);
+      if (matches.length == 1 && allMatchesKnown) {
+        code = _normalizeClaimCode(matches.single.claimCode);
+      } else {
+        setState(() {
+          _pickHintForCode = code;
+          _pickHintMessage = matches.length > 1
+              ? 'Plusieurs lots correspondent : touchez le bon code ci-dessous.'
+              : 'Touchez le code ci-dessous pour le vérifier.';
+        });
+        FocusScope.of(context).unfocus();
+        return;
+      }
+    }
     _suggestionDebounceTimer?.cancel();
     _suggestionRequestId++;
     setState(() {
       _isCheckingCode = true;
       _codeSuggestions = const [];
+      _suggestionsForCode = null;
+      _pickHintForCode = null;
       _showNoSuggestions = false;
       _suggestionLoadFailed = false;
     });
     FocusScope.of(context).unfocus();
-    final code = _normalizeClaimCode(_model.textController.text);
     _model.textController.text = code;
     PrizesRecord? prize;
     String? message;
@@ -515,6 +608,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
   @override
   void dispose() {
     _suggestionDebounceTimer?.cancel();
+    _searchingIndicatorTimer?.cancel();
     _model.textController?.removeListener(_onWinningCodeChanged);
     _model.dispose();
 
@@ -598,12 +692,12 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                         0.0,
                         0.0,
                         0.0,
-                        ProxiPlayLayout.bottomNavHeight(context) + 20.0,
+                        MediaQuery.viewInsetsOf(context).bottom > 0
+                            ? 0.0
+                            : ProxiPlayLayout.bottomNavHeight(context) + 20.0,
                       ),
-                      child: Container(
-                        height: double.infinity,
-                        decoration: const BoxDecoration(),
-                        child: Padding(
+                      child: MerchantHomeViewport(
+                        builder: (context, availableHeight) => Padding(
                           padding: const EdgeInsetsDirectional.fromSTEB(
                               20.0, 20.0, 20.0, 0.0),
                           child: Column(
@@ -704,7 +798,9 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                                               .labelMedium
                                                               .fontStyle,
                                                     ),
-                                            hintText: 'Code du gagnant',
+                                            hintText:
+                                                'Saisissez les premiers caractères du code gagnant…',
+                                            hintMaxLines: 2,
                                             enabledBorder: OutlineInputBorder(
                                               borderSide: const BorderSide(
                                                 color: Color(0x00000000),
@@ -782,6 +878,26 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                           validator: _model
                                               .textControllerValidator
                                               .asValidator(context),
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsetsDirectional
+                                            .fromSTEB(16.0, 0.0, 16.0, 8.0),
+                                        child: Align(
+                                          alignment:
+                                              AlignmentDirectional.centerStart,
+                                          child: Text(
+                                            'Les lots correspondants apparaissent automatiquement.',
+                                            style: FlutterFlowTheme.of(context)
+                                                .labelSmall
+                                                .override(
+                                                  font: GoogleFonts.inter(),
+                                                  color: FlutterFlowTheme.of(
+                                                          context)
+                                                      .secondaryText,
+                                                  letterSpacing: 0.0,
+                                                ),
+                                          ),
                                         ),
                                       ),
                                       _buildCodeSuggestions(),
@@ -897,7 +1013,10 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                   ),
                                 ),
                               ),
-                              Expanded(
+                              SizedBox(
+                                height: availableHeight > 500
+                                    ? availableHeight - 320
+                                    : 180,
                                 child: Container(
                                   height: double.infinity,
                                   decoration: const BoxDecoration(),
@@ -1022,7 +1141,7 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                         ),
                       ),
                     ),
-                    wrapWithModel(
+                    if (MediaQuery.viewInsetsOf(context).bottom == 0) wrapWithModel(
                       model: _model.customNavBarCommercant2Model,
                       updateCallback: () => safeSetState(() {}),
                       child: const CustomNavBarCommercant2Widget(

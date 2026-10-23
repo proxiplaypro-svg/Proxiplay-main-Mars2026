@@ -9,6 +9,8 @@ exports.deliverPartnerPrizeDigests = require('./partner_prize_delivery').deliver
 const {shopOwnerRef,ownsPrize}=require('./merchant_ownership');
 const {shouldNotifyMerchantForPrize,merchantNotificationSkipReason}=require('./prize_merchant_notification_policy');
 exports.getMerchantPrizes=require('./merchant_prizes').getMerchantPrizes;
+exports.searchMerchantPrizeCodes=require('./merchant_prizes').searchMerchantPrizeCodes;
+exports.syncPrizeSearchCode=require('./merchant_prizes').syncPrizeSearchCode;
 exports.syncPrizeLotSnapshot = require('./prize_lot_snapshot').syncPrizeLotSnapshot;
 exports.getMerchantGames = require('./merchant_games').getMerchantGames;
 exports.syncPublicPrizeWinner = require("./public_winners").syncPublicPrizeWinner;
@@ -35,6 +37,7 @@ exports.listMerchantOffers = functions
 
 // Systeme publicitaire ProxiPlay (vendu en direct, pas AdMob).
 exports.recordAdEvent = require('./ad_system').recordAdEvent;
+exports.getRestrictedAdCreative = require('./ad_system').getRestrictedAdCreative;
 
 // Destination cliquable d'une notification push (jeu/commerce/ecran interne/URL).
 const {
@@ -5416,7 +5419,7 @@ exports.notifyPrizeWon = functions
     const playerEmailBody = [
       `Bonjour ${winnerFirstName},`,
       `F\u00E9licitations, vous avez remport\u00E9 ${prizeName} offert par ${shopName}`,
-      prizeData.fulfillment_type === "platform" ? `Remise organis?e par ProxiPlay. Code : ${claimCode}` : `Votre code ? pr?senter au commer?ant / partenaire : ${claimCode}`,
+      prizeData.fulfillment_type === "platform" ? `Remise organisée par ProxiPlay. Code : ${claimCode}` : `Votre code à présenter au commerçant / partenaire : ${claimCode}`,
       prizeData.fulfillment_type === "platform" ? "Contactez ProxiPlay pour recevoir votre lot." : `Retrouvez la boutique ici : ${shopLink}`,
       "Continuez \u00E0 jouer chaque jour pour multiplier vos chances !",
       "\u00C0 tr\u00E8s vite sur ProxiPlay",
@@ -5820,6 +5823,52 @@ exports.notifyFollowedGamesEndingSoon = functions
   });
 
 /**
+ * Relance des commercants sans jeu actif (paliers 7 et 21 jours), 11h Paris.
+ * La decision "aucun jeu actif" est dans merchant_relaunch.js : tout jeu non
+ * annule relie a l'enseigne et non termine bloque la relance, et une erreur
+ * de lecture n'envoie rien.
+ */
+exports.relaunchInactiveMerchants = functions
+  .runWith(kPushNotificationRuntimeOpts)
+  .pubsub.schedule("0 11 * * *")
+  .timeZone(kParisTimeZone)
+  .onRun(async () => {
+    const startTime = Date.now();
+    let mailer = null;
+    try {
+      const stats = await require("./merchant_relaunch").runMerchantRelaunch({
+        db: firestore,
+        admin,
+        logger: console,
+        toDocRef,
+        getTrimmedString,
+        pushCollection: kPushNotificationsCollection,
+        getOwnerContact: async (ownerRef) => {
+          const [tokensSnap, ownerDataRaw] = await Promise.all([
+            ownerRef.collection(kFcmTokensCollection).limit(1).get(),
+            getDocData(ownerRef),
+          ]);
+          const ownerData = ownerDataRaw || {};
+          return {
+            hasPushToken: !tokensSnap.empty,
+            email: await resolveUserEmail(ownerRef, ownerData),
+            firstName: buildUserNameParts(ownerData, "Bonjour").firstName,
+          };
+        },
+        sendEmail: (to, subject, body) => {
+          mailer = mailer || createSmtpMailer();
+          return sendEmailNotification(mailer, to, subject, body);
+        },
+      });
+      console.log(`[relaunchInactiveMerchants] done ${JSON.stringify(stats)} elapsed=${Date.now() - startTime}ms`);
+      return null;
+    } catch (e) {
+      console.error(`[relaunchInactiveMerchants] critical error=${e.message || e}`);
+      throw e;
+    }
+  });
+
+/**
  * Relance des joueurs inactifs (V1 SIMPLE)
  * - Runs quotidiennement à 10h (Europe/Paris)
  * - Lit config depuis app_config/notifications_auto
@@ -5962,6 +6011,9 @@ exports.relaunInactivePlayersByStatus = functions
 // Runs hourly to avoid load; processes completed games and enforces
 // "no main prize => no main-prize winner" consistency.
 exports.pickMainPrizeWinners = require("./main_prize_draw").pickMainPrizeWinners;
+// Draws each game within about a minute of its end; the nightly job above
+// remains the catch-up sweep.
+exports.pickEndedMainPrizeWinners = require("./main_prize_draw").pickEndedMainPrizeWinners;
 
 // One-way migration job:
 // progressively backfills `hasMainPrize` on existing games and cleans

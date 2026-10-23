@@ -6,23 +6,40 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/services/ad_system_service.dart';
 import '/utils/ad_system_utils.dart';
 
-/// Publicite plein ecran a l'ouverture de l'application (vendue en direct
-/// par ProxiPlay, pas AdMob). Fail-open par construction : `widget.child`
-/// (l'application normale) est TOUJOURS construit et affiche en premier ;
-/// l'interstitiel n'est qu'une superposition ajoutee par-dessus, et
-/// seulement si la config + l'image ont ete chargees avec succes dans un
-/// delai court. Toute erreur reseau/Firestore/image, ou tout depassement
-/// de delai, laisse l'application fonctionner normalement, sans aucun
-/// ecran bloquant.
+/// Publicite plein ecran a l'ouverture (vendue en direct par ProxiPlay, pas
+/// AdMob), reservee a l'accueil joueur : elle enveloppe uniquement cette page,
+/// jamais l'accueil commercant, la connexion ou un jeu ouvert par QR code.
 ///
-/// Tente le chargement une seule fois par processus (cold start) : un
-/// drapeau statique, pas une variable d'instance, pour survivre a un
-/// rebuild de MaterialApp (changement de theme/locale) qui recreerait
-/// sinon ce widget et redeclencherait l'essai.
+/// Fail-open par construction : `widget.child` est TOUJOURS construit ;
+/// l'interstitiel n'est qu'une superposition, montree seulement si la config
+/// et l'image sont pretes dans le delai imparti (2 s) ET que l'accueil est
+/// toujours l'ecran visible. Passe ce delai, l'affichage est abandonne pour
+/// ce lancement : jamais d'apparition tardive sous le doigt du joueur.
+///
+/// Une seule tentative par processus (lancement a froid) : un drapeau
+/// statique, pour qu'un retour a l'accueil ou depuis l'arriere-plan ne la
+/// redeclenche pas.
 class OpenAdGate extends StatefulWidget {
-  const OpenAdGate({super.key, required this.child});
+  const OpenAdGate({
+    super.key,
+    required this.child,
+    required this.signedIn,
+    this.readyDeadline = const Duration(seconds: 2),
+    @visibleForTesting this.service,
+    @visibleForTesting this.imageProviderFor,
+  });
 
   final Widget child;
+  // Adults-only campaigns are only resolved for a signed-in account.
+  final bool signedIn;
+  final Duration readyDeadline;
+  final AdSystemService? service;
+  final ImageProvider Function(String url)? imageProviderFor;
+
+  /// Lets a test simulate a new cold start.
+  @visibleForTesting
+  static void resetAttemptForTest() =>
+      _OpenAdGateState._attemptedThisProcess = false;
 
   @override
   State<OpenAdGate> createState() => _OpenAdGateState();
@@ -31,62 +48,66 @@ class OpenAdGate extends StatefulWidget {
 class _OpenAdGateState extends State<OpenAdGate> {
   static bool _attemptedThisProcess = false;
 
-  final _service = AdSystemService();
+  late final AdSystemService _service = widget.service ?? AdSystemService();
   AdPlacementConfig? _readyAd;
   bool _dismissed = false;
+
+  ImageProvider _image(String url) =>
+      widget.imageProviderFor?.call(url) ?? NetworkImage(url);
 
   @override
   void initState() {
     super.initState();
     if (!_attemptedThisProcess) {
       _attemptedThisProcess = true;
-      // `precacheImage` construit une ImageConfiguration a partir du
-      // BuildContext (dont DefaultAssetBundle). Cela depend de widgets
-      // herites et ne peut donc pas etre execute depuis initState. Attendre
-      // le premier frame garantit que l'arbre MaterialApp est pret avant de
-      // lire/precharger la creativite.
+      // precacheImage needs inherited widgets: wait for the first frame.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          unawaited(_tryLoadAd());
-        }
+        if (mounted) unawaited(_tryShow());
       });
     }
   }
 
-  Future<void> _tryLoadAd() async {
+  Future<AdPlacementConfig?> _prepare() async {
+    final config = await _service.getDisplayablePlacement(
+      'open',
+      signedIn: widget.signedIn,
+    );
+    final eligible = shouldShowOpenAd(
+      enabled: config.enabled,
+      startAt: config.startAt,
+      endAt: config.endAt,
+      lastShownAt: FFAppState().adOpenLastShownAt,
+      frequencyCapHours: config.frequencyCapHours,
+      now: DateTime.now(),
+    );
+    if (!eligible || !config.hasUsableCreative || !mounted) return null;
+    // Never a full-screen frame with a broken or missing image.
+    await precacheImage(_image(config.imageUrl), context);
+    return config;
+  }
+
+  Future<void> _tryShow() async {
+    AdPlacementConfig? config;
     try {
-      final config = await _service
-          .getPlacementConfig('open')
-          .timeout(const Duration(seconds: 4));
-      final now = DateTime.now();
-      final eligible = shouldShowOpenAd(
-        enabled: config.enabled,
-        startAt: config.startAt,
-        endAt: config.endAt,
-        lastShownAt: FFAppState().adOpenLastShownAt,
-        frequencyCapHours: config.frequencyCapHours,
-        now: now,
-      );
-      if (!eligible || !config.hasUsableCreative) {
-        return;
-      }
-
-      if (!mounted) return;
-      // Jamais d'ecran plein ecran sur une image cassee/absente : on la
-      // precharge d'abord, avec son propre delai.
-      await precacheImage(NetworkImage(config.imageUrl), context)
-          .timeout(const Duration(seconds: 4));
-
-      if (!mounted) return;
-      FFAppState().adOpenLastShownAt = now;
-      setState(() {
-        _readyAd = config;
-      });
-      unawaited(_service.recordImpression('open'));
+      config = await _prepare().timeout(widget.readyDeadline);
     } catch (_) {
-      // Fail-open : reseau, Firestore, timeout ou image cassee -> aucune
-      // pub affichee, l'application continue normalement.
+      // Fail-open: network, Firestore, image or deadline -> no ad, no late
+      // appearance for this launch.
+      return;
     }
+    if (config == null || !mounted) return;
+    // Only over the player Home itself, never over a screen pushed on top
+    // (e.g. a game opened from a QR code).
+    if (ModalRoute.of(context)?.isCurrent == false) return;
+    FFAppState().adOpenLastShownAt = DateTime.now();
+    setState(() => _readyAd = config);
+    final shown = config;
+    // Counted once actually on screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _readyAd == shown && !_dismissed) {
+        unawaited(_service.recordImpression('open', campaignId: shown.campaignId));
+      }
+    });
   }
 
   void _dismiss() {
@@ -100,7 +121,7 @@ class _OpenAdGateState extends State<OpenAdGate> {
     if (ad == null || ad.destinationUrl.isEmpty) {
       return;
     }
-    unawaited(_service.recordClick('open'));
+    unawaited(_service.recordClick('open', campaignId: ad.campaignId));
     try {
       await launchURL(ad.destinationUrl);
     } catch (_) {
@@ -113,62 +134,91 @@ class _OpenAdGateState extends State<OpenAdGate> {
     final ad = _readyAd;
     final showOverlay = ad != null && !_dismissed;
 
-    return Stack(
-      children: [
-        widget.child,
-        if (showOverlay)
-          Positioned.fill(
-            child: Material(
-              color: Colors.black,
-              child: SafeArea(
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: GestureDetector(
-                        onTap: _handleTap,
-                        child: Image.network(
-                          ad.imageUrl,
-                          fit: BoxFit.contain,
-                          width: double.infinity,
-                          height: double.infinity,
-                          errorBuilder: (context, error, stackTrace) {
-                            // Deja precharge avec succes plus haut ; filet
-                            // de securite si l'image devient indisponible
-                            // entre-temps -- on referme plutot que de
-                            // laisser un cadre casse a l'ecran.
-                            WidgetsBinding.instance
-                                .addPostFrameCallback((_) => _dismiss());
-                            return const SizedBox.shrink();
-                          },
+    // While the ad is shown, Android back closes it and nothing else.
+    return PopScope(
+      canPop: !showOverlay,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && showOverlay) _dismiss();
+      },
+      child: Stack(
+        children: [
+          widget.child,
+          if (showOverlay)
+            Positioned.fill(
+              child: Material(
+                key: const ValueKey('open-ad-overlay'),
+                color: Colors.black,
+                child: SafeArea(
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: GestureDetector(
+                          onTap: _handleTap,
+                          child: Image(
+                            image: _image(ad.imageUrl),
+                            fit: BoxFit.contain,
+                            width: double.infinity,
+                            height: double.infinity,
+                            errorBuilder: (context, error, stackTrace) {
+                              WidgetsBinding.instance
+                                  .addPostFrameCallback((_) => _dismiss());
+                              return const SizedBox.shrink();
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      top: 12.0,
-                      right: 12.0,
-                      child: Material(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: _dismiss,
-                          child: const Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: Icon(
-                              Icons.close_rounded,
+                      Positioned(
+                        top: 12.0,
+                        left: 12.0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10.0, vertical: 4.0),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          // Same label as the Home banners: "Publicité",
+                          // "À découvrir" or "Info ProxiPlay" (older or
+                          // unknown campaigns: "Publicité").
+                          child: Text(
+                            ad.communicationLabel,
+                            key: const ValueKey('open-ad-label'),
+                            style: const TextStyle(
                               color: Colors.white,
-                              size: 24.0,
+                              fontSize: 13.0,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        top: 12.0,
+                        right: 12.0,
+                        child: Material(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: _dismiss,
+                            child: const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Icon(
+                                Icons.close_rounded,
+                                color: Colors.white,
+                                size: 24.0,
+                                semanticLabel: 'Fermer la publicité',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

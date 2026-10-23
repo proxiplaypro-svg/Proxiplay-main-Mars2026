@@ -76,3 +76,31 @@ bool shouldShowOpenAd({
         now: now,
       );
 }
+
+/// Nature of a Home banner campaign (`communication_type`), shown as its
+/// label. Absent or unknown values (older campaigns, future types) are
+/// treated as an advertisement, the historical behavior.
+const String kAdCommunicationAdvertisement = 'advertisement';
+const String kAdCommunicationDiscovery = 'discovery';
+const String kAdCommunicationProxiplayInfo = 'proxiplay_info';
+
+String normalizeAdCommunicationType(Object? value) {
+  switch (value) {
+    case kAdCommunicationDiscovery:
+    case kAdCommunicationProxiplayInfo:
+      return value as String;
+    default:
+      return kAdCommunicationAdvertisement;
+  }
+}
+
+String adCommunicationLabel(Object? communicationType) {
+  switch (normalizeAdCommunicationType(communicationType)) {
+    case kAdCommunicationDiscovery:
+      return 'À découvrir';
+    case kAdCommunicationProxiplayInfo:
+      return 'Info ProxiPlay';
+    default:
+      return 'Publicité';
+  }
+}

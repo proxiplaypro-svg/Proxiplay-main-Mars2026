@@ -32,6 +32,9 @@ import '/utils/winner_identity.dart';
 import 'home_games_logic.dart';
 import 'share_promo_banner_logic.dart';
 import 'merchant_referral_banner_logic.dart';
+import '/utils/referral_share_copy.dart';
+import '/widgets/ad_banner_zone.dart';
+import '/widgets/open_ad_gate.dart';
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -58,7 +61,6 @@ class HomeJoueurPageWidget extends StatefulWidget {
 
 class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     with WidgetsBindingObserver {
-  static final Random _random = Random();
   static final Map<String, String> _cityFormatCache = {};
   static const double _homeSectionTitleLeftInset = 4.0;
   static const double _homeHorizontalCardGap = 10.0;
@@ -106,10 +108,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   // fail-closed, config dans ads/home_banner (systeme publicitaire vendu
   // en direct, pas AdMob -- voir ad_system_utils.dart).
   late Future<AdPlacementConfig?> _adHomeBannerFuture;
-  bool _adHomeBannerImpressionRecorded = false;
   // Second bandeau Home, juste sous le bloc de parrainage commerçant.
   late Future<AdPlacementConfig?> _adHomeReferralBannerFuture;
-  bool _adHomeReferralBannerImpressionRecorded = false;
   final _adSystemService = AdSystemService();
   late Future<List<MonthlyChallengeStateViewModel>> _monthlyChallengeFuture;
   List<MonthlyChallengeStateViewModel> _latestMonthlyChallengeStates = const [];
@@ -196,10 +196,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     if (game.accessMode == AccessMode.qr_only) {
       return false;
     }
-    if (isGameDraftHiddenFromPlayer(
-      hasVisiblePublicField: game.hasVisiblePublic(),
-      visiblePublic: game.visiblePublic,
-    )) {
+    if (isGameHiddenFromPlayer(game.snapshotData)) {
       return false;
     }
     return isPlayerHomeGameVisible(
@@ -777,7 +774,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
   Future<AdPlacementConfig?> _loadAdHomeBannerConfig() async {
     try {
-      return await _adSystemService.getPlacementConfig('home_banner');
+      return await _adSystemService.getDisplayablePlacement('home_banner',
+          signedIn: !isGuestOrAnonymous && currentUserUid.isNotEmpty);
     } catch (_) {
       return null;
     }
@@ -785,8 +783,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
   Future<AdPlacementConfig?> _loadAdHomeReferralBannerConfig() async {
     try {
-      return await _adSystemService.getPlacementConfig(
+      return await _adSystemService.getDisplayablePlacement(
         'home_banner_referral',
+        signedIn: !isGuestOrAnonymous && currentUserUid.isNotEmpty,
       );
     } catch (_) {
       return null;
@@ -1416,7 +1415,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                 .map((doc) => GamesRecord.fromSnapshot(doc))
                 .where((game) {
               if (game.hasWinner) return false;
-              if (!game.visiblePublic) return false;
+              if (isGameHiddenFromPlayer(game.snapshotData)) return false;
               if (restrictToAdultSafe && game.prohibitedForMinors) {
                 return false;
               }
@@ -1662,7 +1661,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     return Semantics(
       container: true,
       button: true,
-      label: 'Parrainez un commerçant. Gagnez 50 euros s\'il devient client.',
+      label: 'Parrainez un commerçant et recevez un bon cadeau de 50 euros si son abonnement est éligible et le parrainage validé.',
       child: Material(
         color: Colors.transparent,
         child: Ink(
@@ -1713,16 +1712,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                           Text.rich(
                             TextSpan(
                               children: [
-                                const TextSpan(text: 'Gagnez '),
+                                const TextSpan(text: 'Un '),
                                 TextSpan(
-                                  text: '50 €',
+                                  text: 'bon cadeau de 50 €',
                                   style: GoogleFonts.interTight(
                                     color: raspberry,
                                     fontSize: 19.0,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                const TextSpan(text: " s'il devient client !"),
+                                const TextSpan(text: ' après souscription éligible et validation.'),
                               ],
                             ),
                             style: theme.bodyMedium.override(
@@ -1763,139 +1762,20 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   // config absente/desactivee/hors fenetre masque le bandeau sans espace
   // reserve.
   Widget _buildAdHomeBannerZone(BuildContext context) {
-    return _buildAdBannerZone(
-      context,
+    return AdBannerZone(
       placement: 'home_banner',
       configFuture: _adHomeBannerFuture,
-      impressionRecorded: _adHomeBannerImpressionRecorded,
-      markImpressionRecorded: () => _adHomeBannerImpressionRecorded = true,
+      service: _adSystemService,
       trailingSpace: 16.0,
     );
   }
 
   Widget _buildAdHomeReferralBannerZone(BuildContext context) {
-    return _buildAdBannerZone(
-      context,
+    return AdBannerZone(
       placement: 'home_banner_referral',
       configFuture: _adHomeReferralBannerFuture,
-      impressionRecorded: _adHomeReferralBannerImpressionRecorded,
-      markImpressionRecorded: () =>
-          _adHomeReferralBannerImpressionRecorded = true,
+      service: _adSystemService,
     );
-  }
-
-  Widget _buildAdBannerZone(
-    BuildContext context, {
-    required String placement,
-    required Future<AdPlacementConfig?> configFuture,
-    required bool impressionRecorded,
-    required VoidCallback markImpressionRecorded,
-    double trailingSpace = 0.0,
-  }) {
-    return FutureBuilder<AdPlacementConfig?>(
-      future: configFuture,
-      builder: (context, snapshot) {
-        final config = snapshot.data;
-        if (config == null ||
-            !isAdPlacementEnabled(
-              enabled: config.enabled,
-              startAt: config.startAt,
-              endAt: config.endAt,
-              now: DateTime.now(),
-            ) ||
-            !config.hasUsableCreative) {
-          return const SizedBox.shrink();
-        }
-
-        if (!impressionRecorded) {
-          markImpressionRecorded();
-          unawaited(_adSystemService.recordImpression(placement));
-        }
-
-        return Padding(
-          padding: EdgeInsets.only(top: 16.0, bottom: trailingSpace),
-          child: Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16.0),
-                child: InkWell(
-                  onTap: () async {
-                    if (config.destinationUrl.isEmpty) return;
-                    unawaited(_adSystemService.recordClick(placement));
-                    try {
-                      await launchURL(config.destinationUrl);
-                    } catch (_) {
-                      // Une destination mal configuree ne doit jamais
-                      // faire planter la Home.
-                    }
-                  },
-                  child: Image.network(
-                    config.imageUrl,
-                    width: double.infinity,
-                    height: 90.0,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 6.0,
-                left: 10.0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 6.0, vertical: 2.0),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    borderRadius: BorderRadius.circular(6.0),
-                  ),
-                  child: const Text(
-                    'Publicité',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10.0,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  String _buildRandomShareMessage({
-    required String shareLink,
-    required String? referralCode,
-    required int rewardValue,
-  }) {
-    final normalizedReferralCode = referralCode?.trim();
-    final referralCodeText = normalizedReferralCode == null ||
-            normalizedReferralCode.isEmpty
-        ? ''
-        : '\n\nCode parrainage : $normalizedReferralCode\n\n'
-            'Si le code ne se remplit pas automatiquement apr\u00E8s installation, '
-            'entre-le manuellement lors de ton inscription.';
-
-    final templates = [
-      '$shareLink'
-          '$referralCodeText\n\n'
-          'Ton inscription avec mon code me d\u00E9bloque '
-          '$rewardValue lot${rewardValue > 1 ? 's' : ''} bonus \u00E0 minuit.',
-      'Viens jouer avec moi sur ProxiPlay \uD83C\uDF81\n\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Cr\u00E9e ton compte et aide-moi \u00E0 d\u00E9bloquer '
-          '$rewardValue lot${rewardValue > 1 ? 's' : ''} bonus.',
-      'Je t\'invite sur ProxiPlay \u2728\n\n'
-          '$shareLink'
-          '$referralCodeText\n\n'
-          'Ton inscription me permet d\'obtenir '
-          '$rewardValue lot${rewardValue > 1 ? 's' : ''} bonus.',
-    ];
-    return templates[_random.nextInt(templates.length)];
   }
 
   String _normalizeVisibleText(String? value, {required String fallback}) {
@@ -1952,12 +1832,12 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     );
     final shareLink = _resolveShareLink(response);
     final referralCode = extractReferralCodeFromUri(Uri.tryParse(shareLink));
-    final rewardValue = _latestSharePromoState?.rewardValue ?? 1;
     return {
       'shareLink': shareLink,
-      'shareText': _buildRandomShareMessage(
-        shareLink: shareLink,
-        rewardValue: rewardValue,
+      // The server says whether a referral game runs: the friend is then told
+      // the inviter earns a draw ticket, not the "until midnight" access.
+      'shareText': buildReferralInviteMessage(
+        referralGameActive: referralGameActiveFrom(response),
         referralCode: referralCode,
       ),
     };
@@ -2192,9 +2072,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     _sharePromoFuture = _loadSharePromoState();
     _merchantReferralEnabledFuture = _loadMerchantReferralEnabled();
     _adHomeBannerFuture = _loadAdHomeBannerConfig();
-    _adHomeBannerImpressionRecorded = false;
     _adHomeReferralBannerFuture = _loadAdHomeReferralBannerConfig();
-    _adHomeReferralBannerImpressionRecorded = false;
     // Vider les caches d'enseignes pour forcer le rechargement des données fraîches.
     _featuredEnseignesSectionCache.clear();
     _endingSoonEnseignesSectionCache.clear();
@@ -2242,6 +2120,14 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
   @override
   Widget build(BuildContext context) {
+    // The opening interstitial belongs to the player Home only.
+    return OpenAdGate(
+      signedIn: !isGuestOrAnonymous && currentUserUid.isNotEmpty,
+      child: Builder(builder: _buildHomeContent),
+    );
+  }
+
+  Widget _buildHomeContent(BuildContext context) {
     if (!_homeDataReady) {
       return Scaffold(
         backgroundColor: Colors.white,

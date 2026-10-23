@@ -81,13 +81,10 @@ void main() {
     });
   });
 
-  group('isGameDraftHiddenFromPlayer', () {
+  group('isGameHiddenFromPlayer', () {
     test('REGRESSION: a draft game (visible_public:false) must be hidden', () {
       expect(
-        isGameDraftHiddenFromPlayer(
-          hasVisiblePublicField: true,
-          visiblePublic: false,
-        ),
+        isGameHiddenFromPlayer({'visible_public': false}),
         isTrue,
         reason: 'a game still in the instant-winners-generation window '
             '(visible_public:false) must never show up in player carousels',
@@ -95,24 +92,12 @@ void main() {
     });
 
     test('a published game (visible_public:true) stays visible', () {
-      expect(
-        isGameDraftHiddenFromPlayer(
-          hasVisiblePublicField: true,
-          visiblePublic: true,
-        ),
-        isFalse,
-      );
+      expect(isGameHiddenFromPlayer({'visible_public': true}), isFalse);
     });
 
     test('no regression: a legacy game without the field stays visible '
         '(same "absent = public" convention as the admin console)', () {
-      expect(
-        isGameDraftHiddenFromPlayer(
-          hasVisiblePublicField: false,
-          visiblePublic: false, // GamesRecord.visiblePublic defaults to false
-        ),
-        isFalse,
-      );
+      expect(isGameHiddenFromPlayer(<String, dynamic>{}), isFalse);
     });
   });
 

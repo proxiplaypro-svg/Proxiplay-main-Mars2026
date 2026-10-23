@@ -10,6 +10,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const {getOfferOrThrow, getStripePriceIdOrThrow} = require("./merchant_offers");
+const {kRewardAmountCents} = require("./merchant_referral_engine");
 // Reference au module (pas destructure) : permet aux tests de remplacer
 // stripeClientModule.getStripeClient par un mock apres le chargement de ce
 // fichier, sans avoir a mocker require() lui-meme.
@@ -129,34 +130,40 @@ async function createMerchantCheckoutSessionHandler(data, context) {
   // document existe deja), jamais ecrase par un Checkout ulterieur.
   const referralRef = db.collection(kMerchantReferralsCollection).doc(uid);
   if (referral) {
-    const referralSnap = await referralRef.get();
-    if (!referralSnap.exists) {
-      await referralRef.create({
-        merchant_user_id: db.doc(`users/${uid}`),
-        inviter_user_id: db.doc(referral.inviterUserPath),
-        code: referral.code,
-        status: "linked",
-        linked_at: admin.firestore.FieldValue.serverTimestamp(),
-        first_payment_confirmed_at: null,
-        eligible_at: null,
-        subscription_amount_ht_cents: null,
-        stripe_subscription_id: null,
-        admin_decision: null,
-        rejected_reason: null,
-        cancelled_reason: null,
-        paid_at: null,
-        paid_reference: null,
-        created_at: admin.firestore.FieldValue.serverTimestamp(),
-        updated_at: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    } else if (referralSnap.data().inviter_user_id?.path !== referral.inviterUserPath) {
-      // Un commercant deja parraine (meme par un autre parrain) ne peut pas
-      // etre re-parraine : le lien est immuable une fois cree.
-      throw new functions.https.HttpsError(
-        "already-exists",
-        "Ce compte commercant est deja parraine.",
-      );
-    }
+    await db.runTransaction(async (tx) => {
+      const referralSnap = await tx.get(referralRef);
+      const configSnap = await tx.get(db.doc("app_config/merchant_referral"));
+      if (!referralSnap.exists) {
+        if (configSnap.data()?.enabled === false) {
+          throw new functions.https.HttpsError("failed-precondition", "Le programme de parrainage est temporairement indisponible.");
+        }
+        tx.create(referralRef, {
+          merchant_user_id: db.doc(`users/${uid}`),
+          inviter_user_id: db.doc(referral.inviterUserPath),
+          code: referral.code,
+          status: "linked",
+          reward_amount_cents: kRewardAmountCents,
+          linked_at: admin.firestore.FieldValue.serverTimestamp(),
+          first_payment_confirmed_at: null,
+          eligible_at: null,
+          subscription_amount_ht_cents: null,
+          stripe_subscription_id: null,
+          admin_decision: null,
+          rejected_reason: null,
+          cancelled_reason: null,
+          paid_at: null,
+          paid_reference: null,
+          created_at: admin.firestore.FieldValue.serverTimestamp(),
+          updated_at: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      } else if (referralSnap.data().inviter_user_id?.path !== referral.inviterUserPath) {
+        // Un commercant deja parraine ne peut pas etre re-parraine.
+        throw new functions.https.HttpsError(
+          "already-exists",
+          "Ce compte commercant est deja parraine.",
+        );
+      }
+    });
   }
 
   const stripe = stripeClientModule.getStripeClient();

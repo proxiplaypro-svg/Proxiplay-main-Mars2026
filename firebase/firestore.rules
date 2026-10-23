@@ -377,9 +377,12 @@ service cloud.firestore {
         ]));
     }
 
+    // These prize types are ProxiPlay lots, unless explicitly marked as
+    // collected at a partner shop (e.g. a monthly challenge with a partner).
     function isMerchantPrize(data) {
       return data.get('fulfillment_type', 'merchant') == 'merchant' &&
-        !(data.get('prize_type', '') in ['animation', 'referral_game', 'monthly_challenge']);
+        (!(data.get('prize_type', '') in ['animation', 'referral_game', 'monthly_challenge']) ||
+          data.get('fulfillment_type', '') == 'merchant');
     }
 
     match /games/{document} {

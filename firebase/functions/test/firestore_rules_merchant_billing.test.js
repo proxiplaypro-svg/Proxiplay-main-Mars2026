@@ -6,9 +6,10 @@ const {initializeTestEnvironment, assertFails, assertSucceeds} = require('@fireb
 
 let env;
 test.before(async () => {
+  const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':');
   env = await initializeTestEnvironment({
-    projectId: 'demo-proxiplay-merchant-billing',
-    firestore: {host: '127.0.0.1', port: 8080,
+    projectId: process.env.GCLOUD_PROJECT || 'demo-proxiplay-merchant-billing',
+    firestore: {host, port: Number(port),
       rules: fs.readFileSync(path.resolve(__dirname, '../../firestore.rules'), 'utf8')},
   });
 });

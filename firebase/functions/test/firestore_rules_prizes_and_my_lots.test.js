@@ -333,3 +333,32 @@ test("my_lots : le comportement admin existant cote serveur n'est pas casse par 
     );
   });
 });
+
+test("prizes : un lot mensuel n'est retirable par le commercant que s'il est marque lot commercant", async () => {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    const base = {
+      prize_type: "monthly_challenge",
+      winner_id: db.doc("users/winner_uid"),
+      owner_id: db.doc("users/merchant_owner_uid"),
+      enseigne_id: db.doc("enseignes/enseigne1"),
+      claim_code: "MONTHLY1",
+      claimed: false,
+    };
+    // Defi avec commercant partenaire : lot a retirer chez lui.
+    await db.doc("prizes/monthly_partner").set({...base, fulfillment_type: "merchant"});
+    // Anciens lots mensuels (sans mode de remise) et lots ProxiPlay.
+    await db.doc("prizes/monthly_legacy").set({...base});
+    await db.doc("prizes/monthly_platform").set({...base, fulfillment_type: "platform"});
+  });
+  const owner = testEnv.authenticatedContext("merchant_owner_uid").firestore();
+  const other = testEnv.authenticatedContext("other_merchant_uid").firestore();
+  const winner = testEnv.authenticatedContext("winner_uid").firestore();
+  await assertFails(other.doc("prizes/monthly_partner").update({claimed: true}));
+  await assertFails(winner.doc("prizes/monthly_partner").update({claimed: true}));
+  await assertFails(owner.doc("prizes/monthly_partner").update({claimed: true, name: "autre"}));
+  await assertSucceeds(owner.doc("prizes/monthly_partner").update({claimed: true}));
+  await assertFails(owner.doc("prizes/monthly_partner").update({claimed: true}));
+  await assertFails(owner.doc("prizes/monthly_legacy").update({claimed: true}));
+  await assertFails(owner.doc("prizes/monthly_platform").update({claimed: true}));
+});

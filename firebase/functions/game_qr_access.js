@@ -11,20 +11,25 @@ const validId = value => typeof value === 'string' && /^[^/]{1,150}$/.test(value
 
 // Private collection: no client rule grants access. Printed capabilities can be
 // reused by different players; the participation transaction enforces one/day.
-async function validateQr(tx, gameRef, game, token, now) {
-  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) fail();
+// True only for the current printed capability of this game in its shop.
+async function isValidQr(tx, gameRef, game, token, now) {
+  if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token)) return false;
   const snap = await tx.get(gameRef.firestore.doc('game_qr_access/' + gameRef.id));
   const proof = snap.data();
   const shop = shopPath(game);
   const currentShop = /^enseignes\/[^/]+$/.test(shop) ? await tx.get(gameRef.firestore.doc(shop)) : null;
-  if (!currentShop?.exists || !gameOwnership(game, currentShop.data()).valid ||
+  return !(!currentShop?.exists || !gameOwnership(game, currentShop.data()).valid ||
       (proof?.managed_by_admin === true) !== (currentShop.data().managed_by_admin === true) ||
       !proof || proof.game_path !== gameRef.path || proof.shop_path !== shopPath(game) ||
       proof.shop_owner_path !== shopOwnerPath(currentShop?.data()) ||
       proof.owner_path !== userPath(game.owner_id) || typeof proof.expires_at?.toMillis !== 'function' ||
       proof.expires_at.toMillis() <= now.toMillis() ||
       typeof proof.token !== 'string' || proof.token.length !== token.length ||
-      !crypto.timingSafeEqual(Buffer.from(proof.token), Buffer.from(token))) fail();
+      !crypto.timingSafeEqual(Buffer.from(proof.token), Buffer.from(token)));
+}
+
+async function validateQr(tx, gameRef, game, token, now) {
+  if (!await isValidQr(tx, gameRef, game, token, now)) fail();
 }
 
 exports.issueGameQrAccess = functions.https.onCall(async (data, context) => {
@@ -65,3 +70,4 @@ exports.issueGameQrAccess = functions.https.onCall(async (data, context) => {
   });
 });
 exports.validateQr = validateQr;
+exports.isValidQr = isValidQr;

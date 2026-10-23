@@ -89,6 +89,9 @@ export interface AdminStatsRecord {
 
 export interface GetSharePromoStateResponse {
   showBanner: boolean;
+  // True while a referral game runs: a referral then gives the inviter a
+  // draw ticket instead of the "all games until midnight" access.
+  referralGameActive: boolean;
   kind: string | null;
   title: string | null;
   message: string | null;
@@ -113,6 +116,7 @@ export interface CreateReferralResponse {
   inviteCode: string;
   shareMessage: string;
   shareLink: string;
+  referralGameActive: boolean;
 }
 
 export interface RegisterReferralAcceptanceInput {

@@ -4,14 +4,15 @@ const {excluded}=require('./prize_integrity');
 const db=admin.firestore();
 const pendingRef=id=>db.doc(`referral_reward_pending/${id}`);
 // All reads, no writes: acceptance enqueues this payload in its own transaction.
-async function prepareReferralReward(tx, referralId, inviterUid, acceptedAt) {
+async function prepareReferralReward(tx, referralId, inviterUid, acceptedAt, options = {}) {
   const games=await tx.get(db.collection('referral_games').where('status','==','active'));
   const active=games.docs.filter(doc=>{
     const g=doc.data(); return g.start_date?.toMillis()<=acceptedAt.toMillis() && g.end_date?.toMillis()>=acceptedAt.toMillis();
   });
   if(active.length>1) throw new Error('Multiple active referral games');
   return {referral_id:referralId,inviter_uid:inviterUid,accepted_at:acceptedAt,
-    game_id:active[0]?.id||null,mode:active.length?'game':'classic',status:'pending'};
+    game_id:active[0]?.id||null,mode:active.length?'game':'classic',status:'pending',
+    ...(options.classicAndGame ? {classic_and_game:true} : {})};
 }
 async function processReferralReward(referralId, grantClassic) {
   const eventRef=pendingRef(referralId);
@@ -25,6 +26,20 @@ async function processReferralReward(referralId, grantClassic) {
     await eventRef.update({status,reason:result.reason||null,processed_at:admin.firestore.FieldValue.serverTimestamp()});
     if(status==='manual_review_required') functions.logger.error('REFERRAL_REWARD_MANUAL_REVIEW',{referralId,reason:result.reason});
     return {status};
+  }
+  // Only new acceptances carry this flag. Historical game-only events keep
+  // their original behavior, including events retried after deployment.
+  if(event.data().classic_and_game){
+    if(!grantClassic) throw new Error('Classic reward handler required');
+    const result=await grantClassic(referralId,'system/referral_reward_retry');
+    if(!result.granted && result.reason!=='already_granted'){
+      return db.runTransaction(async tx=>{
+        const current=await tx.get(eventRef);
+        if(current.data()?.status!=='pending') return {status:current.data()?.status};
+        tx.update(eventRef,{status:'manual_review_required',reason:result.reason||'classic_reward_failed'});
+        return {status:'manual_review_required',reason:result.reason||'classic_reward_failed'};
+      });
+    }
   }
   return db.runTransaction(async tx=>{
     const current=await tx.get(eventRef);

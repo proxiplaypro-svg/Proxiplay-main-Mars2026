@@ -1,0 +1,17 @@
+{
+  "_comment": "NOT ACTIVE. TTL policies for the ad anti-abuse records written by recordAdEvent (ad_system.js). Kept out of firestore.indexes.json on purpose so that no index deployment activates them by accident. Activation procedure: docs/ttl-publicite.md.",
+  "fieldOverrides": [
+    {
+      "collectionGroup": "_ad_exposures",
+      "fieldPath": "expires_at",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "_ad_event_rate",
+      "fieldPath": "expires_at",
+      "ttl": true,
+      "indexes": []
+    }
+  ]
+}

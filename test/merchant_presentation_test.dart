@@ -24,15 +24,19 @@ import 'package:proxi_play/backend/backend.dart';
 import 'package:proxi_play/auth/base_auth_user_provider.dart';
 import 'package:proxi_play/app_state.dart';
 import 'package:proxi_play/components/player_gain_card.dart';
+import 'package:proxi_play/components/game_qr_code_card_widget.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:proxi_play/utils/merchant_game_visibility.dart';
 import 'package:proxi_play/pages/commercant/jeu_detail_commercant_page/jeu_detail_commercant_page_widget.dart';
 import 'package:proxi_play/components/game_prize_deadline_rule.dart';
 import 'package:proxi_play/components/player_tickets_card.dart';
 import 'package:proxi_play/pages/joueur/lots_joueur_page/lots_joueur_page_widget.dart';
+import 'package:proxi_play/pages/joueur/parrainage_commercant_page/parrainage_commercant_page_widget.dart';
 import 'package:proxi_play/components/merchant_pickup_point.dart';
 import 'package:proxi_play/components/merchant_presentation.dart';
 import 'package:proxi_play/components/winner_email_text.dart';
 import 'package:proxi_play/pages/commercant/home_commercant_page/home_commercant_page_widget.dart';
+import 'package:proxi_play/services/merchant_prizes_service.dart';
 import 'package:proxi_play/pages/commercant/jeux_commercant_page/jeux_commercant_page_widget.dart';
 import 'package:proxi_play/flutter_flow/internationalization.dart';
 import 'package:proxi_play/pages/joueur/enseigne_detail_joueur_page/enseigne_detail_joueur_page_widget.dart';
@@ -44,6 +48,8 @@ class _Store extends platform.FirebaseFirestorePlatform {
   final data = <String, Map<String, dynamic>>{};
   final reads = <String>[];
   final denied = <String>{};
+  // Single-document reads refused by the security rules.
+  final deniedGets = <String>{};
   @override
   platform.FirebaseFirestorePlatform delegateFor(
           {required FirebaseApp app, required String databaseId}) =>
@@ -69,6 +75,10 @@ class _Document extends platform.DocumentReferencePlatform {
   Future<platform.DocumentSnapshotPlatform> get(
       [platform.GetOptions options = const platform.GetOptions()]) async {
     store.reads.add(path);
+    if (store.deniedGets.contains(path)) {
+      throw FirebaseException(
+          plugin: 'cloud_firestore', code: 'permission-denied');
+    }
     return store.snapshot(path);
   }
 
@@ -165,6 +175,8 @@ class _Functions extends functions_platform.FirebaseFunctionsPlatform {
   _Functions() : super(null, 'europe-west1');
   late Future<dynamic> Function(dynamic) handler;
   Future<dynamic> Function(dynamic)? prizeHandler;
+  Future<dynamic> Function(dynamic)? searchHandler;
+  final named = <String, Future<dynamic> Function(dynamic)>{};
   @override
   functions_platform.FirebaseFunctionsPlatform delegateFor(
           {FirebaseApp? app, required String region}) =>
@@ -181,10 +193,15 @@ class _Callable extends functions_platform.HttpsCallablePlatform {
       : super(functions, null, name, options, null);
   @override
   Future<dynamic> call([dynamic parameters]) {
+    final fake = functions as _Functions;
+    final namedHandler = fake.named[name];
+    if (namedHandler != null) return namedHandler(parameters);
+    if (name == 'searchMerchantPrizeCodes' && fake.searchHandler != null) {
+      return fake.searchHandler!(parameters);
+    }
     if (name != 'getMerchantGames' && name != 'getMerchantPrizes') {
       throw StateError('Unexpected callable $name');
     }
-    final fake = functions as _Functions;
     return (name == 'getMerchantPrizes'
         ? fake.prizeHandler ?? fake.handler
         : fake.handler)(parameters);
@@ -268,9 +285,12 @@ void main() {
   });
   setUp(() {
     calls.prizeHandler = null;
+    calls.searchHandler = null;
+    calls.named.clear();
     store.data.clear();
     store.reads.clear();
     store.denied.clear();
+    store.deniedGets.clear();
     calls.handler = (_) async => throw StateError('Unexpected call');
     auth.signIn('gains-player');
   });
@@ -1424,6 +1444,8 @@ void main() {
     expect(find.byKey(const ValueKey('lot-game-hero')), findsNothing);
     await tester.scrollUntilVisible(find.text('Copier le code'), 200,
         scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('Copier le code'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Copier le code'));
     await tester.pumpAndSettle();
     expect(copied, code);
@@ -1512,16 +1534,19 @@ void main() {
   });
 
   testWidgets(
-      'merchant winning-code suggestions are local, filtered and cached',
+      'merchant winning-code suggestions come from the server search and are filtered',
       (tester) async {
     final previousUser = currentUser;
     currentUser = _GainsUser();
     addTearDown(() => currentUser = previousUser);
     var prizeLoads = 0;
+    final prefixes = <String>[];
     calls.handler =
         (_) async => {'ids': <String>[], 'cursor': '', 'hasMore': false};
-    calls.prizeHandler = (_) async {
+    // The server already scopes results; the client re-checks them anyway.
+    calls.searchHandler = (parameters) async {
       prizeLoads++;
+      prefixes.add((parameters as Map)['prefix'] as String);
       return {
         'ids': [
           for (var i = 0; i < 6; i++) 'available_$i',
@@ -1529,11 +1554,12 @@ void main() {
           'expired',
           'platform',
           'partner',
+          'denied',
         ],
-        'hasMore': false,
-        'cursor': '',
       };
     };
+    // A suggestion refused by the rules must not hide the other ones.
+    store.deniedGets.add('prizes/denied');
     final owner = FirebaseFirestore.instance.doc('users/gains-player');
     for (var i = 0; i < 6; i++) {
       store.data['prizes/available_$i'] = {
@@ -1571,16 +1597,20 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pumpAndSettle();
     expect(prizeLoads, 1);
+    expect(prefixes, ['ABC']);
     expect(find.text('ab-c000'), findsOneWidget);
     expect(find.text('ABC999'), findsNothing);
     expect(find.text('ABC998'), findsNothing);
     expect(find.text('ABC997'), findsNothing);
     expect(find.text('ABC996'), findsNothing);
+    expect(
+        find.text('Suggestions indisponibles. Vous pouvez verifier le code.'),
+        findsNothing);
 
     await tester.enterText(find.byType(TextFormField), 'abc0');
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
-    expect(prizeLoads, 1, reason: 'the local cache serves subsequent input');
+    expect(prefixes, ['ABC', 'ABC0']);
     await tester.tap(find.text('ab-c000'));
     await tester.pump();
     expect(
@@ -1612,5 +1642,508 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Horaires indisponibles'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  // An Android accessibility service (antivirus, cleaner...) turns semantics
+  // on. A semantics failure then breaks every frame of a debug build, so the
+  // page actions must stay usable with semantics enabled.
+  testWidgets(
+      'merchant referral actions respond while accessibility semantics are on',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+
+    final shared = <String>[];
+    final clipboard = <String>[];
+    tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        clipboard.add((call.arguments as Map)['text'] as String);
+      }
+      return null;
+    });
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('dev.fluttercommunity.plus/share'), (call) async {
+      shared.add(call.method);
+      return 'dev.fluttercommunity.plus/share/unavailable';
+    });
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          const MethodChannel('dev.fluttercommunity.plus/share'), null);
+    });
+    calls.named['generateMerchantReferralCode'] =
+        (_) async => {'code': 'P8RWGZ53'};
+    store.data['app_config/merchant_referral'] = {'enabled': true};
+
+    await pump(tester, const ParrainageCommercantPageWidget());
+    expect(tester.takeException(), isNull);
+    expect(find.text('P8RWGZ53'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Voir les conditions du programme'));
+    await tester.tap(find.text('Voir les conditions du programme'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Conditions du programme'), findsOneWidget);
+    await tester.tap(find.text('Fermer'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Copier le code'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Copier le code'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(clipboard, ['P8RWGZ53']);
+    expect(find.text('Code copié'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Partager'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Partager'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(shared, isNotEmpty);
+    semantics.dispose();
+  });
+
+  // "Suggestions indisponibles" covered three different situations; the
+  // merchant now sees which one, and can always type the full code.
+  testWidgets(
+      'winning-code suggestions distinguish no result, network and service errors',
+      (tester) async {
+    final previousUser = currentUser;
+    currentUser = _GainsUser();
+    addTearDown(() => currentUser = previousUser);
+    calls.handler =
+        (_) async => {'ids': <String>[], 'cursor': '', 'hasMore': false};
+    Object? failure;
+    calls.searchHandler = (_) async {
+      if (failure != null) throw failure;
+      return {'ids': <String>[]};
+    };
+    const network =
+        'Pas de connexion : suggestions indisponibles. Saisissez le code complet puis vérifiez-le.';
+    const service =
+        'Service de suggestions indisponible. Saisissez le code complet puis vérifiez-le.';
+
+    await pump(tester, const HomeCommercantPageWidget());
+    Future<void> type(String code) async {
+      await tester.enterText(find.byType(TextFormField), code);
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+    }
+
+    await type('NOPE0');
+    expect(find.text('Aucun code correspondant'), findsOneWidget);
+
+    failure = functions_platform.FirebaseFunctionsException(
+        code: 'unavailable', message: 'offline');
+    await type('NOPE00');
+    expect(find.text(network), findsOneWidget);
+
+    failure = functions_platform.FirebaseFunctionsException(
+        code: 'not-found', message: 'function not deployed');
+    await type('NOPE000');
+    expect(find.text(service), findsOneWidget);
+
+    failure = functions_platform.FirebaseFunctionsException(
+        code: 'failed-precondition', message: 'index building');
+    await type('NOPE0000');
+    expect(find.text(service), findsOneWidget);
+    // Manual entry and direct verification stay available.
+    expect(find.text('Vérifier'), findsOneWidget);
+    expect(
+        tester
+            .widget<TextFormField>(find.byType(TextFormField))
+            .controller!
+            .text,
+        'NOPE0000');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('a claimed code is suggested and flagged "Déjà retiré"',
+      (tester) async {
+    final previousUser = currentUser;
+    currentUser = _GainsUser();
+    addTearDown(() => currentUser = previousUser);
+    calls.handler =
+        (_) async => {'ids': <String>[], 'cursor': '', 'hasMore': false};
+    calls.searchHandler = (_) async => {
+          'ids': ['open', 'collected']
+        };
+    final owner = FirebaseFirestore.instance.doc('users/gains-player');
+    store.data['prizes/open'] = {
+      'claim_code': '3D14OPEN',
+      'owner_id': owner,
+      'claimed': false,
+      'name': 'Lot à remettre',
+    };
+    store.data['prizes/collected'] = {
+      'claim_code': '3D14B0B5E4FDF892FC0D',
+      'owner_id': owner,
+      'claimed': true,
+      'name': 'Une bouteille de Champagne',
+    };
+    await pump(tester, const HomeCommercantPageWidget());
+    await tester.enterText(find.byType(TextFormField), '3D14');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    expect(find.text('3D14OPEN'), findsOneWidget);
+    expect(find.text('3D14B0B5E4FDF892FC0D'), findsOneWidget);
+    expect(find.text('Déjà retiré'), findsOneWidget);
+    expect(find.text('Aucun code correspondant'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  group('winning-code search progress', () {
+    late Map<String, Completer<Map<String, Object>>> pending;
+    setUp(() {
+      pending = {};
+      calls.handler =
+          (_) async => {'ids': <String>[], 'cursor': '', 'hasMore': false};
+      // Each prefix answers only when the test completes it.
+      calls.searchHandler = (parameters) {
+        final prefix = (parameters as Map)['prefix'] as String;
+        return (pending[prefix] = Completer<Map<String, Object>>()).future;
+      };
+      final owner = FirebaseFirestore.instance.doc('users/gains-player');
+      for (final code in ['ABCD0001', 'ABCE0002', 'ABCD0003']) {
+        store.data['prizes/$code'] = {
+          'claim_code': code,
+          'owner_id': owner,
+          'claimed': false,
+          'name': 'Lot $code',
+        };
+      }
+    });
+    Future<void> open(WidgetTester tester) async {
+      final previousUser = currentUser;
+      currentUser = _GainsUser();
+      addTearDown(() => currentUser = previousUser);
+      await pump(tester, const HomeCommercantPageWidget());
+    }
+
+    Future<void> type(WidgetTester tester, String code) async {
+      await tester.enterText(find.byType(TextFormField), code);
+      await tester.pump(const Duration(milliseconds: 200)); // debounce
+    }
+
+    const searching = 'Recherche en cours…';
+
+    testWidgets('a slow search shows the indicator, then the results',
+        (tester) async {
+      await open(tester);
+      await type(tester, 'ABC');
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text(searching), findsNothing,
+          reason: 'no indicator for a quick answer window');
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text(searching), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      pending['ABC']!.complete({
+        'ids': ['ABCD0001', 'ABCE0002']
+      });
+      await tester.pump();
+      await tester.pump();
+      expect(find.text(searching), findsNothing);
+      expect(find.text('ABCD0001'), findsOneWidget);
+      expect(find.text('ABCE0002'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('a fast answer never flashes the indicator', (tester) async {
+      await open(tester);
+      await type(tester, 'ABC');
+      pending['ABC']!.complete({'ids': <String>[]});
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text(searching), findsNothing);
+      expect(find.text('Aucun code correspondant'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('typing more keeps matching results and drops stale answers',
+        (tester) async {
+      await open(tester);
+      await type(tester, 'ABC');
+      pending['ABC']!.complete({
+        'ids': ['ABCD0001', 'ABCE0002']
+      });
+      await tester.pump();
+      await tester.pump();
+      await type(tester, 'ABCD');
+      // While ABCD is in flight, only the still-matching result stays.
+      expect(find.text('ABCD0001'), findsOneWidget);
+      expect(find.text('ABCE0002'), findsNothing);
+      expect(find.text(searching), findsNothing);
+      await type(tester, 'ABCD0');
+      // The answer to ABCD arrives after a newer request: it is ignored.
+      pending['ABCD']!.complete({
+        'ids': ['ABCE0002']
+      });
+      await tester.pump();
+      expect(find.text('ABCE0002'), findsNothing);
+      pending['ABCD0']!.complete({
+        'ids': ['ABCD0001', 'ABCD0003']
+      });
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('ABCD0001'), findsOneWidget);
+      expect(find.text('ABCD0003'), findsOneWidget);
+      expect(find.text(searching), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    // "Vérifier" pressed on a partial code while suggestions are displayed.
+    group('verify with a partial code', () {
+      late List<Object?> checks;
+      PrizesRecord? received;
+      setUp(() {
+        checks = [];
+        received = null;
+        calls.prizeHandler = (parameters) async {
+          checks.add(parameters);
+          return {
+            'ids': ['ABCD0001', 'ABCE0002', 'ABCD0003'],
+            'cursor': '',
+            'hasMore': false
+          };
+        };
+      });
+      Future<void> openRouted(WidgetTester tester) async {
+        final previousUser = currentUser;
+        currentUser = _GainsUser();
+        addTearDown(() => currentUser = previousUser);
+        final router = GoRouter(routes: [
+          GoRoute(
+              path: '/', builder: (_, __) => const HomeCommercantPageWidget()),
+          GoRoute(
+              path: '/validate',
+              name: 'ValidationLotCommercantPage',
+              builder: (_, state) {
+                received = (state.extra as Map)['prize'] as PrizesRecord;
+                return const Scaffold(body: Text('Confirmation du lot'));
+              }),
+        ]);
+        addTearDown(router.dispose);
+        await pump(tester, MaterialApp.router(routerConfig: router));
+      }
+
+      Future<void> answer(
+          WidgetTester tester, String prefix, List<String> ids) async {
+        pending[prefix]!.complete({'ids': ids});
+        await tester.pump();
+        await tester.pump();
+      }
+
+      const severalHint =
+          'Plusieurs lots correspondent : touchez le bon code ci-dessous.';
+
+      testWidgets('a single complete match is verified directly',
+          (tester) async {
+        await openRouted(tester);
+        await type(tester, 'ABCD000');
+        await answer(tester, 'ABCD000', ['ABCD0001']);
+        await tester.tap(find.text('Vérifier'));
+        await tester.pumpAndSettle();
+        expect(find.text('Confirmation du lot'), findsOneWidget);
+        expect(received?.claimCode, 'ABCD0001');
+        expect(find.text('Code invalide'), findsNothing);
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+
+      testWidgets(
+          'several matches ask to pick, then the picked code is verified',
+          (tester) async {
+        await openRouted(tester);
+        await type(tester, 'ABC');
+        await answer(tester, 'ABC', ['ABCD0001', 'ABCE0002']);
+        await tester.tap(find.text('Vérifier'));
+        await tester.pumpAndSettle();
+        expect(find.text(severalHint), findsOneWidget);
+        expect(find.text('ABCD0001'), findsOneWidget);
+        expect(find.text('ABCE0002'), findsOneWidget);
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(checks, isEmpty, reason: 'nothing is verified before a pick');
+        await tester.tap(find.text('ABCE0002'));
+        await tester.pump();
+        expect(find.text(severalHint), findsNothing);
+        await tester.tap(find.text('Vérifier'));
+        await tester.pumpAndSettle();
+        expect(find.text('Confirmation du lot'), findsOneWidget);
+        expect(received?.claimCode, 'ABCE0002');
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+
+      testWidgets(
+          'a match not yet confirmed by the search is never auto-picked',
+          (tester) async {
+        await openRouted(tester);
+        await type(tester, 'ABC');
+        await answer(tester, 'ABC', ['ABCD0001', 'ABCE0002']);
+        // The ABCD search is still running: other ABCD lots may exist.
+        await type(tester, 'ABCD');
+        await tester.tap(find.text('Vérifier'));
+        await tester.pump();
+        expect(find.text('Touchez le code ci-dessous pour le vérifier.'),
+            findsOneWidget);
+        expect(checks, isEmpty);
+        expect(find.text('Confirmation du lot'), findsNothing);
+        await answer(tester, 'ABCD', ['ABCD0001']);
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+
+      testWidgets('editing the code hides the pick hint', (tester) async {
+        await openRouted(tester);
+        await type(tester, 'ABC');
+        await answer(tester, 'ABC', ['ABCD0001', 'ABCE0002']);
+        await tester.tap(find.text('Vérifier'));
+        await tester.pump();
+        expect(find.text(severalHint), findsOneWidget);
+        await type(tester, 'ABCE');
+        expect(find.text(severalHint), findsNothing);
+        await answer(tester, 'ABCE', ['ABCE0002']);
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    });
+
+    testWidgets('the field explains the search', (tester) async {
+      await open(tester);
+      expect(find.text('Saisissez les premiers caractères du code gagnant…'),
+          findsOneWidget);
+      expect(find.text('Les lots correspondants apparaissent automatiquement.'),
+          findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('"no match" only appears once the search has finished',
+        (tester) async {
+      await open(tester);
+      await type(tester, 'ABC');
+      expect(find.text('Aucun code correspondant'), findsNothing);
+      pending['ABC']!.complete({'ids': <String>[]});
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Aucun code correspondant'), findsOneWidget);
+      // A new search hides the previous "no match" until it answers.
+      await type(tester, 'ABCD');
+      expect(find.text('Aucun code correspondant'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text(searching), findsOneWidget);
+      expect(find.text('Aucun code correspondant'), findsNothing);
+      pending['ABCD']!.complete({'ids': <String>[]});
+      await tester.pump();
+      await tester.pump();
+      expect(find.text(searching), findsNothing);
+      expect(find.text('Aucun code correspondant'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('an error replaces the indicator by the unavailability message',
+        (tester) async {
+      await open(tester);
+      await type(tester, 'ABC');
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text(searching), findsOneWidget);
+      pending['ABC']!.completeError(
+          functions_platform.FirebaseFunctionsException(
+              code: 'not-found', message: 'missing'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text(searching), findsNothing);
+      expect(
+          find.text(
+              'Service de suggestions indisponible. Saisissez le code complet puis vérifiez-le.'),
+          findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  });
+
+  test('suggestion failures caused by the connection are reported as such', () {
+    expect(suggestionFailureMessage(TimeoutException('slow')),
+        startsWith('Pas de connexion'));
+    expect(
+        suggestionFailureMessage(functions_platform.FirebaseFunctionsException(
+            code: 'deadline-exceeded', message: '')),
+        startsWith('Pas de connexion'));
+    expect(
+        suggestionFailureMessage(functions_platform.FirebaseFunctionsException(
+            code: 'internal', message: '')),
+        startsWith('Service de suggestions indisponible'));
+    expect(suggestionFailureMessage(StateError('x')),
+        startsWith('Service de suggestions indisponible'));
+  });
+
+  // Shop QR: its token makes a scan free, and it must never leave the shop.
+  group('shop QR card', () {
+    final token = List.filled(64, 'c').join();
+    const plain = 'https://play.proxiplay.fr/j/shop-game';
+    GamesRecord shopGame({bool qrOnly = false}) =>
+        GamesRecord.getDocumentFromData({
+          'name': 'Lot boutique',
+          'enseigne_name': 'Boutique',
+          if (qrOnly) 'access_mode': 'qr_only',
+          'end_date': Timestamp.fromDate(DateTime(2030, 1, 1)),
+        }, ref('games/shop-game'));
+    String qrData(WidgetTester tester) =>
+        (tester.widget<QrImageView>(find.byType(QrImageView)).key!
+                as ValueKey<String>)
+            .value
+            .replaceFirst('shop-qr:', '');
+    Future<void> show(WidgetTester tester, GamesRecord game) async {
+      await pump(tester,
+          Scaffold(body: SingleChildScrollView(child: GameQrCodeCard(game: game))));
+      await tester.pump();
+      await tester.pump();
+    }
+
+    for (final qrOnly in [false, true]) {
+      testWidgets(
+          '${qrOnly ? 'QR-only' : 'public'} game: the QR carries the shop token, shared texts never do',
+          (tester) async {
+        final requested = <Object?>[];
+        calls.named['issueGameQrAccess'] = (parameters) async {
+          requested.add(parameters);
+          return {'token': token};
+        };
+        addTearDown(() => calls.named.remove('issueGameQrAccess'));
+        await show(tester, shopGame(qrOnly: qrOnly));
+        expect(requested, [
+          {'gameId': 'shop-game'}
+        ]);
+        expect(qrData(tester), '$plain?qr_token=$token');
+        // The link displayed and copied for sharing is the public one.
+        expect(find.text(plain), findsOneWidget);
+        expect(find.textContaining('qr_token'), findsNothing);
+        await tester.ensureVisible(find.text('Creer le post Facebook'));
+        await tester.tap(find.text('Creer le post Facebook'));
+        await tester.pump();
+        expect(find.textContaining('🔗 $plain'), findsOneWidget);
+        expect(find.textContaining(token), findsNothing);
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    }
+
+    testWidgets('public game: without a token the plain QR still opens the game',
+        (tester) async {
+      calls.named['issueGameQrAccess'] =
+          (_) async => throw StateError('service unavailable');
+      addTearDown(() => calls.named.remove('issueGameQrAccess'));
+      await show(tester, shopGame());
+      expect(qrData(tester), plain);
+      expect(find.textContaining('Impossible de charger le QR code'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('QR-only game: no token means no QR to print', (tester) async {
+      calls.named['issueGameQrAccess'] =
+          (_) async => throw StateError('service unavailable');
+      addTearDown(() => calls.named.remove('issueGameQrAccess'));
+      await show(tester, shopGame(qrOnly: true));
+      expect(find.byType(QrImageView), findsNothing);
+      expect(find.textContaining('Impossible de charger le QR code'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
   });
 }

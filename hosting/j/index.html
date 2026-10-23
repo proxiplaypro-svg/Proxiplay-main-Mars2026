@@ -111,10 +111,11 @@
       var storeUrl = isiOS
         ? 'https://apps.apple.com/app/id6753818573'
         : 'https://play.google.com/store/apps/details?id=com.proxiplay.proxiplay';
-      var deepLink = 'proxiplay://game/' + encodeURIComponent(gameId);
+      var query = window.location.search || '';
+      var deepLink = 'proxiplay://game/' + encodeURIComponent(gameId) + query;
       var androidIntentUrl =
         'intent://game/' +
-        encodeURIComponent(gameId) +
+        encodeURIComponent(gameId) + query +
         '#Intent;scheme=proxiplay;package=com.proxiplay.proxiplay;' +
         'S.browser_fallback_url=' +
         encodeURIComponent(storeUrl) +
@@ -130,7 +131,7 @@
       linkLabel.textContent = 'Lien jeu : ' + canonicalUrl;
 
       var attemptOpenNative = function (reason) {
-        console.log('[QR_LINK_NATIVE_ATTEMPT] url=' + launchUrl + ' reason=' + reason);
+        console.log('[QR_LINK_NATIVE_ATTEMPT] reason=' + reason);
         window.location.href = launchUrl;
       };
 

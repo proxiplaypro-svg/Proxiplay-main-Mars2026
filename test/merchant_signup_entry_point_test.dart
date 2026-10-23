@@ -31,11 +31,9 @@ void main() {
       expect(loginPage, contains("' Inscription'"));
     });
 
-    test('1. a new, clearly labeled "Créer un compte" entry point for '
-        'merchants exists for a logged-out visitor', () {
-      expect(loginPage, contains("'Commerçant ? '"));
-      expect(loginPage, contains("'Créer un compte'"));
-      expect(loginPage, contains("queryParameters: {'role': 'commercant'}"));
+    test('the removed merchant shortcut stays absent', () {
+      expect(loginPage, isNot(contains("'Commer\u00e7ant ? '")));
+      expect(loginPage, isNot(contains("queryParameters: {'role': 'commercant'}")));
     });
 
     test('the login form itself (email/password submit) is untouched - '

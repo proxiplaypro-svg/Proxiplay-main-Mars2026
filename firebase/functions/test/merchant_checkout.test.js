@@ -1,5 +1,5 @@
-process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-process.env.GCLOUD_PROJECT = 'demo-proxiplay-merchant-checkout';
+process.env.FIRESTORE_EMULATOR_HOST ||= '127.0.0.1:8080';
+process.env.GCLOUD_PROJECT ||= 'demo-proxiplay-merchant-checkout';
 // ID de prix Stripe factice : seul le fait qu'un ID soit configure compte
 // ici, jamais sa valeur reelle (le SDK Stripe est mocke dans ce fichier).
 process.env.STRIPE_PRICE_PROXIMITE = 'price_test_proximite';
@@ -44,6 +44,7 @@ async function clearCollections() {
 
 test.beforeEach(async () => {
   await clearCollections();
+  await db.doc('app_config/merchant_referral').delete();
 });
 
 test('unauthenticated call is rejected', async () => {
@@ -176,6 +177,7 @@ test('a valid referral code links the referral exactly once (keyed by merchant a
   );
   const referralSnap = await db.doc('merchant_referrals/merchant').get();
   assert.equal(referralSnap.data().status, 'linked');
+  assert.equal(referralSnap.data().reward_amount_cents, 5000);
   assert.equal(referralSnap.data().inviter_user_id.path, 'users/inviter_a');
 
   // L'abonnement est maintenant "incomplete" (pas actif) : un deuxieme essai
@@ -188,4 +190,33 @@ test('a valid referral code links the referral exactly once (keyed by merchant a
     ),
     (err) => err.code === 'already-exists',
   );
+});
+
+test('disabled programme blocks a new referral even for an old client, without blocking ordinary checkout', async () => {
+  const fakeStripe = makeFakeStripe();
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  const {code} = await generateMerchantReferralCodeHandler({}, {auth: {uid: 'inviter'}});
+  await db.doc('app_config/merchant_referral').set({enabled: false});
+  await assert.rejects(() => createMerchantCheckoutSessionHandler(
+    {offerId: 'proximite', successUrl: 'https://x', cancelUrl: 'https://x', referralCode: code},
+    {auth: {uid: 'merchant'}}), (err) => err.code === 'failed-precondition');
+  assert.equal((await db.doc('merchant_referrals/merchant').get()).exists, false);
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0);
+  await createMerchantCheckoutSessionHandler(
+    {offerId: 'proximite', successUrl: 'https://x', cancelUrl: 'https://x'},
+    {auth: {uid: 'merchant'}});
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 1);
+});
+
+test('disabled programme allows a previously linked referral to continue', async () => {
+  const fakeStripe = makeFakeStripe();
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  const {code} = await generateMerchantReferralCodeHandler({}, {auth: {uid: 'inviter'}});
+  await db.doc('merchant_referrals/merchant').set({status: 'linked', inviter_user_id: db.doc('users/inviter'), reward_amount_cents: 10000});
+  await db.doc('app_config/merchant_referral').set({enabled: false});
+  await createMerchantCheckoutSessionHandler(
+    {offerId: 'proximite', successUrl: 'https://x', cancelUrl: 'https://x', referralCode: code},
+    {auth: {uid: 'merchant'}});
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 1);
+  assert.equal((await db.doc('merchant_referrals/merchant').get()).data().reward_amount_cents, 10000);
 });

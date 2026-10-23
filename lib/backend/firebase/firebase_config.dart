@@ -6,6 +6,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 
 import '/config/firebase_environment.dart';
+import '/config/firebase_emulator_options.dart';
 import '/firebase_options.dart';
 
 Future<FirebaseApp>? _initFirebaseFuture;
@@ -27,11 +28,18 @@ Future<FirebaseApp> initFirebase() {
 Future<FirebaseApp> _initFirebaseInternal() async {
   try {
     final environment = await FirebaseEnvironment.load();
+    const isolatedProject = String.fromEnvironment('FIREBASE_EMULATOR_PROJECT_ID');
+    final desiredOptions = isolatedEmulatorOptions(
+      DefaultFirebaseOptions.currentPlatform,
+      emulatorsEnabled: environment.shouldUseEmulators,
+      requestedProjectId: isolatedProject,
+    );
     final app = Firebase.apps.isEmpty
-        ? await Firebase.initializeApp(
-            options: DefaultFirebaseOptions.currentPlatform,
-          )
+        ? await Firebase.initializeApp(options: desiredOptions)
         : Firebase.app();
+    if (isolatedProject.isNotEmpty && app.options.projectId != desiredOptions.projectId) {
+      throw StateError('Firebase was already initialized for a different project.');
+    }
 
     if (environment.shouldUseEmulators) {
       await _configureLocalEmulators(

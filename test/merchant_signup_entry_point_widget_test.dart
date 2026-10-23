@@ -1,4 +1,4 @@
-// FlutterFire platform fakes use the platform packages shipped by our SDKs.
+﻿// FlutterFire platform fakes use the platform packages shipped by our SDKs.
 // ignore_for_file: depend_on_referenced_packages
 import 'dart:io';
 
@@ -275,42 +275,16 @@ void main() {
           .controller!
           .index;
 
-  testWidgets(
-      '1. LoginPage -> tap "Créer un compte" -> InscriptionPage '
-      'opens with the Professionnel tab selected', (tester) async {
-    final pendingBefore = FFAppState().pendingReferralCode;
-    final guestBefore = FFAppState().isGuest;
-
+  testWidgets('login omits the removed merchant shortcut', (tester) async {
     await pump(tester, buildRouter());
-    expect(find.byType(LoginPageWidget), findsOneWidget);
-
-    await tester.ensureVisible(find.text('Créer un compte'));
-    await tester.tap(find.text('Créer un compte'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(InscriptionPageWidget), findsOneWidget);
-    expect(selectedTabIndex(tester), 1,
-        reason: 'the Professionnel tab (index 1) must be pre-selected');
-
-    // The merchant signup FORM itself must actually be showing, not just
-    // the tab selector - the Joueur tab's own "Mail"/"Mot de passe" fields
-    // are gated behind _showEmailForm (false by default, it only shows
-    // "Continuer avec Google"/"Continuer avec l'e-mail" buttons), so a
-    // single match here can only come from the Professionnel form.
-    expect(find.text('Mail'), findsOneWidget,
-        reason: 'the merchant signup form fields must be visible, not just '
-            'the tab selector');
-    expect(find.text('Code de parrainage (facultatif)'), findsOneWidget);
-
-    // "role=commercant" must only select the tab - nothing else observable
-    // on FFAppState changes as a side effect of this navigation.
-    expect(FFAppState().pendingReferralCode, pendingBefore);
-    expect(FFAppState().isGuest, guestBefore);
+    expect(find.text('Commer\u00e7ant ? '), findsNothing);
+    expect(find.text('Cr\u00e9er un compte'), findsNothing);
+    expect(find.text(' Inscription'), findsOneWidget);
   });
 
   testWidgets(
       '2. manual access to both Joueur and Professionnel tabs keeps working '
-      '(the new entry point only adds a shortcut, it does not replace '
+      '(the general signup link keeps '
       'manual tab selection)', (tester) async {
     await pump(tester, buildRouter());
 
@@ -351,7 +325,7 @@ void main() {
 
   testWidgets(
       '3. an already-registered user still sees the ordinary login form '
-      '(the new merchant entry point only adds a link, it does not replace '
+      '(the removal of the shortcut preserves '
       'the login form)', (tester) async {
     await pump(tester, buildRouter());
 
@@ -359,7 +333,55 @@ void main() {
     expect(find.byType(TextFormField), findsAtLeastNWidgets(2),
         reason: 'email + password fields are still there for an existing '
             'account to log in');
-    expect(find.text('Commerçant ? '), findsOneWidget);
+    expect(find.text('Commer\u00e7ant ? '), findsNothing);
     expect(find.text('Pas de compte ? '), findsOneWidget);
   });
+
+  testWidgets('player email signup accepts an optional referral code', (tester) async {
+    await pump(tester, buildRouter());
+    await tester.tap(find.text(' Inscription'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Continuer avec l'e-mail"));
+    await tester.pumpAndSettle();
+    final field = find.widgetWithText(TextFormField, 'Code de parrainage (facultatif)');
+    expect(field, findsOneWidget);
+    expect(tester.widget<TextFormField>(field).controller!.text, isEmpty);
+    await tester.enterText(field, 'TESTCODE');
+    expect(tester.widget<TextFormField>(field).controller!.text, 'TESTCODE');
+    await tester.enterText(field, '');
+    expect(tester.widget<TextFormField>(field).controller!.text, isEmpty);
+  });
+
+
+  testWidgets('the referral code is asked before choosing Google or e-mail',
+      (tester) async {
+    FFAppState().pendingReferralCode = 'LINKCODE';
+    await pump(tester, buildRouter());
+    await tester.tap(find.text(' Inscription'));
+    await tester.pumpAndSettle();
+    // Entry screen: the code field comes before "Continuer avec Google",
+    // prefilled from the invitation link.
+    final entryField = find.byKey(const ValueKey('entry-referral-code'));
+    expect(entryField, findsOneWidget);
+    expect(tester.getTopLeft(entryField).dy,
+        lessThan(tester.getTopLeft(find.text('Continuer avec Google')).dy));
+    expect(tester.widget<TextFormField>(entryField).controller!.text, 'LINKCODE');
+    expect(find.text('À saisir avant de continuer avec Google ou par e-mail.'),
+        findsOneWidget);
+    // A code typed here is kept for the Google signup and the e-mail form.
+    await tester.enterText(entryField, 'TYPEDCODE');
+    expect(FFAppState().pendingReferralCode, 'TYPEDCODE');
+    // The former "not available with Google" warning is gone.
+    expect(find.text('Parrainage et inscription Google'), findsNothing);
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Continuer avec l'e-mail"));
+    await tester.pumpAndSettle();
+    final field = find.widgetWithText(TextFormField, 'Code de parrainage (facultatif)');
+    expect(tester.widget<TextFormField>(field).controller!.text, 'TYPEDCODE');
+  });
+
 }
+

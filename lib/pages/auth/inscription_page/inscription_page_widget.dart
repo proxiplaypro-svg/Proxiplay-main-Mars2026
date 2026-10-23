@@ -10,7 +10,12 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/index.dart';
 import '/services/share_promo_service.dart';
+import '/services/referral_signup_error.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart' as crypto;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter/material.dart';
@@ -236,11 +241,13 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
 
   Future<void> _handleGooglePlayerSignup() async {
     _logGoogleSignup('startGoogleSignupFlow');
-    GoRouter.of(context).prepareAuthEvent(true);
     _persistReferralCodeInput(
       _model.referralCodeJoueurTextController?.text ?? '',
     );
 
+    // A code entered on the entry screen is sent once the Google account is
+    // signed in; the server only credits it for a newly created account.
+    GoRouter.of(context).prepareAuthEvent(true);
     final user = await authManager.signInWithGoogle(context);
     if (user == null || !context.mounted) {
       if (mounted) {
@@ -625,11 +632,55 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     );
   }
 
+  // Asked before the signup method is chosen, so a Google signup can be
+  // referred too. Shares the e-mail form controller (never shown together).
+  Widget _buildEntryReferralCodeField() {
+    final theme = FlutterFlowTheme.of(context);
+    OutlineInputBorder border(Color color) => OutlineInputBorder(
+          borderSide: BorderSide(color: color, width: 2.0),
+          borderRadius: BorderRadius.circular(12.0),
+        );
+    return Padding(
+      padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
+      child: TextFormField(
+        key: const ValueKey('entry-referral-code'),
+        controller: _model.referralCodeJoueurTextController,
+        autocorrect: false,
+        enableSuggestions: false,
+        textCapitalization: TextCapitalization.characters,
+        onChanged: _persistReferralCodeInput,
+        decoration: InputDecoration(
+          labelText: 'Code de parrainage (facultatif)',
+          helperText: 'À saisir avant de continuer avec Google ou par e-mail.',
+          helperMaxLines: 2,
+          labelStyle: theme.labelMedium.override(
+            font: GoogleFonts.inter(),
+            color: theme.fieldText,
+            letterSpacing: 0.0,
+          ),
+          enabledBorder: border(const Color(0x00000000)),
+          focusedBorder: border(theme.primary),
+          errorBorder: border(theme.error),
+          focusedErrorBorder: border(theme.error),
+          filled: true,
+          fillColor: theme.fieldBg,
+          contentPadding: const EdgeInsets.all(24.0),
+        ),
+        style: theme.bodyMedium.override(
+          font: GoogleFonts.inter(),
+          color: theme.primaryText,
+          letterSpacing: 0.0,
+        ),
+      ),
+    );
+  }
+
   Widget _buildPlayerEntryButtons() {
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
       child: Column(
         children: [
+          _buildEntryReferralCodeField(),
           FFButtonWidget(
             onPressed: () async {
               if (_model.checkboxJoueurValue != true) {
@@ -1980,21 +2031,29 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                       'role=joueur pendingReferralCode='
                                                                       '${FFAppState().pendingReferralCode.isEmpty ? '<empty>' : FFAppState().pendingReferralCode}',
                                                                     );
-                                                                    final user =
-                                                                        await authManager
-                                                                            .createAccountWithEmail(
-                                                                      context,
-                                                                      _model
-                                                                          .emailAddressJoueurTextController
-                                                                          .text
-                                                                          .trim(),
-                                                                      _model
-                                                                          .passwordJoueurTextController
-                                                                          .text,
-                                                                      roleHint:
-                                                                          _model
-                                                                              .userType,
-                                                                    );
+                                                                    final email = _model.emailAddressJoueurTextController.text.trim();
+                                                                    final password = _model.passwordJoueurTextController.text;
+                                                                    final referralCode = FFAppState().pendingReferralCode.trim();
+                                                                    SharedPreferences? prefs;
+                                                                    String? opKey;
+                                                                    if (referralCode.isNotEmpty) {
+                                                                      prefs = await SharedPreferences.getInstance();
+                                                                      opKey = 'referral_signup_${crypto.sha256.convert(utf8.encode(email.toLowerCase() + '|' + referralCode))}';
+                                                                      final requestId = prefs.getString(opKey) ?? const Uuid().v4();
+                                                                      await prefs.setString(opKey, requestId);
+                                                                      await _sharePromoService.createReferralEmailAccount(
+                                                                        email: email, password: password,
+                                                                        inviteCode: referralCode, requestId: requestId,
+                                                                      );
+                                                                    }
+                                                                    if (!context.mounted) return;
+                                                                    final user = referralCode.isEmpty
+                                                                      ? await authManager.createAccountWithEmail(context, email, password, roleHint: _model.userType)
+                                                                      : await authManager.signInWithEmail(context, email, password);
+                                                                    if (user != null && referralCode.isNotEmpty) {
+                                                                      await prefs!.remove(opKey!);
+                                                                      FFAppState().clearPendingReferralCode();
+                                                                    }
                                                                     if (user ==
                                                                         null) {
                                                                       return;
@@ -2064,11 +2123,27 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                       ignoreRedirect:
                                                                           true,
                                                                     );
-                                                                  } catch (error) {
-                                                                    debugPrint(
-                                                                      'Player signup Firestore error: $error',
+                                                                  } on FirebaseFunctionsException catch (error) {
+                                                                    if (!mounted) return;
+                                                                    final explanation = describeReferralSignupError(error.code, error.details);
+                                                                    final goToLogin = await showDialog<bool>(
+                                                                      context: context,
+                                                                      builder: (dialogContext) => AlertDialog(
+                                                                        title: const Text('Inscription'),
+                                                                        content: Text(explanation.message),
+                                                                        actions: [
+                                                                          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Retour')),
+                                                                          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Se connecter')),
+                                                                        ],
+                                                                      ),
                                                                     );
-                                                                    debugPrintStack();
+                                                                    if (goToLogin == true && mounted) {
+                                                                      if (explanation.accountCreated) FFAppState().clearPendingReferralCode();
+                                                                      context.goNamed(LoginPageWidget.routeName);
+                                                                    }
+                                                                  } catch (error) {
+                                                                    // Do not log signup request details.
+
                                                                     if (await _recoverCompletedEmailSignupIfPossible()) {
                                                                       return;
                                                                     }
@@ -3689,7 +3764,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       case 'not-found':
         return 'Ce code de parrainage est introuvable.';
       case 'failed-precondition':
-        return 'Vous ne pouvez pas utiliser votre propre code de parrainage.';
+        return 'Ce code est réservé à l’inscription d’un nouveau joueur et ne peut pas être votre propre code.';
       case 'already-exists':
         return 'Ce parrainage a déjà été utilisé pour ce compte.';
       case 'invalid-argument':
@@ -3737,6 +3812,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       });
       return true;
     } on FirebaseFunctionsException catch (error) {
+      _lastAppliedReferralGuardKey = null;
       _lastReferralErrorMessage = _errorMessageForReferralFailure(error);
       const terminalErrorCodes = <String>{
         'invalid-argument',
@@ -3749,6 +3825,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       }
       return false;
     } catch (error) {
+      _lastAppliedReferralGuardKey = null;
       _lastReferralErrorMessage =
           'Le code de parrainage n’a pas pu être appliqué pour le moment.';
       debugPrint('Referral acceptance unexpected error: $error');

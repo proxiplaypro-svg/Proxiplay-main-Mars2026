@@ -21,6 +21,7 @@ import '/utils/share_links.dart';
 import '/utils/qr_game_presentation.dart';
 import '/utils/game_view_tracker.dart';
 import '/utils/winner_identity.dart';
+import '/utils/main_prize_draw_presentation.dart';
 import '/widgets/proxiplay_network_image.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
@@ -68,6 +69,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
   final _rulesCardKey = GlobalKey();
   bool _hasTrackedView = false;
   bool _isLaunchingGame = false;
+  GamesRecord? _liveGameDoc;
+  StreamSubscription<GamesRecord>? _liveGameSubscription;
   final GameLaunchCoordinator _launchCoordinator =
       GameLaunchCoordinator(screenName: 'JeuDetailJoueurPage');
 
@@ -114,6 +117,12 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     }
     final animationId = widget.gameDoc?.animationId ?? '';
     if (animationId.trim().isNotEmpty) {
+      return false;
+    }
+    // A game opened from its shop QR (token kept from the scan) is free to
+    // play, public or QR-only; the server verifies the token and debits
+    // normally if it is no longer valid.
+    if (gameQrToken(widget.gameDoc?.reference.id ?? '') != null) {
       return false;
     }
     return getSafeRemainingPart(
@@ -1012,10 +1021,21 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _trackViewOnce();
     });
+    final gameRef = widget.gameDoc?.reference;
+    if (gameRef != null) {
+      _liveGameSubscription = GamesRecord.getDocument(gameRef).listen(
+        (game) {
+          if (mounted) setState(() => _liveGameDoc = game);
+        },
+        // Keep the navigation snapshot if the live read fails.
+        onError: (_) {},
+      );
+    }
   }
 
   @override
   void dispose() {
+    _liveGameSubscription?.cancel();
     _model.dispose();
 
     super.dispose();
@@ -1072,8 +1092,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         final hasPlayedBefore = lastPlay != null && !hasPlayedToday;
         final noRemainingParts = _hasNoRemainingParts(currentUserDocument, now);
 
-        final endDate = widget.gameDoc?.endDate;
-        final gameDoc = widget.gameDoc!;
+        // Live copy so the draw result appears as soon as the backend writes it.
+        final gameDoc = _liveGameDoc ?? widget.gameDoc!;
+        final endDate = gameDoc.endDate;
         final effectiveEnseigneDoc = widget.enseigneDoc ??
             (gameDoc.enseigneId != null
                 ? EnseignesRecord.getDocumentFromData(
@@ -1091,13 +1112,18 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                 : gameDoc.enseigneName.trim();
         final hasWinnerAnnouncement = endDate != null &&
             getCurrentTimestamp.isAfter(endDate) &&
-            gameDoc.hasWinner &&
-            (gameDoc.mainPrizeWinner != null);
+            (gameDoc.hasWinner || gameDoc.mainPrizeWinner != null);
         // `hasMainPrize` is the sole source of truth for a draw ticket.
         // Do not infer it from prize value or instant-win fields.  A missing
         // legacy field is conservatively hidden until backend backfill.
         final hasMainPrizeFlag = shouldShowMainPrizeTicket(
           hasMainPrize: gameDoc.hasHasMainPrize() ? gameDoc.hasMainPrize : null,
+        );
+        final drawStatusMessage = mainPrizeDrawStatusMessage(
+          ended: endDate != null && now.isAfter(endDate),
+          hasMainPrize: hasMainPrizeFlag,
+          hasWinner: hasWinnerAnnouncement,
+          drawStatus: gameDoc.snapshotData['draw_status'],
         );
         final qrGamePresentation = resolveQrGamePresentation(
           description: gameDoc.description,
@@ -1106,13 +1132,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
           isQrOnly: gameDoc.accessMode == AccessMode.qr_only,
         );
         final gameDescription = qrGamePresentation.gameDescription;
-        final mainPrize = mainPrizePresentation(
+        final mainPrize = mainPrizeFromGameData(
+          data: gameDoc.snapshotData,
           hasMainPrize: hasMainPrizeFlag,
-          title: gameDoc.mainPrizeTitle,
-          description: gameDoc.mainPrizeDescription,
+          prizeValue: gameDoc.prizeValue,
         );
-        // La description générale décrit le jeu. Le lot principal n'utilise que
-        // ses champs dédiés, afin de ne jamais y replier la description du jeu.
         final shouldShowMainPrize = mainPrize.hasContent;
         final shouldShowAllPrizesAttributedAnnouncement = endDate != null &&
             getCurrentTimestamp.isAfter(endDate) &&
@@ -2203,6 +2227,15 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                           ),
                                           const SizedBox(height: 24.0),
                                           // Winner Announcement Section
+                                          if (drawStatusMessage != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(bottom: 24.0),
+                                              child: Text(
+                                                drawStatusMessage,
+                                                textAlign: TextAlign.center,
+                                                style: FlutterFlowTheme.of(context).titleMedium,
+                                              ),
+                                            ),
                                           if (hasWinnerAnnouncement)
                                             Container(
                                               width: double.infinity,
@@ -2244,16 +2277,16 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                     FutureBuilder<UsersRecord?>(
                                                   future:
                                                       fetchWinnerUserIfNeeded(
-                                                    gameData: widget
-                                                        .gameDoc!.snapshotData,
-                                                    winnerRef: widget.gameDoc!
-                                                        .mainPrizeWinner,
+                                                    gameData:
+                                                        gameDoc.snapshotData,
+                                                    winnerRef:
+                                                        gameDoc.mainPrizeWinner,
                                                   ),
                                                   builder: (context, snapshot) {
                                                     final winnerMessage =
                                                         buildWinnerCongratulationsFromSources(
-                                                      gameData: widget.gameDoc!
-                                                          .snapshotData,
+                                                      gameData:
+                                                          gameDoc.snapshotData,
                                                       user: snapshot.data,
                                                       fallback:
                                                           'F\u00E9licitations !',

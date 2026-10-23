@@ -10,7 +10,7 @@ async function config(type) {
   await db.doc('monthly_challenges/' + id).set(data);
   return data;
 }
-for (const type of ['attendance', 'merchant', 'restaurant']) test('monthly ' + type + ': real participation -> two Paris days -> entry -> draw -> operator withdrawal', async () => {
+for (const type of ['attendance', 'merchant', 'restaurant']) test('monthly ' + type + ': real participation -> two Paris days -> entry -> draw -> lot at the partner shop or ProxiPlay', async () => {
   const c = await config(type);
   await game(); await participate(); await participate();
   assert.equal((await db.doc(`users/player/monthly_challenges/${c.challenge_id}`).get()).data().active_days_count, 1);
@@ -19,7 +19,14 @@ for (const type of ['attendance', 'merchant', 'restaurant']) test('monthly ' + t
   process.env.EMULATOR_TEST_DATE = '2026-10-01';
   const result = await drawWinnerForMonthlyChallenge(c, 'lifecycle_test');
   assert.equal(result.status, 'completed');
-  await verifyPrize('monthly_challenge_' + c.challenge_id, {platform: true});
+  // With a partner shop the lot is collected there (merchant lot); without
+  // one it is a ProxiPlay lot.
+  await verifyPrize('monthly_challenge_' + c.challenge_id, {platform: type === 'attendance'});
+  if (type !== 'attendance') {
+    const prize = (await db.doc('prizes/monthly_challenge_' + c.challenge_id).get()).data();
+    assert.equal(prize.enseigne_id.path, 'enseignes/shop');
+    assert.equal(prize.owner_id.path, 'users/merchant');
+  }
   assert.equal((await drawWinnerForMonthlyChallenge(c, 'retry')).status, 'already_completed');
   assert.equal((await db.doc('monthly_challenge_draws/' + c.challenge_id).get()).data().status, 'completed');
 });

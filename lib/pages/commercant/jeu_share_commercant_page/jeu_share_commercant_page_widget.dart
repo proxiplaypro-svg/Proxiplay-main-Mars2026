@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:cloud_functions/cloud_functions.dart';
+
 import '/backend/backend.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -48,8 +50,32 @@ class _JeuShareCommercantPageWidgetState
   bool _isDownloadingFacebookVisual = false;
   OverlayEntry? _toastEntry;
   Timer? _toastTimer;
+  // Shop QR with its token, for the QR image, its download and the poster
+  // only: a verified scan never consumes a chance. Texts shared online keep
+  // the plain public link so the token is never published.
+  String? _shopQrLink;
+  String? _shopQrGameId;
 
   String get _gameId => (widget.gameId ?? '').trim();
+
+  /// Returns the shop QR link once issued; starts issuing it on first use.
+  /// Until then (or if issuing fails) the plain link is used, which still
+  /// opens the game but counts the play.
+  String? _shopQrFor(GamesRecord game) {
+    final gameId = game.reference.id;
+    if (_shopQrGameId != gameId) {
+      _shopQrGameId = gameId;
+      _shopQrLink = null;
+      FirebaseFunctions.instance
+          .httpsCallable('issueGameQrAccess')
+          .call({'gameId': gameId}).then((result) {
+        final token = (result.data as Map)['token'];
+        if (!mounted || _shopQrGameId != gameId || token is! String) return;
+        setState(() => _shopQrLink = buildGameQrLink(gameId, token: token));
+      }).catchError((_) {});
+    }
+    return _shopQrLink;
+  }
 
   void _showSnackBar(String message) {
     if (!mounted) {
@@ -1452,7 +1478,7 @@ class _JeuShareCommercantPageWidgetState
                   }
 
                   final qrLink = game.qrLink.isNotEmpty
-                      ? game.qrLink
+                      ? canonicalizeGameLink(game.qrLink)
                       : buildGameQrLink(game.reference.id);
                   final enseigneName = game.enseigneName.isNotEmpty
                       ? game.enseigneName
@@ -1471,7 +1497,9 @@ class _JeuShareCommercantPageWidgetState
                         const SizedBox(height: 18.0),
                         _buildQrSectionOrdered(
                           game: game,
-                          qrLink: qrLink,
+                          // QR image and poster only; readyText keeps the
+                          // public link.
+                          qrLink: _shopQrFor(game) ?? qrLink,
                           shareText: readyText,
                         ),
                         const SizedBox(height: 18.0),

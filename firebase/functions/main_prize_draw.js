@@ -238,7 +238,11 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
     const prizeRef=db.collection('prizes').doc();
     const claimCode=await reserveClaimCode(tx,db);
     step('phase3_claim_code_reserved');
-    const first=String(winner.data.first_name||winner.data.firstName||'').split(/\s+/)[0];
+    // Same fallbacks as backfillWinnerDisplayFields and the app: players
+    // cannot read the winner's user document, so an empty denormalized
+    // first name would hide the winner entirely.
+    const w=winner.data;
+    const first=String(w.first_name||w.firstName||w.display_name||w.displayName||w.pseudo||'').trim().split(/\s+/)[0];
     const city=String(winner.data.city||'');
     const prize={prize_type:'principal',...gamePrizeOwnership(db,freshOwnership,enseigneRef,fulfillment),partner_delivery_eligible:fulfillment.type==='partner'&&freshGame.partner_delivery_enabled===true,name:freshGame.name||'Lot principal',description:freshGame.description||'',
       winner_id:winner.ref,game_id:gameRef,enseigne_id:enseigneRef,enseigne_name:freshShop.data().name||freshGame.enseigne_name||'',
@@ -295,4 +299,23 @@ const pickMainPrizeWinners=functions.runWith({timeoutSeconds:300,memory:'1GB'}).
     },
     draw:doc=>drawMainPrize(doc.id,{now})});
 });
-module.exports={drawMainPrize,pickMainPrizeWinners,needsMainPrizeDraw,loadEligibleParticipants,PARTICIPANT_USER_BATCH_SIZE,MAX_CANDIDATE_ATTEMPTS};
+// The nightly sweep above alone left a game ending at 18:00 without a winner
+// until midnight. This job draws a game within about a minute of its end.
+// Its window stays bounded so each run reads only recently ended games; the
+// nightly sweep remains the catch-up path for anything older. Concurrent
+// runs are safe: drawMainPrize re-checks finalization inside its transaction.
+const RECENT_DRAW_LOOKBACK_MS=48*60*60*1000;
+async function loadRecentlyEndedDrawCandidates(now){
+  const since=admin.firestore.Timestamp.fromMillis(now.toMillis()-RECENT_DRAW_LOOKBACK_MS);
+  const snap=await db.collection('games').where('end_date','>=',since).where('end_date','<=',now).get();
+  return snap.docs.filter(doc=>needsMainPrizeDraw(doc.data()||{}));
+}
+const pickEndedMainPrizeWinners=functions.runWith({timeoutSeconds:120,memory:'1GB'}).pubsub.schedule('every 1 minutes').timeZone('Europe/Paris').onRun(async()=>{
+  const now=admin.firestore.Timestamp.now();
+  return runScheduledDraws({name:'pickEndedMainPrizeWinners',logger:functions.logger,
+    concurrency:8,
+    timeBudgetMs:100000,
+    load:()=>loadRecentlyEndedDrawCandidates(now),
+    draw:doc=>drawMainPrize(doc.id,{now})});
+});
+module.exports={drawMainPrize,pickMainPrizeWinners,pickEndedMainPrizeWinners,loadRecentlyEndedDrawCandidates,RECENT_DRAW_LOOKBACK_MS,needsMainPrizeDraw,loadEligibleParticipants,PARTICIPANT_USER_BATCH_SIZE,MAX_CANDIDATE_ATTEMPTS};

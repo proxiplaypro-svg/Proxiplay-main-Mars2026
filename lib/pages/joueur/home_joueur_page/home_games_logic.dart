@@ -1,6 +1,6 @@
 import '/utils/player_game_visibility.dart';
 
-export '/utils/player_game_visibility.dart' show isGameDraftHiddenFromPlayer;
+export '/utils/player_game_visibility.dart' show isGameHiddenFromPlayer, gamePublicationState, GamePublicationState;
 
 bool isPlayerHomeGameVisible({
   required DateTime now,

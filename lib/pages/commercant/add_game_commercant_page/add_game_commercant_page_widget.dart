@@ -768,10 +768,12 @@ class _AddGameCommercantPageWidgetState
         : null;
     // Regle produit :
     // Le lot principal doit etre monetaire.
-    // On l'autorise uniquement si active, titre renseigne et valeur > 0.
+    // Un titre ou une description et une valeur > 0 sont requis.
+    final hasMainPrizeText =
+        mainPrizeName.isNotEmpty || mainPrizeDescription.isNotEmpty;
     final shouldPersistMainPrize =
         _model.mainPrizeEnabled &&
-        mainPrizeName.isNotEmpty &&
+        hasMainPrizeText &&
         (mainPrizeValue ?? 0) > 0;
     final startDate = _model.startDatePicked ?? getCurrentTimestamp;
     if (_model.datePicked != null && startDate.isAfter(_model.datePicked!)) {
@@ -794,11 +796,11 @@ class _AddGameCommercantPageWidgetState
       return false;
     }
     if (_model.mainPrizeEnabled &&
-        (mainPrizeName.isEmpty || (mainPrizeValue ?? 0) <= 0)) {
+        (!hasMainPrizeText || (mainPrizeValue ?? 0) <= 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content:
-              Text('Le lot principal doit avoir un titre et une valeur monétaire supérieure à 0, ou être désactivé.'),
+              Text('Le lot principal doit avoir un titre ou une description et une valeur monétaire supérieure à 0, ou être désactivé.'),
         ),
       );
       return false;
@@ -887,6 +889,9 @@ class _AddGameCommercantPageWidgetState
         name: gameName,
         description:
             mainPrizeDescription.isNotEmpty ? mainPrizeDescription : null,
+        mainPrizeTitle: shouldPersistMainPrize ? mainPrizeName : null,
+        mainPrizeDescription:
+            shouldPersistMainPrize ? mainPrizeDescription : null,
         endDate: _model.endDateTransformCopy,
         prizeUsageDeadline: prizeUsageDeadline,
         enseigneId: widget.enseigneRef,
