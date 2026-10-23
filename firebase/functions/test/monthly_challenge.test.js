@@ -572,16 +572,19 @@ test("changement de target_days apres demarrage ne retro-qualifie pas", async ()
 });
 
 test("tirage avant draw_date refuse", async () => {
+  // Relative to the real clock: a fixed date ends up in the past and the
+  // draw is then legitimately allowed.
+  const futureDrawDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
   await seedConfig({
     month: "2026-08",
-    drawDate: "2026-10-01T09:00:00.000Z",
+    drawDate: futureDrawDate,
   });
   await seedUser("u1");
 
   await assert.rejects(
     () => drawWinnerForMonthlyChallenge(buildConfigForDraw({
       month: "2026-08",
-      drawDate: "2026-10-01T09:00:00.000Z",
+      drawDate: futureDrawDate,
     }), "too-early"),
     (error) => error.code === "failed-precondition",
   );

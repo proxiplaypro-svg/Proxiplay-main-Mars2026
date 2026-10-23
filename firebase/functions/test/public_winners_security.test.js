@@ -22,7 +22,9 @@ test('platform prizes cannot be claimed by a merchant even with legacy owner fie
     const db=ctx.firestore();
     await db.doc('prizes/platform').set({winner_id:db.doc('users/player'),owner_id:db.doc('users/owner'),
       prize_type:'animation',fulfillment_type:'platform',claimed:false});
-    await db.doc('games/admin_created').set({create_by:db.doc('users/admin'),enseigne_id:db.doc('enseignes/shop'),owner_id:db.doc('users/owner')});
+    // A merchant may only hide an ENDED game from its stats (games rule).
+    await db.doc('games/admin_created').set({create_by:db.doc('users/admin'),enseigne_id:db.doc('enseignes/shop'),owner_id:db.doc('users/owner'),
+      end_date:new Date(Date.now()-86400000)});
     await db.doc('enseignes/shop').set({owner:db.doc('users/owner')});
   });
   await assertFails(env.authenticatedContext('owner').firestore().doc('prizes/platform').update({claimed:true}));
