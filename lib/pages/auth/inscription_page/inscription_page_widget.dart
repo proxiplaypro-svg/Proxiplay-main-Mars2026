@@ -96,10 +96,6 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
 
     _model.passwordConfirmCommercantTextController ??= TextEditingController();
     _model.passwordConfirmCommercantFocusNode ??= FocusNode();
-    _model.referralCodeCommercantTextController ??= TextEditingController(
-      text: _initialReferralCodeValue,
-    );
-    _model.referralCodeCommercantFocusNode ??= FocusNode();
 
     animationsMap.addAll({
       'containerOnPageLoadAnimation': AnimationInfo(
@@ -3037,160 +3033,9 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                         ),
                                                       ),
                                                     ),
-                                                    Padding(
-                                                      padding:
-                                                          const EdgeInsetsDirectional
-                                                              .fromSTEB(0.0,
-                                                              0.0, 0.0, 16.0),
-                                                      child: SizedBox(
-                                                        width: double.infinity,
-                                                        child: TextFormField(
-                                                          controller: _model
-                                                              .referralCodeCommercantTextController,
-                                                          focusNode: _model
-                                                              .referralCodeCommercantFocusNode,
-                                                          autofocus: false,
-                                                          autocorrect: false,
-                                                          enableSuggestions:
-                                                              false,
-                                                          textCapitalization:
-                                                              TextCapitalization
-                                                                  .characters,
-                                                          decoration:
-                                                              InputDecoration(
-                                                            labelText:
-                                                                'Code de parrainage (facultatif)',
-                                                            labelStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .labelMedium
-                                                                    .override(
-                                                                      font: GoogleFonts
-                                                                          .inter(
-                                                                        fontWeight: FlutterFlowTheme.of(context)
-                                                                            .labelMedium
-                                                                            .fontWeight,
-                                                                        fontStyle: FlutterFlowTheme.of(context)
-                                                                            .labelMedium
-                                                                            .fontStyle,
-                                                                      ),
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .fieldText,
-                                                                      letterSpacing:
-                                                                          0.0,
-                                                                      fontWeight: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .labelMedium
-                                                                          .fontWeight,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .labelMedium
-                                                                          .fontStyle,
-                                                                    ),
-                                                            enabledBorder:
-                                                                OutlineInputBorder(
-                                                              borderSide:
-                                                                  const BorderSide(
-                                                                color: Color(
-                                                                    0x00000000),
-                                                                width: 2.0,
-                                                              ),
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          12.0),
-                                                            ),
-                                                            focusedBorder:
-                                                                OutlineInputBorder(
-                                                              borderSide:
-                                                                  BorderSide(
-                                                                color: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .primary,
-                                                                width: 2.0,
-                                                              ),
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          12.0),
-                                                            ),
-                                                            errorBorder:
-                                                                OutlineInputBorder(
-                                                              borderSide:
-                                                                  BorderSide(
-                                                                color: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .error,
-                                                                width: 2.0,
-                                                              ),
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          12.0),
-                                                            ),
-                                                            focusedErrorBorder:
-                                                                OutlineInputBorder(
-                                                              borderSide:
-                                                                  BorderSide(
-                                                                color: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .error,
-                                                                width: 2.0,
-                                                              ),
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          12.0),
-                                                            ),
-                                                            filled: true,
-                                                            fillColor:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .fieldBg,
-                                                            contentPadding:
-                                                                const EdgeInsets
-                                                                    .all(24.0),
-                                                          ),
-                                                          style: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .bodyMedium
-                                                              .override(
-                                                                font:
-                                                                    GoogleFonts
-                                                                        .inter(
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                                color: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .primaryText,
-                                                                letterSpacing:
-                                                                    0.0,
-                                                                fontWeight: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontWeight,
-                                                                fontStyle: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                              ),
-                                                          onChanged:
-                                                              _persistReferralCodeInput,
-                                                          validator: _model
-                                                              .referralCodeCommercantTextControllerValidator
-                                                              .asValidator(
-                                                                  context),
-                                                        ),
-                                                      ),
-                                                    ),
+                                                    // No referral code here: the player referral program (share_promo) is
+                                                    // for new players only, and the merchant referral program (50 EUR in gift
+                                                    // cards for the referring player) has its own code entry.
                                                     Padding(
                                                       padding:
                                                           const EdgeInsetsDirectional
@@ -3442,22 +3287,12 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                               );
                                                               return;
                                                             }
-                                                            _persistReferralCodeInput(
-                                                              _model.referralCodeCommercantTextController
-                                                                      ?.text ??
-                                                                  '',
-                                                            );
 
                                                             safeSetState(() {
                                                               _isSubmittingMerchantSignup =
                                                                   true;
                                                             });
                                                             try {
-                                                              debugPrint(
-                                                                '[ReferralDebug][Signup] beforeCreateAccount '
-                                                                'role=commercant pendingReferralCode='
-                                                                '${FFAppState().pendingReferralCode.isEmpty ? '<empty>' : FFAppState().pendingReferralCode}',
-                                                              );
                                                               final user =
                                                                   await authManager
                                                                       .createAccountWithEmail(
@@ -3523,17 +3358,8 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                           merge:
                                                                               true));
 
-                                                              final referralApplied =
-                                                                  await _applyPendingReferralCodeIfNeeded();
-                                                              if (!referralApplied &&
-                                                                  (_lastReferralErrorMessage ??
-                                                                          '')
-                                                                      .isNotEmpty) {
-                                                                _showReferralErrorMessage(
-                                                                  _lastReferralErrorMessage!,
-                                                                );
-                                                              }
-
+                                                              // A merchant account never triggers the player
+                                                              // referral program (share_promo).
                                                               if (!mounted) {
                                                                 return;
                                                               }

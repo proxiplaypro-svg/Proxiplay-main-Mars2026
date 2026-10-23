@@ -136,11 +136,6 @@ class InscriptionPageModel extends FlutterFlowModel<InscriptionPageWidget> {
 
   // State field(s) for CheckboxCommercant widget.
   bool? checkboxCommercantValue;
-  // State field(s) for referralCodeCommercant widget.
-  FocusNode? referralCodeCommercantFocusNode;
-  TextEditingController? referralCodeCommercantTextController;
-  String? Function(BuildContext, String?)?
-      referralCodeCommercantTextControllerValidator;
   // State field(s) for professionalCategory widget.
   String? professionalCategoryValue;
 
@@ -186,7 +181,5 @@ class InscriptionPageModel extends FlutterFlowModel<InscriptionPageWidget> {
 
     passwordConfirmCommercantFocusNode?.dispose();
     passwordConfirmCommercantTextController?.dispose();
-    referralCodeCommercantFocusNode?.dispose();
-    referralCodeCommercantTextController?.dispose();
   }
 }

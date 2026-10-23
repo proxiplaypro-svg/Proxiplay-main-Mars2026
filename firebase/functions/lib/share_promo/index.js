@@ -497,6 +497,12 @@ exports.registerReferralAcceptance = functions
     const creationMs = Date.parse(user.metadata.creationTime);
     const inviteeSnap = await firestore_1.refs.user(auth.uid).get();
     const invitee = inviteeSnap.data() ?? {};
+    // The player referral program is for players only. App 1.1.1 also sends
+    // the code typed in its merchant signup form here: a merchant account
+    // never earns a player reward (the merchant referral program is separate).
+    if ((0, firestore_1.normalizeString)(invitee.user_role) === 'commercant') {
+        throw new functions.https.HttpsError('failed-precondition', 'Referral codes are reserved to new player accounts.', { reason: 'merchant_account' });
+    }
     // Only the session that created the account, before any game: an
     // existing account entering a code never counts, whatever its profile.
     if (!user.email || !(0, new_account_referral_1.isAccountCreationSession)(auth.token.auth_time, creationMs) ||

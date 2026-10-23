@@ -85,6 +85,18 @@ test('an existing account never counts, without any time window', async () => {
   assert.equal((await db.collection('referral_reward_pending').get()).size, 0);
 });
 
+test('a merchant account never earns a player referral reward', async () => {
+  await reset(); await invitation('MERCHANT');
+  // App 1.1.1 sends the code typed in its merchant signup form to this endpoint.
+  const merchant = await newAccount('new-merchant', {user_role: 'commercant'});
+  await assert.rejects(accept({inviteCode: 'MERCHANT'}, merchant),
+    e => e.code === 'failed-precondition' && e.details?.reason === 'merchant_account');
+  assert.equal((await status('MERCHANT')).status, 'pending');
+  assert.equal((await db.collection('referral_reward_pending').get()).size, 0);
+  // The merchant referral program is untouched.
+  assert.equal((await db.collection('merchant_referrals').get()).size, 0);
+});
+
 test('self-referral never counts', async () => {
   await reset();
   await admin.auth().createUser({uid: 'inviter', email: 'inviter@example.test'});
