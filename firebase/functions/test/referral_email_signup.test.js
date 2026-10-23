@@ -1,4 +1,5 @@
-﻿const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+﻿process.env.REFERRAL_EMAIL_HMAC_KEY ||= 'test-only-referral-email-hmac-key-0123456789';
+const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const admin=require('firebase-admin');
 if(!process.env.FIRESTORE_EMULATOR_HOST||!process.env.FIREBASE_AUTH_EMULATOR_HOST||!String(process.env.GCLOUD_PROJECT||'').startsWith('demo-')) throw Error('isolated demo emulators required');
 if(!admin.apps.length) admin.initializeApp({projectId:process.env.GCLOUD_PROJECT});

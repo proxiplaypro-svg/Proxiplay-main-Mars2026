@@ -36,7 +36,10 @@ mixin AppleSignInManager on AuthManager {
 }
 
 mixin GoogleSignInManager on AuthManager {
-  Future<BaseAuthUser?> signInWithGoogle(BuildContext context);
+  Future<BaseAuthUser?> signInWithGoogle(
+    BuildContext context, {
+    Future<void> Function(String idToken)? beforeFirebaseSignIn,
+  });
 }
 
 mixin JwtSignInManager on AuthManager {

@@ -23,7 +23,24 @@ Map<String, String> splitGoogleDisplayName(String displayName) {
   };
 }
 
-Future<UserCredential?> googleSignInFunc() async {
+/// Raised when [googleSignInFunc]'s `beforeFirebaseSignIn` step fails: the
+/// Google account is then never signed in to Firebase. [cause] is the
+/// original error (e.g. a FirebaseFunctionsException).
+class GoogleSignInInterrupted implements Exception {
+  GoogleSignInInterrupted(this.cause);
+  final Object cause;
+
+  @override
+  String toString() => 'GoogleSignInInterrupted($cause)';
+}
+
+/// [beforeFirebaseSignIn] runs with the Google ID token after the Google
+/// account is chosen and before the Firebase sign-in (e.g. a signup with a
+/// referral code, where the server creates the account). Without it the
+/// sign-in is unchanged.
+Future<UserCredential?> googleSignInFunc({
+  Future<void> Function(String idToken)? beforeFirebaseSignIn,
+}) async {
   try {
     if (kIsWeb) {
       return await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
@@ -45,11 +62,25 @@ Future<UserCredential?> googleSignInFunc() async {
       return null;
     }
 
+    if (beforeFirebaseSignIn != null) {
+      final idToken = googleAuth.idToken;
+      if (idToken == null) {
+        throw GoogleSignInInterrupted(StateError('missing Google ID token'));
+      }
+      try {
+        await beforeFirebaseSignIn(idToken);
+      } catch (e) {
+        throw GoogleSignInInterrupted(e);
+      }
+    }
+
     final credential = GoogleAuthProvider.credential(
       accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
     return await FirebaseAuth.instance.signInWithCredential(credential);
+  } on GoogleSignInInterrupted {
+    rethrow;
   } catch (e, stack) {
     debugPrint('GOOGLE FIREBASE AUTH ERROR: $e');
     if (kDebugMode) {

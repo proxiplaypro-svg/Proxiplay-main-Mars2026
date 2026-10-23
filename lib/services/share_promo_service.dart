@@ -54,6 +54,20 @@ class SharePromoService {
     });
   }
 
+  /// Google signup with a referral code, called with the Google ID token
+  /// before the Firebase sign-in. Returns the server status: accepted,
+  /// existing_account, not_eligible or refused.
+  Future<String> createReferralGoogleAccount({
+    required String idToken,
+    required String inviteCode,
+  }) async {
+    final data = await _call('createReferralGoogleAccount', {
+      'idToken': idToken,
+      'inviteCode': inviteCode,
+    });
+    return '${data['status'] ?? ''}';
+  }
+
   Future<Map<String, dynamic>> registerReferralAcceptance({
     required String inviteCode,
     String? acceptedFromDeviceId,

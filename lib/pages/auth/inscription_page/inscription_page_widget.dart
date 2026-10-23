@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/auth/firebase_auth/account_routing.dart';
+import '/auth/firebase_auth/google_auth.dart';
 import '/auth/user_profile/user_profile_completion.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
@@ -245,10 +246,40 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       _model.referralCodeJoueurTextController?.text ?? '',
     );
 
-    // A code entered on the entry screen is sent once the Google account is
-    // signed in; the server only credits it for a newly created account.
+    // With a code, the server creates the Google account itself before the
+    // app signs in, and Firebase says whether the account is new: a referral
+    // only ever counts for an account created by this signup. Without a code
+    // the Google sign-in is unchanged.
+    final referralCode = FFAppState().pendingReferralCode.trim();
+    String? referralNotice;
     GoRouter.of(context).prepareAuthEvent(true);
-    final user = await authManager.signInWithGoogle(context);
+    final BaseAuthUser? user;
+    try {
+      user = await authManager.signInWithGoogle(
+        context,
+        beforeFirebaseSignIn: referralCode.isEmpty
+            ? null
+            : (idToken) async {
+                final status =
+                    await _sharePromoService.createReferralGoogleAccount(
+                  idToken: idToken,
+                  inviteCode: referralCode,
+                );
+                referralNotice = googleReferralNotice(status);
+                FFAppState().update(() {
+                  FFAppState().clearPendingReferralCode();
+                });
+              },
+      );
+    } on GoogleSignInInterrupted catch (interruption) {
+      // Nothing was signed in: the code stays filled in for a retry.
+      _logGoogleSignup('googleReferralSignupInterrupted');
+      final cause = interruption.cause;
+      _showReferralErrorMessage(cause is FirebaseFunctionsException
+          ? googleReferralErrorMessage(cause.code, cause.details)
+          : googleReferralErrorMessage('', null));
+      return;
+    }
     if (user == null || !context.mounted) {
       if (mounted) {
         _showGoogleSignupFailedMessage();
@@ -284,11 +315,8 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       return;
     }
 
-    final referralApplied = await _applyPendingReferralCodeIfNeeded();
-    if (!referralApplied && (_lastReferralErrorMessage ?? '').isNotEmpty) {
-      _showReferralErrorMessage(
-        _lastReferralErrorMessage!,
-      );
+    if (referralNotice != null) {
+      _showReferralErrorMessage(referralNotice!);
     }
 
     if (!mounted) {

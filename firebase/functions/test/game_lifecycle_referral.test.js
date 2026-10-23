@@ -1,3 +1,4 @@
+process.env.REFERRAL_EMAIL_HMAC_KEY ||= 'test-only-referral-email-hmac-key-0123456789';
 process.env.LIFECYCLE_REFERRAL_ONLY = 'true';
 const crypto = require('node:crypto');
 const {test, assert, db, ft, time, verifyPrize, game, participate} = require('./lifecycle_helpers.cjs');

@@ -213,10 +213,13 @@ class FirebaseAuthManager extends AuthManager
       );
 
   @override
-  Future<BaseAuthUser?> signInWithGoogle(BuildContext context) =>
+  Future<BaseAuthUser?> signInWithGoogle(
+    BuildContext context, {
+    Future<void> Function(String idToken)? beforeFirebaseSignIn,
+  }) =>
       _signInOrCreateAccount(
         context,
-        googleSignInFunc,
+        () => googleSignInFunc(beforeFirebaseSignIn: beforeFirebaseSignIn),
         'GOOGLE',
         roleHint: Roles.joueur,
       );
