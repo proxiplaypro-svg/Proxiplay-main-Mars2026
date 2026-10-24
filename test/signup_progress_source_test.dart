@@ -47,9 +47,13 @@ void main() {
     expect(s, contains('} finally { if (mounted && !_hasNavigatedAway) { safeSetState(() { _isSubmitting = false; }); } }'));
   });
 
-  test('the e-mail form has no second referral field', () {
+  test('the referral code is asked only on the entry screen, and still sent', () {
     expect(signup, isNot(contains('.referralCodeJoueurTextControllerValidator')));
     expect(RegExp(r"'Code de parrainage \(facultatif\)'").allMatches(signup), hasLength(1));
-    expect(signup, contains('_buildEmailFormReferralRecap(),'));
+    expect(signup, isNot(contains('_buildEmailFormReferralRecap')));
+    expect(signup, isNot(contains('Aucun code de parrainage')));
+    // The e-mail signup still sends the code kept from the entry screen.
+    expect(signup, contains('final referralCode = FFAppState().pendingReferralCode.trim();'));
+    expect(signup, contains('inviteCode: referralCode, requestId: requestId,'));
   });
 }

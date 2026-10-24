@@ -352,9 +352,8 @@ void main() {
     expect(tester.widget<TextFormField>(field).controller!.text, isEmpty);
     await tester.tap(find.text("Continuer avec l'e-mail"));
     await tester.pumpAndSettle();
-    // The e-mail form recalls it instead of asking again.
-    expect(find.text('Code de parrainage (facultatif)'), findsNothing);
-    expect(find.text('Aucun code de parrainage'), findsOneWidget);
+    // The e-mail form neither asks for it nor recalls it.
+    expect(find.textContaining('parrainage'), findsNothing);
   });
 
 
@@ -382,9 +381,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text("Continuer avec l'e-mail"));
     await tester.pumpAndSettle();
-    // Recalled in the e-mail form, not asked a second time.
-    expect(find.text('Code de parrainage : TYPEDCODE'), findsOneWidget);
-    expect(find.text('Code de parrainage (facultatif)'), findsNothing);
+    // Not asked nor recalled in the e-mail form; kept for the signup.
+    expect(find.textContaining('parrainage'), findsNothing);
+    expect(FFAppState().pendingReferralCode, 'TYPEDCODE');
   });
 
 }

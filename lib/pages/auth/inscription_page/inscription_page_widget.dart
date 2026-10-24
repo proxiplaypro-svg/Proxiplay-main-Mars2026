@@ -747,55 +747,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     );
   }
 
-  // The code is entered once, on the entry screen (it serves Google and the
-  // e-mail signup alike); the e-mail form only recalls it, and "Modifier"
-  // goes back to that field. Same controller: nothing is lost in between.
-  Widget _buildEmailFormReferralRecap() {
-    final controller = _model.referralCodeJoueurTextController!;
-    return ValueListenableBuilder<TextEditingValue>(
-      valueListenable: controller,
-      builder: (context, value, _) {
-        final theme = FlutterFlowTheme.of(context);
-        final code = value.text.trim().toUpperCase();
-        return Padding(
-          key: const ValueKey('email-form-referral-recap'),
-          padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  code.isEmpty
-                      ? 'Aucun code de parrainage'
-                      : 'Code de parrainage : $code',
-                  style: theme.bodyMedium.override(
-                    font: GoogleFonts.inter(),
-                    color: theme.primaryText,
-                    letterSpacing: 0.0,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: _isSubmittingPlayerSignup
-                    ? null
-                    : _editReferralCodeFromEmailForm,
-                child: Text(code.isEmpty ? 'Ajouter' : 'Modifier'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _editReferralCodeFromEmailForm() {
-    _closePlayerEmailForm();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _model.referralCodeJoueurFocusNode?.requestFocus();
-      }
-    });
-  }
-
+  // The referral code is entered only here, on the entry screen (it serves
+  // Google and the e-mail signup alike). The e-mail form neither asks nor
+  // recalls it; "Retour" comes back here to change it. Kept in FFAppState and
+  // read when the account is created.
   Widget _buildPlayerEntryButtons() {
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
@@ -1746,7 +1701,6 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                               ),
                                                             ),
                                                           ),
-                                                          _buildEmailFormReferralRecap(),
                                                           Padding(
                                                             padding:
                                                                 const EdgeInsetsDirectional

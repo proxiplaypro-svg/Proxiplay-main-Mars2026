@@ -384,7 +384,7 @@ void main() {
     });
   });
 
-  group('signup page: the referral code is entered once', () {
+  group('signup page: the referral code is asked only on the entry screen', () {
     Future<void> openEmailForm(WidgetTester tester) async {
       await tester.tap(find.byType(Checkbox).first);
       await settle(tester);
@@ -393,40 +393,40 @@ void main() {
       await settle(tester);
     }
 
-    testWidgets('the code typed on the entry screen is recalled, not asked again', (tester) async {
+    testWidgets('the e-mail form neither asks for the code nor recalls it; Retour changes it', (tester) async {
       await pumpPage(tester, const InscriptionPageWidget(), size: const Size(390, 1400));
       await tester.enterText(find.byKey(const ValueKey('entry-referral-code')), 'ab12cd34');
       await settle(tester);
       expect(FFAppState().pendingReferralCode, 'AB12CD34');
       await openEmailForm(tester);
       expect(find.byKey(const ValueKey('entry-referral-code')), findsNothing);
-      expect(find.text('Code de parrainage (facultatif)'), findsNothing,
-          reason: 'no second referral field in the e-mail form');
-      expect(find.text('Code de parrainage : AB12CD34'), findsOneWidget);
-      // "Modifier" goes back to the single field, with the code kept.
-      await tester.tap(find.text('Modifier'));
+      expect(find.textContaining('parrainage'), findsNothing,
+          reason: 'no referral field, recall, "Modifier" or "Ajouter" in the e-mail form');
+      expect(find.text('Modifier'), findsNothing);
+      expect(find.text('Ajouter'), findsNothing);
+      // The code is kept for the signup.
+      expect(FFAppState().pendingReferralCode, 'AB12CD34');
+      // "Retour" goes back to the single field, which can still be changed.
+      await tester.tap(find.text('Retour'));
       await settle(tester);
       final field = find.byKey(const ValueKey('entry-referral-code'));
-      expect(field, findsOneWidget);
       expect(tester.widget<TextFormField>(field).controller!.text, 'ab12cd34');
-      expect(FFAppState().pendingReferralCode, 'AB12CD34');
-    });
-
-    testWidgets('without a code the e-mail form offers to add one', (tester) async {
-      await pumpPage(tester, const InscriptionPageWidget(), size: const Size(390, 1400));
-      await openEmailForm(tester);
-      expect(find.text('Aucun code de parrainage'), findsOneWidget);
-      await tester.tap(find.text('Ajouter'));
+      await tester.enterText(field, '99887766');
       await settle(tester);
-      expect(find.byKey(const ValueKey('entry-referral-code')), findsOneWidget);
+      expect(FFAppState().pendingReferralCode, '99887766');
     });
 
-    testWidgets('a referral link received with the e-mail form open updates the recall', (tester) async {
+    testWidgets('a referral link received with the e-mail form open is kept for the signup', (tester) async {
       await pumpPage(tester, const InscriptionPageWidget(), size: const Size(390, 1400));
       await openEmailForm(tester);
       FFAppState().update(() => FFAppState().pendingReferralCode = '99887766');
       await settle(tester);
-      expect(find.text('Code de parrainage : 99887766'), findsOneWidget);
+      expect(find.textContaining('parrainage'), findsNothing);
+      await tester.tap(find.text('Retour'));
+      await settle(tester);
+      expect(
+          tester.widget<TextFormField>(find.byKey(const ValueKey('entry-referral-code'))).controller!.text,
+          '99887766');
     });
   });
 
