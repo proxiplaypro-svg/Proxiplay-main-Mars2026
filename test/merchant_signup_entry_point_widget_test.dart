@@ -343,15 +343,18 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(Checkbox).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text("Continuer avec l'e-mail"));
-    await tester.pumpAndSettle();
-    final field = find.widgetWithText(TextFormField, 'Code de parrainage (facultatif)');
-    expect(field, findsOneWidget);
+    // The optional code is entered once, on the entry screen.
+    final field = find.byKey(const ValueKey('entry-referral-code'));
     expect(tester.widget<TextFormField>(field).controller!.text, isEmpty);
     await tester.enterText(field, 'TESTCODE');
     expect(tester.widget<TextFormField>(field).controller!.text, 'TESTCODE');
     await tester.enterText(field, '');
     expect(tester.widget<TextFormField>(field).controller!.text, isEmpty);
+    await tester.tap(find.text("Continuer avec l'e-mail"));
+    await tester.pumpAndSettle();
+    // The e-mail form recalls it instead of asking again.
+    expect(find.text('Code de parrainage (facultatif)'), findsNothing);
+    expect(find.text('Aucun code de parrainage'), findsOneWidget);
   });
 
 
@@ -379,8 +382,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text("Continuer avec l'e-mail"));
     await tester.pumpAndSettle();
-    final field = find.widgetWithText(TextFormField, 'Code de parrainage (facultatif)');
-    expect(tester.widget<TextFormField>(field).controller!.text, 'TYPEDCODE');
+    // Recalled in the e-mail form, not asked a second time.
+    expect(find.text('Code de parrainage : TYPEDCODE'), findsOneWidget);
+    expect(find.text('Code de parrainage (facultatif)'), findsNothing);
   });
 
 }

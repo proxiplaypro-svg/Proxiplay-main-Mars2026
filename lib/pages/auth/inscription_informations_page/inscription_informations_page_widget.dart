@@ -1,4 +1,5 @@
 import '/auth/firebase_auth/auth_util.dart';
+import '/components/signup_progress_indicator.dart';
 import '/auth/user_profile/user_profile_completion.dart';
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
@@ -447,11 +448,12 @@ class _InscriptionInformationsPageWidgetState
                     width: double.infinity,
                     decoration: const BoxDecoration(),
                     child: Container(
-                      width: 100.0,
-                      height: 200.0,
+                      key: const ValueKey('profile-completion-header'),
+                      constraints: const BoxConstraints(minHeight: 200.0),
+                      alignment: Alignment.bottomCenter,
                       decoration: const BoxDecoration(),
                       child: Column(
-                        mainAxisSize: MainAxisSize.max,
+                        mainAxisSize: MainAxisSize.min,
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           Padding(
@@ -822,8 +824,11 @@ class _InscriptionInformationsPageWidgetState
                                           MainAxisAlignment.spaceBetween,
                                       children: [
                                         if (_model.datePicked == null)
-                                          Text(
+                                          // Shrinks on narrow screens or large fonts (was a 7 px overflow at 320 px).
+                                          Flexible(
+                                            child: Text(
                                             'Date de naissance',
+                                              overflow: TextOverflow.ellipsis,
                                             style: FlutterFlowTheme.of(context)
                                                 .bodyMedium
                                                 .override(
@@ -854,6 +859,7 @@ class _InscriptionInformationsPageWidgetState
                                                           .bodyMedium
                                                           .fontStyle,
                                                 ),
+                                          ),
                                           ),
                                         Padding(
                                           padding: const EdgeInsetsDirectional
@@ -1277,7 +1283,11 @@ class _InscriptionInformationsPageWidgetState
                             child: Padding(
                               padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 0.0, 0.0, 20.0),
-                              child: FFButtonWidget(
+                              child: _isSubmitting || _hasNavigatedAway
+                                  ? const SignupProgressIndicator(
+                                      message:
+                                          'Enregistrement de vos informations…')
+                                  : FFButtonWidget(
                                 onPressed: () async {
                                   if (_isSubmitting || _hasNavigatedAway) {
                                     return;

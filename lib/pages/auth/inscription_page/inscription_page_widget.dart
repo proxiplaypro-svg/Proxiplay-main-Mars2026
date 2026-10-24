@@ -15,6 +15,7 @@ import '/services/share_promo_service.dart';
 import '/services/referral_signup_error.dart';
 import '/utils/merchant_referral_utils.dart';
 import '/utils/referral_link_logic.dart';
+import '/components/signup_progress_indicator.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart' as crypto;
@@ -54,6 +55,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
   bool _isSubmittingPlayerSignup = false;
   bool _isSubmittingMerchantSignup = false;
   bool _showEmailForm = false;
+  bool _isGoogleSignupInProgress = false;
   AutovalidateMode _playerAutovalidateMode = AutovalidateMode.disabled;
   AutovalidateMode _merchantAutovalidateMode = AutovalidateMode.disabled;
   String? _lastAppliedReferralGuardKey;
@@ -263,7 +265,22 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     return refreshedUserDoc;
   }
 
+  // One Google sign-in at a time, with a visible indicator while it runs.
   Future<void> _handleGooglePlayerSignup() async {
+    if (_isGoogleSignupInProgress) {
+      return;
+    }
+    safeSetState(() => _isGoogleSignupInProgress = true);
+    try {
+      await _runGooglePlayerSignup();
+    } finally {
+      if (mounted) {
+        safeSetState(() => _isGoogleSignupInProgress = false);
+      }
+    }
+  }
+
+  Future<void> _runGooglePlayerSignup() async {
     _logGoogleSignup('startGoogleSignupFlow');
     _persistReferralCodeInput(
       _model.referralCodeJoueurTextController?.text ?? '',
@@ -531,6 +548,9 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
   }
 
   void _openPlayerEmailForm() {
+    if (_isGoogleSignupInProgress) {
+      return;
+    }
     safeSetState(() {
       _showEmailForm = true;
       _playerAutovalidateMode = AutovalidateMode.disabled;
@@ -696,6 +716,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       child: TextFormField(
         key: const ValueKey('entry-referral-code'),
         controller: _model.referralCodeJoueurTextController,
+        focusNode: _model.referralCodeJoueurFocusNode,
         autocorrect: false,
         enableSuggestions: false,
         textCapitalization: TextCapitalization.characters,
@@ -726,12 +747,64 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     );
   }
 
+  // The code is entered once, on the entry screen (it serves Google and the
+  // e-mail signup alike); the e-mail form only recalls it, and "Modifier"
+  // goes back to that field. Same controller: nothing is lost in between.
+  Widget _buildEmailFormReferralRecap() {
+    final controller = _model.referralCodeJoueurTextController!;
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, value, _) {
+        final theme = FlutterFlowTheme.of(context);
+        final code = value.text.trim().toUpperCase();
+        return Padding(
+          key: const ValueKey('email-form-referral-recap'),
+          padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  code.isEmpty
+                      ? 'Aucun code de parrainage'
+                      : 'Code de parrainage : $code',
+                  style: theme.bodyMedium.override(
+                    font: GoogleFonts.inter(),
+                    color: theme.primaryText,
+                    letterSpacing: 0.0,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: _isSubmittingPlayerSignup
+                    ? null
+                    : _editReferralCodeFromEmailForm,
+                child: Text(code.isEmpty ? 'Ajouter' : 'Modifier'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _editReferralCodeFromEmailForm() {
+    _closePlayerEmailForm();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _model.referralCodeJoueurFocusNode?.requestFocus();
+      }
+    });
+  }
+
   Widget _buildPlayerEntryButtons() {
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
       child: Column(
         children: [
           _buildEntryReferralCodeField(),
+          if (_isGoogleSignupInProgress)
+            const SignupProgressIndicator(message: 'Connexion avec Google…')
+          else
           FFButtonWidget(
             onPressed: () async {
               if (_model.checkboxJoueurValue != true) {
@@ -1673,160 +1746,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                               ),
                                                             ),
                                                           ),
-                                                          Padding(
-                                                            padding:
-                                                                const EdgeInsetsDirectional
-                                                                    .fromSTEB(
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0,
-                                                                    16.0),
-                                                            child: SizedBox(
-                                                              width: double
-                                                                  .infinity,
-                                                              child:
-                                                                  TextFormField(
-                                                                controller: _model
-                                                                    .referralCodeJoueurTextController,
-                                                                focusNode: _model
-                                                                    .referralCodeJoueurFocusNode,
-                                                                autofocus:
-                                                                    false,
-                                                                autocorrect:
-                                                                    false,
-                                                                enableSuggestions:
-                                                                    false,
-                                                                textCapitalization:
-                                                                    TextCapitalization
-                                                                        .characters,
-                                                                decoration:
-                                                                    InputDecoration(
-                                                                  labelText:
-                                                                      'Code de parrainage (facultatif)',
-                                                                  labelStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .labelMedium
-                                                                      .override(
-                                                                        font: GoogleFonts
-                                                                            .inter(
-                                                                          fontWeight: FlutterFlowTheme.of(context)
-                                                                              .labelMedium
-                                                                              .fontWeight,
-                                                                          fontStyle: FlutterFlowTheme.of(context)
-                                                                              .labelMedium
-                                                                              .fontStyle,
-                                                                        ),
-                                                                        color: FlutterFlowTheme.of(context)
-                                                                            .fieldText,
-                                                                        letterSpacing:
-                                                                            0.0,
-                                                                        fontWeight: FlutterFlowTheme.of(context)
-                                                                            .labelMedium
-                                                                            .fontWeight,
-                                                                        fontStyle: FlutterFlowTheme.of(context)
-                                                                            .labelMedium
-                                                                            .fontStyle,
-                                                                      ),
-                                                                  enabledBorder:
-                                                                      OutlineInputBorder(
-                                                                    borderSide:
-                                                                        const BorderSide(
-                                                                      color: Color(
-                                                                          0x00000000),
-                                                                      width:
-                                                                          2.0,
-                                                                    ),
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            12.0),
-                                                                  ),
-                                                                  focusedBorder:
-                                                                      OutlineInputBorder(
-                                                                    borderSide:
-                                                                        BorderSide(
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primary,
-                                                                      width:
-                                                                          2.0,
-                                                                    ),
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            12.0),
-                                                                  ),
-                                                                  errorBorder:
-                                                                      OutlineInputBorder(
-                                                                    borderSide:
-                                                                        BorderSide(
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .error,
-                                                                      width:
-                                                                          2.0,
-                                                                    ),
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            12.0),
-                                                                  ),
-                                                                  focusedErrorBorder:
-                                                                      OutlineInputBorder(
-                                                                    borderSide:
-                                                                        BorderSide(
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .error,
-                                                                      width:
-                                                                          2.0,
-                                                                    ),
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            12.0),
-                                                                  ),
-                                                                  filled: true,
-                                                                  fillColor: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .fieldBg,
-                                                                  contentPadding:
-                                                                      const EdgeInsets
-                                                                          .all(
-                                                                          24.0),
-                                                                ),
-                                                                style: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .override(
-                                                                      font: GoogleFonts
-                                                                          .inter(
-                                                                        fontWeight: FlutterFlowTheme.of(context)
-                                                                            .bodyMedium
-                                                                            .fontWeight,
-                                                                        fontStyle: FlutterFlowTheme.of(context)
-                                                                            .bodyMedium
-                                                                            .fontStyle,
-                                                                      ),
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primaryText,
-                                                                      letterSpacing:
-                                                                          0.0,
-                                                                      fontWeight: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontWeight,
-                                                                      fontStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .fontStyle,
-                                                                    ),
-                                                                onChanged:
-                                                                    _persistReferralCodeInput,
-                                                                validator: _model
-                                                                    .referralCodeJoueurTextControllerValidator
-                                                                    .asValidator(
-                                                                        context),
-                                                              ),
-                                                            ),
-                                                          ),
+                                                          _buildEmailFormReferralRecap(),
                                                           Padding(
                                                             padding:
                                                                 const EdgeInsetsDirectional
@@ -2017,8 +1937,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                       0.0,
                                                                       0.0,
                                                                       16.0),
-                                                              child:
-                                                                  FFButtonWidget(
+                                                              child: _isSubmittingPlayerSignup
+                                                                ? const SignupProgressIndicator(
+                                                                    message: 'Création de votre compte…')
+                                                                : FFButtonWidget(
                                                                 onPressed:
                                                                     () async {
                                                                   if (_isSubmittingPlayerSignup) {
@@ -3417,7 +3339,10 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                             const EdgeInsetsDirectional
                                                                 .fromSTEB(0.0,
                                                                 0.0, 0.0, 16.0),
-                                                        child: FFButtonWidget(
+                                                        child: _isSubmittingMerchantSignup
+                                                          ? const SignupProgressIndicator(
+                                                              message: 'Création de votre compte…')
+                                                          : FFButtonWidget(
                                                           onPressed: () async {
                                                             if (_isSubmittingMerchantSignup) {
                                                               return;
