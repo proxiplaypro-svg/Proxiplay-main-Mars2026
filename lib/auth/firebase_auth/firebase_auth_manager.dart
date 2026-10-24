@@ -178,12 +178,14 @@ class FirebaseAuthManager extends AuthManager
   Future<BaseAuthUser?> signInWithEmail(
     BuildContext context,
     String email,
-    String password,
-  ) =>
+    String password, {
+    Roles? roleHint,
+  }) =>
       _signInOrCreateAccount(
         context,
         () => emailSignInFunc(email, password),
         'EMAIL',
+        roleHint: roleHint,
       );
 
   @override

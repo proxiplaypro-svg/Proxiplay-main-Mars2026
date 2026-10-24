@@ -13,11 +13,14 @@ abstract class AuthManager {
 }
 
 mixin EmailSignInManager on AuthManager {
+  /// [roleHint] creates the profile with this role if it does not exist yet
+  /// (sign-in right after a server-side signup with a code).
   Future<BaseAuthUser?> signInWithEmail(
     BuildContext context,
     String email,
-    String password,
-  );
+    String password, {
+    Roles? roleHint,
+  });
 
   Future<BaseAuthUser?> createAccountWithEmail(
     BuildContext context,

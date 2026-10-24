@@ -18,6 +18,7 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const {kRewardAmountCents} = require("./merchant_referral_engine");
 const {excluded} = require("./prize_integrity");
+const {ensureServerCreatedProfile} = require("./new_account_profile");
 
 const kFunctionsRegion = "us-central1";
 const kCodesCollection = "merchant_referral_codes";
@@ -191,6 +192,9 @@ async function createMerchantAccountWithReferralHandler(data, context) {
   if (op.status === "pending") {
     await operationRef.update({status: "account_created", account_created_at: admin.firestore.FieldValue.serverTimestamp()});
   }
+  // Le compte de cette operation existe : son profil commercant est cree par
+  // le serveur avant le rattachement (jamais un role joueur ni de parties).
+  await ensureServerCreatedProfile(db, {uid, email, role: "commercant"});
   const result = await completeMerchantSignupLink(db, operationRef);
   return {success: true, linked: result.linked};
 }
@@ -204,9 +208,24 @@ async function createMerchantAccountWithReferralHandler(data, context) {
 async function resumeMerchantSignupLinkForUser(db, uid) {
   const ops = await db.collection(kOperationsCollection).where("uid", "==", uid).limit(1).get();
   if (ops.empty || ops.docs[0].data().status === "completed") return {resumed: false};
+  let user;
   try {
-    await admin.auth().getUser(uid);
+    user = await admin.auth().getUser(uid);
   } catch (_) {
+    return {resumed: false};
+  }
+  // Seul le compte de l'operation, avec l'adresse qu'elle a enregistree.
+  const email = (user.email || "").trim().toLowerCase();
+  if (!email || hash(email) !== ops.docs[0].data().email_hash) return {resumed: false};
+  try {
+    // Profil cree par l'app sans role (connexion depuis l'ecran de connexion
+    // apres une inscription interrompue) : le role commercant manquant est
+    // ajoute par le serveur.
+    await ensureServerCreatedProfile(db, {uid, email, role: "commercant"});
+  } catch (error) {
+    if (error?.details?.reason !== "profile_conflict") throw error;
+    await ops.docs[0].ref.update({status: "completed", outcome: "profile_conflict",
+      completed_at: admin.firestore.FieldValue.serverTimestamp()});
     return {resumed: false};
   }
   await ops.docs[0].ref.update({status: "account_created"});

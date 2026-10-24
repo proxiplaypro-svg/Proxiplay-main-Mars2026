@@ -2100,7 +2100,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                     if (!context.mounted) return;
                                                                     final user = referralCode.isEmpty
                                                                       ? await authManager.createAccountWithEmail(context, email, password, roleHint: _model.userType)
-                                                                      : await authManager.signInWithEmail(context, email, password);
+                                                                      : await authManager.signInWithEmail(context, email, password, roleHint: Roles.joueur);
                                                                     if (user != null && referralCode.isNotEmpty) {
                                                                       await prefs!.remove(opKey!);
                                                                       FFAppState().clearPendingReferralCode();
@@ -3506,7 +3506,8 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                       context, merchantEmail, merchantPassword,
                                                                       roleHint: _model.userType)
                                                                   : await authManager.signInWithEmail(
-                                                                      context, merchantEmail, merchantPassword);
+                                                                      context, merchantEmail, merchantPassword,
+                                                                      roleHint: Roles.commercant);
                                                               if (user != null && merchantCode.isNotEmpty) {
                                                                 await merchantPrefs!.remove(merchantOpKey!);
                                                               }

@@ -35,8 +35,10 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.retryReferralRewards = exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.grantReferralReward = exports.adminReconcileReferralGameTickets = exports.createReferralGoogleAccount = exports.registerReferralAcceptance = exports.createReferralEmailAccount = exports.createReferral = exports.getSharePromoState = exports.kReferralGameInviteMessage = exports.remindUsersWithRemainingDailyPlays = void 0;
 exports.buildReferralGameShareMessage = buildReferralGameShareMessage;
+exports.resumeEmailReferralSignups = resumeEmailReferralSignups;
 exports.resumeGoogleReferralSignups = resumeGoogleReferralSignups;
 const { prepareReferralReward, processReferralReward, retryPendingReferralRewards, pendingRef } = require('../../referral_reward_queue');
+const { ensureServerCreatedProfile } = require('../../new_account_profile');
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const firestore_1 = require("./firestore");
@@ -395,12 +397,40 @@ exports.createReferralEmailAccount = functions.region(firestore_1.region)
             throw new functions.https.HttpsError('unavailable', 'Could not create account.');
         }
     }
-    const result = await firestore_1.db.runTransaction(async (tx) => {
-        const [opSnap, referralSnap, existing] = await Promise.all([
-            tx.get(operationRef), tx.get(referralRef), tx.get(firestore_1.refs.referrals().where('inviteeUid', '==', uid).limit(1)),
+    // The account of this operation exists (created or matched by UID and
+    // address above): its player profile is created by the server, before
+    // the referral is accepted.
+    await ensureServerCreatedProfile(firestore_1.db, { uid, email, role: 'joueur' });
+    const result = await completeEmailReferralSignup(operationRef, uid, hash(email), referralRef.id);
+    try {
+        await processReferralReward(referralRef.id, grantReferralRewardInternal);
+    }
+    catch (_) {
+        functions.logger.error('REFERRAL_REWARD_DEFERRED', { referralId: referralRef.id });
+    }
+    try {
+        await Promise.all([(0, firestore_1.recomputeShareState)(result.inviterUid), (0, firestore_1.recomputeAdminStats)()]);
+    }
+    catch (_) {
+        functions.logger.warn('REFERRAL_STATS_DEFERRED');
+    }
+    return { success: true };
+});
+// Acceptance of the referral of an e-mail signup operation whose account and
+// player profile exist. Shared by the callable and the scheduled resume; one
+// transaction, so a referral is accepted (and its reward queued) only once.
+async function completeEmailReferralSignup(operationRef, uid, emailHash, expectedReferralId) {
+    return firestore_1.db.runTransaction(async (tx) => {
+        const op = (await tx.get(operationRef)).data();
+        if (!op || op.uid !== uid || op.emailHash !== emailHash || typeof op.referralId !== 'string' ||
+            (expectedReferralId && op.referralId !== expectedReferralId))
+            throw new functions.https.HttpsError('failed-precondition', 'Invalid signup operation.');
+        const referralRef = firestore_1.refs.referrals().doc(op.referralId);
+        const [referralSnap, existing] = await Promise.all([
+            tx.get(referralRef), tx.get(firestore_1.refs.referrals().where('inviteeUid', '==', uid).limit(1)),
         ]);
-        const op = opSnap.data(), referral = referralSnap.data();
-        if (!op || op.uid !== uid || op.emailHash !== hash(email) || op.referralId !== referralRef.id || !referral)
+        const referral = referralSnap.data();
+        if (!referral)
             throw new functions.https.HttpsError('failed-precondition', 'Invalid signup operation.');
         if (referral.status === 'accepted' && referral.inviteeUid === uid)
             return { inviterUid: referral.inviterUid };
@@ -416,20 +446,70 @@ exports.createReferralEmailAccount = functions.region(firestore_1.region)
         tx.update(operationRef, { status: 'completed', completedAt: admin.firestore.FieldValue.serverTimestamp() });
         return { inviterUid: referral.inviterUid };
     });
-    try {
-        await processReferralReward(referralRef.id, grantReferralRewardInternal);
+}
+// Scheduled resume of e-mail signups interrupted after the account was
+// created (the player may then have signed in from the login page, whose
+// profile has no role): the player profile is completed and the referral
+// accepted. Only the account of the operation (its UID, with the address the
+// operation recorded) is ever touched.
+async function resumeEmailReferralSignups(nowMs = Date.now()) {
+    const crypto = require('crypto');
+    const hash = (value) => crypto.createHash('sha256').update(value).digest('hex');
+    const pending = await firestore_1.db.collection('_referral_signup_operations').where('status', '==', 'pending').limit(50).get();
+    let resumed = 0, abandoned = 0, refused = 0;
+    for (const doc of pending.docs) {
+        const op = doc.data();
+        const createdMs = typeof op.createdAt?.toMillis === 'function' ? op.createdAt.toMillis() : NaN;
+        if (!Number.isFinite(createdMs) || nowMs - createdMs < 2 * 60 * 1000)
+            continue; // Leave the live call finish.
+        try {
+            let user;
+            try {
+                user = await admin.auth().getUser(op.uid);
+            }
+            catch (error) {
+                if (error?.code !== 'auth/user-not-found')
+                    throw error;
+            }
+            if (!user) {
+                // No account was ever created for this operation.
+                if (nowMs - createdMs >= kGoogleSignupAbandonMs) {
+                    await doc.ref.update({ status: 'completed', outcome: 'abandoned' });
+                    abandoned++;
+                }
+                continue;
+            }
+            const email = (0, new_account_referral_1.normalizeEmail)(user.email);
+            if (!email || hash(email) !== op.emailHash) {
+                functions.logger.error('REFERRAL_EMAIL_SIGNUP_RESUME_MISMATCH', { operation: doc.id });
+                continue;
+            }
+            try {
+                await ensureServerCreatedProfile(firestore_1.db, { uid: user.uid, email, role: 'joueur' });
+                const result = await completeEmailReferralSignup(doc.ref, user.uid, op.emailHash);
+                resumed++;
+                try {
+                    await Promise.all([(0, firestore_1.recomputeShareState)(result.inviterUid), (0, firestore_1.recomputeAdminStats)()]);
+                }
+                catch (_) {
+                    functions.logger.warn('REFERRAL_STATS_DEFERRED');
+                }
+            }
+            catch (error) {
+                // Referral already used or profile of another role: closed, never retried.
+                if (error?.code !== 'already-exists' && error?.details?.reason !== 'profile_conflict')
+                    throw error;
+                await doc.ref.update({ status: 'completed', outcome: 'refused',
+                    reason: error?.details?.reason || 'referral_unavailable' });
+                refused++;
+            }
+        }
+        catch (_) {
+            functions.logger.error('REFERRAL_EMAIL_SIGNUP_RESUME_FAILED', { operation: doc.id });
+        }
     }
-    catch (_) {
-        functions.logger.error('REFERRAL_REWARD_DEFERRED', { referralId: referralRef.id });
-    }
-    try {
-        await Promise.all([(0, firestore_1.recomputeShareState)(result.inviterUid), (0, firestore_1.recomputeAdminStats)()]);
-    }
-    catch (_) {
-        functions.logger.warn('REFERRAL_STATS_DEFERRED');
-    }
-    return { success: true };
-});
+    return { resumed, abandoned, refused };
+}
 async function findPendingReferralByCode(inviteCode) {
     const referralQuery = await firestore_1.refs.referrals().where('inviteCode', '==', inviteCode).limit(1).get();
     if (referralQuery.empty) {
@@ -762,7 +842,8 @@ exports.adminGetSharePromoStats = functions
 // Recovery only: a referral reward is granted in the signup call itself. This
 // worker resumes the rare interrupted cases, so every 10 minutes is enough.
 exports.retryReferralRewards = functions.region(firestore_1.region).runWith({ timeoutSeconds: 540, memory: '512MB' }).pubsub.schedule('every 10 minutes').onRun(async () => {
-    // Google signups first: a resumed acceptance enqueues its reward below.
+    // Signups first: a resumed acceptance enqueues its reward below.
     await resumeGoogleReferralSignups();
+    await resumeEmailReferralSignups();
     return retryPendingReferralRewards(grantReferralRewardInternal);
 });

@@ -29,7 +29,11 @@ test('new signup, retries, existing account, invalid code, concurrent calls and 
  const record=(await db.doc('referrals/r').get()).data();
  const expiry=require('../lib/share_promo/firestore').getNextMidnightTimestamp(record.acceptedAt);
  assert.equal((await db.doc('users/inviter').get()).data().allGamesAccessUntil.toMillis(),expiry.toMillis());
- assert.equal((await db.doc('users/'+record.inviteeUid).get()).exists,false);
+ // The server creates the invitee's player profile (role only): no reward for the invitee.
+ const invitee=(await db.doc('users/'+record.inviteeUid).get()).data();
+ assert.equal(invitee.user_role,'joueur');
+ assert.equal(invitee.allGamesAccessUntil,undefined);
+ assert.equal(invitee.remaining_part,undefined);
  await assert.rejects(call(data('used','REF'),'10.0.0.8'),e=>e.code==='failed-precondition'&&e.details?.reason==='referral_unavailable'&&!e.details.accountCreated);
  const op=(await db.doc('_referral_signup_operations/'+hash(input.requestId)).get()).data();
  assert.equal(JSON.stringify(op).includes(password),false);
@@ -129,7 +133,9 @@ test('over 100 previous rewards do not prevent invitation, signup or special tic
  assert.equal((await db.doc('referral_reward_pending/'+invitation.referralId).get()).data().status,'granted');
  assert.equal((await db.doc('referral_games/unlimited/entries/'+invitation.referralId).get()).exists,true);
  assert.equal((await db.doc('referral_games/unlimited').get()).data().ticket_count,1);
- assert.equal((await db.doc('users/'+referral.inviteeUid).get()).exists,false);
+ const inviteeProfile=(await db.doc('users/'+referral.inviteeUid).get()).data();
+ assert.equal(inviteeProfile.user_role,'joueur');
+ assert.equal(inviteeProfile.allGamesAccessUntil,undefined);
 
  // Simulate interruption before the worker, including an old quota-blocked
  // record, then run the scheduled retry twice.
