@@ -842,7 +842,9 @@ export const adminGetSharePromoStats = functions
   });
 
 
-export const retryReferralRewards = functions.region(region).runWith({timeoutSeconds:540,memory:'512MB'}).pubsub.schedule('every 1 minutes').onRun(async () => {
+// Recovery only: a referral reward is granted in the signup call itself. This
+// worker resumes the rare interrupted cases, so every 10 minutes is enough.
+export const retryReferralRewards = functions.region(region).runWith({timeoutSeconds:540,memory:'512MB'}).pubsub.schedule('every 10 minutes').onRun(async () => {
   // Google signups first: a resumed acceptance enqueues its reward below.
   await resumeGoogleReferralSignups();
   return retryPendingReferralRewards(grantReferralRewardInternal);
