@@ -8,6 +8,9 @@ import '../../app_state.dart';
 
 import '/backend/backend.dart';
 import '/backend/schema/enums/enums.dart';
+import '/backend/push_notifications/fcm_device_detach.dart';
+import '/backend/push_notifications/push_notifications_util.dart'
+    show defaultFcmDetachDeps, isFcmEnabledOnThisDevice;
 import 'anonymous_auth.dart';
 import 'apple_auth.dart';
 import 'email_auth.dart';
@@ -56,11 +59,27 @@ class FirebaseAuthManager extends AuthManager
   ConfirmationResult? _webPhoneAuthConfirmationResult;
   FirebasePhoneAuthManager phoneAuthManager = FirebasePhoneAuthManager();
 
+  // Every "Se déconnecter" goes through here. This device is first detached
+  // from the account (its token document deleted, the token invalidated) so
+  // that the account's messages stop reaching it; the sign-out itself never
+  // depends on that succeeding. No token is registered meanwhile.
   @override
-  Future signOut() {
+  Future signOut() async {
     FFAppState().isGuest = false;
     FFAppState().clearProfileCompletionPromptState();
-    return FirebaseAuth.instance.signOut();
+    fcmRegistrationSuspended = true;
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (isFcmEnabledOnThisDevice() && uid != null && uid.isNotEmpty) {
+        await detachDeviceFromAccount(
+          userPath: 'users/$uid',
+          deps: defaultFcmDetachDeps(),
+        );
+      }
+      return await FirebaseAuth.instance.signOut();
+    } finally {
+      fcmRegistrationSuspended = false;
+    }
   }
 
   @override

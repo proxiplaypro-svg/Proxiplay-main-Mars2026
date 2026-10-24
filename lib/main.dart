@@ -227,7 +227,13 @@ class MyAppState extends State<MyApp> {
       _appStateNotifier.refreshRouting();
     });
     if (!FirebaseEnvironment.isLocalEmulatorMode) {
-      _fcmTokenSub = fcmTokenUserStream.listen((_) {});
+      // A detach left incomplete by a previous sign-out is finished first:
+      // no token is registered before it.
+      unawaited(retryPendingFcmDetachOnStart().whenComplete(() {
+        if (mounted) {
+          _fcmTokenSub = fcmTokenUserStream.listen((_) {});
+        }
+      }));
     } else {
       debugPrint('[LOCAL_FIREBASE_EMULATORS] FCM disabled');
     }
