@@ -43,6 +43,7 @@ AdPlacementConfig _config({
   int? frequencyCapHours,
   DateTime? endAt,
   String type = 'advertisement',
+  String label = '',
 }) =>
     AdPlacementConfig(
       enabled: enabled,
@@ -53,6 +54,7 @@ AdPlacementConfig _config({
       frequencyCapHours: frequencyCapHours,
       campaignId: 'c1',
       communicationType: type,
+      displayLabel: label,
     );
 
 const _homeText = 'Accueil joueur';
@@ -213,6 +215,30 @@ void main() {
   });
 
   group('label of the opening interstitial', () {
+    testWidgets('a free label set in the Admin replaces "Publicité"', (tester) async {
+      final ads = _FakeAds(() async => _config(label: 'Offre du mois'));
+      await _pumpHome(tester, ads);
+      expect(tester.widget<Text>(find.byKey(const ValueKey('open-ad-label'))).data, 'Offre du mois');
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('the longest label never reaches the close button on a 320 px screen', (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final ads = _FakeAds(() async => _config(label: 'W' * 24));
+      await _pumpHome(tester, ads);
+      final label = find.byKey(const ValueKey('open-ad-label'));
+      expect(tester.widget<Text>(label).maxLines, 1);
+      expect(tester.getRect(label).right, lessThanOrEqualTo(tester.getRect(_closeButton).left));
+      expect(tester.takeException(), isNull);
+      await tester.tap(_closeButton);
+      await tester.pump();
+      expect(_overlay, findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
     for (final entry in const {
       'advertisement': 'Publicité',
       'discovery': 'À découvrir',

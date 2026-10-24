@@ -23,6 +23,7 @@ class AdPlacementConfig {
     this.campaignId = '',
     this.adultsOnly = false,
     this.communicationType = kAdCommunicationAdvertisement,
+    this.displayLabel = '',
   });
 
   factory AdPlacementConfig.fromSnapshot(DocumentSnapshot snapshot) {
@@ -36,7 +37,9 @@ class AdPlacementConfig {
       frequencyCapHours: data?['frequency_cap_hours'] as int?,
       campaignId: (data?['campaign_id'] as String?)?.trim() ?? '',
       adultsOnly: data?['adults_only'] == true,
-      communicationType: normalizeAdCommunicationType(data?['communication_type']),
+      communicationType:
+          normalizeAdCommunicationType(data?['communication_type']),
+      displayLabel: (data?['display_label'] as String?) ?? '',
     );
   }
 
@@ -50,8 +53,13 @@ class AdPlacementConfig {
   final bool adultsOnly;
   // advertisement (default) | discovery | proxiplay_info
   final String communicationType;
+  // Free label set in the Admin; empty = the type label.
+  final String displayLabel;
 
-  String get communicationLabel => adCommunicationLabel(communicationType);
+  String get communicationLabel => adDisplayLabel(
+        displayLabel: displayLabel,
+        communicationType: communicationType,
+      );
 
   bool get hasUsableCreative => imageUrl.isNotEmpty;
 
@@ -69,6 +77,7 @@ class AdPlacementConfig {
         campaignId: campaignId,
         adultsOnly: adultsOnly,
         communicationType: communicationType,
+        displayLabel: displayLabel,
       );
 }
 
@@ -83,13 +92,13 @@ class AdSystemService {
   final FirebaseFunctions? _functionsOverride;
   final FirebaseFirestore? _firestoreOverride;
   FirebaseFunctions get _functions =>
-      _functionsOverride ?? FirebaseFunctions.instanceFor(region: 'us-central1');
+      _functionsOverride ??
+      FirebaseFunctions.instanceFor(region: 'us-central1');
   FirebaseFirestore get _firestore =>
       _firestoreOverride ?? FirebaseFirestore.instance;
 
   Future<AdPlacementConfig> getPlacementConfig(String placement) async {
-    final snapshot =
-        await _firestore.collection('ads').doc(placement).get();
+    final snapshot = await _firestore.collection('ads').doc(placement).get();
     return AdPlacementConfig.fromSnapshot(snapshot);
   }
 
@@ -108,7 +117,9 @@ class AdSystemService {
     final result = await _functions
         .httpsCallable('getRestrictedAdCreative')
         .call({'placement': placement});
-    final data = result.data is Map ? Map<String, dynamic>.from(result.data as Map) : const {};
+    final data = result.data is Map
+        ? Map<String, dynamic>.from(result.data as Map)
+        : const {};
     if (data['available'] != true || data['campaign_id'] != config.campaignId) {
       return restricted;
     }

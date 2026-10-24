@@ -46,8 +46,7 @@ bool isOpenAdFrequencyElapsed({
   if (frequencyCapHours < 0) {
     return true;
   }
-  final nextEligibleAt =
-      lastShownAt.add(Duration(hours: frequencyCapHours));
+  final nextEligibleAt = lastShownAt.add(Duration(hours: frequencyCapHours));
   return !now.isBefore(nextEligibleAt);
 }
 
@@ -103,4 +102,24 @@ String adCommunicationLabel(Object? communicationType) {
     default:
       return 'Publicité';
   }
+}
+
+/// Same limit as the Admin ("Libellé affiché dans l'application").
+const int kAdDisplayLabelMaxLength = 24;
+
+/// Label shown above a Home banner and on the opening ad: the campaign's
+/// free label (`display_label`, set in the Admin), otherwise the label of its
+/// type ("Publicité" for older campaigns). Spaces are collapsed and a longer
+/// value is cut, so it can never overflow.
+String adDisplayLabel({Object? displayLabel, Object? communicationType}) {
+  final text = displayLabel is String
+      ? displayLabel.replaceAll(RegExp(r'\s+'), ' ').trim()
+      : '';
+  if (text.isEmpty) {
+    return adCommunicationLabel(communicationType);
+  }
+  final characters = text.runes.toList();
+  return characters.length <= kAdDisplayLabelMaxLength
+      ? text
+      : String.fromCharCodes(characters.take(kAdDisplayLabelMaxLength)).trim();
 }

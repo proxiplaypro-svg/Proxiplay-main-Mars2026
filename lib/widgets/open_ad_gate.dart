@@ -105,7 +105,8 @@ class _OpenAdGateState extends State<OpenAdGate> {
     // Counted once actually on screen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _readyAd == shown && !_dismissed) {
-        unawaited(_service.recordImpression('open', campaignId: shown.campaignId));
+        unawaited(
+            _service.recordImpression('open', campaignId: shown.campaignId));
       }
     });
   }
@@ -170,23 +171,30 @@ class _OpenAdGateState extends State<OpenAdGate> {
                       Positioned(
                         top: 12.0,
                         left: 12.0,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10.0, vertical: 4.0),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                          // Same label as the Home banners: "Publicité",
-                          // "À découvrir" or "Info ProxiPlay" (older or
-                          // unknown campaigns: "Publicité").
-                          child: Text(
-                            ad.communicationLabel,
-                            key: const ValueKey('open-ad-label'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13.0,
-                              fontWeight: FontWeight.w700,
+                        // Never under the close button, whatever the label.
+                        right: 64.0,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10.0, vertical: 4.0),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            // Same label as the Home banners: "Publicité",
+                            // "À découvrir" or "Info ProxiPlay" (older or
+                            // unknown campaigns: "Publicité").
+                            child: Text(
+                              ad.communicationLabel,
+                              key: const ValueKey('open-ad-label'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13.0,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ),

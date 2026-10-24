@@ -166,7 +166,10 @@ class _AdBannerZoneState extends State<AdBannerZone>
   /// Fraction of the banner visible on screen (and inside its scroll view).
   double _visibleFraction() {
     final box = context.findRenderObject();
-    if (box is! RenderBox || !box.attached || !box.hasSize || box.size.isEmpty) {
+    if (box is! RenderBox ||
+        !box.attached ||
+        !box.hasSize ||
+        box.size.isEmpty) {
       return 0.0;
     }
     var visible = box.localToGlobal(Offset.zero) & box.size;
@@ -256,6 +259,8 @@ class _AdBannerZoneState extends State<AdBannerZone>
                     child: Text(
                       config.communicationLabel,
                       key: ValueKey('ad-banner-label-${widget.placement}'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Color(0xFF6F6A8E),
                         fontSize: 11.0,

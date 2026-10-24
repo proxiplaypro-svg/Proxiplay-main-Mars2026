@@ -26,12 +26,14 @@ AdPlacementConfig _ad({
   String image = 'https://ads/img.png',
   String type = 'advertisement',
   String destination = '',
+  String label = '',
 }) =>
     AdPlacementConfig(
       enabled: enabled,
       imageUrl: image,
       destinationUrl: destination,
       communicationType: type,
+      displayLabel: label,
       startAt: null,
       endAt: null,
       frequencyCapHours: null,
@@ -246,6 +248,32 @@ void main() {
         await tester.pumpWidget(const SizedBox.shrink());
       });
     }
+
+    testWidgets('a free label set in the Admin replaces the type label', (tester) async {
+      final ads = _FakeAds();
+      await tester.pumpWidget(_home(ads, Future.value(_ad(type: 'discovery', label: 'Partenaire local'))));
+      await _settle(tester);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Text>(find.byKey(_labelKey)).data, 'Partenaire local');
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('the longest label stays on one line on a 320 px screen, no overflow', (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final ads = _FakeAds();
+      await tester.pumpWidget(_home(ads, Future.value(_ad(label: 'W' * 30))));
+      await _settle(tester);
+      await tester.pumpAndSettle();
+      final label = tester.widget<Text>(find.byKey(_labelKey));
+      expect(label.data, 'W' * 24, reason: 'cut to the Admin limit');
+      expect(label.maxLines, 1);
+      expect(label.overflow, TextOverflow.ellipsis);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
 
     testWidgets('the banner stays clickable whatever its type', (tester) async {
       final ads = _FakeAds();
