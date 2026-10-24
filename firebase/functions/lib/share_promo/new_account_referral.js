@@ -33,10 +33,11 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.referralSignupConfigRef = exports.kLegacyTransitionMs = exports.googleSignupRef = void 0;
+exports.referralSignupConfigRef = exports.kLegacyTransitionMs = exports.googleSignupRef = exports.kGoogleIdTokenAudiences = void 0;
 exports.normalizeEmail = normalizeEmail;
 exports.acceptReferralForNewAccount = acceptReferralForNewAccount;
 exports.readUnverifiedGoogleClaims = readUnverifiedGoogleClaims;
+exports.verifyGoogleIdToken = verifyGoogleIdToken;
 exports.signInWithGoogleIdToken = signInWithGoogleIdToken;
 exports.authCreationMs = authCreationMs;
 exports.accountBelongsToOperation = accountBelongsToOperation;
@@ -129,6 +130,53 @@ function readUnverifiedGoogleClaims(idToken) {
         const sub = typeof claims.sub === 'string' ? claims.sub : '';
         const email = normalizeEmail(claims.email);
         return sub && email ? { sub, email } : null;
+    }
+    catch (_) {
+        return null;
+    }
+}
+// OAuth clients of the ProxiPlay app (public identifiers, from
+// google-services.json and GoogleService-Info.plist): the web client is the
+// audience of the Android app's Google ID token, the iOS client that of iOS.
+exports.kGoogleIdTokenAudiences = [
+    '337086897094-49ng00g9hh5iecvmui6b7fc10qmvodot.apps.googleusercontent.com',
+    '337086897094-eclbdgjvlqu5bu0k5mbfa4bdljn7f0k2.apps.googleusercontent.com',
+];
+const kGoogleIssuers = ['accounts.google.com', 'https://accounts.google.com'];
+let googleAuthClient = null;
+const isDemoEmulator = () => !!process.env.FIREBASE_AUTH_EMULATOR_HOST &&
+    String(process.env.GCLOUD_PROJECT || '').startsWith('demo-');
+// Identity of an authentic Google ID token: Google signature, issuer,
+// audience, expiry and verified address. Null when any check fails; thrown
+// 'unavailable' when Google's keys cannot be fetched. Nothing is looked up
+// before this. Only the isolated demo emulators (emulator host and demo-
+// project) accept the unsigned JSON token of the Auth emulator. `certs`
+// (key id -> PEM) replaces Google's published keys in tests. Error messages
+// contain the token: never logged.
+async function verifyGoogleIdToken(idToken, certs) {
+    if (isDemoEmulator() && idToken.trimStart().startsWith('{')) {
+        const claims = readUnverifiedGoogleClaims(idToken);
+        return claims && JSON.parse(idToken).email_verified === true ? claims : null;
+    }
+    if (!googleAuthClient) {
+        const { OAuth2Client } = require('google-auth-library');
+        googleAuthClient = new OAuth2Client();
+    }
+    let keys = certs;
+    if (!keys) {
+        try {
+            keys = (await googleAuthClient.getFederatedSignonCertsAsync()).certs;
+        }
+        catch (_) {
+            throw new functions.https.HttpsError('unavailable', 'Google sign-in unavailable.');
+        }
+    }
+    try {
+        const ticket = await googleAuthClient.verifySignedJwtWithCertsAsync(idToken, keys, exports.kGoogleIdTokenAudiences, kGoogleIssuers);
+        const payload = ticket.getPayload() ?? {};
+        const sub = typeof payload.sub === 'string' ? payload.sub : '';
+        const email = normalizeEmail(payload.email);
+        return sub && email && payload.email_verified === true ? { sub, email } : null;
     }
     catch (_) {
         return null;

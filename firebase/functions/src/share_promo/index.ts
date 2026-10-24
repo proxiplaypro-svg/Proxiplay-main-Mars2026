@@ -46,6 +46,7 @@ import {
   NewAccountReferralOutcome,
   readUnverifiedGoogleClaims,
   signInWithGoogleIdToken,
+  verifyGoogleIdToken,
 } from './new_account_referral';
 
 export { remindUsersWithRemainingDailyPlays } from './daily_plays_reminder';
@@ -573,6 +574,8 @@ export const registerReferralAcceptance = functions
 // ID token, calls this function BEFORE its own Firebase sign-in, then signs in
 // with the same token. Firebase decides whether the account is new.
 // Statuses: accepted | existing_account | refused.
+// Order: authentic Google token, then existing account (answered whatever the
+// code, so its owner signs in normally), then the code, for a new account only.
 // Never deletes an account: after a failure the operation is resumed by the
 // next call or by the scheduled worker.
 export const createReferralGoogleAccount = functions.region(region)
@@ -597,32 +600,37 @@ export const createReferralGoogleAccount = functions.region(region)
       if(count >= 5) throw new functions.https.HttpsError('resource-exhausted', 'Too many attempts.');
       tx.set(rate,{start:count ? start : now,count:count+1});
     });
+    const identity = await verifyGoogleIdToken(idToken);
+    if (!identity || identity.sub !== claims.sub) {
+      throw new functions.https.HttpsError('unauthenticated', 'Invalid Google sign-in.');
+    }
 
-    const operationRef = googleSignupRef(claims.sub);
+    const operationRef = googleSignupRef(identity.sub);
     let op = (await operationRef.get()).data();
     if (op?.status === 'completed') {
       // Same person calling again: only answered after proving the identity.
       const idp = await signInWithGoogleIdToken(idToken);
-      if (idp.sub !== claims.sub || idp.uid !== op.uid) {
+      if (idp.sub !== identity.sub || idp.uid !== op.uid) {
         throw new functions.https.HttpsError('unauthenticated', 'Invalid Google sign-in.');
       }
       return {status: op.outcome === 'accepted' ? 'accepted' : 'refused'};
     }
     if (!op) {
+      // The operation is opened only once Firebase has no account for this
+      // Google identity or address. An existing account never gets one, and
+      // its code is not even read.
+      const checkedAbsentAt = Date.now();
+      if (await findGoogleAccount(identity)) {
+        return {status: 'existing_account'};
+      }
       const referralRef = await findPendingReferralByCode(inviteCode);
       const referral = (await referralRef.get()).data() as ReferralRecord | undefined;
       if (!referral || referral.status !== 'pending' || referral.inviteeUid) {
         throw new functions.https.HttpsError('failed-precondition', 'Referral unavailable.', {reason: 'referral_unavailable'});
       }
-      // The operation is opened only once Firebase has no account for this
-      // Google identity or address. An existing account never gets one.
-      const checkedAbsentAt = Date.now();
-      if (await findGoogleAccount(claims)) {
-        return {status: 'existing_account'};
-      }
       try {
         await operationRef.create({
-          status: 'pending', googleSub: claims.sub, referralId: referralRef.id,
+          status: 'pending', googleSub: identity.sub, referralId: referralRef.id,
           checkedAbsentAt, created_at: admin.firestore.FieldValue.serverTimestamp(),
         });
       } catch (error: any) {

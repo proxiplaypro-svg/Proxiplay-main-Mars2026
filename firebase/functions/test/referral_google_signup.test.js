@@ -148,3 +148,55 @@ test('an unknown or used code stops before any account is created', async () => 
   assert.equal((await accountsFor('typo@gmail.test')).length + (await accountsFor('used@gmail.test')).length, 0);
   await assert.rejects(call('not-a-token', 'USED'), {code: 'invalid-argument'});
 });
+
+test('an existing account is answered first, whatever the code, and nothing is recorded', async () => {
+  await reset(); await invitation('USED'); await invitation('FREE');
+  await db.doc('referrals/USED').update({status: 'accepted', inviteeUid: 'someone'});
+  const existing = googleToken('g-known', 'known@gmail.test');
+  await appSignIn(existing);
+  await admin.auth().createUser({email: 'pw.known@gmail.test', password: 'secret-123'});
+  const passwordAddress = googleToken('g-pw-known', 'pw.known@gmail.test');
+  for (const [token, code] of [[existing, 'USED'], [existing, 'TYPO'], [existing, 'FREE'],
+    [passwordAddress, 'USED'], [passwordAddress, 'TYPO']]) {
+    assert.deepEqual(await call(token, code), {status: 'existing_account'}, code);
+  }
+  assert.equal((await referral('FREE')).status, 'pending');
+  assert.equal((await referral('USED')).inviteeUid, 'someone');
+  assert.equal((await db.collection('_referral_google_signups').get()).size, 0);
+  assert.equal(await pendingRewards(), 0);
+  assert.equal((await accountsFor('known@gmail.test')).length, 1);
+  // The app then signs in normally with the same token.
+  assert.equal((await appSignIn(existing)).isNewUser, false);
+});
+
+test('a new account with a used or unknown code is refused before any account exists', async () => {
+  await reset(); await invitation('USED');
+  await db.doc('referrals/USED').update({status: 'accepted', inviteeUid: 'someone'});
+  await assert.rejects(call(googleToken('g-fresh', 'fresh@gmail.test'), 'USED'),
+    e => e.code === 'failed-precondition' && e.details?.reason === 'referral_unavailable');
+  await assert.rejects(call(googleToken('g-fresh', 'fresh@gmail.test'), 'TYPO'), {code: 'not-found'});
+  assert.equal((await accountsFor('fresh@gmail.test')).length, 0);
+  assert.equal((await db.collection('_referral_google_signups').get()).size, 0);
+});
+
+test('an unverified Google token is refused before any lookup, operation or account', async () => {
+  await reset(); await invitation('FREE');
+  await appSignIn(googleToken('g-victim', 'victim@gmail.test'));
+  // Address not verified by Google: refused even though the account exists.
+  await assert.rejects(call(JSON.stringify({sub: 'g-victim', email: 'victim@gmail.test'}), 'FREE'),
+    {code: 'unauthenticated'});
+  await assert.rejects(call(JSON.stringify({sub: 'g-x', email: 'x@gmail.test', email_verified: false}), 'FREE'),
+    {code: 'unauthenticated'});
+  assert.equal((await accountsFor('x@gmail.test')).length, 0);
+  assert.equal((await referral('FREE')).status, 'pending');
+  assert.equal((await db.collection('_referral_google_signups').get()).size, 0);
+});
+
+test('the attempt limit still applies before the token is checked', async () => {
+  await reset(); await invitation('FREE');
+  const token = googleToken('g-limit', 'limit@gmail.test');
+  await appSignIn(token);
+  const fixedIp = {rawRequest: {ip: '10.9.9.9'}};
+  for (let i = 0; i < 5; i++) assert.equal((await signup({idToken: token, inviteCode: 'FREE'}, fixedIp)).status, 'existing_account');
+  await assert.rejects(signup({idToken: token, inviteCode: 'FREE'}, fixedIp), {code: 'resource-exhausted'});
+});
