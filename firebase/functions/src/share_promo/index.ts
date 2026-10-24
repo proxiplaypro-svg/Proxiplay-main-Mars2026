@@ -728,16 +728,8 @@ export const grantReferralReward = functions
     return grantReferralRewardInternal(referralId, `admin/${adminUid}`);
   });
 
-export const expireOldReferrals = functions
-  .region(region)
-  .runWith({ timeoutSeconds: 540, memory: '512MB' })
-  .pubsub.schedule('every 24 hours')
-  .timeZone('Europe/Paris')
-  .onRun(async () => {
-    // Keep the deployed schedule compatible, but never expire invitations.
-    // Existing records, including previously expired ones, are untouched.
-    return null;
-  });
+// Invitations never expire: the former daily expireOldReferrals job is
+// removed (it is deleted from production with the referral lot).
 
 export const adminUpsertSharePromo = functions
   .region(region)

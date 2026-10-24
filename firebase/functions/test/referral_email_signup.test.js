@@ -86,9 +86,9 @@ test('two accounts created concurrently with one code keep the losing account',a
  assert.equal((await db.doc('reward_events/race').get()).exists,true);
 });
 test('pending invitations do not expire and Paris midnight respects daylight saving',async()=>{
- const share=require('../lib/share_promo'), expiry=ft.wrap(share.expireOldReferrals);
+ // Invitations never expire: no expiry job exists any more.
+ assert.equal(require('../lib/share_promo').expireOldReferrals,undefined);
  await db.doc('referrals/pending-old').set({inviterUid:'x',inviteCode:'OLD',status:'pending',createdAt:admin.firestore.Timestamp.fromDate(new Date('2020-01-01T00:00:00Z'))});
- await expiry({});
  assert.equal((await db.doc('referrals/pending-old').get()).data().status,'pending');
  const midnight=require('../lib/share_promo/firestore').getNextMidnightTimestamp;
  for(const [input,expected] of [['2026-03-28T23:30:00Z','2026-03-29T22:00:00.000Z'],['2026-10-24T22:30:00Z','2026-10-25T23:00:00.000Z']])

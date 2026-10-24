@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.retryReferralRewards = exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.expireOldReferrals = exports.grantReferralReward = exports.adminReconcileReferralGameTickets = exports.createReferralGoogleAccount = exports.registerReferralAcceptance = exports.createReferralEmailAccount = exports.createReferral = exports.getSharePromoState = exports.kReferralGameInviteMessage = exports.remindUsersWithRemainingDailyPlays = void 0;
+exports.retryReferralRewards = exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.grantReferralReward = exports.adminReconcileReferralGameTickets = exports.createReferralGoogleAccount = exports.registerReferralAcceptance = exports.createReferralEmailAccount = exports.createReferral = exports.getSharePromoState = exports.kReferralGameInviteMessage = exports.remindUsersWithRemainingDailyPlays = void 0;
 exports.buildReferralGameShareMessage = buildReferralGameShareMessage;
 exports.resumeGoogleReferralSignups = resumeGoogleReferralSignups;
 const { prepareReferralReward, processReferralReward, retryPendingReferralRewards, pendingRef } = require('../../referral_reward_queue');
@@ -662,16 +662,8 @@ exports.grantReferralReward = functions
     }
     return grantReferralRewardInternal(referralId, `admin/${adminUid}`);
 });
-exports.expireOldReferrals = functions
-    .region(firestore_1.region)
-    .runWith({ timeoutSeconds: 540, memory: '512MB' })
-    .pubsub.schedule('every 24 hours')
-    .timeZone('Europe/Paris')
-    .onRun(async () => {
-    // Keep the deployed schedule compatible, but never expire invitations.
-    // Existing records, including previously expired ones, are untouched.
-    return null;
-});
+// Invitations never expire: the former daily expireOldReferrals job is
+// removed (it is deleted from production with the referral lot).
 exports.adminUpsertSharePromo = functions
     .region(firestore_1.region)
     .runWith({ timeoutSeconds: 30, memory: '256MB' })

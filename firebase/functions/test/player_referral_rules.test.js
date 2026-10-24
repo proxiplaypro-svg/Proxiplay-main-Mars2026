@@ -11,7 +11,6 @@ const db = admin.firestore();
 const ft = require('firebase-functions-test')({projectId: process.env.GCLOUD_PROJECT});
 const share = require('../lib/share_promo');
 const accept = ft.wrap(share.registerReferralAcceptance);
-const expire = ft.wrap(share.expireOldReferrals);
 const grant = ft.wrap(share.grantReferralReward);
 const {getNextMidnightTimestamp} = require('../lib/share_promo/firestore');
 const t = value => admin.firestore.Timestamp.fromDate(new Date(value));
@@ -34,7 +33,6 @@ test.beforeEach(async () => {
 test.after(() => ft.cleanup());
 
 test('old invitation remains pending and the legacy endpoint rejects acceptance', async () => {
-  await expire({});
   assert.equal((await db.doc('referrals/r').get()).data().status, 'pending');
   await assert.rejects(accept({inviteCode: 'TESTCODE'}, {auth: {uid: 'invitee'}}), {code: 'failed-precondition'});
   assert.equal((await db.doc('referrals/r').get()).data().status, 'pending');
