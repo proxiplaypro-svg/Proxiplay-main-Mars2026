@@ -5,7 +5,8 @@
       {
         "appID": "9FBNDYD396.com.proxiplay.proxiplay",
         "paths": [
-          "/j/*"
+          "/j/*",
+          "/i"
         ]
       }
     ]

@@ -66,6 +66,10 @@
       {
         "source": "/j/**",
         "destination": "/j/index.html"
+      },
+      {
+        "source": "/i",
+        "destination": "/i/index.html"
       }
     ],
     "redirects": [

@@ -79,4 +79,96 @@ void main() {
       expect(manifest, contains('android:host="play.proxiplay.fr"'));
     });
   });
+
+  // 1.1.2: onelink.to redirects Android straight to the store and drops the
+  // ref parameter, so invitations use a ProxiPlay address opened by the app.
+  group('player referral link https://play.proxiplay.fr/i?ref=CODE', () {
+    String source(String path) =>
+        File(path).readAsStringSync().replaceAll('\r\n', '\n');
+    final manifest = source('android/app/src/main/AndroidManifest.xml')
+        .replaceAll(RegExp(r'<!--[\s\S]*?-->'), '');
+    final filters = RegExp(r'<intent-filter[\s\S]*?</intent-filter>')
+        .allMatches(manifest)
+        .map((m) => m.group(0)!)
+        .toList();
+
+    test('the shared link carries the normalized code on the ProxiPlay domain', () {
+      expect(buildReferralShareLink(' ab12cd34 '),
+          'https://play.proxiplay.fr/i?ref=AB12CD34');
+      expect(extractReferralCodeFromUri(Uri.parse(buildReferralShareLink('AB12CD34'))),
+          'AB12CD34');
+      expect(buildAppShareText(referralCode: 'AB12CD34'),
+          contains('https://play.proxiplay.fr/i?ref=AB12CD34'));
+    });
+
+    test('shares without a code (games, store) keep the store link', () {
+      expect(buildReferralShareLink(), shareLinkBase);
+      expect(buildReferralShareLink('  '), shareLinkBase);
+      expect(buildAppShareText(title: 'Jeu'), endsWith(shareLinkBase));
+    });
+
+    test('Android opens exactly /i on play.proxiplay.fr, verified', () {
+      final referral = filters.where((f) => f.contains('android:path="/i"')).toList();
+      expect(referral, hasLength(1));
+      expect(referral.single, contains('android:autoVerify="true"'));
+      expect(referral.single, contains('android:scheme="https"'));
+      expect(referral.single, contains('android:host="play.proxiplay.fr"'));
+      // Never a prefix: /index.html or any other page stays in the browser.
+      expect(manifest, isNot(contains('android:pathPrefix="/i')));
+    });
+
+    test('game links are unchanged and merchant referral links are never intercepted', () {
+      for (final host in ['proxiplay.fr', 'play.proxiplay.fr', 'www.proxiplay.fr']) {
+        expect(
+            filters.where((f) =>
+                f.contains('android:host="$host"') && f.contains('android:pathPrefix="/j/"')),
+            hasLength(1),
+            reason: host);
+      }
+      final https = filters.where((f) => f.contains('android:scheme="https"'));
+      for (final f in https) {
+        expect(f, anyOf(contains('android:pathPrefix="/j/"'), contains('android:path="/i"')));
+      }
+      expect(manifest, isNot(contains('commercant')));
+    });
+
+    test('iOS Universal Links: same exact path, game links kept', () {
+      final aasa = source('hosting/.well-known/apple-app-site-association');
+      expect(aasa, contains('"9FBNDYD396.com.proxiplay.proxiplay"'));
+      expect(aasa, contains('"/j/*"'));
+      expect(aasa, contains('"/i"'));
+      expect(aasa, isNot(contains('"/i*"')));
+      expect(aasa, isNot(contains('"*"')));
+      final entitlements = source('ios/Runner/Runner.entitlements');
+      expect(entitlements, contains('applinks:play.proxiplay.fr'));
+    });
+
+    test('the /i route opens the signup flow with the code of the link', () {
+      final nav = source('lib/flutter_flow/nav/nav.dart');
+      final route = nav.substring(nav.indexOf('name: ReferralLinkPageWidget.routeName'));
+      expect(route.substring(0, 300), contains("params.getParam('ref', ParamType.String)"));
+      expect(nav, contains('GameLaunchPageWidget.routePath'));
+      final page = source('lib/pages/public/referral_link_page/referral_link_page_widget.dart');
+      expect(page, contains('pendingReferralCode = code'));
+      expect(page, contains('context.goNamed(InscriptionPageWidget.routeName)'));
+      expect(page, contains("resolveAuthenticatedHome(source: 'referral_link')"));
+    });
+
+    test('a link received with the signup page open fills the field', () {
+      final page = source('lib/pages/auth/inscription_page/inscription_page_widget.dart');
+      expect(page, contains('FFAppState().addListener(_syncReferralCodeField)'));
+      expect(page, contains('FFAppState().removeListener(_syncReferralCodeField)'));
+    });
+
+    test('the web page for visitors without the app shows the code safely', () {
+      final html = source('hosting/i/index.html');
+      expect(html, contains("textContent = code"));
+      expect(html, isNot(contains('innerHTML')));
+      expect(html, contains('/^[0-9A-F]{4,32}\$/'));
+      expect(html, contains('https://play.google.com/store/apps/details?id=com.proxiplay.proxiplay'));
+      expect(html, contains('https://apps.apple.com/app/id6753818573'));
+      final hosting = source('firebase.json');
+      expect(hosting, contains('"source": "/i",\n        "destination": "/i/index.html"'));
+    });
+  });
 }

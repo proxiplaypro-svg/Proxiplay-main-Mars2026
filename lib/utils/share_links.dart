@@ -1,4 +1,11 @@
 const String shareLinkBase = 'https://onelink.to/jx4ee7';
+// Player referral invitation (1.1.2): ProxiPlay domain, opened by the app
+// (Android App Link, iOS Universal Link) or, without the app, by the web page
+// hosting/i/index.html. onelink.to cannot be used: on Android it redirects
+// straight to the store and drops the ref parameter.
+const String referralLinkHost = 'play.proxiplay.fr';
+const String referralLinkRoutePath = 'i';
+const String referralLinkBase = 'https://$referralLinkHost/$referralLinkRoutePath';
 const String gameQrLinkBase = 'https://play.proxiplay.fr/j';
 const String proxiplayCustomScheme = 'proxiplay';
 const String proxiplayAndroidPackageName = 'com.proxiplay.proxiplay';
@@ -25,13 +32,12 @@ const List<String> _nestedLinkParamCandidates = <String>[
 String buildReferralShareLink([String? referralCode]) {
   final normalizedCode = _normalizeReferralCode(referralCode);
   if (normalizedCode == null) {
+    // Plain app share (games, store): unchanged.
     return shareLinkBase;
   }
 
-  final baseUri = Uri.parse(shareLinkBase);
-  final queryParameters = Map<String, String>.from(baseUri.queryParameters)
-    ..['ref'] = normalizedCode;
-  return baseUri.replace(queryParameters: queryParameters).toString();
+  return Uri.parse(referralLinkBase)
+      .replace(queryParameters: {'ref': normalizedCode}).toString();
 }
 
 // In-memory only: login within this process preserves the proof; a restart requires a new scan.

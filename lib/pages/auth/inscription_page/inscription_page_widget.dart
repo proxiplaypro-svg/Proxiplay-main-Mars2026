@@ -14,6 +14,7 @@ import '/services/merchant_referral_service.dart';
 import '/services/share_promo_service.dart';
 import '/services/referral_signup_error.dart';
 import '/utils/merchant_referral_utils.dart';
+import '/utils/referral_link_logic.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart' as crypto;
@@ -90,6 +91,8 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       text: _initialReferralCodeValue,
     );
     _model.referralCodeJoueurFocusNode ??= FocusNode();
+    // A referral link received while this page is open fills the field too.
+    FFAppState().addListener(_syncReferralCodeField);
 
     _model.emailAddressCommercantTextController ??= TextEditingController();
     _model.emailAddressCommercantFocusNode ??= FocusNode();
@@ -181,9 +184,27 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
 
   @override
   void dispose() {
+    FFAppState().removeListener(_syncReferralCodeField);
     _model.dispose();
 
     super.dispose();
+  }
+
+  void _syncReferralCodeField() {
+    final controller = _model.referralCodeJoueurTextController;
+    if (!mounted || controller == null) {
+      return;
+    }
+    final text = referralFieldSyncText(
+      fieldText: controller.text,
+      pendingCode: FFAppState().pendingReferralCode,
+    );
+    if (text != null) {
+      controller.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    }
   }
 
   void _logGoogleSignup(String message) {}

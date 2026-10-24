@@ -317,6 +317,13 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               ),
             ),
             FFRoute(
+              name: ReferralLinkPageWidget.routeName,
+              path: ReferralLinkPageWidget.routePath,
+              builder: (context, params) => ReferralLinkPageWidget(
+                referralCode: params.getParam('ref', ParamType.String),
+              ),
+            ),
+            FFRoute(
               name: InscriptionInformationsPageWidget.routeName,
               path: InscriptionInformationsPageWidget.routePath,
               // This page writes to the current user's Firestore doc; it should

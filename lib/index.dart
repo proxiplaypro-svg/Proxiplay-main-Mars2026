@@ -2,6 +2,8 @@
 export '/pages/joueur/home_joueur_page/home_joueur_page_widget.dart'
     show HomeJoueurPageWidget;
 export '/pages/auth/login_page/login_page_widget.dart' show LoginPageWidget;
+export '/pages/public/referral_link_page/referral_link_page_widget.dart'
+    show ReferralLinkPageWidget;
 export '/pages/public/game_launch_page/game_launch_page_widget.dart'
     show GameLaunchPageWidget, GameLaunchSchemePageWidget;
 export '/pages/auth/inscription_page/inscription_page_widget.dart'

@@ -37,6 +37,18 @@ void main() {
         isNot(contains('clearPendingReferralCode')));
   });
 
+  test('an existing account is signed in normally, then told the code does not apply', () {
+    // Any server answer (accepted, existing_account, refused) lets the sign-in
+    // continue; the notice is shown once the account is open.
+    final hook = googleFlow.indexOf('beforeFirebaseSignIn:');
+    final hookBody = googleFlow.substring(hook, googleFlow.indexOf('on GoogleSignInInterrupted'));
+    expect(hookBody, contains('referralNotice = googleReferralNotice(status)'));
+    expect(hookBody, contains('clearPendingReferralCode()'));
+    expect(hookBody, isNot(contains('throw')));
+    final after = page.indexOf('_showReferralErrorMessage(referralNotice!)');
+    expect(after, greaterThan(page.indexOf('_ensureGooglePlayerProfileBootstrap()', flowStart)));
+  });
+
   test('without a code the Google sign-in is unchanged (no server step)', () {
     expect(googleFlow, contains('beforeFirebaseSignIn: referralCode.isEmpty\n            ? null'));
     expect(googleAuth, contains('if (beforeFirebaseSignIn != null) {'));
