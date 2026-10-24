@@ -11,7 +11,7 @@ const String proxiplayCustomScheme = 'proxiplay';
 const String proxiplayAndroidPackageName = 'com.proxiplay.proxiplay';
 const String proxiplayAndroidStoreUrl =
     'https://play.google.com/store/apps/details?id=$proxiplayAndroidPackageName';
-const String proxiplayIosStoreUrl = 'https://apps.apple.com/app/id6753818573';
+const String proxiplayIosStoreUrl = 'https://apps.apple.com/fr/app/proxiplay/id6753818573';
 
 const List<String> _referralParamCandidates = <String>[
   'ref',

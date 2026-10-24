@@ -166,9 +166,19 @@ void main() {
       expect(html, isNot(contains('innerHTML')));
       expect(html, contains('/^[0-9A-F]{4,32}\$/'));
       expect(html, contains('https://play.google.com/store/apps/details?id=com.proxiplay.proxiplay'));
-      expect(html, contains('https://apps.apple.com/app/id6753818573'));
+      expect(html, contains('https://apps.apple.com/fr/app/proxiplay/id6753818573'));
       final hosting = source('firebase.json');
       expect(hosting, contains('"source": "/i",\n        "destination": "/i/index.html"'));
+    });
+
+    test('the App Store link names the French storefront, where the app is published', () {
+      const appStore = 'https://apps.apple.com/fr/app/proxiplay/id6753818573';
+      expect(proxiplayIosStoreUrl, appStore);
+      for (final page in ['hosting/i/index.html', 'hosting/j/index.html']) {
+        final html = source(page);
+        expect(html, contains(appStore), reason: page);
+        expect(html, isNot(contains('https://apps.apple.com/app/id')), reason: page);
+      }
     });
   });
 }
