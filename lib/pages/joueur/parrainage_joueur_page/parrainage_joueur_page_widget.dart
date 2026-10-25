@@ -6,10 +6,12 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import '/services/share_promo_service.dart';
+import '/utils/referral_invite_flow.dart';
 import '/utils/referral_share_copy.dart';
 import '/utils/share_links.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'parrainage_joueur_page_model.dart';
@@ -57,59 +59,141 @@ class _ParrainageJoueurPageWidgetState
     super.dispose();
   }
 
+  // The share sheet is anchored on the tapped button (required on iPad).
+  final GlobalKey _inviteButtonKey = GlobalKey();
+
+  Rect? _shareOrigin(GlobalKey? key) {
+    final box = (key?.currentContext ?? context).findRenderObject();
+    if (box is RenderBox && box.hasSize) {
+      return box.localToGlobal(Offset.zero) & box.size;
+    }
+    return null;
+  }
+
+  Future<ShareResultStatus> _openShareSheet(
+    String text, {
+    required String subject,
+    GlobalKey? anchor,
+  }) async {
+    final result = await Share.share(
+      text,
+      subject: subject,
+      sharePositionOrigin: _shareOrigin(anchor),
+    );
+    return result.status;
+  }
+
+  void _reportInviteFailure(ReferralInviteFailure failure) {
+    debugPrint(failure.logLine);
+    logFirebaseEvent('referral_invite_failed',
+        parameters: failure.analyticsParameters);
+  }
+
+  void _showSnackBar(SnackBar snackBar) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(snackBar);
+  }
+
+  /// Share sheet failed but the link is valid: the player can copy it.
+  void _offerCopyLink(String link, {VoidCallback? onCopied}) {
+    _showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 10),
+        content: const Text(
+            'Le partage n\'a pas pu être ouvert. Tu peux copier ton lien.'),
+        action: SnackBarAction(
+          label: 'Copier le lien',
+          onPressed: () async {
+            try {
+              await Clipboard.setData(ClipboardData(text: link));
+              onCopied?.call();
+              _showSnackBar(const SnackBar(
+                content: Text('Lien copié. Colle-le dans ton message.'),
+              ));
+            } catch (error) {
+              debugPrint(ReferralInviteFailure.of(
+                      ReferralInviteStage.openShare, error)
+                  .logLine);
+              _showSnackBar(const SnackBar(
+                content: Text('Le lien n\'a pas pu être copié. Réessaie.'),
+              ));
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  PreparedReferralInvite _buildInvite(
+      Map<String, dynamic> response, DateTime now) {
+    final inviteCode = (response['inviteCode'] as String?)?.trim();
+    final responseShareLink = (response['shareLink'] as String?)?.trim();
+    final code = inviteCode ??
+        extractReferralCodeFromUri(Uri.tryParse(responseShareLink ?? '')) ??
+        '';
+    final referralGameActive = referralGameActiveFrom(response);
+    if (mounted && _referralGameActive != referralGameActive) {
+      setState(() => _referralGameActive = referralGameActive);
+    }
+    final shareLink = buildReferralShareLink(code);
+    final shareText = buildReferralInviteMessage(
+      referralGameActive: referralGameActive,
+      referralCode: code,
+    );
+    return PreparedReferralInvite(
+      code: code,
+      link: shareLink,
+      text: shareText.isNotEmpty ? shareText : shareLink,
+      createdAt: now,
+    );
+  }
+
   Future<void> _inviteFriend() async {
     if (_isInviting) {
       return;
     }
     setState(() => _isInviting = true);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            duration: Duration(seconds: 2),
-            content: Text('Préparation du partage...'),
-          ),
-        );
-    }
+    _showSnackBar(
+      const SnackBar(
+        duration: Duration(seconds: 2),
+        content: Text('Préparation du partage...'),
+      ),
+    );
 
     try {
-      final response = await _sharePromoService.createReferral(
-        shareChannel: 'native_share',
-      );
-      final inviteCode = (response['inviteCode'] as String?)?.trim();
-      final responseShareLink = (response['shareLink'] as String?)?.trim();
-      final responseReferralCode =
-          extractReferralCodeFromUri(Uri.tryParse(responseShareLink ?? ''));
-      final shareLink =
-          buildReferralShareLink(inviteCode ?? responseReferralCode);
-      final referralGameActive = referralGameActiveFrom(response);
-      if (mounted && _referralGameActive != referralGameActive) {
-        setState(() => _referralGameActive = referralGameActive);
-      }
-      final shareText = buildReferralInviteMessage(
-        referralGameActive: referralGameActive,
-        referralCode: inviteCode ?? responseReferralCode,
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      }
-
-      await Share.share(
-        shareText.isNotEmpty ? shareText : shareLink,
-        subject: 'Inviter un ami sur ProxiPlay',
-      );
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            const SnackBar(
-              content: Text('Le partage n\'a pas pu être ouvert. Réessaie.'),
-            ),
+      final outcome = await runReferralInvite(
+        accountId: currentUserUid,
+        createReferral: () => _sharePromoService.createReferral(
+          shareChannel: 'native_share',
+        ),
+        buildInvite: _buildInvite,
+        share: (text) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          }
+          return _openShareSheet(
+            text,
+            subject: 'Inviter un ami sur ProxiPlay',
+            anchor: _inviteButtonKey,
           );
+        },
+        now: DateTime.now(),
+        onFailure: _reportInviteFailure,
+      );
+      if (outcome.canCopyLink) {
+        _offerCopyLink(
+          outcome.invite!.link,
+          onCopied: () => unsentReferralInvites.handedOver(currentUserUid),
+        );
+      } else if (outcome.status == ReferralInviteStatus.failed) {
+        _showSnackBar(
+          const SnackBar(
+            content: Text('Le partage n\'a pas pu être ouvert. Réessaie.'),
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -124,19 +208,16 @@ class _ParrainageJoueurPageWidgetState
     }
     setState(() => _relaunchingReferralIds.add(referralId));
 
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            duration: Duration(seconds: 2),
-            content: Text('Préparation de la relance...'),
-          ),
-        );
-    }
+    _showSnackBar(
+      const SnackBar(
+        duration: Duration(seconds: 2),
+        content: Text('Préparation de la relance...'),
+      ),
+    );
 
+    // The invitation already exists: only the share sheet can fail here.
+    final shareLink = buildReferralShareLink(inviteCode);
     try {
-      final shareLink = buildReferralShareLink(inviteCode);
       final shareText = buildReferralReminderMessage(
         referralGameActive: _referralGameActive,
         referralCode: inviteCode,
@@ -146,19 +227,22 @@ class _ParrainageJoueurPageWidgetState
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
       }
 
-      await Share.share(
+      await _openShareSheet(
         shareText.isNotEmpty ? shareText : shareLink,
         subject: 'Rappel — Inviter un ami sur ProxiPlay',
       );
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            const SnackBar(
-              content: Text('Le partage n\'a pas pu être ouvert. Réessaie.'),
-            ),
-          );
+      _reportInviteFailure(ReferralInviteFailure.of(
+          ReferralInviteStage.openShare, error,
+          secret: inviteCode));
+      if ((inviteCode ?? '').isNotEmpty) {
+        _offerCopyLink(shareLink);
+      } else {
+        _showSnackBar(
+          const SnackBar(
+            content: Text('Le partage n\'a pas pu être ouvert. Réessaie.'),
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -226,6 +310,7 @@ class _ParrainageJoueurPageWidgetState
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
+                key: _inviteButtonKey,
                 onPressed: _isInviting ? null : _inviteFriend,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFA0134D),
