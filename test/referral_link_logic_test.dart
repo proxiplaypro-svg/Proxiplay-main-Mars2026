@@ -37,4 +37,17 @@ void main() {
       expect(referralFieldSyncText(fieldText: 'AB12CD34', pendingCode: ''), '');
     });
   });
+
+  group('referralCodeFromLink (only a real invitation code opens the signup)', () {
+    test('normalizes a valid code', () {
+      expect(referralCodeFromLink(' ab12cd34 '), 'AB12CD34');
+      expect(referralCodeFromLink('012B4666'), '012B4666');
+    });
+
+    test('nothing for a missing, malformed or foreign value', () {
+      for (final raw in [null, '', '   ', 'TEST', 'abc', '<script>', 'AB12 CD34', 'X' * 8, 'A' * 33]) {
+        expect(referralCodeFromLink(raw), isNull, reason: '$raw');
+      }
+    });
+  });
 }

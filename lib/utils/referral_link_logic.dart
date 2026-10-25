@@ -5,6 +5,15 @@
 
 enum ReferralLinkTarget { wait, signup, home }
 
+/// The invitation code carried by a link, normalized (trimmed, upper case),
+/// or null when it cannot be an invitation code (missing, too short or long,
+/// not hexadecimal): such a link opens nothing special. Invite codes are 8
+/// hexadecimal characters; the bounds leave room without accepting junk.
+String? referralCodeFromLink(String? raw) {
+  final code = (raw ?? '').trim().toUpperCase();
+  return RegExp(r'^[0-9A-F]{4,32}$').hasMatch(code) ? code : null;
+}
+
 /// Where the /i route sends the player: the signup page with the code for a
 /// visitor, the usual home for a signed-in account (the code never applies
 /// to an existing account), nothing until the auth state is known.

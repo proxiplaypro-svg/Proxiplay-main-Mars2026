@@ -4,7 +4,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import '/utils/referral_link_logic.dart';
-import '/utils/share_links.dart';
+import '/utils/share_links.dart' show referralLinkRoutePath;
 import 'package:flutter/material.dart';
 
 /// Player referral invitation link https://play.proxiplay.fr/i?ref=CODE
@@ -60,14 +60,18 @@ class _ReferralLinkPageWidgetState extends State<ReferralLinkPageWidget> {
       }
       return;
     }
-    final code = extractReferralCodeFromUri(
-      Uri(queryParameters: {'ref': widget.referralCode ?? ''}),
-    );
-    if (code != null && FFAppState().pendingReferralCode != code) {
+    final code = referralCodeFromLink(widget.referralCode);
+    if (code == null) {
+      // No usable code: the usual navigation, no automatic signup.
+      context.go('/');
+      return;
+    }
+    if (FFAppState().pendingReferralCode != code) {
       FFAppState().update(() {
         FFAppState().pendingReferralCode = code;
       });
     }
+    // The existing signup screen, player tab by default, code filled in.
     context.goNamed(InscriptionPageWidget.routeName);
   }
 

@@ -27,6 +27,7 @@ import 'flutter_flow/internationalization.dart';
 import 'flutter_flow/permissions_util.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'utils/perf_trace.dart';
+import 'utils/referral_link_logic.dart';
 import 'utils/share_links.dart';
 import 'widgets/startup_config_flow.dart';
 
@@ -371,8 +372,8 @@ class MyAppState extends State<MyApp> {
       _lastReferralLocation = location;
     }
     final uri = Uri.tryParse(location);
-    final referralCode = extractReferralCodeFromUri(uri);
-    if (referralCode == null || referralCode.isEmpty) {
+    final referralCode = referralCodeFromLink(extractReferralCodeFromUri(uri));
+    if (referralCode == null) {
       return;
     }
     if (FFAppState().pendingReferralCode == referralCode) {

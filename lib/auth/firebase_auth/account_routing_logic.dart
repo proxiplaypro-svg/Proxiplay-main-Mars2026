@@ -153,6 +153,9 @@ String? resolveProtectedRouteGuardRedirectPath({
     '/inscriptionPage',
     '/resetPassword',
     '/legalPage',
+    // Player referral link (play.proxiplay.fr/i?ref=CODE): opened signed
+    // out, it must reach its page, which then opens the signup.
+    '/i',
   };
 
   if (!loggedIn && !publicPaths.contains(currentPath) && !isDeepLinkRoute) {

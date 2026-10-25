@@ -25,6 +25,8 @@ import 'package:proxi_play/pages/auth/inscription_page/inscription_page_widget.d
 import 'package:proxi_play/pages/auth/login_page/login_page_widget.dart';
 import 'package:proxi_play/pages/auth/inscription_informations_page/inscription_informations_page_widget.dart';
 import 'package:proxi_play/components/signup_progress_indicator.dart';
+import 'package:proxi_play/flutter_flow/nav/nav.dart';
+import 'package:proxi_play/auth/firebase_auth/firebase_user_provider.dart';
 
 /// Signup UX regression tests (24/10/2026 Samsung findings: header overflow
 /// on the profile completion page, no progress feedback, referral code asked
@@ -120,6 +122,13 @@ class _AuthStore extends auth_platform.FirebaseAuthPlatform {
     String? languageCode,
   }) =>
       this;
+  // No signed-in user: the auth streams start empty.
+  @override
+  Stream<auth_platform.UserPlatform?> authStateChanges() => Stream.value(null);
+  @override
+  Stream<auth_platform.UserPlatform?> idTokenChanges() => Stream.value(null);
+  @override
+  Stream<auth_platform.UserPlatform?> userChanges() => Stream.value(null);
 }
 
 class _FontManifest extends Fake implements AssetManifest {
@@ -442,5 +451,105 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.byType(ElevatedButton), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  // --- Referral link /i with the real app router (createRouter) -----------
+  // AppStateNotifier is a singleton: the cold start test runs first, while
+  // the auth state is still unresolved, as on a real launch.
+  group('referral link https://play.proxiplay.fr/i?ref=CODE (real app router)', () {
+    Future<GoRouter> pumpApp(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final router = createRouter(AppStateNotifier.instance);
+      addTearDown(router.dispose);
+      await tester.pumpWidget(ChangeNotifierProvider<FFAppState>.value(
+        value: FFAppState(),
+        child: MaterialApp.router(
+          routerConfig: router,
+          debugShowCheckedModeBanner: false,
+          localizationsDelegates: const [
+            FFLocalizationsDelegate(),
+            FallbackMaterialLocalizationDelegate(),
+            FallbackCupertinoLocalizationDelegate(),
+          ],
+          supportedLocales: const [Locale('fr')],
+          locale: const Locale('fr'),
+          theme: ThemeData(fontFamily: 'TestSans'),
+        ),
+      ));
+      await settle(tester);
+      return router;
+    }
+
+    String location(GoRouter router) =>
+        router.routerDelegate.currentConfiguration.uri.path;
+
+    Future<void> expectPlayerSignupWith(WidgetTester tester, GoRouter router, String code) async {
+      expect(location(router), '/inscriptionPage');
+      expect(find.byType(InscriptionPageWidget), findsOneWidget);
+      expect(
+          tester.widget<FlutterFlowButtonTabBar>(find.byType(FlutterFlowButtonTabBar)).controller!.index,
+          0,
+          reason: 'Joueur selected');
+      final field = find.byKey(const ValueKey('entry-referral-code'));
+      expect(tester.widget<TextFormField>(field).controller!.text, code);
+      expect(find.text('Continuer avec Google'), findsOneWidget);
+      expect(find.text("Continuer avec l'e-mail"), findsOneWidget);
+    }
+
+    testWidgets('cold start, signed out: the player signup opens directly with the code', (tester) async {
+      ignoreKnownFontSubstitutionOverflow();
+      final router = await pumpApp(tester);
+      // The link the platform opens the app with, before auth is known.
+      router.go('/i?ref=ab12cd34');
+      await settle(tester);
+      expect(find.byType(InscriptionPageWidget), findsNothing, reason: 'waits for the auth state');
+      AppStateNotifier.instance.update(ProxiPlayFirebaseUser(null));
+      AppStateNotifier.instance.stopShowingSplashImage();
+      await tester.pump(const Duration(seconds: 4)); // signed-out auth resolution
+      await settle(tester);
+      await expectPlayerSignupWith(tester, router, 'AB12CD34');
+      expect(FFAppState().pendingReferralCode, 'AB12CD34');
+      // Back: the usual screen, no loop back to the signup.
+      router.pop();
+      await settle(tester);
+      expect(location(router), '/');
+      await tester.pump(const Duration(seconds: 2));
+      expect(location(router), '/');
+      // The code is kept for a later signup.
+      expect(FFAppState().pendingReferralCode, 'AB12CD34');
+    });
+
+    testWidgets('app already open: a new link goes to the signup with the new code, once', (tester) async {
+      ignoreKnownFontSubstitutionOverflow();
+      final router = await pumpApp(tester);
+      router.go('/');
+      await settle(tester);
+      router.go('/i?ref=99887766');
+      await settle(tester);
+      await expectPlayerSignupWith(tester, router, '99887766');
+      // The same link received again: same screen, nothing stacked.
+      router.go('/i?ref=99887766');
+      await settle(tester);
+      await expectPlayerSignupWith(tester, router, '99887766');
+      router.pop();
+      await settle(tester);
+      expect(location(router), '/');
+    });
+
+    testWidgets('a link without a valid code keeps the usual navigation', (tester) async {
+      ignoreKnownFontSubstitutionOverflow();
+      FFAppState().clearPendingReferralCode();
+      final router = await pumpApp(tester);
+      for (final link in ['/i', '/i?ref=', '/i?ref=%3Cscript%3E', '/i?ref=TEST']) {
+        router.go(link);
+        await settle(tester);
+        expect(location(router), '/', reason: link);
+        expect(find.byType(InscriptionPageWidget), findsNothing, reason: link);
+      }
+      expect(FFAppState().pendingReferralCode, isEmpty);
+    });
   });
 }

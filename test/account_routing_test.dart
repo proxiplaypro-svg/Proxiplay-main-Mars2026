@@ -363,4 +363,32 @@ void main() {
       expect(resolveInitialSignupRole('not-a-role'), isNull);
     });
   });
+
+  group('player referral link /i is public', () {
+    String? guard(String path, {bool loggedIn = false, bool deepLink = false}) =>
+        resolveProtectedRouteGuardRedirectPath(
+          hasResolvedAuthState: true,
+          loggedIn: loggedIn,
+          requireAuth: false,
+          requireAdmin: false,
+          requireMerchant: false,
+          hasUserDocument: false,
+          role: null,
+          hasMerchantConflict: false,
+          isDeepLinkRoute: deepLink,
+          currentPath: path,
+        );
+
+    test('a signed-out visitor reaches /i (it then opens the signup)', () {
+      expect(guard('/i'), isNull);
+    });
+
+    test('other routes, game links and signed-in users are unchanged', () {
+      expect(guard('/homeJoueurPage'), '/loginPage');
+      expect(guard('/i/extra'), '/loginPage', reason: 'exact path only');
+      expect(guard('/j/game1', deepLink: true), isNull);
+      expect(guard('/inscriptionPage'), isNull);
+      expect(guard('/i', loggedIn: true), isNull);
+    });
+  });
 }
