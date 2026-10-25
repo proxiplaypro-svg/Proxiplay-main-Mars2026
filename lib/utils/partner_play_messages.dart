@@ -2,16 +2,13 @@ import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Short messages shown after a losing scratch, inviting the player to play
-/// at a ProxiPlay partner (shop, craftsman or service provider, with or
-/// without premises). Never promises unlimited plays nor a new play on the
-/// same game the same day.
+/// Short invitations to the shop QR of this game, shown after a losing
+/// classic play while its extra QR play is still available (see
+/// mayInviteToShopQr). Never promises unlimited plays.
 const List<String> kPartnerPlayMessages = [
-  'Pas gagné ? Retentez votre chance chez un partenaire !',
-  'Des parties supplémentaires chez nos partenaires !',
-  'Plus de chances ? Jouez encore chez nos partenaires !',
-  'Scannez un QR code partenaire pour jouer gratuitement !',
-  'Vos 3 chances sont épuisées ? Scannez chez un partenaire !',
+  'Passe sur place et scanne le QR pour rejouer !',
+  "Pas gagné ? Une nouvelle chance t'attend sur place !",
+  'Envie de retenter ta chance ? Scanne le QR sur place !',
 ];
 
 /// About one losing scratch out of [kPartnerPlayMessageOneIn].

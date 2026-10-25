@@ -6,19 +6,24 @@ import 'package:proxi_play/utils/partner_play_messages.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  test('exactly the five validated messages, without unlimited or same-game promise', () {
+  test('exactly the three validated shop QR invitations, without unlimited promise', () {
     expect(kPartnerPlayMessages, [
-      'Pas gagné ? Retentez votre chance chez un partenaire !',
-      'Des parties supplémentaires chez nos partenaires !',
-      'Plus de chances ? Jouez encore chez nos partenaires !',
-      'Scannez un QR code partenaire pour jouer gratuitement !',
-      'Vos 3 chances sont épuisées ? Scannez chez un partenaire !',
+      'Passe sur place et scanne le QR pour rejouer !',
+      "Pas gagné ? Une nouvelle chance t'attend sur place !",
+      'Envie de retenter ta chance ? Scanne le QR sur place !',
     ]);
     for (final message in kPartnerPlayMessages) {
       final lower = message.toLowerCase();
       expect(lower, isNot(contains('illimit')));
-      expect(lower, isNot(contains('ce jeu')));
-      expect(lower, isNot(contains("aujourd'hui")));
+      expect(lower, isNot(contains('gratuit')));
+    }
+  });
+
+  test('a last index stored by an older version never blocks a message', () {
+    final random = Random(11);
+    for (var i = 0; i < 200; i++) {
+      final index = pickPartnerPlayMessageIndex(random, lastIndex: 4);
+      if (index != null) expect(index, inInclusiveRange(0, 2));
     }
   });
 
@@ -48,7 +53,7 @@ void main() {
         last = index;
       }
     }
-    expect(seen, {0, 1, 2, 3, 4});
+    expect(seen, {0, 1, 2});
   });
 
   test('the last message is remembered on the device across scratches', () async {
@@ -72,7 +77,10 @@ void main() {
     final losing = page.indexOf('_model.isWin = false;\n');
     final chosen = page.indexOf('await nextPartnerPlayMessage()');
     expect(chosen, greaterThan(losing));
-    expect(page.substring(losing, chosen), contains('if (!isAlreadyPlayedStatus)'));
+    final gate = page.substring(losing, chosen).replaceAll(RegExp(r'\s+'), '');
+    expect(gate, contains('if(mayInviteToShopQr('));
+    expect(gate, contains('shopQrPlayAvailable:widget.shopQrPlayAvailable'));
+    expect(gate, contains('isReplay:isAlreadyPlayedStatus'));
     // Displayed inside the existing result panel, never after a win, no popup.
     final display = page.indexOf("ValueKey(\n                                                  'partner-play-message')");
     expect(display, greaterThan(page.indexOf('if (_model.cardReveal)\n                                  Container(')));

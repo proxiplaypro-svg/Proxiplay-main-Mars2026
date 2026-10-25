@@ -20,6 +20,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import '/utils/partner_play_messages.dart';
+import '/utils/scratch_result_messages.dart';
 import 'play_joueur_page_model.dart';
 export 'play_joueur_page_model.dart';
 
@@ -48,7 +49,12 @@ class PlayJoueurPageWidget extends StatefulWidget {
     this.attemptId,
     this.onGameScreenMounted,
     this.alreadyParticipatedToday = false,
+    this.shopQrPlayAvailable = false,
   });
+
+  /// True only when the caller knows this was a classic play and the extra
+  /// shop QR play of this game is still available today; false when unknown.
+  final bool shopQrPlayAvailable;
 
   final GamesRecord? game;
   final ResultParticipationGameStruct? resultParticipation;
@@ -80,18 +86,6 @@ class PlayJoueurPageWidget extends StatefulWidget {
 }
 
 class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
-  static const List<String> _messagesTirage = [
-    'Participation validée. Rendez-vous au tirage final !',
-    'Ta participation est enregistrée pour le tirage au sort.',
-    'Tu es bien inscrit(e) au tirage final, patience !',
-  ];
-
-  static const List<String> _messagesInstant = [
-    'Rien pour cette fois, retente ta chance demain !',
-    'La chance peut te sourire à chaque instant !',
-    'Une autre fois sûrement !',
-  ];
-
   late PlayJoueurPageModel _model;
   String? _resultMessage;
   String? _resultMessageBonus;
@@ -167,8 +161,8 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     }
 
     final game = widget.game;
-    final mainPrize = game != null && hasMainPrize(game);
-    final messages = mainPrize ? _messagesTirage : _messagesInstant;
+    final mainPrize = game != null && game.hasHasMainPrize() && game.hasMainPrize;
+    final messages = lossMessagePool(hasMainPrize: mainPrize);
     final pickedMessage = _pickDisplayMessage(messages);
     _logPlayPageTrace(
       'play_page_resolve_display_message_return',
@@ -1134,10 +1128,15 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                     } else {
                                                       _model.isWin = false;
                                                       safeSetState(() {});
-                                                      // About one real losing scratch out of three
-                                                      // (never a replay of an already played game):
-                                                      // a short invitation to play at a partner.
-                                                      if (!isAlreadyPlayedStatus) {
+                                                      // About one real losing classic scratch out of
+                                                      // three, while the shop QR play is still
+                                                      // available: a short invitation to scan it.
+                                                      if (mayInviteToShopQr(
+                                                        shopQrPlayAvailable:
+                                                            widget.shopQrPlayAvailable,
+                                                        isWin: false,
+                                                        isReplay: isAlreadyPlayedStatus,
+                                                      )) {
                                                         final partnerMessage =
                                                             await nextPartnerPlayMessage();
                                                         if (mounted && partnerMessage != null) {

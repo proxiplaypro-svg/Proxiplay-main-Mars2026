@@ -87,6 +87,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     final id =
         '${DateTime.now().microsecondsSinceEpoch}_${widget.gameDoc?.reference.id ?? 'unknown'}';
     _currentAttemptId = id;
+    // QR-only plays: no classic play, so no shop QR invitation.
+    _shopQrPlayAvailableAfterPlay = false;
     return id;
   }
 
@@ -140,8 +142,13 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     });
   }
 
+  /// Set when a play is launched: a classic play of a public game whose
+  /// extra shop QR play was known to be still available. Lets the result
+  /// screen invite the player to scan; false whenever unknown.
+  bool _shopQrPlayAvailableAfterPlay = false;
+
   /// Which play the public game button offers, from the player's tickets.
-  ({bool shopPlay, bool classicPlayedToday}) _dailyPlay(
+  ({bool shopPlay, bool classicPlayedToday, bool shopPlayAvailable}) _dailyPlay(
     AsyncSnapshot<QuerySnapshot> ticketSnapshot,
     DateTime? lastPlay,
   ) {
@@ -159,6 +166,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         now: now,
       ),
       classicPlayedToday: state.classicPlayedToday,
+      // Known only once the tickets are loaded.
+      shopPlayAvailable: ticketSnapshot.hasData &&
+          !state.shopPlayedToday &&
+          !shopPlayUsedToday(widget.gameDoc?.reference.id ?? '', now),
     );
   }
 
@@ -892,6 +903,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                 source: widget.source,
                 attemptId: attemptId,
                 alreadyParticipatedToday: outcome.alreadyParticipatedToday,
+                shopQrPlayAvailable: _shopQrPlayAvailableAfterPlay &&
+                    !outcome.alreadyParticipatedToday &&
+                    !(response.jsonBody is Map &&
+                        (response.jsonBody as Map)['shopPlay'] == true),
                 onGameScreenMounted: () {
                   if (!mountedBy.isCompleted) {
                     mountedBy.complete();
@@ -1838,6 +1853,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                 );
                                                                                 final shopPlay = daily.shopPlay;
                                                                                 final attemptId = _dailyPlayAttemptId(shopPlay);
+                                                                                _shopQrPlayAvailableAfterPlay =
+                                                                                    !shopPlay && daily.shopPlayAvailable;
                                                                                 await _launchGame(
                                                                                   attemptId: attemptId,
                                                                                   participate: () async {
@@ -2038,6 +2055,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                 );
                                                                                 final shopPlay = daily.shopPlay;
                                                                                 final attemptId = _dailyPlayAttemptId(shopPlay);
+                                                                                _shopQrPlayAvailableAfterPlay =
+                                                                                    !shopPlay && daily.shopPlayAvailable;
                                                                                 await _launchGame(
                                                                                   attemptId: attemptId,
                                                                                   participate: () async {
