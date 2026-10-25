@@ -18,6 +18,7 @@ import '/utils/minor_restricted_game_access.dart';
 import '/utils/main_prize_ticket_presentation.dart';
 import '/utils/main_prize_presentation.dart';
 import '/utils/share_links.dart';
+import '/utils/game_daily_play.dart';
 import '/utils/qr_game_presentation.dart';
 import '/utils/game_view_tracker.dart';
 import '/utils/winner_identity.dart';
@@ -119,12 +120,8 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     if (animationId.trim().isNotEmpty) {
       return false;
     }
-    // A game opened from its shop QR (token kept from the scan) is free to
-    // play, public or QR-only; the server verifies the token and debits
-    // normally if it is no longer valid.
-    if (gameQrToken(widget.gameDoc?.reference.id ?? '') != null) {
-      return false;
-    }
+    // Balance only: the free shop QR play is offered on top of it, see
+    // offersShopPlay (QR-only games have their own button).
     return getSafeRemainingPart(
               user,
               triggerRepair: true,
@@ -141,6 +138,56 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
     safeSetState(() {
       _isLaunchingGame = value;
     });
+  }
+
+  /// Which play the public game button offers, from the player's tickets.
+  ({bool shopPlay, bool classicPlayedToday}) _dailyPlay(
+    AsyncSnapshot<QuerySnapshot> ticketSnapshot,
+    DateTime? lastPlay,
+  ) {
+    final now = DateTime.now();
+    final state = dailyPlayState(
+      ticketIds: ticketSnapshot.data?.docs.map((doc) => doc.id) ??
+          const <String>[],
+      lastPlay: lastPlay,
+      now: now,
+    );
+    return (
+      shopPlay: offersShopPlay(
+        gameId: widget.gameDoc?.reference.id ?? '',
+        state: state,
+        now: now,
+      ),
+      classicPlayedToday: state.classicPlayedToday,
+    );
+  }
+
+  /// A shop play whose answer was lost keeps its attempt id, so the server
+  /// replays it instead of playing (and debiting) again.
+  String _dailyPlayAttemptId(bool shopPlay) {
+    final gameId = widget.gameDoc?.reference.id ?? 'unknown';
+    final id = shopPlay
+        ? shopPlayAttemptId(gameId, () => _createAttemptId(gameId))
+        : _createAttemptId(gameId);
+    _currentAttemptId = id;
+    return id;
+  }
+
+  void _settleDailyPlay(
+    bool shopPlay,
+    ParticipateInGameTransactionCloudFunctionCallResponse response,
+  ) {
+    if (!shopPlay) {
+      return;
+    }
+    final body = response.jsonBody;
+    settleShopPlayAttempt(
+      widget.gameDoc?.reference.id ?? 'unknown',
+      succeeded: response.succeeded == true,
+      errorCode: response.errorCode,
+      now: DateTime.now(),
+      shopPlayDone: body is Map && body['shopPlay'] == true,
+    );
   }
 
   String _createAttemptId(String gameId) {
@@ -279,6 +326,7 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
         jsonBody: result.data,
       );
     } on FirebaseFunctionsException catch (error) {
+      forgetRefusedShopQr(widget.gameDoc?.reference.id ?? '', error.details);
       return ParticipateInGameTransactionCloudFunctionCallResponse(
         data: createResultParticipationGameStruct(
           message: error.message ?? 'Erreur (${error.code})',
@@ -1750,6 +1798,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                             ?.docs
                                                                             .length ??
                                                                         0;
+                                                                    final daily = _dailyPlay(
+                                                                      ticketSnapshot,
+                                                                      lastPlay,
+                                                                    );
                                                                     return Visibility(
                                                                       visible: widget
                                                                               .gameDoc!
@@ -1763,9 +1815,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                           gameEnded:
                                                                               widget.gameDoc!.endDate! < getCurrentTimestamp,
                                                                           noRemainingParts:
-                                                                              noRemainingParts,
+                                                                              noRemainingParts && !daily.shopPlay,
                                                                           hasPlayedToday:
-                                                                              hasPlayedToday,
+                                                                              daily.classicPlayedToday && !daily.shopPlay,
                                                                           isLaunchingGame:
                                                                               _isLaunchingGame,
                                                                         )
@@ -1784,13 +1836,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                 debugPrint(
                                                                                   '[GAME_FLOW_DEBUG] participate_start screen=JeuDetailJoueurPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
                                                                                 );
+                                                                                final shopPlay = daily.shopPlay;
+                                                                                final attemptId = _dailyPlayAttemptId(shopPlay);
                                                                                 await _launchGame(
-                                                                                  attemptId: _newAttemptId(),
+                                                                                  attemptId: attemptId,
                                                                                   participate: () async {
-                                                                                    final attemptId = _currentAttemptId ??
-                                                                                        _createAttemptId(
-                                                                                          widget.gameDoc?.reference.id ?? 'unknown',
-                                                                                        );
                                                                                     final lastPlay = _coerceDateTime(
                                                                                       jeuDetailJoueurPageParticipantsDetailsRecord?.lastPlay,
                                                                                     );
@@ -1805,17 +1855,21 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                       gameId: widget.gameDoc?.reference.id ?? 'unknown',
                                                                                       lastPlay: lastPlay,
                                                                                       hasPlayedToday: hasPlayedTodayNow,
-                                                                                      detail: 'source=${widget.source ?? 'unknown'} fromQr=${widget.fromQr}',
+                                                                                      detail: 'source=${widget.source ?? 'unknown'} fromQr=${widget.fromQr} shopPlay=$shopPlay',
                                                                                     );
                                                                                     _model.cloudFunction3sn = await _callParticipateInGameTransaction(
                                                                                       attemptId: attemptId,
                                                                                       payload: {
                                                                                         "gameRef": widget.gameDoc!.reference.id,
                                                                                         "from_qr": widget.fromQr,
-                                                                                        "qr_token": gameQrToken(widget.gameDoc!.reference.id),
+                                                                                        ...dailyPlayPayloadFields(
+                                                                                          widget.gameDoc!.reference.id,
+                                                                                          shopPlay: shopPlay,
+                                                                                        ),
                                                                                         "attemptId": attemptId,
                                                                                       },
                                                                                     );
+                                                                                    _settleDailyPlay(shopPlay, _model.cloudFunction3sn!);
                                                                                     return _model.cloudFunction3sn!;
                                                                                   },
                                                                                 );
@@ -1827,18 +1881,24 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                             currentUserDocument,
                                                                             getCurrentTimestamp,
                                                                           );
-                                                                          if (noRemainingPartsLive) {
+                                                                          if (daily.shopPlay &&
+                                                                              widget.gameDoc!.endDate! >= getCurrentTimestamp) {
+                                                                            return _isLaunchingGame
+                                                                                ? 'Chargement du jeu\u2026'
+                                                                                : shopPlayButtonLabel;
+                                                                          } else if (noRemainingPartsLive &&
+                                                                              !daily.classicPlayedToday) {
                                                                             return 'Vous n\'avez plus de parties';
                                                                           } else if (widget.gameDoc!.endDate! <
                                                                               getCurrentTimestamp) {
                                                                             return 'Le jeu est termin\u00E9';
                                                                           } else if (hasMainPrizeFlag &&
-                                                                              hasPlayedToday &&
+                                                                              daily.classicPlayedToday &&
                                                                               ticketCount > 0) {
                                                                             return mainPrizeTicketLabel(
                                                                               ticketCount,
                                                                             );
-                                                                          } else if (hasPlayedToday) {
+                                                                          } else if (daily.classicPlayedToday) {
                                                                             return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
                                                                           } else if (hasPlayedBefore) {
                                                                             return 'Rejouer';
@@ -1947,6 +2007,10 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                       final ticketCount =
                                                                           ticketSnapshot.data?.docs.length ??
                                                                               0;
+                                                                      final daily = _dailyPlay(
+                                                                        ticketSnapshot,
+                                                                        lastPlay,
+                                                                      );
                                                                       return FFButtonWidget(
                                                                         showLoadingIndicator:
                                                                             false,
@@ -1954,9 +2018,9 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                           gameEnded:
                                                                               widget.gameDoc!.endDate! < getCurrentTimestamp,
                                                                           noRemainingParts:
-                                                                              noRemainingPartsLive,
+                                                                              noRemainingPartsLive && !daily.shopPlay,
                                                                           hasPlayedToday:
-                                                                              hasPlayedToday,
+                                                                              daily.classicPlayedToday && !daily.shopPlay,
                                                                           isLaunchingGame:
                                                                               _isLaunchingGame,
                                                                         )
@@ -1972,13 +2036,11 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                 debugPrint(
                                                                                   '[GAME_FLOW_DEBUG] participate_start screen=JeuDetailJoueurPage gameId=${widget.gameDoc?.reference.id ?? 'unknown'} source=${widget.source ?? 'unknown'}',
                                                                                 );
+                                                                                final shopPlay = daily.shopPlay;
+                                                                                final attemptId = _dailyPlayAttemptId(shopPlay);
                                                                                 await _launchGame(
-                                                                                  attemptId: _newAttemptId(),
+                                                                                  attemptId: attemptId,
                                                                                   participate: () async {
-                                                                                    final attemptId = _currentAttemptId ??
-                                                                                        _createAttemptId(
-                                                                                          widget.gameDoc?.reference.id ?? 'unknown',
-                                                                                        );
                                                                                     final lastPlay = _coerceDateTime(
                                                                                       jeuDetailJoueurPageParticipantsDetailsRecord?.lastPlay,
                                                                                     );
@@ -1993,35 +2055,45 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
                                                                                       gameId: widget.gameDoc?.reference.id ?? 'unknown',
                                                                                       lastPlay: lastPlay,
                                                                                       hasPlayedToday: hasPlayedTodayNow,
-                                                                                      detail: 'source=${widget.source ?? 'unknown'} fromQr=${widget.fromQr}',
+                                                                                      detail: 'source=${widget.source ?? 'unknown'} fromQr=${widget.fromQr} shopPlay=$shopPlay',
                                                                                     );
                                                                                     _model.cloudFunction3sn2 = await _callParticipateInGameTransaction(
                                                                                       attemptId: attemptId,
                                                                                       payload: {
                                                                                         "gameRef": widget.gameDoc!.reference.id,
                                                                                         "from_qr": widget.fromQr,
-                                                                                        "qr_token": gameQrToken(widget.gameDoc!.reference.id),
+                                                                                        ...dailyPlayPayloadFields(
+                                                                                          widget.gameDoc!.reference.id,
+                                                                                          shopPlay: shopPlay,
+                                                                                        ),
                                                                                         "attemptId": attemptId,
                                                                                       },
                                                                                     );
+                                                                                    _settleDailyPlay(shopPlay, _model.cloudFunction3sn2!);
                                                                                     return _model.cloudFunction3sn2!;
                                                                                   },
                                                                                 );
                                                                               },
                                                                         text:
                                                                             () {
-                                                                          if (noRemainingPartsLive) {
+                                                                          if (daily.shopPlay &&
+                                                                              widget.gameDoc!.endDate! >= getCurrentTimestamp) {
+                                                                            return _isLaunchingGame
+                                                                                ? 'Chargement du jeu\u2026'
+                                                                                : shopPlayButtonLabel;
+                                                                          } else if (noRemainingPartsLive &&
+                                                                              !daily.classicPlayedToday) {
                                                                             return 'Vous n\'avez plus de parties';
                                                                           } else if (widget.gameDoc!.endDate! <
                                                                               getCurrentTimestamp) {
                                                                             return 'Le jeu est termin\u00E9';
                                                                           } else if (hasMainPrizeFlag &&
-                                                                              hasPlayedToday &&
+                                                                              daily.classicPlayedToday &&
                                                                               ticketCount > 0) {
                                                                             return mainPrizeTicketLabel(
                                                                               ticketCount,
                                                                             );
-                                                                          } else if (hasPlayedToday) {
+                                                                          } else if (daily.classicPlayedToday) {
                                                                             return 'Vous avez d\u00E9j\u00E0 jou\u00E9';
                                                                           } else if (hasPlayedBefore) {
                                                                             return 'Rejouer';

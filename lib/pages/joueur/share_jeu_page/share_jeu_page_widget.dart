@@ -14,6 +14,7 @@ import '/utils/create_account_to_play_dialog.dart';
 import '/utils/game_launch_coordinator.dart';
 import '/utils/minor_restricted_game_access.dart';
 import '/utils/share_links.dart';
+import '/utils/game_daily_play.dart';
 import '/utils/game_view_tracker.dart';
 import '/widgets/proxiplay_network_image.dart';
 import '/index.dart';
@@ -183,6 +184,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
         jsonBody: result.data,
       );
     } on FirebaseFunctionsException catch (error) {
+      forgetRefusedShopQr(gameId, error.details);
       return ParticipateInGameTransactionCloudFunctionCallResponse(
         data: createResultParticipationGameStruct(
           message: error.message ?? 'Erreur (${error.code})',
@@ -736,8 +738,26 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                 if (!await _ensureMinorRestrictedGameEligibility()) {
                                                                   return;
                                                                 }
-                                                                final attemptId =
-                                                                    _newAttemptId();
+                                                                // No ticket list here: the shop play is offered
+                                                                // until this session knows it is used; the
+                                                                // server refuses a second one without a debit.
+                                                                final gameId = widget
+                                                                    .gameDoc!
+                                                                    .reference
+                                                                    .id;
+                                                                final shopPlay = offersShopPlay(
+                                                                  gameId: gameId,
+                                                                  state: const DailyPlayState(
+                                                                    classicPlayedToday: false,
+                                                                    shopPlayedToday: false,
+                                                                  ),
+                                                                  now: DateTime.now(),
+                                                                );
+                                                                final attemptId = shopPlay
+                                                                    ? shopPlayAttemptId(
+                                                                        gameId,
+                                                                        _newAttemptId)
+                                                                    : _newAttemptId();
                                                                 final lastPlay =
                                                                     _coerceDateTime(
                                                                   shareJeuPageParticipantsDetailsRecord
@@ -781,14 +801,33 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                             .reference
                                                                             .id,
                                                                         // Shop QR token kept from the scan, if any.
-                                                                        "qr_token": gameQrToken(widget
-                                                                            .gameDoc!
-                                                                            .reference
-                                                                            .id),
+                                                                        ...dailyPlayPayloadFields(
+                                                                            gameId,
+                                                                            shopPlay:
+                                                                                shopPlay),
                                                                         "attemptId":
                                                                             attemptId,
                                                                       },
                                                                     );
+                                                                    if (shopPlay) {
+                                                                      final body = _model
+                                                                          .cloudFunction3sn!
+                                                                          .jsonBody;
+                                                                      settleShopPlayAttempt(
+                                                                        gameId,
+                                                                        succeeded: _model
+                                                                                .cloudFunction3sn!
+                                                                                .succeeded ==
+                                                                            true,
+                                                                        errorCode: _model
+                                                                            .cloudFunction3sn!
+                                                                            .errorCode,
+                                                                        now: DateTime.now(),
+                                                                        shopPlayDone: body is Map &&
+                                                                            body['shopPlay'] ==
+                                                                                true,
+                                                                      );
+                                                                    }
                                                                     return _model
                                                                         .cloudFunction3sn!;
                                                                   },
@@ -799,6 +838,22 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                   .endDate! <
                                                               getCurrentTimestamp) {
                                                             return 'Le jeu est termin\u00E9';
+                                                          } else if (!_isLaunchingGame &&
+                                                              offersShopPlay(
+                                                                gameId: widget
+                                                                    .gameDoc!
+                                                                    .reference
+                                                                    .id,
+                                                                state:
+                                                                    const DailyPlayState(
+                                                                  classicPlayedToday:
+                                                                      false,
+                                                                  shopPlayedToday:
+                                                                      false,
+                                                                ),
+                                                                now: DateTime.now(),
+                                                              )) {
+                                                            return shopPlayButtonLabel;
                                                           } else if ((shareJeuPageParticipantsDetailsRecord !=
                                                                   null) &&
                                                               (shareJeuPageParticipantsDetailsRecord

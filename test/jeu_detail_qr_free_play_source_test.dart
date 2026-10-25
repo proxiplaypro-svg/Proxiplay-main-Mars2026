@@ -18,20 +18,22 @@ void main() {
     return source.substring(start, end);
   }
 
-  test('a scanned game (token kept) is never blocked for lack of chances', () {
-    final body = gateBody();
-    final tokenCheck = body.indexOf('gameQrToken(');
-    final balanceCheck = body.indexOf('getSafeRemainingPart(');
-    expect(tokenCheck, isNot(-1));
-    expect(tokenCheck < balanceCheck, isTrue,
-        reason: 'the token check must run before the balance check');
-    expect(body.contains('accessMode'), isFalse,
-        reason: 'the rule applies to public and QR-only games alike');
+  test('the free shop play lifts the balance and "already played" gates', () {
+    // The balance gate is the balance only; both public buttons lift it, and
+    // the "already played" gate, while the shop play is offered.
+    expect(gateBody().contains('gameQrToken('), isFalse);
+    final compact = source.replaceAll(RegExp(r'\s+'), '');
+    expect(RegExp(r'noRemainingParts:noRemainingParts(Live)?&&!daily\.shopPlay').allMatches(compact).length, 2);
+    expect(RegExp(r'hasPlayedToday:daily\.classicPlayedToday&&!daily\.shopPlay').allMatches(compact).length, 2);
   });
 
   test('every participation call forwards the scan token to the server', () {
-    final calls = RegExp(r'"from_qr":').allMatches(source).length;
-    final tokens = RegExp(r'"qr_token": gameQrToken\(').allMatches(source).length;
+    final compact = source.replaceAll(RegExp(r'\s+'), '');
+    final calls = RegExp(r'"from_qr":').allMatches(compact).length;
+    // QR-only buttons always send the token; public buttons send it with the
+    // shop play only (dailyPlayPayloadFields).
+    final tokens = RegExp(r'"qr_token":gameQrToken\(').allMatches(compact).length +
+        RegExp(r'\.\.\.dailyPlayPayloadFields\(').allMatches(compact).length;
     expect(calls, greaterThan(0));
     expect(tokens, calls);
   });
@@ -42,7 +44,7 @@ void main() {
         .readAsStringSync()
         .replaceAll(RegExp(r'\s+'), '');
     final calls = RegExp(r'"gameRef":').allMatches(share).length;
-    final tokens = RegExp(r'"qr_token":gameQrToken\(').allMatches(share).length;
+    final tokens = RegExp(r'\.\.\.dailyPlayPayloadFields\(').allMatches(share).length;
     expect(calls, greaterThan(0));
     expect(tokens, calls);
   });

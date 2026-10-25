@@ -50,6 +50,9 @@ void rememberGameQrToken(String gameId, Uri uri) {
   }
 }
 
+/// Drops a token the server refused (expired or replaced poster).
+void forgetGameQrToken(String gameId) => _gameQrTokens.remove(gameId);
+
 /// A link proxiplay://game/<id>[?qr_token=...] (opened by the /j web page
 /// when the App Link does not open the app directly) reaches the router as
 /// /<id>[?...]: the "game" host is dropped before routing, so no route

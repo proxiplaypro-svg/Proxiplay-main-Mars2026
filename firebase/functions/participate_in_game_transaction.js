@@ -113,6 +113,17 @@ function resolveCachedLastResult(detailData) {
   };
 }
 
+// Last classic play: last_classic_play once written (null: none yet), else
+// last_play, which only classic plays moved before the shop play existed.
+function classicLastPlay(detailData) {
+  if (!detailData) {
+    return null;
+  }
+  return Object.prototype.hasOwnProperty.call(detailData, "last_classic_play")
+    ? detailData.last_classic_play
+    : detailData.last_play;
+}
+
 function sanitizeDisplayText(value) {
   if (typeof value !== "string") return "";
   let output = value;
@@ -392,6 +403,9 @@ exports.participateInGameTransaction = functions.https.onCall(
         const participantsRef = gameRef.collection("participants");
         userRef = db.collection("users").doc(uid);
         const participantTodayRef = participantsRef.doc(participantDocId);
+        // The free shop QR play of a public game is a second daily ticket,
+        // on top of the classic play (one ticket in the final draw each).
+        const shopTicketRef = participantsRef.doc(`${participantDocId}_qr`);
         const uniquePlayerRef = gameRef
           .collection("unique_players")
           .doc(uid);
@@ -417,6 +431,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           participantTodayDoc,
           participantDetailDoc,
           uniquePlayerDoc,
+          shopTicketDoc,
         ] =
           await Promise.all([
             transaction.get(gameRef),
@@ -424,6 +439,7 @@ exports.participateInGameTransaction = functions.https.onCall(
             transaction.get(participantTodayRef),
             transaction.get(participantDetailRef),
             transaction.get(uniquePlayerRef),
+            transaction.get(shopTicketRef),
           ]);
 
         // Must happen before any transaction.set()/update() below --
@@ -496,19 +512,66 @@ exports.participateInGameTransaction = functions.https.onCall(
               : "Ce compte ou ce jeu ne permet plus de participer."
           );
         }
+        // A retried attempt (its answer lost to a network cut) gets its own
+        // result back: never a second play, never a debit.
+        const detailForReplay = participantDetailDoc.exists
+          ? participantDetailDoc.data() || {}
+          : {};
+        const replayedTicket = [participantTodayDoc, shopTicketDoc].find(
+          (doc) => doc.exists && doc.data()?.attempt_id === attemptId
+        );
+        if (replayedTicket) {
+          const replayedShopPlay = replayedTicket.id === shopTicketRef.id;
+          transactionDecision = "attempt_replayed";
+          responseData = {
+            ...(resolveCachedLastResult({
+              last_result: replayedShopPlay
+                ? detailForReplay.last_shop_result
+                : detailForReplay.last_result,
+            }) || {
+              message: "Vous avez déjà participé aujourd'hui.",
+              messageBonus: "",
+              isWin: false,
+              prize_id: null,
+            }),
+            alreadyParticipatedToday: true,
+            shopPlay: replayedShopPlay,
+          };
+          return;
+        }
+
         // A scan in the shop is proven by the game's printed QR token, never
         // by the from_qr flag. QR-only games require it; a public game may be
-        // played without it, and an absent or stale token is a normal play.
+        // played without it.
         const qrAccess = require('./game_qr_access');
+        const qrOnly = gameData.access_mode === "qr_only";
+        // Sent by the app from 1.1.2: "qr" for the free shop play, "classic"
+        // for the daily play (any token is then ignored).
+        const requestedMode = ["qr", "classic"].includes(data.participation_mode)
+          ? data.participation_mode
+          : null;
         let scannedInShop = false;
-        if (gameData.access_mode === "qr_only") {
+        if (qrOnly) {
           await qrAccess.validateQr(
             transaction, gameRef, gameData, data.qr_token, now);
           scannedInShop = true;
-        } else if (data.qr_token != null) {
+        } else if (requestedMode !== "classic" && data.qr_token != null) {
           scannedInShop = await qrAccess.isValidQr(
             transaction, gameRef, gameData, data.qr_token, now);
         }
+        // An explicit shop play with an absent, expired or revoked token is
+        // refused, never turned into a paid play. Apps before 1.1.2 send no
+        // mode: their invalid token stays a normal play, as before.
+        if (!qrOnly && requestedMode === "qr" && !scannedInShop) {
+          throw new functions.https.HttpsError(
+            "failed-precondition",
+            "QR invalide ou expiré. Scannez le QR en boutique.",
+            {reason: "invalid_shop_qr"}
+          );
+        }
+        // The extra free play of a public game. A QR-only game has no classic
+        // play: its scan stays its single daily play.
+        const shopPlay = scannedInShop && !qrOnly;
         const userData = userDoc.data();
         // Apply final-draw eligibility to the participation/instant path too.
         // Otherwise an excluded account can win instantly and its activity
@@ -756,7 +819,28 @@ exports.participateInGameTransaction = functions.https.onCall(
           uniquePlayerNew = true;
         }
 
-        if (alreadyParticipatedToday) {
+        // A second scan the same day: the shop play is used, and a scan is
+        // never turned into a paid classic play (that one stays available
+        // from the game page).
+        if (shopPlay && shopTicketDoc.exists) {
+          transactionDecision = "shop_play_already_used";
+          responseData = {
+            ...(resolveCachedLastResult({
+              last_result: detailForReplay.last_shop_result,
+            }) || {
+              message: "Vous avez déjà utilisé votre partie offerte en boutique aujourd'hui.",
+              messageBonus: "",
+              isWin: false,
+              prize_id: null,
+            }),
+            alreadyParticipatedToday: true,
+            shopPlay: true,
+            shopPlayAlreadyUsed: true,
+          };
+          return;
+        }
+
+        if (!shopPlay && alreadyParticipatedToday) {
           transactionDecision = "already_played_participant_today";
           finalLastPlayIso = traceSerializable(participantDetailLastPlay);
           finalRemainingPartValue = remainingPart;
@@ -786,10 +870,11 @@ exports.participateInGameTransaction = functions.https.onCall(
           return;
         }
 
-        // Bonus/jour
-        if (participantDetailDoc.exists) {
+        // Bonus/jour. last_play also moves on a shop play: the classic gate
+        // reads last_classic_play once the record has it.
+        if (!shopPlay && participantDetailDoc.exists) {
           const detailData = participantDetailDoc.data();
-          const lastPlay = detailData.last_play?.toDate?.();
+          const lastPlay = classicLastPlay(detailData)?.toDate?.();
           const hasPlayedToday =
             !!lastPlay && getParisDayKey(lastPlay) === dayKey;
           const bonus = detailData.game_bonus || 0;
@@ -859,6 +944,16 @@ exports.participateInGameTransaction = functions.https.onCall(
           reservedInstantClaimCode = await reserveClaimCode(transaction, db);
         }
 
+        // last_play is any play (what apps before 1.1.2 read); the classic
+        // and shop plays are also recorded apart.
+        const playDates = shopPlay
+          ? {
+              last_shop_play: now,
+              last_classic_play: participantDetailDoc.exists
+                ? classicLastPlay(participantDetailDoc.data()) || null
+                : null,
+            }
+          : {last_classic_play: now};
         if (participantDetailDoc.exists) {
           const detailData = participantDetailDoc.data();
           const bonus = detailData.game_bonus || 0;
@@ -866,6 +961,7 @@ exports.participateInGameTransaction = functions.https.onCall(
             last_play: now,
             game_bonus: bonus,
             user_id: userRef,
+            ...playDates,
           });
           transaction.set(
             participantDetailRef,
@@ -873,6 +969,7 @@ exports.participateInGameTransaction = functions.https.onCall(
               last_play: now,
               game_bonus: bonus,
               user_id: userRef,
+              ...playDates,
             },
             { merge: true }
           );
@@ -881,11 +978,13 @@ exports.participateInGameTransaction = functions.https.onCall(
             last_play: now,
             game_bonus: 0,
             user_id: userRef,
+            ...playDates,
           });
           transaction.set(participantDetailRef, {
             last_play: now,
             game_bonus: 0,
             user_id: userRef,
+            ...playDates,
           });
         }
 
@@ -944,14 +1043,17 @@ exports.participateInGameTransaction = functions.https.onCall(
           });
         }
 
-        recordWrite("set", participantTodayRef, {
+        // One ticket per play; source tells QR plays apart in statistics,
+        // attempt_id lets a retried attempt replay instead of playing again.
+        const ticketRef = shopPlay ? shopTicketRef : participantTodayRef;
+        const ticket = {
           user_id: userRef,
           participation_date: now,
-        });
-        transaction.set(participantTodayRef, {
-          user_id: userRef,
-          participation_date: now,
-        });
+          source: scannedInShop ? "qr" : "classic",
+          attempt_id: attemptId,
+        };
+        recordWrite("set", ticketRef, ticket);
+        transaction.set(ticketRef, ticket);
 
         if (shouldUpdateAnimationEntry && animationEntryRef) {
           recordWrite("set", animationEntryRef, {
@@ -974,12 +1076,14 @@ exports.participateInGameTransaction = functions.https.onCall(
           );
         }
 
-        recordWrite("update", gameRef, {
+        const participationCounters = {
           participations: admin.firestore.FieldValue.increment(1),
-        });
-        transaction.update(gameRef, {
-          participations: admin.firestore.FieldValue.increment(1),
-        });
+          ...(scannedInShop
+            ? {qr_participations: admin.firestore.FieldValue.increment(1)}
+            : {}),
+        };
+        recordWrite("update", gameRef, participationCounters);
+        transaction.update(gameRef, participationCounters);
 
         let messageBonus = "";
         let remainingPartDelta = 0;
@@ -1153,6 +1257,7 @@ exports.participateInGameTransaction = functions.https.onCall(
           isWin: transactionLotGagne,
           prize_id: prizeRef ? prizeRef.path : null,
           alreadyParticipatedToday: false,
+          shopPlay,
           // Optionnel: garde l'info côté app si besoin un jour
           // hasMainPrize,
         };
@@ -1161,29 +1266,23 @@ exports.participateInGameTransaction = functions.https.onCall(
         // that lands on an "already played" branch above can hand the real
         // result back instead of a dead-end message (see
         // resolveCachedLastResult). Purely additive: does not affect
-        // remaining_part or any existing field.
+        // remaining_part or any existing field. The shop play keeps its own
+        // cache so each play replays its own result.
+        const cachedResultField = shopPlay ? "last_shop_result" : "last_result";
+        const cachedResult = {
+          animation: animationProgress,
+          message,
+          messageBonus,
+          isWin: transactionLotGagne,
+          prize_id: prizeRef ? prizeRef.path : null,
+          recorded_at: now,
+        };
         recordWrite("set", participantDetailRef, {
-          last_result: {
-              animation: animationProgress,
-            message,
-            messageBonus,
-            isWin: transactionLotGagne,
-            prize_id: prizeRef ? prizeRef.path : null,
-            recorded_at: now,
-          },
+          [cachedResultField]: cachedResult,
         });
         transaction.set(
           participantDetailRef,
-          {
-            last_result: {
-              animation: animationProgress,
-              message,
-              messageBonus,
-              isWin: transactionLotGagne,
-              prize_id: prizeRef ? prizeRef.path : null,
-              recorded_at: now,
-            },
-          },
+          {[cachedResultField]: cachedResult},
           { merge: true }
         );
 
