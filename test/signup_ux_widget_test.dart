@@ -27,6 +27,7 @@ import 'package:proxi_play/pages/auth/inscription_informations_page/inscription_
 import 'package:proxi_play/components/signup_progress_indicator.dart';
 import 'package:proxi_play/flutter_flow/nav/nav.dart';
 import 'package:proxi_play/auth/firebase_auth/firebase_user_provider.dart';
+import 'package:proxi_play/utils/share_links.dart';
 
 /// Signup UX regression tests (24/10/2026 Samsung findings: header overflow
 /// on the profile completion page, no progress feedback, referral code asked
@@ -550,6 +551,115 @@ void main() {
         expect(find.byType(InscriptionPageWidget), findsNothing, reason: link);
       }
       expect(FFAppState().pendingReferralCode, isEmpty);
+    });
+  });
+
+  // --- Shop QR link: the token must survive the way Android opens the app --
+  // (25/10/2026 Samsung: a shop QR scan opened through the browser lost its
+  // token, so the game was played as a normal, counted participation).
+  group('shop QR link delivered by the platform (real app router)', () {
+    const token = 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90';
+
+    Future<GoRouter> pumpRealApp(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final router = createRouter(AppStateNotifier.instance);
+      addTearDown(router.dispose);
+      await tester.pumpWidget(ChangeNotifierProvider<FFAppState>.value(
+        value: FFAppState(),
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: const [
+            FFLocalizationsDelegate(),
+            FallbackMaterialLocalizationDelegate(),
+            FallbackCupertinoLocalizationDelegate(),
+          ],
+          supportedLocales: const [Locale('fr')],
+          locale: const Locale('fr'),
+          theme: ThemeData(fontFamily: 'TestSans'),
+        ),
+      ));
+      await settle(tester);
+      AppStateNotifier.instance.update(ProxiPlayFirebaseUser(null));
+      AppStateNotifier.instance.stopShowingSplashImage();
+      await tester.pump(const Duration(seconds: 4));
+      return router;
+    }
+
+    // What the Android embedding sends when a link opens the app.
+    Future<void> platformOpens(WidgetTester tester, String link) async {
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        'flutter/navigation',
+        const JSONMethodCodec().encodeMethodCall(
+            MethodCall('pushRouteInformation', {'location': link, 'state': null})),
+        (_) {},
+      );
+      await settle(tester);
+    }
+
+    bool routeMatched(GoRouter router) =>
+        router.routerDelegate.currentConfiguration.matches.isNotEmpty;
+
+    for (final entry in const {
+      'https App Link (release build)': ['G_HTTPS', 'https://play.proxiplay.fr/j/G_HTTPS?qr_token=$token'],
+      'custom scheme from the /j web page (debug build, unverified App Link)':
+          ['G_SCHEME', 'proxiplay://game/G_SCHEME?qr_token=$token'],
+    }.entries) {
+      testWidgets('${entry.key}: the game opens and its token is kept', (tester) async {
+        ignoreKnownFontSubstitutionOverflow();
+        final router = await pumpRealApp(tester);
+        await platformOpens(tester, entry.value[1]);
+        final path = router.routerDelegate.currentConfiguration.uri.path;
+        expect(gameQrToken(entry.value[0]), token, reason: 'path reached: $path');
+        expect(routeMatched(router), isTrue, reason: 'path reached: $path');
+      });
+    }
+
+    testWidgets('an old proxiplay://game/<game> link without token still opens the game',
+        (tester) async {
+      ignoreKnownFontSubstitutionOverflow();
+      const gameId = 'AbCdEfGhIjKlMnOpQrSt';
+      final router = await pumpRealApp(tester);
+      await platformOpens(tester, 'proxiplay://game/$gameId');
+      final path = router.routerDelegate.currentConfiguration.uri.path;
+      expect(routeMatched(router), isTrue, reason: 'path reached: $path');
+      expect(path, isNot('/$gameId'));
+      expect(gameQrToken(gameId), isNull);
+    });
+
+    testWidgets('an invalid token is never kept', (tester) async {
+      ignoreKnownFontSubstitutionOverflow();
+      const gameId = 'BcDeFgHiJkLmNoPqRsTu';
+      final router = await pumpRealApp(tester);
+      await platformOpens(tester, 'proxiplay://game/$gameId?qr_token=not-a-token');
+      expect(routeMatched(router), isTrue);
+      expect(gameQrToken(gameId), isNull);
+    });
+  });
+
+  group('customSchemeGameLocation', () {
+    const token = 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90';
+    String? rewrite(String location, {bool matched = false}) =>
+        customSchemeGameLocation(Uri.parse(location), matched: matched);
+
+    test('a game id with its shop token goes to the game route, token kept', () {
+      expect(rewrite('/G1?qr_token=$token'), '/game/G1?qr_token=$token');
+    });
+
+    test('an old tokenless link with a Firestore game id goes to the game route', () {
+      expect(rewrite('/AbCdEfGhIjKlMnOpQrSt'), '/game/AbCdEfGhIjKlMnOpQrSt');
+    });
+
+    test('matched routes and other addresses are never rewritten', () {
+      expect(rewrite('/i?ref=99887766', matched: true), isNull);
+      expect(rewrite('/game/G1?qr_token=$token', matched: true), isNull);
+      expect(rewrite('/'), isNull);
+      expect(rewrite('/unknownPage'), isNull);
+      expect(rewrite('/a/b?qr_token=$token'), isNull);
+      expect(rewrite('/G1?qr_token=short'), isNull);
+      expect(rewrite('/bad%20id?qr_token=$token'), isNull);
     });
   });
 }

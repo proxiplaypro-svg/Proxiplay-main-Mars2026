@@ -35,4 +35,15 @@ void main() {
     expect(calls, greaterThan(0));
     expect(tokens, calls);
   });
+
+  test('the share page forwards the scan token to the server too', () {
+    final share = File(
+            'lib/pages/joueur/share_jeu_page/share_jeu_page_widget.dart')
+        .readAsStringSync()
+        .replaceAll(RegExp(r'\s+'), '');
+    final calls = RegExp(r'"gameRef":').allMatches(share).length;
+    final tokens = RegExp(r'"qr_token":gameQrToken\(').allMatches(share).length;
+    expect(calls, greaterThan(0));
+    expect(tokens, calls);
+  });
 }

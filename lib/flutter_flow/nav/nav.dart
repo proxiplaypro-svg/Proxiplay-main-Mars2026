@@ -248,6 +248,12 @@ class AppStateNotifier extends ChangeNotifier {
 GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
       initialLocation: '/',
       debugLogDiagnostics: false,
+      // proxiplay://game/<id> arrives without its "game" host: sent to the
+      // game route so the game opens and its shop QR token is kept.
+      redirect: (context, state) => customSchemeGameLocation(
+        state.uri,
+        matched: (state.fullPath ?? '').isNotEmpty,
+      ),
       refreshListenable: appStateNotifier,
       navigatorKey: appNavigatorKey,
       observers: [

@@ -50,6 +50,35 @@ void rememberGameQrToken(String gameId, Uri uri) {
   }
 }
 
+/// A link proxiplay://game/<id>[?qr_token=...] (opened by the /j web page
+/// when the App Link does not open the app directly) reaches the router as
+/// /<id>[?...]: the "game" host is dropped before routing, so no route
+/// matched and the shop QR token was lost (the game was then paid). For such
+/// an unmatched one-segment location, returns the game route, else null.
+/// Only a shop QR token or a Firestore game id (20 letters and digits)
+/// qualifies, so no other address is ever rewritten.
+String? customSchemeGameLocation(Uri uri, {required bool matched}) {
+  if (matched) {
+    return null;
+  }
+  final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+  if (segments.length != 1 ||
+      !RegExp(r'^[A-Za-z0-9_-]{1,128}$').hasMatch(segments.single)) {
+    return null;
+  }
+  final token = uri.queryParameters['qr_token'];
+  final hasShopToken =
+      token != null && RegExp(r'^[a-f0-9]{64}$').hasMatch(token);
+  if (!hasShopToken &&
+      !RegExp(r'^[A-Za-z0-9]{20}$').hasMatch(segments.single)) {
+    return null;
+  }
+  return Uri(
+    path: '/game/${segments.single}',
+    queryParameters: uri.queryParameters.isEmpty ? null : uri.queryParameters,
+  ).toString();
+}
+
 String _withQrToken(String link, String gameId, String? token) {
   final value = token ?? gameQrToken(gameId);
   return value == null

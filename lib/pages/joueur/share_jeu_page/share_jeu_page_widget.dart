@@ -780,6 +780,11 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                             .gameDoc!
                                                                             .reference
                                                                             .id,
+                                                                        // Shop QR token kept from the scan, if any.
+                                                                        "qr_token": gameQrToken(widget
+                                                                            .gameDoc!
+                                                                            .reference
+                                                                            .id),
                                                                         "attemptId":
                                                                             attemptId,
                                                                       },
