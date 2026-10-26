@@ -69,6 +69,9 @@ export interface ShareStateRecord {
   // while it lasts; the seen referral is kept server-side (all devices).
   referralBonusNotice?: ReferralBonusNotice | null;
   referralBonusNoticeSeenId?: string | null;
+  // Last referral game ticket granted (referral_reward_queue.js), shown once.
+  referralTicketNotice?: { referralId: string; gameId: string } | null;
+  referralTicketNoticeSeenId?: string | null;
   updatedAt?: admin.firestore.FieldValue | admin.firestore.Timestamp | null;
 }
 
@@ -108,6 +111,13 @@ export interface GetSharePromoStateResponse {
   action: string | null;
   // A granted bonus not yet presented to the player and still active.
   referralBonusNotice: { referralId: string; expiresAtMs: number } | null;
+  // A referral game ticket not yet presented, its game not drawn yet.
+  referralTicketNotice: {
+    referralId: string;
+    gameId: string;
+    gameTitle: string;
+    ticketCount: number;
+  } | null;
   campaign: {
     id: string;
     rewardType: string;

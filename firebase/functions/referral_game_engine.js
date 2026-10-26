@@ -47,9 +47,14 @@ async function drawReferralGame(gameId, {allowEarly = false, now = admin.firesto
     if (!allowEarly && (!game.end_date || game.end_date.toMillis() > now.toMillis())) {
       throw new Error("Referral game has not ended yet.");
     }
+    // Tickets still to be processed or reviewed: the draw waits. The counter
+    // is written by each acceptance on this very document, so an acceptance
+    // committing at the last moment can never be missed.
     const pendingRewards = await transaction.get(db.collection('referral_reward_pending')
       .where('game_id', '==', gameId).where('status', 'in', ['pending', 'manual_review_required']));
-    if (!pendingRewards.empty) return review(gameId, 'unresolved_referral_rewards');
+    if (!pendingRewards.empty || Number(game.pending_reward_count || 0) > 0) {
+      return review(gameId, 'unresolved_referral_rewards');
+    }
     const entriesSnap = await transaction.get(gameRef.collection("entries"));
     const eligible = [];
     const excludedEntries = [];

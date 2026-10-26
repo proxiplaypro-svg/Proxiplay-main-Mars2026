@@ -1,4 +1,4 @@
-const {prepareReferralReward, processReferralReward, retryPendingReferralRewards, pendingRef} = require('../../referral_reward_queue');
+const {prepareReferralReward, enqueueReferralReward, processReferralReward, retryPendingReferralRewards, pendingRef} = require('../../referral_reward_queue');
 const {ensureServerCreatedProfile} = require('../../new_account_profile');
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
@@ -277,8 +277,35 @@ export function pendingReferralBonusNotice(
   return { referralId: notice.referralId, expiresAtMs: Math.min(expiresAtMs, accessMs) };
 }
 
-// Marks the congratulation of this bonus as presented, for every device of
-// the account. Idempotent; only the current notice can be acknowledged.
+// The referral game ticket to confirm: not yet acknowledged, and its game
+// still waiting for its draw (a ticket of a drawn game is not announced).
+export async function pendingReferralTicketNotice(
+  uid: string,
+  shareState: Partial<ShareStateRecord>,
+): Promise<GetSharePromoStateResponse['referralTicketNotice']> {
+  const notice = shareState.referralTicketNotice;
+  if (!notice || typeof notice.referralId !== 'string' || !notice.referralId ||
+      typeof notice.gameId !== 'string' || !notice.gameId ||
+      notice.referralId === shareState.referralTicketNoticeSeenId) {
+    return null;
+  }
+  const gameRef = db.collection('referral_games').doc(notice.gameId);
+  const game = (await gameRef.get()).data();
+  if (!game || game.winner_uid || ['completed', 'no_eligible_entries'].includes(game.draw_status)) {
+    return null;
+  }
+  const tickets = await gameRef.collection('entries').where('inviter_uid', '==', uid).count().get();
+  return {
+    referralId: notice.referralId,
+    gameId: notice.gameId,
+    gameTitle: normalizeString(game.title),
+    ticketCount: tickets.data().count,
+  };
+}
+
+// Marks a congratulation as presented, for every device of the account:
+// the classic bonus (default) or, with kind "ticket", a referral game ticket.
+// Idempotent; only the current notice can be acknowledged.
 export const acknowledgeReferralBonusNotice = functions
   .region(region)
   .runWith({ timeoutSeconds: 30, memory: '256MB' })
@@ -288,14 +315,17 @@ export const acknowledgeReferralBonusNotice = functions
     if (!referralId || referralId.length > 128) {
       throw new functions.https.HttpsError('invalid-argument', 'referralId is required.');
     }
+    const ticket = data?.kind === 'ticket';
+    const noticeField = ticket ? 'referralTicketNotice' : 'referralBonusNotice';
+    const seenField = ticket ? 'referralTicketNoticeSeenId' : 'referralBonusNoticeSeenId';
     const ref = refs.shareState(auth.uid);
     return db.runTransaction(async (tx) => {
       const state = (await tx.get(ref)).data() as Partial<ShareStateRecord> | undefined;
-      if (state?.referralBonusNotice?.referralId !== referralId) {
+      if (state?.[noticeField]?.referralId !== referralId) {
         return { acknowledged: false };
       }
-      if (state.referralBonusNoticeSeenId !== referralId) {
-        tx.set(ref, { referralBonusNoticeSeenId: referralId }, { merge: true });
+      if (state[seenField] !== referralId) {
+        tx.set(ref, { [seenField]: referralId }, { merge: true });
       }
       return { acknowledged: true };
     });
@@ -372,6 +402,7 @@ export const getSharePromoState = functions
         userData.allGamesAccessUntil,
         Date.now(),
       ),
+      referralTicketNotice: await pendingReferralTicketNotice(auth.uid, shareState),
       campaign:
           kind == null
               ? null
@@ -567,7 +598,7 @@ async function completeEmailReferralSignup(
     const acceptedAt=admin.firestore.Timestamp.now();
     // During an active referral game the ticket replaces the classic reward.
     const event=await prepareReferralReward(tx,referralRef.id,referral.inviterUid,acceptedAt);
-    tx.create(pendingRef(referralRef.id),event);
+    enqueueReferralReward(tx,event);
     tx.update(referralRef,{inviteeUid:uid,status:'accepted',acceptedAt,rewardStatus:'available',
       rewardType:'all_games_until_midnight',rewardValue:1,
       metadata:{...(referral.metadata ?? {}),playerRewardRuleVersion:2}});

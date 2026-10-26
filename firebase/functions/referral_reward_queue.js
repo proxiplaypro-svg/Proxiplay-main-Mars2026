@@ -1,18 +1,38 @@
 const admin=require('firebase-admin');
 const functions=require('firebase-functions');
 const {excluded}=require('./prize_integrity');
+const {selectReferralGameForAcceptance}=require('./referral_game_lock');
 const db=admin.firestore();
 const pendingRef=id=>db.doc(`referral_reward_pending/${id}`);
 // All reads, no writes: acceptance enqueues this payload in its own transaction.
+// The game is the one active at the acceptance date (referral_game_lock.js),
+// whenever the reward is processed; no usable game means the classic reward.
 async function prepareReferralReward(tx, referralId, inviterUid, acceptedAt, options = {}) {
-  const games=await tx.get(db.collection('referral_games').where('status','==','active'));
-  const active=games.docs.filter(doc=>{
-    const g=doc.data(); return g.start_date?.toMillis()<=acceptedAt.toMillis() && g.end_date?.toMillis()>=acceptedAt.toMillis();
-  });
-  if(active.length>1) throw new Error('Multiple active referral games');
+  const gameId=await selectReferralGameForAcceptance(tx,acceptedAt);
   return {referral_id:referralId,inviter_uid:inviterUid,accepted_at:acceptedAt,
-    game_id:active[0]?.id||null,mode:active.length?'game':'classic',status:'pending',
+    game_id:gameId,mode:gameId?'game':'classic',status:'pending',
     ...(options.classicAndGame ? {classic_and_game:true} : {})};
+}
+// Writes of the acceptance transaction: the durable event, and for a game
+// ticket a pending counter on the game itself. Acceptance and draw then both
+// write the game document, so a draw can never run between them and miss a
+// ticket accepted at the last moment.
+function enqueueReferralReward(tx, event) {
+  tx.create(pendingRef(event.referral_id),
+    event.mode==='game'?{...event,counted_on_game:true}:event);
+  if(event.mode==='game'&&event.game_id){
+    tx.update(db.doc(`referral_games/${event.game_id}`),
+      {pending_reward_count:admin.firestore.FieldValue.increment(1)});
+  }
+}
+// The event leaves "pending": its game no longer waits for it. Once only:
+// an event put back to pending by a manual review is not counted again.
+function releasePendingCount(tx, reward, eventRef) {
+  if(reward.counted_on_game===true&&reward.game_id){
+    tx.update(db.doc(`referral_games/${reward.game_id}`),
+      {pending_reward_count:admin.firestore.FieldValue.increment(-1)});
+    tx.update(eventRef,{counted_on_game:false});
+  }
 }
 async function processReferralReward(referralId, grantClassic) {
   const eventRef=pendingRef(referralId);
@@ -53,18 +73,25 @@ async function processReferralReward(referralId, grantClassic) {
     const g=game.data()||{};
     if(!game.exists||!referral.exists||referral.data().status!=='accepted'||referral.data().inviterUid!==reward.inviter_uid) reason='invalid_source';
     else if(entry.exists && entry.data().inviter_uid!==reward.inviter_uid) reason='contradictory_ticket';
-    else if(entry.exists) {tx.update(eventRef,{status:'granted'}); return {status:'granted'};}
+    else if(entry.exists) {tx.update(eventRef,{status:'granted'}); releasePendingCount(tx,reward,eventRef); return {status:'granted'};}
     else if(g.winner_uid||['completed','no_eligible_entries'].includes(g.draw_status)) reason='draw_already_finalized';
     else if(!g.start_date?.toMillis||!g.end_date?.toMillis||reward.accepted_at.toMillis()<g.start_date.toMillis()||reward.accepted_at.toMillis()>g.end_date.toMillis()) reason='acceptance_outside_period';
     else if(!user.exists||excluded(user.data())) reason='inviter_ineligible';
     if(reason){
       tx.update(eventRef,{status:'manual_review_required',reason});
+      // Still blocks the draw through its status until it is resolved.
+      if(game.exists) releasePendingCount(tx,reward,eventRef);
       functions.logger.error('REFERRAL_REWARD_MANUAL_REVIEW',{referralId,gameId:reward.game_id,reason});
       return {status:'manual_review_required',reason};
     }
     tx.create(entryRef,{inviter_uid:reward.inviter_uid,inviter_ref:userRef,referral_id:referralId,created_at:admin.firestore.FieldValue.serverTimestamp()});
     tx.update(gameRef,{ticket_count:admin.firestore.FieldValue.increment(1)});
     tx.update(eventRef,{status:'granted',processed_at:admin.firestore.FieldValue.serverTimestamp()});
+    releasePendingCount(tx,reward,eventRef);
+    // Ticket confirmation shown once in the app (never the classic bonus one).
+    tx.set(db.doc(`users/${reward.inviter_uid}/private/share_state`),{
+      referralTicketNotice:{referralId,gameId:reward.game_id,grantedAt:admin.firestore.FieldValue.serverTimestamp()},
+    },{merge:true});
     return {status:'granted'};
   });
 }
@@ -82,4 +109,4 @@ async function retryPendingReferralRewards(grantClassic) {
   if(cursor) functions.logger.warn('REFERRAL_REWARD_RETRY_REMAINING');
   if(failed.length) throw new Error(`Referral rewards failed: ${failed.length}`);
 }
-module.exports={prepareReferralReward,processReferralReward,retryPendingReferralRewards,pendingRef};
+module.exports={prepareReferralReward,enqueueReferralReward,processReferralReward,retryPendingReferralRewards,pendingRef};

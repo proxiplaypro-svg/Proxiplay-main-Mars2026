@@ -4,7 +4,7 @@
 // (createUser fails for a known address), the Google path asks the Auth REST
 // endpoint accounts:signInWithIdp, whose isNewUser flag is set by Firebase.
 // Nothing here relies on a time window.
-const {prepareReferralReward, pendingRef} = require('../../referral_reward_queue');
+const {prepareReferralReward, enqueueReferralReward} = require('../../referral_reward_queue');
 import * as admin from 'firebase-admin';
 import * as crypto from 'crypto';
 import * as functions from 'firebase-functions';
@@ -60,7 +60,7 @@ export async function acceptReferralForNewAccount(params: {
     const acceptedAt = admin.firestore.Timestamp.fromMillis(nowMs);
     // During an active referral game the ticket replaces the classic reward.
     const event = await prepareReferralReward(tx, referralRef.id, referral.inviterUid, acceptedAt);
-    tx.create(pendingRef(referralRef.id), event);
+    enqueueReferralReward(tx, event);
     tx.update(referralRef, {
       ...(params.referralFields ?? {}),
       inviteeUid: uid,

@@ -36,9 +36,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.retryReferralRewards = exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.grantReferralReward = exports.adminReconcileReferralGameTickets = exports.createReferralGoogleAccount = exports.registerReferralAcceptance = exports.createReferralEmailAccount = exports.createReferral = exports.getSharePromoState = exports.acknowledgeReferralBonusNotice = exports.kReferralGameInviteMessage = exports.remindUsersWithRemainingDailyPlays = void 0;
 exports.buildReferralGameShareMessage = buildReferralGameShareMessage;
 exports.pendingReferralBonusNotice = pendingReferralBonusNotice;
+exports.pendingReferralTicketNotice = pendingReferralTicketNotice;
 exports.resumeEmailReferralSignups = resumeEmailReferralSignups;
 exports.resumeGoogleReferralSignups = resumeGoogleReferralSignups;
-const { prepareReferralReward, processReferralReward, retryPendingReferralRewards, pendingRef } = require('../../referral_reward_queue');
+const { prepareReferralReward, enqueueReferralReward, processReferralReward, retryPendingReferralRewards, pendingRef } = require('../../referral_reward_queue');
 const { ensureServerCreatedProfile } = require('../../new_account_profile');
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
@@ -215,8 +216,31 @@ function pendingReferralBonusNotice(shareState, allGamesAccessUntil, nowMs) {
     }
     return { referralId: notice.referralId, expiresAtMs: Math.min(expiresAtMs, accessMs) };
 }
-// Marks the congratulation of this bonus as presented, for every device of
-// the account. Idempotent; only the current notice can be acknowledged.
+// The referral game ticket to confirm: not yet acknowledged, and its game
+// still waiting for its draw (a ticket of a drawn game is not announced).
+async function pendingReferralTicketNotice(uid, shareState) {
+    const notice = shareState.referralTicketNotice;
+    if (!notice || typeof notice.referralId !== 'string' || !notice.referralId ||
+        typeof notice.gameId !== 'string' || !notice.gameId ||
+        notice.referralId === shareState.referralTicketNoticeSeenId) {
+        return null;
+    }
+    const gameRef = firestore_1.db.collection('referral_games').doc(notice.gameId);
+    const game = (await gameRef.get()).data();
+    if (!game || game.winner_uid || ['completed', 'no_eligible_entries'].includes(game.draw_status)) {
+        return null;
+    }
+    const tickets = await gameRef.collection('entries').where('inviter_uid', '==', uid).count().get();
+    return {
+        referralId: notice.referralId,
+        gameId: notice.gameId,
+        gameTitle: (0, firestore_1.normalizeString)(game.title),
+        ticketCount: tickets.data().count,
+    };
+}
+// Marks a congratulation as presented, for every device of the account:
+// the classic bonus (default) or, with kind "ticket", a referral game ticket.
+// Idempotent; only the current notice can be acknowledged.
 exports.acknowledgeReferralBonusNotice = functions
     .region(firestore_1.region)
     .runWith({ timeoutSeconds: 30, memory: '256MB' })
@@ -226,14 +250,17 @@ exports.acknowledgeReferralBonusNotice = functions
     if (!referralId || referralId.length > 128) {
         throw new functions.https.HttpsError('invalid-argument', 'referralId is required.');
     }
+    const ticket = data?.kind === 'ticket';
+    const noticeField = ticket ? 'referralTicketNotice' : 'referralBonusNotice';
+    const seenField = ticket ? 'referralTicketNoticeSeenId' : 'referralBonusNoticeSeenId';
     const ref = firestore_1.refs.shareState(auth.uid);
     return firestore_1.db.runTransaction(async (tx) => {
         const state = (await tx.get(ref)).data();
-        if (state?.referralBonusNotice?.referralId !== referralId) {
+        if (state?.[noticeField]?.referralId !== referralId) {
             return { acknowledged: false };
         }
-        if (state.referralBonusNoticeSeenId !== referralId) {
-            tx.set(ref, { referralBonusNoticeSeenId: referralId }, { merge: true });
+        if (state[seenField] !== referralId) {
+            tx.set(ref, { [seenField]: referralId }, { merge: true });
         }
         return { acknowledged: true };
     });
@@ -305,6 +332,7 @@ exports.getSharePromoState = functions
         ctaText: kind == null ? null : campaign.ctaText,
         action,
         referralBonusNotice: pendingReferralBonusNotice(shareState, userData.allGamesAccessUntil, Date.now()),
+        referralTicketNotice: await pendingReferralTicketNotice(auth.uid, shareState),
         campaign: kind == null
             ? null
             : {
@@ -492,7 +520,7 @@ async function completeEmailReferralSignup(operationRef, uid, emailHash, expecte
         const acceptedAt = admin.firestore.Timestamp.now();
         // During an active referral game the ticket replaces the classic reward.
         const event = await prepareReferralReward(tx, referralRef.id, referral.inviterUid, acceptedAt);
-        tx.create(pendingRef(referralRef.id), event);
+        enqueueReferralReward(tx, event);
         tx.update(referralRef, { inviteeUid: uid, status: 'accepted', acceptedAt, rewardStatus: 'available',
             rewardType: 'all_games_until_midnight', rewardValue: 1,
             metadata: { ...(referral.metadata ?? {}), playerRewardRuleVersion: 2 } });

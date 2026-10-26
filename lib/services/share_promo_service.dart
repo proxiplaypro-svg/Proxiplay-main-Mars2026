@@ -32,6 +32,12 @@ class SharePromoService {
     await _call('acknowledgeReferralBonusNotice', {'referralId': referralId});
   }
 
+  /// Same, for a referral game ticket confirmation.
+  Future<void> acknowledgeReferralTicketNotice(String referralId) async {
+    await _call('acknowledgeReferralBonusNotice',
+        {'referralId': referralId, 'kind': 'ticket'});
+  }
+
   Future<Map<String, dynamic>> createReferral({
     required String shareChannel,
     String? inviteeContact,

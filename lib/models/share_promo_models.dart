@@ -187,6 +187,7 @@ class SharePromoStateViewModel {
     required this.rewardValue,
     this.referralGameActive = false,
     this.referralBonusNotice,
+    this.referralTicketNotice,
   });
 
   factory SharePromoStateViewModel.fromMap(Map<String, dynamic> map) {
@@ -206,8 +207,13 @@ class SharePromoStateViewModel {
       referralGameActive: map['referralGameActive'] == true,
       referralBonusNotice:
           ReferralBonusNotice.fromMap(map['referralBonusNotice']),
+      referralTicketNotice:
+          ReferralTicketNotice.fromMap(map['referralTicketNotice']),
     );
   }
+
+  // A referral game ticket not yet presented, its game not drawn yet.
+  final ReferralTicketNotice? referralTicketNotice;
 
   final bool showBanner;
   // A granted bonus not yet presented and still active (server-side state).

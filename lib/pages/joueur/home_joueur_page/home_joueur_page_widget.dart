@@ -10,6 +10,7 @@ import '/components/game_card_widget.dart';
 import '/components/list_empty_component_widget.dart';
 import '/components/share_promo_banner_widget.dart';
 import '/components/referral_bonus_congrats_dialog.dart';
+import '/components/referral_ticket_congrats_dialog.dart';
 import '/utils/referral_bonus_notice.dart';
 import '/flutter_flow/app_styles.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -757,6 +758,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       final state = await _sharePromoService.getSharePromoState();
       _latestSharePromoState = state;
       _presentReferralBonusNotice(state.referralBonusNotice);
+      _presentReferralTicketNotice(state.referralTicketNotice);
       return state;
     } catch (_) {
       _latestSharePromoState = null;
@@ -782,6 +784,33 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         context: context,
         builder: (_) => const ReferralBonusCongratsDialog(),
       );
+    });
+  }
+
+  /// Confirmation of a referral game ticket: once per ticket, apart from the
+  /// classic bonus window (the server sends it only before the draw).
+  void _presentReferralTicketNotice(ReferralTicketNotice? notice) {
+    if (!takeReferralTicketNotice(currentUserUid, notice)) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        return;
+      }
+      unawaited(_sharePromoService
+          .acknowledgeReferralTicketNotice(notice!.referralId)
+          .catchError((_) {}));
+      final openGame = await showDialog<bool>(
+        context: context,
+        builder: (_) => ReferralTicketCongratsDialog(notice: notice),
+      );
+      if (openGame == true && mounted) {
+        context.pushNamed(
+          ReferralGameDetailJoueurPageWidget.routeName,
+          queryParameters: {'gameId': notice.gameId},
+          extra: <String, dynamic>{'gameId': notice.gameId},
+        );
+      }
     });
   }
 

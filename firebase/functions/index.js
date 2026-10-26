@@ -6460,6 +6460,15 @@ exports.adminRepairMissingMyLotsLink = functions
  * NOTE: Requires deployment. Toutes les 15 minutes (precision suffisante
  * pour des dates de debut au jour pres).
  */
+// One active referral game at a time, whoever writes the game (Admin API,
+// console, autoManageReferralGames): see referral_game_lock.js.
+exports.enforceSingleActiveReferralGame = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 60, memory: "256MB"})
+  .firestore.document("referral_games/{gameId}")
+  .onWrite((_change, context) =>
+    require("./referral_game_lock").enforceSingleActiveReferralGame(context.params.gameId));
+
 exports.autoManageReferralGames = functions
   .region(kFunctionsRegion)
   .runWith({timeoutSeconds: 120, memory: "256MB"})
