@@ -6195,6 +6195,23 @@ try {
   throw error;
 }
 
+// Referral bonus congratulation e-mail (see referral_bonus_email.js).
+exports.notifyReferralBonusEmail = functions.firestore
+  .document("reward_events/{eventId}")
+  .onCreate(async (_snapshot, context) => {
+    let mailer;
+    return require("./referral_bonus_email").processReferralBonusEmail(
+      firestore,
+      context.params.eventId,
+      {
+        send: (to, subject, text) => {
+          mailer = mailer || createSmtpMailer();
+          return sendEmailNotification(mailer, to, subject, text);
+        },
+      },
+    );
+  });
+
 try {
   const {
     createSearchGooglePlacesCallable,

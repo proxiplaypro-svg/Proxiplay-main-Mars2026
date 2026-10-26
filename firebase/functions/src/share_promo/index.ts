@@ -34,6 +34,7 @@ import {
   CreateReferralResponse, GetSharePromoStateResponse,
   ReferralRecord,
   SharePromoConfig,
+  ShareStateRecord,
 } from './types';
 import { addReferralGameTicket, findActiveReferralGame, reconcileReferralGameTickets } from './referral_games';
 import {
@@ -207,6 +208,16 @@ async function grantReferralRewardInternal(
         rewardAvailable: false,
         lastRewardAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        // Congratulation shown once in the app while the access lasts (same
+        // deadline as allGamesAccessUntil written just above).
+        ...(isAllGamesUntilMidnightReward(referral.rewardType)
+          ? {
+              referralBonusNotice: {
+                referralId,
+                expiresAt: accessUntil ?? getNextMidnightTimestamp(),
+              },
+            }
+          : {}),
       },
       { merge: true },
     );
@@ -235,6 +246,8 @@ async function grantReferralRewardInternal(
           body: 'Tu peux maintenant jouer à tous les jeux jusqu’à minuit.',
           userUid: referral.inviterUid,
           createdBy: grantedBy,
+          // A tap opens the player home, where the congratulation shows.
+          initialPageName: 'HomeJoueurPage',
         }),
       );
     }
@@ -242,6 +255,51 @@ async function grantReferralRewardInternal(
   }
   return result;
 }
+
+// The granted bonus to congratulate the player for: not yet acknowledged,
+// and both its own deadline and the access read by participation are still
+// ahead (never announce an expired bonus).
+export function pendingReferralBonusNotice(
+  shareState: Partial<ShareStateRecord>,
+  allGamesAccessUntil: unknown,
+  nowMs: number,
+): { referralId: string; expiresAtMs: number } | null {
+  const notice = shareState.referralBonusNotice;
+  const expiresAtMs = notice?.expiresAt?.toMillis?.();
+  const accessMs = (allGamesAccessUntil as admin.firestore.Timestamp | undefined)
+    ?.toMillis?.();
+  if (!notice || typeof notice.referralId !== 'string' || !notice.referralId ||
+      notice.referralId === shareState.referralBonusNoticeSeenId ||
+      typeof expiresAtMs !== 'number' || expiresAtMs <= nowMs ||
+      typeof accessMs !== 'number' || accessMs <= nowMs) {
+    return null;
+  }
+  return { referralId: notice.referralId, expiresAtMs: Math.min(expiresAtMs, accessMs) };
+}
+
+// Marks the congratulation of this bonus as presented, for every device of
+// the account. Idempotent; only the current notice can be acknowledged.
+export const acknowledgeReferralBonusNotice = functions
+  .region(region)
+  .runWith({ timeoutSeconds: 30, memory: '256MB' })
+  .https.onCall(async (data, context) => {
+    const auth = requireAuth(context);
+    const referralId = normalizeString(data?.referralId);
+    if (!referralId || referralId.length > 128) {
+      throw new functions.https.HttpsError('invalid-argument', 'referralId is required.');
+    }
+    const ref = refs.shareState(auth.uid);
+    return db.runTransaction(async (tx) => {
+      const state = (await tx.get(ref)).data() as Partial<ShareStateRecord> | undefined;
+      if (state?.referralBonusNotice?.referralId !== referralId) {
+        return { acknowledged: false };
+      }
+      if (state.referralBonusNoticeSeenId !== referralId) {
+        tx.set(ref, { referralBonusNoticeSeenId: referralId }, { merge: true });
+      }
+      return { acknowledged: true };
+    });
+  });
 
 export const getSharePromoState = functions
   .region(region)
@@ -309,6 +367,11 @@ export const getSharePromoState = functions
       message,
       ctaText: kind == null ? null : campaign.ctaText,
       action,
+      referralBonusNotice: pendingReferralBonusNotice(
+        shareState,
+        userData.allGamesAccessUntil,
+        Date.now(),
+      ),
       campaign:
           kind == null
               ? null

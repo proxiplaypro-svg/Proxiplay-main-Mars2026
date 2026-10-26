@@ -9,6 +9,8 @@ import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/game_card_widget.dart';
 import '/components/list_empty_component_widget.dart';
 import '/components/share_promo_banner_widget.dart';
+import '/components/referral_bonus_congrats_dialog.dart';
+import '/utils/referral_bonus_notice.dart';
 import '/flutter_flow/app_styles.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -754,11 +756,33 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     try {
       final state = await _sharePromoService.getSharePromoState();
       _latestSharePromoState = state;
+      _presentReferralBonusNotice(state.referralBonusNotice);
       return state;
     } catch (_) {
       _latestSharePromoState = null;
       return null;
     }
+  }
+
+  /// Congratulation of a granted referral bonus: once per bonus, never after
+  /// it has expired (checked again when the window is about to show).
+  void _presentReferralBonusNotice(ReferralBonusNotice? notice) {
+    if (!takeReferralBonusNotice(currentUserUid, notice, DateTime.now())) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || !notice!.isActiveAt(DateTime.now())) {
+        return;
+      }
+      // Presented: acknowledged for every device, whatever the outcome.
+      unawaited(_sharePromoService
+          .acknowledgeReferralBonusNotice(notice.referralId)
+          .catchError((_) {}));
+      await showDialog<void>(
+        context: context,
+        builder: (_) => const ReferralBonusCongratsDialog(),
+      );
+    });
   }
 
   Future<bool?> _loadMerchantReferralEnabled() async {
@@ -911,14 +935,6 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       default:
         return null;
     }
-  }
-
-  bool _hasActiveReferralBonus() {
-    final accessUntil = currentUserDocument?.allGamesAccessUntil;
-    if (accessUntil == null) {
-      return false;
-    }
-    return accessUntil.isAfter(getCurrentTimestamp);
   }
 
   String _formatEuroAmount(double value) {
@@ -1538,14 +1554,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         final hasRemainingPart = remainingPart > 0;
         final hasNoRemainingPart = remainingPart <= 0;
 
-        if (hasRemainingPart) {
-          return const SizedBox.shrink();
-        }
-
         // Espacement AVANT le titre gere ici (pas de marge externe sur la
         // Column parente) : quand la section est masquee, aucun espace
         // n'est consomme entre ses voisins visibles.
-        if (_hasActiveReferralBonus()) {
+        // Bonus de parrainage : affiche tant qu'il est valide, chances
+        // restantes ou non.
+        if (shouldShowReferralBonusBanner(
+          currentUserDocument?.allGamesAccessUntil,
+          getCurrentTimestamp,
+        )) {
           return const SharePromoBanner(
             data: SharePromoData(
               kind: SharePromoKind.specialCampaign,
@@ -1560,6 +1577,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
               iconColor: Color(0xFF2C2F5B),
             ),
           );
+        }
+
+        if (hasRemainingPart) {
+          return const SizedBox.shrink();
         }
 
         if (hasNoRemainingPart) {

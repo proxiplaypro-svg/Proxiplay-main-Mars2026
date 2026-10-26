@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '/utils/referral_bonus_notice.dart';
+
 class SharePromoCampaignModel {
   const SharePromoCampaignModel({
     required this.enabled,
@@ -184,6 +186,7 @@ class SharePromoStateViewModel {
     required this.rewardType,
     required this.rewardValue,
     this.referralGameActive = false,
+    this.referralBonusNotice,
   });
 
   factory SharePromoStateViewModel.fromMap(Map<String, dynamic> map) {
@@ -201,10 +204,14 @@ class SharePromoStateViewModel {
       rewardType: campaign['rewardType'] as String?,
       rewardValue: (campaign['rewardValue'] as num?)?.toInt(),
       referralGameActive: map['referralGameActive'] == true,
+      referralBonusNotice:
+          ReferralBonusNotice.fromMap(map['referralBonusNotice']),
     );
   }
 
   final bool showBanner;
+  // A granted bonus not yet presented and still active (server-side state).
+  final ReferralBonusNotice? referralBonusNotice;
   // While a referral game runs, a referral earns the inviter a draw ticket
   // instead of the "all games until midnight" access.
   final bool referralGameActive;

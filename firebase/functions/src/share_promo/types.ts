@@ -65,7 +65,16 @@ export interface ShareStateRecord {
   currentBannerKind: string | null;
   currentBannerTitle: string | null;
   currentBannerMessage: string | null;
+  // Last "all games until midnight" bonus granted, shown once in the app
+  // while it lasts; the seen referral is kept server-side (all devices).
+  referralBonusNotice?: ReferralBonusNotice | null;
+  referralBonusNoticeSeenId?: string | null;
   updatedAt?: admin.firestore.FieldValue | admin.firestore.Timestamp | null;
+}
+
+export interface ReferralBonusNotice {
+  referralId: string;
+  expiresAt: admin.firestore.Timestamp;
 }
 
 export interface RewardEventRecord {
@@ -97,6 +106,8 @@ export interface GetSharePromoStateResponse {
   message: string | null;
   ctaText: string | null;
   action: string | null;
+  // A granted bonus not yet presented to the player and still active.
+  referralBonusNotice: { referralId: string; expiresAtMs: number } | null;
   campaign: {
     id: string;
     rewardType: string;

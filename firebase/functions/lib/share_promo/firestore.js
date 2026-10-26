@@ -415,7 +415,7 @@ function buildRewardEvent(uid, referralId, config, grantedBy) {
         grantedBy,
     };
 }
-async function queueUserPushNotification({ docId, title, body, userUid, createdBy, }) {
+async function queueUserPushNotification({ docId, title, body, userUid, createdBy, initialPageName = '', }) {
     const ref = exports.db.collection(exports.pushNotificationsCollection).doc(docId);
     const existing = await ref.get();
     if (existing.exists) {
@@ -427,7 +427,7 @@ async function queueUserPushNotification({ docId, title, body, userUid, createdB
         notification_image_url: '',
         notification_sound: '',
         parameter_data: '',
-        initial_page_name: '',
+        initial_page_name: initialPageName,
         target_audience: 'All',
         target_user_group: 'All',
         user_refs: exports.paths.user(userUid),

@@ -493,12 +493,15 @@ export async function queueUserPushNotification({
   body,
   userUid,
   createdBy,
+  initialPageName = '',
 }: {
   docId: string;
   title: string;
   body: string;
   userUid: string;
   createdBy: string;
+  // App page opened on tap (FlutterFlow page name); empty: plain opening.
+  initialPageName?: string;
 }): Promise<void> {
   const ref = db.collection(pushNotificationsCollection).doc(docId);
   const existing = await ref.get();
@@ -512,7 +515,7 @@ export async function queueUserPushNotification({
     notification_image_url: '',
     notification_sound: '',
     parameter_data: '',
-    initial_page_name: '',
+    initial_page_name: initialPageName,
     target_audience: 'All',
     target_user_group: 'All',
     user_refs: paths.user(userUid),

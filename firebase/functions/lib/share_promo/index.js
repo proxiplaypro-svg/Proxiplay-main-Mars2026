@@ -33,8 +33,9 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.retryReferralRewards = exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.grantReferralReward = exports.adminReconcileReferralGameTickets = exports.createReferralGoogleAccount = exports.registerReferralAcceptance = exports.createReferralEmailAccount = exports.createReferral = exports.getSharePromoState = exports.kReferralGameInviteMessage = exports.remindUsersWithRemainingDailyPlays = void 0;
+exports.retryReferralRewards = exports.adminGetSharePromoStats = exports.adminGetSharePromoConfig = exports.adminUpsertSharePromo = exports.grantReferralReward = exports.adminReconcileReferralGameTickets = exports.createReferralGoogleAccount = exports.registerReferralAcceptance = exports.createReferralEmailAccount = exports.createReferral = exports.getSharePromoState = exports.acknowledgeReferralBonusNotice = exports.kReferralGameInviteMessage = exports.remindUsersWithRemainingDailyPlays = void 0;
 exports.buildReferralGameShareMessage = buildReferralGameShareMessage;
+exports.pendingReferralBonusNotice = pendingReferralBonusNotice;
 exports.resumeEmailReferralSignups = resumeEmailReferralSignups;
 exports.resumeGoogleReferralSignups = resumeGoogleReferralSignups;
 const { prepareReferralReward, processReferralReward, retryPendingReferralRewards, pendingRef } = require('../../referral_reward_queue');
@@ -156,6 +157,16 @@ async function grantReferralRewardInternal(referralId, grantedBy) {
             rewardAvailable: false,
             lastRewardAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            // Congratulation shown once in the app while the access lasts (same
+            // deadline as allGamesAccessUntil written just above).
+            ...((0, firestore_1.isAllGamesUntilMidnightReward)(referral.rewardType)
+                ? {
+                    referralBonusNotice: {
+                        referralId,
+                        expiresAt: accessUntil ?? (0, firestore_1.getNextMidnightTimestamp)(),
+                    },
+                }
+                : {}),
         }, { merge: true });
         transaction.update(referralRef, {
             rewardStatus: 'granted',
@@ -180,12 +191,53 @@ async function grantReferralRewardInternal(referralId, grantedBy) {
                 body: 'Tu peux maintenant jouer à tous les jeux jusqu’à minuit.',
                 userUid: referral.inviterUid,
                 createdBy: grantedBy,
+                // A tap opens the player home, where the congratulation shows.
+                initialPageName: 'HomeJoueurPage',
             }));
         }
         await Promise.all(followUpTasks);
     }
     return result;
 }
+// The granted bonus to congratulate the player for: not yet acknowledged,
+// and both its own deadline and the access read by participation are still
+// ahead (never announce an expired bonus).
+function pendingReferralBonusNotice(shareState, allGamesAccessUntil, nowMs) {
+    const notice = shareState.referralBonusNotice;
+    const expiresAtMs = notice?.expiresAt?.toMillis?.();
+    const accessMs = allGamesAccessUntil
+        ?.toMillis?.();
+    if (!notice || typeof notice.referralId !== 'string' || !notice.referralId ||
+        notice.referralId === shareState.referralBonusNoticeSeenId ||
+        typeof expiresAtMs !== 'number' || expiresAtMs <= nowMs ||
+        typeof accessMs !== 'number' || accessMs <= nowMs) {
+        return null;
+    }
+    return { referralId: notice.referralId, expiresAtMs: Math.min(expiresAtMs, accessMs) };
+}
+// Marks the congratulation of this bonus as presented, for every device of
+// the account. Idempotent; only the current notice can be acknowledged.
+exports.acknowledgeReferralBonusNotice = functions
+    .region(firestore_1.region)
+    .runWith({ timeoutSeconds: 30, memory: '256MB' })
+    .https.onCall(async (data, context) => {
+    const auth = requireAuth(context);
+    const referralId = (0, firestore_1.normalizeString)(data?.referralId);
+    if (!referralId || referralId.length > 128) {
+        throw new functions.https.HttpsError('invalid-argument', 'referralId is required.');
+    }
+    const ref = firestore_1.refs.shareState(auth.uid);
+    return firestore_1.db.runTransaction(async (tx) => {
+        const state = (await tx.get(ref)).data();
+        if (state?.referralBonusNotice?.referralId !== referralId) {
+            return { acknowledged: false };
+        }
+        if (state.referralBonusNoticeSeenId !== referralId) {
+            tx.set(ref, { referralBonusNoticeSeenId: referralId }, { merge: true });
+        }
+        return { acknowledged: true };
+    });
+});
 exports.getSharePromoState = functions
     .region(firestore_1.region)
     .runWith({ timeoutSeconds: 30, memory: '256MB' })
@@ -252,6 +304,7 @@ exports.getSharePromoState = functions
         message,
         ctaText: kind == null ? null : campaign.ctaText,
         action,
+        referralBonusNotice: pendingReferralBonusNotice(shareState, userData.allGamesAccessUntil, Date.now()),
         campaign: kind == null
             ? null
             : {

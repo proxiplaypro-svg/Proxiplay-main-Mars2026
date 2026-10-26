@@ -26,6 +26,12 @@ class SharePromoService {
     return SharePromoStateViewModel.fromMap(data);
   }
 
+  /// Records the referral bonus congratulation as presented, for every
+  /// device of the account (idempotent on the server).
+  Future<void> acknowledgeReferralBonusNotice(String referralId) async {
+    await _call('acknowledgeReferralBonusNotice', {'referralId': referralId});
+  }
+
   Future<Map<String, dynamic>> createReferral({
     required String shareChannel,
     String? inviteeContact,
