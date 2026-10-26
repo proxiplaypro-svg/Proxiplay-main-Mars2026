@@ -21,6 +21,8 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import '/utils/partner_play_messages.dart';
 import '/utils/scratch_result_messages.dart';
+import '/utils/haptics.dart';
+import 'dart:async';
 import 'play_joueur_page_model.dart';
 export 'play_joueur_page_model.dart';
 
@@ -91,6 +93,8 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
   String? _resultMessageBonus;
   // Partner invitation after a losing scratch (null most of the time).
   String? _partnerPlayMessage;
+  // The win haptic is played once per screen, whatever the rebuilds.
+  bool _winHapticPlayed = false;
   bool _isPreparingShare = false;
   bool _isShareDialogVisible = false;
   late String _preparedShareText;
@@ -1108,6 +1112,12 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                         true) {
                                                       _model.isWin = true;
                                                       safeSetState(() {});
+                                                      // Two short pulses, once per revealed win; not
+                                                      // awaited, so sound and result are not delayed.
+                                                      if (!_winHapticPlayed) {
+                                                        _winHapticPlayed = true;
+                                                        unawaited(triggerWinHaptic());
+                                                      }
                                                       await _stopScratchSound();
                                                       _model.soundPlayer ??=
                                                           AudioPlayer();
