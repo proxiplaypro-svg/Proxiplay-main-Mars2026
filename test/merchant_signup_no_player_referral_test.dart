@@ -26,7 +26,7 @@ void main() {
   test('with a code the merchant signup goes to the merchant program, never the player one', () {
     expect(merchantStart, greaterThan(0));
     expect(merchantFlow, contains('createMerchantAccountWithReferral('));
-    expect(merchantFlow, contains('normalizeMerchantSignupCode('));
+    expect(merchantFlow, contains('merchantSignupCodeToSubmit('));
     expect(merchantFlow, isNot(contains('_applyPendingReferralCodeIfNeeded')));
     expect(merchantFlow, isNot(contains('registerReferralAcceptance')));
     expect(merchantFlow, isNot(contains('pendingReferralCode')));
@@ -46,6 +46,36 @@ void main() {
 
   test('without a code the merchant signup is unchanged', () {
     expect(merchantFlow, contains('merchantCode.isEmpty\n                                                                  ? await authManager.createAccountWithEmail('));
+  });
+
+  test('the code field is hidden unless the merchant program is enabled', () {
+    final compact = page.replaceAll(RegExp(r'\s+'), '');
+    final field = compact.indexOf('.merchantSignupCodeTextController,');
+    final guard = compact.lastIndexOf('if(shouldShowMerchantSignupCodeField(_merchantReferralEnabled))Padding(', field);
+    expect(guard, greaterThan(0));
+    expect(compact.substring(guard, field), isNot(contains('TextFormField(controller:_model.passwordConfirm')),
+        reason: 'the guard wraps the code field itself');
+    // Read once from app_config/merchant_referral, null on error (hidden).
+    expect(compact, contains("bool?_merchantReferralEnabled;"));
+    expect(compact, contains(".doc('app_config/merchant_referral')"));
+    expect(compact, contains('}catch(_){enabled=null;}'));
+    // A code typed before the field was hidden is never sent.
+    expect(merchantFlow.replaceAll(RegExp(r'\s+'), ''),
+        contains('merchantSignupCodeToSubmit(_model.merchantSignupCodeTextController?.text,'
+            'fieldVisible:shouldShowMerchantSignupCodeField(_merchantReferralEnabled));'));
+  });
+
+  test('an unavailable referral service cannot block a signup without code', () {
+    // The service is only called inside the "with a code" branch; without a
+    // code the account is created by the app as before.
+    final withCode = merchantFlow.indexOf('if (merchantCode.isNotEmpty) {');
+    final call = merchantFlow.indexOf('createMerchantAccountWithReferral(');
+    final branchEnd = merchantFlow.indexOf('if (!context.mounted) return;', call);
+    expect(withCode, greaterThan(0));
+    expect(call, greaterThan(withCode));
+    expect(branchEnd, greaterThan(call));
+    expect('createMerchantAccountWithReferral('.allMatches(merchantFlow).length, 1);
+    expect(merchantFlow.indexOf('authManager.createAccountWithEmail('), greaterThan(branchEnd));
   });
 
   test('the player signups still apply the player referral code', () {

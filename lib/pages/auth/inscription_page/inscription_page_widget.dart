@@ -54,6 +54,9 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
   bool _isApplyingPendingReferralCode = false;
   bool _isSubmittingPlayerSignup = false;
   bool _isSubmittingMerchantSignup = false;
+  // app_config/merchant_referral.enabled; null until loaded or on error
+  // (field hidden, see shouldShowMerchantSignupCodeField).
+  bool? _merchantReferralEnabled;
   bool _showEmailForm = false;
   bool _isGoogleSignupInProgress = false;
   AutovalidateMode _playerAutovalidateMode = AutovalidateMode.disabled;
@@ -107,6 +110,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     // Never prefilled with a player referral code from a deep link.
     _model.merchantSignupCodeTextController ??= TextEditingController();
     _model.merchantSignupCodeFocusNode ??= FocusNode();
+    _loadMerchantReferralEnabled();
 
     animationsMap.addAll({
       'containerOnPageLoadAnimation': AnimationInfo(
@@ -190,6 +194,22 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
     _model.dispose();
 
     super.dispose();
+  }
+
+  // The merchant code field only shows when the merchant referral program is
+  // enabled; a failed read keeps it hidden (signup without code unchanged).
+  Future<void> _loadMerchantReferralEnabled() async {
+    bool? enabled;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .doc('app_config/merchant_referral')
+          .get();
+      enabled = snapshot.data()?['enabled'] as bool?;
+    } catch (_) {
+      enabled = null;
+    }
+    if (!mounted) return;
+    safeSetState(() => _merchantReferralEnabled = enabled);
   }
 
   void _syncReferralCodeField() {
@@ -2938,6 +2958,9 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                     ),
                                                     // Merchant referral program only (ambassador code, later partner codes),
                                                     // checked by the server: never the player referral code (share_promo).
+                                                    // Hidden while the program is not enabled.
+                                                    if (shouldShowMerchantSignupCodeField(
+                                                        _merchantReferralEnabled))
                                                     Padding(
                                                       padding:
                                                           const EdgeInsetsDirectional
@@ -3357,8 +3380,12 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                               // the server checks it, creates the account and
                                                               // records the link. Same request id on every
                                                               // retry, so a valid code is never lost.
-                                                              final merchantCode = normalizeMerchantSignupCode(
-                                                                  _model.merchantSignupCodeTextController?.text);
+                                                              // Field hidden (program off or config unreadable):
+                                                              // no code sent, the signup without code applies.
+                                                              final merchantCode = merchantSignupCodeToSubmit(
+                                                                  _model.merchantSignupCodeTextController?.text,
+                                                                  fieldVisible: shouldShowMerchantSignupCodeField(
+                                                                      _merchantReferralEnabled));
                                                               SharedPreferences? merchantPrefs;
                                                               String? merchantOpKey;
                                                               if (merchantCode.isNotEmpty) {

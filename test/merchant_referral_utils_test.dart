@@ -48,8 +48,30 @@ void main() {
           contains('plus valable'));
       expect(merchantSignupCodeErrorMessage('already-exists', {'reason': 'email_exists'}),
           contains('possède déjà un compte'));
-      expect(merchantSignupCodeErrorMessage('not-found', null), contains('inconnu'));
+      expect(merchantSignupCodeErrorMessage('not-found', {'reason': 'code_not_found'}), contains('inconnu'));
       expect(merchantSignupCodeErrorMessage('unavailable', null), contains('ne sera pas perdu'));
+    });
+    test('a missing or unreachable service never says the code is unknown', () {
+      // Function not deployed: the SDK answers not-found without any reason.
+      for (final code in ['not-found', 'unimplemented']) {
+        for (final details in [null, const {}, 'html']) {
+          final message = merchantSignupCodeErrorMessage(code, details);
+          expect(message, isNot(contains('inconnu')), reason: '$code $details');
+          expect(message, contains('momentanément indisponible'));
+          expect(message, contains('sans code'));
+        }
+      }
+    });
+    test('the code field shows only when the program is enabled (fail-closed)', () {
+      expect(shouldShowMerchantSignupCodeField(true), isTrue);
+      expect(shouldShowMerchantSignupCodeField(false), isFalse);
+      expect(shouldShowMerchantSignupCodeField(null), isFalse);
+    });
+    test('a hidden field never sends a code, even one typed before', () {
+      expect(merchantSignupCodeToSubmit(' ab3d e7g2 ', fieldVisible: true), 'AB3DE7G2');
+      expect(merchantSignupCodeToSubmit(' ab3d e7g2 ', fieldVisible: false), '');
+      expect(merchantSignupCodeToSubmit(null, fieldVisible: true), '');
+      expect(merchantSignupCodeToSubmit('', fieldVisible: true), '');
     });
   });
 

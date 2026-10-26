@@ -337,6 +337,21 @@ void main() {
     expect(find.text('Pas de compte ? '), findsOneWidget);
   });
 
+  testWidgets(
+      'merchant signup without the referral program: no code field, '
+      'the ordinary form stays', (tester) async {
+    // No Firebase here: app_config/merchant_referral cannot be read, which
+    // is the fail-closed case (same as enabled == false).
+    await pump(tester, buildRouter());
+    await tester.tap(find.text(' Inscription'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Professionnel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mail'), findsOneWidget);
+    expect(find.text('Code de parrainage ou partenaire (facultatif)'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('player email signup accepts an optional referral code', (tester) async {
     await pump(tester, buildRouter());
     await tester.tap(find.text(' Inscription'));

@@ -40,11 +40,25 @@ String buildMerchantReferralShareText(String code) {
 String normalizeMerchantSignupCode(String? value) =>
     (value ?? '').replaceAll(RegExp(r'\s+'), '').toUpperCase();
 
+/// Champ code de l'inscription commercant : affiche seulement quand
+/// `app_config/merchant_referral.enabled` vaut true. Fail-closed comme
+/// shouldShowMerchantReferralBanner : config non chargee, absente ou
+/// illisible = champ masque, inscription sans code.
+bool shouldShowMerchantSignupCodeField(bool? enabled) => enabled == true;
+
+/// Code reellement envoye : vide quand le champ est masque, meme si un code
+/// avait ete saisi avant la desactivation (l'inscription passe alors par le
+/// parcours sans code, jamais par le service de parrainage).
+String merchantSignupCodeToSubmit(String? value, {required bool fieldVisible}) =>
+    fieldVisible ? normalizeMerchantSignupCode(value) : '';
+
 /// Message apres un refus a l'inscription commercant avec code. Dans tous ces
 /// cas le compte n'est pas cree ; le code reste saisi pour corriger.
 String merchantSignupCodeErrorMessage(String code, Object? details) {
   final data = details is Map ? details : const {};
   switch (data['reason']) {
+    case 'code_not_found':
+      return 'Ce code est inconnu. Vérifiez-le ou inscrivez-vous sans code.';
     case 'partner_code_unavailable':
       return 'Les codes partenaires ne sont pas encore disponibles. '
           'Inscrivez-vous sans code ou contactez ProxiPlay.';
@@ -58,8 +72,11 @@ String merchantSignupCodeErrorMessage(String code, Object? details) {
       return 'Cette adresse e-mail possède déjà un compte. '
           'Connectez-vous avec vos identifiants.';
   }
-  if (code == 'not-found') {
-    return 'Ce code est inconnu. Vérifiez-le ou inscrivez-vous sans code.';
+  // Sans motif, not-found / unimplemented viennent du service lui-meme
+  // (fonction absente ou indisponible), jamais d'un code refuse.
+  if (code == 'not-found' || code == 'unimplemented') {
+    return 'Le parrainage commerçant est momentanément indisponible. '
+        'Inscrivez-vous sans code.';
   }
   if (code == 'resource-exhausted') {
     return 'Trop de tentatives. Patientez une minute avant de réessayer.';
