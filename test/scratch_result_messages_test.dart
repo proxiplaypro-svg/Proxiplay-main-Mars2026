@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:proxi_play/utils/game_daily_play.dart';
 import 'package:proxi_play/utils/scratch_result_messages.dart';
 
 // Messages under a losing scratch (validated 26/10/2026) and the rule for
@@ -47,6 +48,22 @@ void main() {
     expect(mayInviteToShopQr(shopQrPlayAvailable: true, isWin: true, isReplay: false), isFalse);
     expect(mayInviteToShopQr(shopQrPlayAvailable: true, isWin: false, isReplay: true), isFalse,
         reason: 'a replayed result keeps its classic message only');
+  });
+
+  test('no QR invitation once the QR play of the day is used (real ticket ids)', () {
+    final now = DateTime(2026, 10, 26, 15);
+    // Same condition as the game page (shopPlayAvailable), from Firestore ids.
+    bool invite(List<String> ticketIds) {
+      final state = dailyPlayState(ticketIds: ticketIds, lastPlay: now, now: now);
+      return mayInviteToShopQr(
+        shopQrPlayAvailable: !state.shopPlayedToday,
+        isWin: false,
+        isReplay: false,
+      );
+    }
+    expect(invite(['20261026_uid']), isTrue, reason: 'classic played, QR still available');
+    expect(invite(['20261026_uid', '20261026_uid_qr']), isFalse, reason: 'QR already used');
+    expect(invite(['20261026_uid_qr']), isFalse);
   });
 
   test('the result page picks the draw pool from the stored main-prize flag only', () {

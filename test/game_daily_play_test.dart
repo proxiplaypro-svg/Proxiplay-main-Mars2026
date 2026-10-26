@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:proxi_play/utils/game_daily_play.dart';
 import 'package:proxi_play/utils/share_links.dart';
@@ -17,18 +19,65 @@ void main() {
     return id;
   }
 
+  // Real Firestore ticket ids (participate_in_game_transaction.js):
+  // `yyyyMMdd_<uid>` (classic) and `yyyyMMdd_<uid>_qr` (shop QR).
   group('dailyPlayState', () {
+    test('the day key is the server one (yyyyMMdd)', () {
+      expect(localDayKey(DateTime(2026, 10, 26, 23, 59)), '20261026');
+      expect(localDayKey(DateTime(2026, 1, 5)), '20260105');
+    });
+
     test('reads today\'s classic and shop tickets apart', () {
       final state = dailyPlayState(
-        ticketIds: ['2026-10-26_uid_qr', '2026-10-25_uid'],
+        ticketIds: ['20261026_uid_qr', '20261025_uid'],
         lastPlay: now,
         now: now,
       );
       expect(state.shopPlayedToday, isTrue);
       expect(state.classicPlayedToday, isFalse);
       final both = dailyPlayState(
-          ticketIds: ['2026-10-26_uid', '2026-10-26_uid_qr'], lastPlay: now, now: now);
+          ticketIds: ['20261026_uid', '20261026_uid_qr'], lastPlay: now, now: now);
       expect(both.classicPlayedToday && both.shopPlayedToday, isTrue);
+    });
+
+    test('bug 26/10: after the QR play only, the classic play stays available', () {
+      // Firestore: only `20261026_uid_qr`; participants_details.last_play is
+      // the QR play time, last_classic_play is empty.
+      final state = dailyPlayState(
+        ticketIds: ['20261026_uid_qr'],
+        lastPlay: DateTime(2026, 10, 26, 12, 20),
+        now: now,
+      );
+      expect(state.classicPlayedToday, isFalse);
+      expect(state.shopPlayedToday, isTrue);
+      final id = scannedGame();
+      expect(offersShopPlay(gameId: id, state: state, now: now), isFalse,
+          reason: 'the button offers the classic play, not a second free one');
+    });
+
+    test('both orders: classic then QR, QR then classic', () {
+      final id = scannedGame();
+      // Classic first: the free QR play is still offered.
+      final afterClassic = dailyPlayState(ticketIds: ['20261026_uid'], lastPlay: now, now: now);
+      expect(afterClassic.classicPlayedToday, isTrue);
+      expect(offersShopPlay(gameId: id, state: afterClassic, now: now), isTrue);
+      // QR first: the classic play is still available, no second free play.
+      final afterShop = dailyPlayState(ticketIds: ['20261026_uid_qr'], lastPlay: now, now: now);
+      expect(afterShop.classicPlayedToday, isFalse);
+      expect(offersShopPlay(gameId: id, state: afterShop, now: now), isFalse);
+      // Both done: nothing left today.
+      final done = dailyPlayState(ticketIds: ['20261026_uid_qr', '20261026_uid'], lastPlay: now, now: now);
+      expect(done.classicPlayedToday && done.shopPlayedToday, isTrue);
+      expect(offersShopPlay(gameId: id, state: done, now: now), isFalse);
+    });
+
+    test('a second scan after an app restart does not offer a new free play', () {
+      // The in-memory "used" mark is gone after a restart; the ticket list
+      // alone must tell the QR play of the day is used.
+      final id = scannedGame(); // scanned again, token kept
+      final state = dailyPlayState(ticketIds: ['20261026_uid_qr'], lastPlay: now, now: now);
+      expect(shopPlayUsedToday(id, now), isFalse);
+      expect(offersShopPlay(gameId: id, state: state, now: now), isFalse);
     });
 
     test('a play today without any ticket yet counts as the classic one', () {
@@ -39,12 +88,32 @@ void main() {
 
     test('yesterday\'s plays leave both available', () {
       final state = dailyPlayState(
-        ticketIds: ['2026-10-25_uid', '2026-10-25_uid_qr'],
+        ticketIds: ['20261025_uid', '20261025_uid_qr'],
         lastPlay: DateTime(2026, 10, 25, 20),
         now: now,
       );
       expect(state.classicPlayedToday || state.shopPlayedToday, isFalse);
     });
+  });
+
+  test('contract: Flutter reads the ticket ids the server writes', () {
+    final server = File('firebase/functions/participate_in_game_transaction.js')
+        .readAsStringSync()
+        .replaceAll(RegExp(r'\s+'), '');
+    // Day key yyyyMMdd, classic id `<day>_<uid>`, shop id `<classic id>_qr`.
+    expect(server, contains(r'return`${year}${month}${day}`;'));
+    expect(server, contains(r'constparticipantDocId=`${dayKey}_${uid}`;'));
+    expect(server, contains(r'participantsRef.doc(`${participantDocId}_qr`)'));
+    expect(server, contains('constdayKey=getParisDayKey('));
+    // The app builds the same day key: year, 2-digit month and day, joined.
+    final day = '${now.year}'
+        '${now.month.toString().padLeft(2, '0')}'
+        '${now.day.toString().padLeft(2, '0')}';
+    expect(localDayKey(now), day);
+    // The same ids, built as the server does, are read correctly.
+    final state = dailyPlayState(
+        ticketIds: ['${day}_uid', '${day}_uid$shopQrTicketSuffix'], lastPlay: now, now: now);
+    expect(state.classicPlayedToday && state.shopPlayedToday, isTrue);
   });
 
   group('offersShopPlay', () {

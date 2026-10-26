@@ -7,15 +7,18 @@ import 'share_links.dart';
 /// buttons offer and what they send.
 ///
 /// Server ticket ids (games/{game}/participants): `<day>_<uid>` for the
-/// classic play, `<day>_<uid>_qr` for the shop QR play.
+/// classic play, `<day>_<uid>_qr` for the shop QR play, `<day>` being the
+/// Paris date as `yyyyMMdd` (getParisDayKey in
+/// participate_in_game_transaction.js), e.g. `20261026_<uid>_qr`.
 const String shopQrTicketSuffix = '_qr';
 
 /// Button label of the free shop play.
 const String shopPlayButtonLabel = 'Jouer ma partie offerte';
 
+/// Day of [date] in the server ticket id format (`yyyyMMdd`).
 String localDayKey(DateTime date) =>
-    '${date.year.toString().padLeft(4, '0')}-'
-    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.year.toString().padLeft(4, '0')}'
+    '${date.month.toString().padLeft(2, '0')}'
     '${date.day.toString().padLeft(2, '0')}';
 
 class DailyPlayState {
