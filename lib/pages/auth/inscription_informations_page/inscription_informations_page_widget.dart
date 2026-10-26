@@ -67,9 +67,13 @@ class _InscriptionInformationsPageWidgetState
     _model.villeFocusNode ??= FocusNode();
     _model.villeFocusNode?.addListener(() {
       if (!(_model.villeFocusNode?.hasFocus ?? false) && mounted) {
+        // Leaving the field closes the panel for good: a pending or running
+        // search must not leave it open on its loading state.
+        _citySearchDebounce?.cancel();
         safeSetState(() {
           _citySuggestions = const [];
           _citySearchError = null;
+          _isCityLoading = false;
         });
       }
     });
@@ -192,10 +196,12 @@ class _InscriptionInformationsPageWidgetState
     super.dispose();
   }
 
+  bool get _isCityFieldFocused => _model.villeFocusNode?.hasFocus ?? false;
+
   Future<void> _searchCities(String rawQuery) async {
     final query = rawQuery.trim();
 
-    if (query.length < 3) {
+    if (query.length < 3 || !_isCityFieldFocused) {
       if (!mounted) {
         return;
       }
@@ -214,9 +220,14 @@ class _InscriptionInformationsPageWidgetState
 
     try {
       final suggestions = await _cityAutocompleteService.searchCommunes(query);
-      if (!mounted ||
-          !(_model.villeFocusNode?.hasFocus ?? false) ||
-          _model.villeTextController.text.trim() != query) {
+      if (!mounted) {
+        return;
+      }
+      if (!_isCityFieldFocused) {
+        safeSetState(() => _isCityLoading = false);
+        return;
+      }
+      if (_model.villeTextController.text.trim() != query) {
         return;
       }
 
@@ -225,9 +236,14 @@ class _InscriptionInformationsPageWidgetState
         _isCityLoading = false;
       });
     } catch (_) {
-      if (!mounted ||
-          !(_model.villeFocusNode?.hasFocus ?? false) ||
-          _model.villeTextController.text.trim() != query) {
+      if (!mounted) {
+        return;
+      }
+      if (!_isCityFieldFocused) {
+        safeSetState(() => _isCityLoading = false);
+        return;
+      }
+      if (_model.villeTextController.text.trim() != query) {
         return;
       }
 
@@ -1121,6 +1137,7 @@ class _InscriptionInformationsPageWidgetState
                               padding: const EdgeInsetsDirectional.fromSTEB(
                                   0.0, 0.0, 0.0, 16.0),
                               child: Container(
+                                key: const ValueKey('city-suggestions-panel'),
                                 width: double.infinity,
                                 decoration: BoxDecoration(
                                   color: FlutterFlowTheme.of(context)
@@ -1135,13 +1152,18 @@ class _InscriptionInformationsPageWidgetState
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     if (_isCityLoading)
-                                      const Padding(
-                                        padding: EdgeInsets.all(16.0),
+                                      Padding(
+                                        padding: const EdgeInsets.all(16.0),
                                         child: SizedBox(
                                           width: 20.0,
                                           height: 20.0,
+                                          // Explicit colour: the app theme
+                                          // makes progress indicators
+                                          // transparent by default.
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2.0,
+                                            color: FlutterFlowTheme.of(context)
+                                                .primary,
                                           ),
                                         ),
                                       ),

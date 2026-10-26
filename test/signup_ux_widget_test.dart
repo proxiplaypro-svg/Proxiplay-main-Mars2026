@@ -123,6 +123,15 @@ class _AuthStore extends auth_platform.FirebaseAuthPlatform {
     String? languageCode,
   }) =>
       this;
+  // A signed-in user for currentUserReference (profile completion page);
+  // the auth streams below still start empty.
+  void signIn(String uid) => _currentUser = _AuthUser(
+      this,
+      _AuthMultiFactor(this),
+      auth_platform.InternalUserDetails(
+          userInfo: auth_platform.InternalUserInfo(
+              uid: uid, isAnonymous: false, isEmailVerified: true),
+          providerData: const []));
   // No signed-in user: the auth streams start empty.
   @override
   Stream<auth_platform.UserPlatform?> authStateChanges() => Stream.value(null);
@@ -130,6 +139,14 @@ class _AuthStore extends auth_platform.FirebaseAuthPlatform {
   Stream<auth_platform.UserPlatform?> idTokenChanges() => Stream.value(null);
   @override
   Stream<auth_platform.UserPlatform?> userChanges() => Stream.value(null);
+}
+
+class _AuthUser extends auth_platform.UserPlatform {
+  _AuthUser(super.auth, super.multiFactor, super.user);
+}
+
+class _AuthMultiFactor extends auth_platform.MultiFactorPlatform {
+  _AuthMultiFactor(super.auth);
 }
 
 class _FontManifest extends Fake implements AssetManifest {
@@ -382,6 +399,87 @@ void main() {
         }
       }
     }
+
+    // 26/10/2026: an empty white bar stayed between "Ville de résidence" and
+    // "Numéro de téléphone" — the city suggestions panel stuck on its loading
+    // state (search started or answered after leaving the field) with a
+    // spinner made transparent by the app theme.
+    group('city suggestions panel', () {
+      final panel = find.byKey(const ValueKey('city-suggestions-panel'));
+      Finder field(String label) => find.widgetWithText(TextFormField, label);
+
+      Future<void> openAsPlayer(WidgetTester tester,
+          {double keyboard = 0.0, String? referralCode}) async {
+        auth.signIn('player-1');
+        store.data['users/player-1'] = {'user_role': 'joueur'};
+        if (referralCode != null) {
+          FFAppState().pendingReferralCode = referralCode;
+        }
+        final overflows = await pumpPage(
+            tester, const InscriptionInformationsPageWidget(),
+            size: const Size(390, 844), keyboard: keyboard);
+        expect(overflows, isEmpty, reason: overflows.join('\n'));
+        expect(field('Ville de résidence'), findsOneWidget);
+      }
+
+      for (final keyboard in const [0.0, 320.0]) {
+        for (final referralCode in const [null, 'ABCD2345']) {
+          testWidgets(
+              'leaving the city field before the search ends leaves no bar '
+              '(keyboard ${keyboard.toInt()}px, '
+              '${referralCode == null ? 'no' : 'with a'} referral link)',
+              (tester) async {
+            await openAsPlayer(tester,
+                keyboard: keyboard, referralCode: referralCode);
+            await tester.enterText(field('Ville de résidence'), 'Dunk');
+            await tester.pump(const Duration(milliseconds: 100));
+            // Next field before the 350 ms search delay.
+            await tester.ensureVisible(field('Numéro de téléphone'));
+            await tester.tap(field('Numéro de téléphone'));
+            await settle(tester);
+            await tester.runAsync(
+                () => Future<void>.delayed(const Duration(milliseconds: 200)));
+            await settle(tester);
+            expect(panel, findsNothing);
+            final city = tester.getRect(field('Ville de résidence'));
+            final phone = tester.getRect(field('Numéro de téléphone'));
+            // Only the usual 16 px gap between the two fields.
+            expect(phone.top - city.bottom, 16.0);
+            expect(tester.takeException(), isNull);
+          });
+        }
+      }
+
+      testWidgets('while typing, a failed search shows its message; leaving closes it', (tester) async {
+        await openAsPlayer(tester);
+        await tester.enterText(field('Ville de résidence'), 'Dunk');
+        await tester.pump(const Duration(milliseconds: 400)); // search starts
+        // The test network answers with an error.
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await settle(tester);
+        expect(
+            find.descendant(
+                of: panel,
+                matching: find.text('Recherche indisponible pour le moment.')),
+            findsOneWidget);
+        await tester.ensureVisible(field('Numéro de téléphone'));
+        await tester.tap(field('Numéro de téléphone'));
+        await settle(tester);
+        expect(panel, findsNothing);
+      });
+
+      test('the loading spinner has its own colour (the app theme hides spinners)', () {
+        String compact(String path) =>
+            File(path).readAsStringSync().replaceAll(RegExp(r'\s+'), '');
+        expect(compact('lib/main.dart'),
+            contains('progressIndicatorTheme:constProgressIndicatorThemeData(color:Colors.transparent,'));
+        final page = compact(
+            'lib/pages/auth/inscription_informations_page/inscription_informations_page_widget.dart');
+        expect('CircularProgressIndicator('.allMatches(page).length, 1);
+        expect(page, contains('CircularProgressIndicator(strokeWidth:2.0,color:FlutterFlowTheme.of(context).primary,'));
+      });
+    });
 
     testWidgets('without the "Plus tard" row the header keeps its height', (tester) async {
       final overflows = await pumpPage(
