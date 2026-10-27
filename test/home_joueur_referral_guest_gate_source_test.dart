@@ -21,7 +21,13 @@ void main() {
     'lib/pages/joueur/home_joueur_page/home_joueur_page_widget.dart',
   ).readAsStringSync();
 
-  final guardStart = source.indexOf('if (!showReferralGameCard ||');
+  // The referral game has its own section since 27/10/2026
+  // (_buildReferralGamesZone); the guard now opens that method.
+  final zoneStart =
+      source.indexOf('Widget _buildReferralGamesZone(BuildContext context)');
+  final guardStart = zoneStart >= 0
+      ? source.indexOf('if (isGuestOrAnonymous ||', zoneStart)
+      : -1;
   const streamCall = 'stream: _activeReferralGamesStream';
   final guardEnd =
       guardStart >= 0 ? source.indexOf(streamCall, guardStart) : -1;
@@ -43,10 +49,10 @@ void main() {
     });
 
     test(
-        'the guard short-circuits to a referral-less carousel instead of '
+        'the guard hides the whole section (no space) instead of '
         'building the StreamBuilder', () {
       final block = source.substring(guardStart, guardEnd);
-      expect(block, contains('return buildCarousel();'));
+      expect(block, contains('return const SizedBox.shrink();'));
     });
   });
 }
