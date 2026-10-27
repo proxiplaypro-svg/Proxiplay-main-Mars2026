@@ -12,7 +12,7 @@ export interface ReferralGameRecord {
   title: string;
   description: string;
   prize_description: string;
-  status: 'draft' | 'active' | 'ended';
+  status: 'draft' | 'active' | 'suspended' | 'ended';
   start_date: admin.firestore.Timestamp;
   end_date: admin.firestore.Timestamp;
   created_by: string;
@@ -106,6 +106,16 @@ export async function reconcileReferralGameTickets(gameId: string) {
   for (const referralDoc of acceptedSnap.docs) {
     const referral = referralDoc.data() as ReferralRecord;
     if (!referral.acceptedAt || referral.acceptedAt.toMillis() < startMs || referral.acceptedAt.toMillis() > endMs) continue;
+    // The reward chosen at acceptance is final: a referral accepted while the
+    // game was not active (suspended, another game, none) received the
+    // classic reward, so a later repair must not add a ticket on top of it.
+    // Referrals without a reward event (accepted before the queue) are
+    // repaired as before.
+    const event = (await db.doc(`referral_reward_pending/${referralDoc.id}`).get()).data();
+    if (event && (event.mode !== 'game' || event.game_id !== gameId)) {
+      results.ineligible += 1;
+      continue;
+    }
     results[await addReferralGameTicket(gameId, referralDoc.id, referral.acceptedAt)] += 1;
   }
   return results;

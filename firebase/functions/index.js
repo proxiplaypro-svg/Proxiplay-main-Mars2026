@@ -6466,8 +6466,11 @@ exports.enforceSingleActiveReferralGame = functions
   .region(kFunctionsRegion)
   .runWith({timeoutSeconds: 60, memory: "256MB"})
   .firestore.document("referral_games/{gameId}")
-  .onWrite((_change, context) =>
-    require("./referral_game_lock").enforceSingleActiveReferralGame(context.params.gameId));
+  .onWrite((change, context) =>
+    require("./referral_game_lock").enforceSingleActiveReferralGame(
+      context.params.gameId,
+      change.before.exists ? (change.before.data() || {}).status || null : null,
+    ));
 
 exports.autoManageReferralGames = functions
   .region(kFunctionsRegion)
