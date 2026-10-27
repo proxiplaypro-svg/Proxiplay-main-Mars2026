@@ -51,8 +51,10 @@ async function selectReferralGameForAcceptance(tx, acceptedAt) {
 }
 
 // Keeps the lock in line with the game just written. Idempotent; concurrent
-// runs serialize on the lock document.
-async function enforceSingleActiveReferralGame(gameId) {
+// runs serialize on the lock document. `previousStatus` is the status before
+// the write: a refused reactivation of a suspended game goes back to
+// "suspended", never to "draft" (autoManageReferralGames would start a draft).
+async function enforceSingleActiveReferralGame(gameId, previousStatus = null) {
   return db.runTransaction(async (tx) => {
     // All reads first (Firestore transactions).
     const [lockSnap, gameSnap, activeSnap] = await Promise.all([
@@ -75,7 +77,7 @@ async function enforceSingleActiveReferralGame(gameId) {
     const keeper = holderActive ? holder : keeperOf(activeSnap.docs)?.id;
     if (keeper !== gameId) {
       tx.update(gameSnap.ref, {
-        status: "draft",
+        status: previousStatus === "suspended" ? "suspended" : "draft",
         activation_refused_at: now,
         activation_refused_reason: "another_active_game",
         updated_at: now,
