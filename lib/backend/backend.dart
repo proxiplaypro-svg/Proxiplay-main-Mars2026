@@ -333,6 +333,7 @@ Future<FFFirestorePage<GamesRecord>> queryGamesRecordPage({
   DocumentSnapshot? nextPageMarker,
   required int pageSize,
   required bool isStream,
+  bool useSingleLiveSubscription = false,
   required PagingController<DocumentSnapshot?, GamesRecord> controller,
   List<StreamSubscription?>? streamSubscriptions,
 }) =>
@@ -343,6 +344,7 @@ Future<FFFirestorePage<GamesRecord>> queryGamesRecordPage({
       nextPageMarker: nextPageMarker,
       pageSize: pageSize,
       isStream: isStream,
+      useSingleLiveSubscription: useSingleLiveSubscription,
     ).then((page) {
       controller.appendPage(
         page.data,
@@ -1528,7 +1530,11 @@ Future<int> queryCollectionCount(
     query = query.limit(limit);
   }
 
-  return query.count().get().then((value) => value.count ?? 0).catchError((err) {
+  return query
+      .count()
+      .get()
+      .then((value) => value.count ?? 0)
+      .catchError((err) {
     return 0;
   });
 }
@@ -1630,6 +1636,7 @@ Future<FFFirestorePage<T>> queryCollectionPage<T>(
   DocumentSnapshot? nextPageMarker,
   required int pageSize,
   required bool isStream,
+  bool useSingleLiveSubscription = false,
 }) async {
   final builder = queryBuilder ?? (q) => q;
   var query = builder(collection).limit(pageSize);
@@ -1638,7 +1645,41 @@ Future<FFFirestorePage<T>> queryCollectionPage<T>(
   }
   Stream<QuerySnapshot>? docSnapshotStream;
   QuerySnapshot docSnapshot;
-  if (isStream) {
+  if (isStream && useSingleLiveSubscription) {
+    // Keep a single native Firestore listener for the first page snapshot and
+    // its subsequent live updates. Calling `stream.first` and then listening
+    // again (the previous implementation) creates two native listeners, so
+    // every paged carousel paid for its initial documents twice.
+    final firstSnapshot = Completer<QuerySnapshot>();
+    late StreamSubscription<QuerySnapshot> firestoreSubscription;
+    final liveSnapshots = StreamController<QuerySnapshot>.broadcast(
+      onCancel: () => firestoreSubscription.cancel(),
+    );
+
+    firestoreSubscription = query.snapshots().listen(
+      (snapshot) {
+        if (!firstSnapshot.isCompleted) {
+          firstSnapshot.complete(snapshot);
+        }
+        // The first value is returned below as `data`; values emitted after
+        // the page is attached are forwarded to the paging controller.
+        liveSnapshots.add(snapshot);
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (!firstSnapshot.isCompleted) {
+          firstSnapshot.completeError(error, stackTrace);
+          firestoreSubscription.cancel();
+          liveSnapshots.close();
+          return;
+        }
+        liveSnapshots.addError(error, stackTrace);
+      },
+      onDone: liveSnapshots.close,
+    );
+
+    docSnapshot = await firstSnapshot.future;
+    docSnapshotStream = liveSnapshots.stream;
+  } else if (isStream) {
     docSnapshotStream = query.snapshots();
     docSnapshot = await docSnapshotStream.first;
   } else {
@@ -1707,9 +1748,7 @@ String describeRemainingPartState(dynamic value) {
 }
 
 bool shouldFallbackRemainingPart(UsersRecord? user) =>
-    user != null &&
-    user.userRole == Roles.joueur &&
-    !user.hasRemainingPart();
+    user != null && user.userRole == Roles.joueur && !user.hasRemainingPart();
 
 int getSafeRemainingPart(
   UsersRecord? user, {
@@ -1767,7 +1806,8 @@ Future<UsersRecord?> ensureUserDocumentInitialized(
   await FirebaseFirestore.instance.runTransaction((transaction) async {
     final snapshot = await transaction.get(userRecord);
     final rawData = snapshot.data();
-    final data = rawData is Map<String, dynamic> ? rawData : <String, dynamic>{};
+    final data =
+        rawData is Map<String, dynamic> ? rawData : <String, dynamic>{};
     final docExists = snapshot.exists;
     final existingRole = _roleFromRaw(data['user_role']);
     final remainingState = describeRemainingPartState(data['remaining_part']);

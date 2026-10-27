@@ -124,6 +124,18 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       _endingSoonEnseignesSectionCache = {};
   final Map<String, Future<Map<String, EnseignesRecord>>>
       _newGamesEnseignesSectionCache = {};
+  late final DateTime _homeGamesQueryStart;
+  late Stream<List<GamesRecord>> _recentlyEndedGamesStream;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>>
+      _activeAnimationsStream;
+  // Same query as _activeAnimationsStream, for "Jeux terminés" only.
+  late final Stream<QuerySnapshot<Map<String, dynamic>>>
+      _finishedAnimationsStream;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _qrOnlyGamesStream;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>>
+      _activeReferralGamesStream;
+  final Map<String, Stream<DocumentSnapshot<Map<String, dynamic>>>>
+      _publicAnimationWinnerStreams = {};
 
   Future<void> _ensureTickerLoaded() async {
     if (FFAppState().globalTickerMessages.isNotEmpty) {
@@ -165,6 +177,33 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
     _model.textController ??= TextEditingController();
     _model.textFieldFocusNode ??= FocusNode();
+    // The timestamp is deliberately stable for this Home instance. A fresh
+    // `DateTime.now()` in build made Firestore consider the ending-soon query
+    // different on every reconstruction, recreating its paged listener.
+    // Visibility is still evaluated with the current time below.
+    _homeGamesQueryStart = getCurrentTimestamp;
+    _recentlyEndedGamesStream = _createRecentlyEndedGamesStream();
+    _activeAnimationsStream = FirebaseFirestore.instance
+        .collection('animations')
+        .where('status', isEqualTo: 'active')
+        .snapshots();
+    // Each stored stream feeds exactly one StreamBuilder: a Firestore
+    // snapshots() stream is a broadcast stream that does not replay its last
+    // snapshot, so a second StreamBuilder subscribing later would wait
+    // forever ("Jeux terminés" stuck on "Chargement..." on device).
+    _finishedAnimationsStream = FirebaseFirestore.instance
+        .collection('animations')
+        .where('status', isEqualTo: 'active')
+        .snapshots();
+    _qrOnlyGamesStream = FirebaseFirestore.instance
+        .collection('games')
+        .where('access_mode', isEqualTo: 'qr_only')
+        .snapshots();
+    _activeReferralGamesStream = FirebaseFirestore.instance
+        .collection('referral_games')
+        .where('status', isEqualTo: 'active')
+        .limit(1)
+        .snapshots();
     _sharePromoFuture = _loadSharePromoState();
     _merchantReferralEnabledFuture = _loadMerchantReferralEnabled();
     _adHomeBannerFuture = _loadAdHomeBannerConfig();
@@ -174,6 +213,27 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
       _ensureTickerLoaded();
     });
   }
+
+  Stream<List<GamesRecord>> _createRecentlyEndedGamesStream() {
+    // The limit and the client-side 30-day rule are intentionally unchanged:
+    // historical documents do not all have fields compatible with a stricter
+    // Firestore query. Keeping the stream instance stable prevents a new
+    // listener on every Home reconstruction.
+    return queryGamesRecord(
+      queryBuilder: (query) => query.orderBy('end_date', descending: true),
+      limit: 80,
+    );
+  }
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> _publicWinnerStream(
+    String animationId,
+  ) =>
+      _publicAnimationWinnerStreams.putIfAbsent(
+        animationId,
+        () => FirebaseFirestore.instance
+            .doc('animations/$animationId/public_winner/current')
+            .snapshots(),
+      );
 
   void _markHomeDataReady({int? itemCount}) {
     if (_homeDataReady) {
@@ -491,9 +551,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
           renderItemCount: featuredGames.length,
         );
 
-        Widget buildCarousel({required bool hasActiveReferralGame}) {
+        Widget buildCarousel({
+          QueryDocumentSnapshot<Map<String, dynamic>>? referralGame,
+        }) {
           final includeReferralCard =
-              showReferralGameCard && hasActiveReferralGame;
+              showReferralGameCard && referralGame != null;
           final itemCount =
               featuredGames.length + (includeReferralCard ? 1 : 0);
 
@@ -507,6 +569,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
             itemBuilder: (context, rawIndex) {
               if (includeReferralCard && rawIndex == 0) {
                 return ReferralGameCard(
+                  gameSnapshot: referralGame,
                   width: _computeHomeCardWidth(context),
                 );
               }
@@ -541,20 +604,16 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         if (!showReferralGameCard ||
             isGuestOrAnonymous ||
             currentUserUid.isEmpty) {
-          return buildCarousel(hasActiveReferralGame: false);
+          return buildCarousel();
         }
 
         return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: FirebaseFirestore.instance
-              .collection('referral_games')
-              .where('status', isEqualTo: 'active')
-              .limit(1)
-              .snapshots(),
+          stream: _activeReferralGamesStream,
           builder: (context, referralSnapshot) {
-            final hasActiveReferralGame =
-                referralSnapshot.data?.docs.isNotEmpty ?? false;
             return buildCarousel(
-              hasActiveReferralGame: hasActiveReferralGame,
+              referralGame: referralSnapshot.data?.docs.isNotEmpty == true
+                  ? referralSnapshot.data!.docs.first
+                  : null,
             );
           },
         );
@@ -1410,10 +1469,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     }
 
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('animations')
-          .where('status', isEqualTo: 'active')
-          .snapshots(),
+      stream: _activeAnimationsStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return wrap(
@@ -1451,10 +1507,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         // visibilité mineur) est filtré côté client comme partout ailleurs
         // dans cette page.
         return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: FirebaseFirestore.instance
-              .collection('games')
-              .where('access_mode', isEqualTo: 'qr_only')
-              .snapshots(),
+          stream: _qrOnlyGamesStream,
           builder: (context, qrGamesSnapshot) {
             final activeQrGames = (qrGamesSnapshot.data?.docs ?? const [])
                 .map((doc) => GamesRecord.fromSnapshot(doc))
@@ -1711,7 +1764,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     return Semantics(
       container: true,
       button: true,
-      label: 'Parrainez un commerçant et recevez 50 euros en bons cadeaux après son premier abonnement réglé et la validation du parrainage.',
+      label:
+          'Parrainez un commerçant et recevez 50 euros en bons cadeaux après son premier abonnement réglé et la validation du parrainage.',
       child: Material(
         color: Colors.transparent,
         child: Ink(
@@ -1770,7 +1824,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                const TextSpan(text: ' après le premier abonnement réglé et validation.'),
+                                const TextSpan(
+                                    text:
+                                        ' après le premier abonnement réglé et validation.'),
                               ],
                             ),
                             style: theme.bodyMedium.override(
@@ -2118,6 +2174,11 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
 
   Future<void> _refreshHomeContent() async {
     await refreshCurrentUserDocument();
+    // A PagingController does not own the Firestore subscriptions that feed
+    // its live pages. Stop those first, then ask each carousel for a fresh
+    // first page; otherwise every pull-to-refresh leaves prior listeners
+    // active in the background.
+    await _model.cancelHomeGamePagingSubscriptions();
     _sharePromoFuture = _loadSharePromoState();
     _merchantReferralEnabledFuture = _loadMerchantReferralEnabled();
     _adHomeBannerFuture = _loadAdHomeBannerConfig();
@@ -2126,6 +2187,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     _featuredEnseignesSectionCache.clear();
     _endingSoonEnseignesSectionCache.clear();
     _newGamesEnseignesSectionCache.clear();
+    _recentlyEndedGamesStream = _createRecentlyEndedGamesStream();
+    if (mounted) {
+      safeSetState(() {});
+    }
     final controllers = <PagingController<DocumentSnapshot?, GamesRecord>?>[
       _model.listViewPagingController2,
       _model.listViewPagingController3,
@@ -2863,7 +2928,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         'adult_standard',
                                                                     clauses: [
                                                                       'hasWinner == false',
-                                                                      'end_date > ${getCurrentTimestamp.toIso8601String()}',
+                                                                      'end_date > ${_homeGamesQueryStart.toIso8601String()}',
                                                                       'orderBy end_date asc',
                                                                     ],
                                                                   );
@@ -2880,7 +2945,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         .where(
                                                                           'end_date',
                                                                           isGreaterThan:
-                                                                              getCurrentTimestamp,
+                                                                              _homeGamesQueryStart,
                                                                         )
                                                                         .orderBy(
                                                                             'end_date'),
@@ -3218,16 +3283,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                     List<
                                                                         GamesRecord>>(
                                                                   stream:
-                                                                      queryGamesRecord(
-                                                                    queryBuilder:
-                                                                        (query) =>
-                                                                            query.orderBy(
-                                                                      'end_date',
-                                                                      descending:
-                                                                          true,
-                                                                    ),
-                                                                    limit: 80,
-                                                                  ),
+                                                                      _recentlyEndedGamesStream,
                                                                   builder: (context,
                                                                       snapshot) {
                                                                     if (snapshot
@@ -3274,16 +3330,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         QuerySnapshot<
                                                                             Map<String,
                                                                                 dynamic>>>(
-                                                                      stream: FirebaseFirestore
-                                                                          .instance
-                                                                          .collection(
-                                                                              'animations')
-                                                                          .where(
-                                                                            'status',
-                                                                            isEqualTo:
-                                                                                'active',
-                                                                          )
-                                                                          .snapshots(),
+                                                                      stream:
+                                                                          _finishedAnimationsStream,
                                                                       builder:
                                                                           (context,
                                                                               animationsSnapshot) {
@@ -3453,7 +3501,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                               final animation = item['animation'] as QueryDocumentSnapshot<Map<String, dynamic>>;
                                                                               final animationData = animation.data();
                                                                               return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                                                                                stream: FirebaseFirestore.instance.doc('animations/${animation.id}/public_winner/current').snapshots(),
+                                                                                stream: _publicWinnerStream(animation.id),
                                                                                 builder: (context, winnerSnapshot) {
                                                                                   final winnerData = winnerSnapshot.data?.data() ?? const <String, dynamic>{};
                                                                                   final winnerLabel = (winnerData['label'] as String? ?? '').trim();
@@ -4023,7 +4071,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                               clauses: [
                                                                 'hasWinner == false',
                                                                 'prohibited_for_minors == false',
-                                                                'end_date > ${getCurrentTimestamp.toIso8601String()}',
+                                                                'end_date > ${_homeGamesQueryStart.toIso8601String()}',
                                                                 'orderBy end_date asc',
                                                               ],
                                                             );
@@ -4045,7 +4093,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                   .where(
                                                                     'end_date',
                                                                     isGreaterThan:
-                                                                        getCurrentTimestamp,
+                                                                        _homeGamesQueryStart,
                                                                   )
                                                                   .orderBy(
                                                                       'end_date'),
@@ -4208,7 +4256,7 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                                                                         .where(
                                                                           'end_date',
                                                                           isGreaterThan:
-                                                                              getCurrentTimestamp,
+                                                                              _homeGamesQueryStart,
                                                                         )
                                                                         .orderBy(
                                                                             'end_date'),

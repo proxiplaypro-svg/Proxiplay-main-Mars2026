@@ -160,6 +160,43 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
   }
 
   /// Additional helper methods.
+  ///
+  /// A [PagingController.refresh] only resets its page state: it does not
+  /// cancel the live Firestore subscriptions created for the previous pages.
+  /// Home calls this before a pull-to-refresh or a foreground refresh so an
+  /// old page cannot stay subscribed alongside its replacement.
+  Future<void> cancelHomeGamePagingSubscriptions() async {
+    final subscriptions = <StreamSubscription?>[
+      ...listViewStreamSubscriptions2,
+      ...listViewStreamSubscriptions3,
+      ...listViewStreamSubscriptions4,
+      ...listViewStreamSubscriptions5,
+      ...listViewStreamSubscriptions6,
+      ...listViewStreamSubscriptions7,
+      ...listViewStreamSubscriptions8,
+      ...listViewStreamSubscriptions9,
+      ...listViewStreamSubscriptions10,
+    ];
+
+    listViewStreamSubscriptions2.clear();
+    listViewStreamSubscriptions3.clear();
+    listViewStreamSubscriptions4.clear();
+    listViewStreamSubscriptions5.clear();
+    listViewStreamSubscriptions6.clear();
+    listViewStreamSubscriptions7.clear();
+    listViewStreamSubscriptions8.clear();
+    listViewStreamSubscriptions9.clear();
+    listViewStreamSubscriptions10.clear();
+
+    await Future.wait(
+      subscriptions
+          .whereType<StreamSubscription>()
+          .map((subscription) => subscription.cancel().catchError((_) {
+                // A cancelled Firestore listener is already in its desired state.
+              })),
+    );
+  }
+
   PagingController<DocumentSnapshot?, GamesRecord> setListViewController2(
     Query query, {
     DocumentReference<Object?>? parent,
@@ -187,6 +224,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           controller: controller,
           pageSize: 100,
           isStream: true,
+          useSingleLiveSubscription: true,
         ),
       );
   }
@@ -218,6 +256,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           controller: controller,
           pageSize: 100,
           isStream: true,
+          useSingleLiveSubscription: true,
         ),
       );
   }
@@ -249,6 +288,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           controller: controller,
           pageSize: 100,
           isStream: true,
+          useSingleLiveSubscription: true,
         ),
       );
   }
@@ -280,6 +320,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           controller: controller,
           pageSize: 100,
           isStream: true,
+          useSingleLiveSubscription: true,
         ),
       );
   }
@@ -311,6 +352,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           controller: controller,
           pageSize: 100,
           isStream: true,
+          useSingleLiveSubscription: true,
         ),
       );
   }
@@ -342,6 +384,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           controller: controller,
           pageSize: 100,
           isStream: true,
+          useSingleLiveSubscription: true,
         ),
       );
   }
@@ -373,6 +416,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           controller: controller,
           pageSize: 100,
           isStream: true,
+          useSingleLiveSubscription: true,
         ),
       );
   }
@@ -404,6 +448,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           controller: controller,
           pageSize: 100,
           isStream: true,
+          useSingleLiveSubscription: true,
         ),
       );
   }
@@ -435,6 +480,7 @@ class HomeJoueurPageModel extends FlutterFlowModel<HomeJoueurPageWidget> {
           controller: controller,
           pageSize: 100,
           isStream: true,
+          useSingleLiveSubscription: true,
         ),
       );
   }

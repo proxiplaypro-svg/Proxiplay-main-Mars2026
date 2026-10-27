@@ -22,28 +22,31 @@ void main() {
   ).readAsStringSync();
 
   final guardStart = source.indexOf('if (!showReferralGameCard ||');
-  const queryCall = "collection('referral_games')";
-  final guardEnd = guardStart >= 0 ? source.indexOf(queryCall, guardStart) : -1;
+  const streamCall = 'stream: _activeReferralGamesStream';
+  final guardEnd =
+      guardStart >= 0 ? source.indexOf(streamCall, guardStart) : -1;
 
   setUpAll(() {
     expect(guardStart, greaterThan(-1),
-        reason: 'the referral_games guard clause was not found - has this '
+        reason: 'the referral-games guard clause was not found - has this '
             'call site moved or been rewritten?');
     expect(guardEnd, greaterThan(guardStart));
   });
 
   group('home_joueur_page referral_games guest gate (regression)', () {
-    test('the guard ahead of the referral_games query rejects a guest '
+    test(
+        'the guard ahead of the referral_games query rejects a guest '
         'before it fires', () {
       final block = source.substring(guardStart, guardEnd);
       expect(block, contains('isGuestOrAnonymous'));
       expect(block, contains('currentUserUid.isEmpty'));
     });
 
-    test('the guard short-circuits to a referral-less carousel instead of '
+    test(
+        'the guard short-circuits to a referral-less carousel instead of '
         'building the StreamBuilder', () {
       final block = source.substring(guardStart, guardEnd);
-      expect(block, contains('buildCarousel(hasActiveReferralGame: false)'));
+      expect(block, contains('return buildCarousel();'));
     });
   });
 }
