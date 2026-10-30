@@ -722,6 +722,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Single non-personal metric consumed by the public marketing site.
+    // Public clients can fetch this exact document, but can neither enumerate
+    // metrics nor write any field.
+    match /public_metrics/games_played {
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
     match /stats/{document} {
       allow read: if true;
       allow write: if false;
