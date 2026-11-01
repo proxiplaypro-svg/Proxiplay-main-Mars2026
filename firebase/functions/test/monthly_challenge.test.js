@@ -17,6 +17,7 @@ const {
   trackMonthlyChallengesParticipation,
   normalizeMonthlyChallengeConfig,
   validateMonthlyChallengeConfig,
+  getParisDayKey,
 } = require("../monthly_challenge.js");
 
 if (!admin.apps.length) {
@@ -37,6 +38,16 @@ async function clearFirestore() {
 function timestampFromIso(isoString) {
   return admin.firestore.Timestamp.fromDate(new Date(isoString));
 }
+
+test("heure d'été Paris : la journée civile reste stable autour du passage de mars", () => {
+  assert.equal(getParisDayKey(new Date("2026-03-29T00:30:00.000Z")), "2026-03-29");
+  assert.equal(getParisDayKey(new Date("2026-03-29T22:30:00.000Z")), "2026-03-30");
+});
+
+test("heure d'hiver Paris : la journée civile reste stable autour du passage d'octobre", () => {
+  assert.equal(getParisDayKey(new Date("2026-10-25T00:30:00.000Z")), "2026-10-25");
+  assert.equal(getParisDayKey(new Date("2026-10-25T23:30:00.000Z")), "2026-10-26");
+});
 
 async function seedUser(uid, data = {}) {
   await firestore.collection("users").doc(uid).set({
