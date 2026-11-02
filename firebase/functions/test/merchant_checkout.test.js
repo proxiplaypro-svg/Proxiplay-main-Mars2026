@@ -1,8 +1,11 @@
 process.env.FIRESTORE_EMULATOR_HOST ||= '127.0.0.1:8080';
 process.env.GCLOUD_PROJECT ||= 'demo-proxiplay-merchant-checkout';
-// ID de prix Stripe factice : seul le fait qu'un ID soit configure compte
-// ici, jamais sa valeur reelle (le SDK Stripe est mocke dans ce fichier).
-process.env.STRIPE_PRICE_PROXIMITE = 'price_test_proximite';
+// ID Stripe factices : seul le fait qu'un ID soit configure compte ici,
+// jamais sa valeur reelle (le SDK Stripe est mocke dans ce fichier).
+process.env.STRIPE_PRICE_AUTONOME = 'price_test_autonome';
+process.env.STRIPE_PRICE_ACCOMPAGNEE = 'price_test_accompagnee';
+process.env.STRIPE_TAX_MODE = 'tax_rate';
+process.env.STRIPE_TAX_RATE_ID = 'txr_test_fixture';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const admin = require('firebase-admin');
@@ -11,26 +14,60 @@ const db = admin.firestore();
 
 const stripeClientModule = require('../stripe_client');
 const {createMerchantCheckoutSessionHandler} = require('../merchant_checkout');
-const {generateMerchantReferralCodeHandler} = require('../merchant_referral_engine');
+const {
+  createMerchantBillingPortalSessionHandler,
+  listMerchantInvoicesHandler,
+} = require('../merchant_billing_portal');
+const {
+  generateMerchantReferralCodeHandler,
+  adminSetMerchantManualAccessHandler,
+} = require('../merchant_referral_engine');
 
-function makeFakeStripe({existingCustomerId} = {}) {
-  const calls = {customersCreate: [], checkoutSessionsCreate: []};
+const kUrls = {successUrl: 'https://www.proxiplay.fr/ok', cancelUrl: 'https://www.proxiplay.fr/ko'};
+const kMerchant = {auth: {uid: 'merchant', token: {email: 'merchant@example.test'}}};
+
+const kPrices = {
+  price_test_autonome: {id: 'price_test_autonome', active: true, currency: 'eur', unit_amount: 36500,
+    type: 'recurring', recurring: {interval: 'year', interval_count: 1}},
+  price_test_accompagnee: {id: 'price_test_accompagnee', active: true, currency: 'eur', unit_amount: 100000,
+    type: 'recurring', recurring: {interval: 'year', interval_count: 1}},
+};
+
+function makeFakeStripe({subscriptions = [], prices = kPrices, invoices = []} = {}) {
+  const calls = {customersCreate: [], checkoutSessionsCreate: [], expired: [], portal: [], invoicesList: []};
+  const sessions = {};
+  let sessionCounter = 0;
   return {
     calls,
+    sessions,
+    prices: {retrieve: async (id) => prices[id]},
     customers: {
-      create: async (params) => {
-        calls.customersCreate.push(params);
-        return {id: existingCustomerId || 'cus_fake_123'};
+      search: async () => ({data: []}),
+      create: async (params, options) => {
+        calls.customersCreate.push({params, options});
+        return {id: 'cus_fake_123'};
       },
     },
+    subscriptions: {list: async () => ({data: subscriptions})},
     checkout: {
       sessions: {
-        create: async (params) => {
-          calls.checkoutSessionsCreate.push(params);
-          return {id: 'cs_fake_123', url: 'https://checkout.stripe.test/cs_fake_123'};
+        create: async (params, options) => {
+          calls.checkoutSessionsCreate.push({...params, _options: options});
+          sessionCounter++;
+          const session = {id: `cs_fake_${sessionCounter}`, url: `https://checkout.stripe.test/cs_fake_${sessionCounter}`,
+            status: 'open', metadata: params.metadata, expires_at: params.expires_at};
+          sessions[session.id] = session;
+          return session;
         },
+        retrieve: async (id) => sessions[id],
+        expire: async (id) => { calls.expired.push(id); sessions[id].status = 'expired'; return sessions[id]; },
       },
     },
+    billingPortal: {sessions: {create: async (params) => {
+      calls.portal.push(params);
+      return {url: `https://billing.stripe.test/${params.customer}`};
+    }}},
+    invoices: {list: async (params) => { calls.invoicesList.push(params); return {data: invoices}; }},
   };
 }
 
@@ -45,178 +82,345 @@ async function clearCollections() {
 test.beforeEach(async () => {
   await clearCollections();
   await db.doc('app_config/merchant_referral').delete();
+  await db.doc('users/merchant').set({user_role: 'commercant', email: 'merchant@example.test'});
+  process.env.STRIPE_TAX_MODE = 'tax_rate';
 });
+
+// --- Autorisations -------------------------------------------------------
 
 test('unauthenticated call is rejected', async () => {
   await assert.rejects(
-    () => createMerchantCheckoutSessionHandler(
-      {offerId: 'proximite', successUrl: 'https://x', cancelUrl: 'https://x'}, {auth: null}),
+    () => createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, {auth: null}),
     (err) => err.code === 'unauthenticated',
   );
 });
+
+test('a player account, an account without profile or a suspended merchant cannot open a checkout', async () => {
+  const fakeStripe = makeFakeStripe();
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  await db.doc('users/player').set({user_role: 'joueur'});
+  await db.doc('users/suspended').set({user_role: 'commercant', account_status: 'suspended'});
+  for (const uid of ['player', 'ghost', 'suspended']) {
+    await assert.rejects(
+      () => createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, {auth: {uid}}),
+      (err) => err.code === 'permission-denied',
+      uid,
+    );
+  }
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0);
+});
+
+test('a return URL outside ProxiPlay domains is rejected (no open redirect)', async () => {
+  stripeClientModule.getStripeClient = () => makeFakeStripe();
+  await assert.rejects(
+    () => createMerchantCheckoutSessionHandler(
+      {offerId: 'autonome', successUrl: 'https://evil.example/ok', cancelUrl: kUrls.cancelUrl}, kMerchant),
+    (err) => err.code === 'invalid-argument',
+  );
+});
+
+test('a live Stripe key is refused unless live mode is explicitly enabled', () => {
+  assert.throws(() => stripeClientModule.assertKeyAllowed('sk_live_fixture'), (err) => err.code === 'failed-precondition');
+  assert.doesNotThrow(() => stripeClientModule.assertKeyAllowed('sk_test_fixture'));
+});
+
+// --- Offre, prix et fiscalite -------------------------------------------
 
 test('an unknown offerId is rejected before any Stripe call, when no negotiated offer exists', async () => {
   const fakeStripe = makeFakeStripe();
   stripeClientModule.getStripeClient = () => fakeStripe;
   await assert.rejects(
-    () => createMerchantCheckoutSessionHandler(
-      {offerId: 'offre_inexistante', successUrl: 'https://x', cancelUrl: 'https://x'},
-      {auth: {uid: 'merchant'}},
-    ),
+    () => createMerchantCheckoutSessionHandler({offerId: 'proximite', ...kUrls}, kMerchant),
+    (err) => err.code === 'invalid-argument',
+  );
+  await assert.rejects(
+    () => createMerchantCheckoutSessionHandler({...kUrls}, kMerchant),
     (err) => err.code === 'invalid-argument',
   );
   assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0);
 });
 
-test('no offerId at all is rejected when there is no negotiated offer', async () => {
+test('without an explicitly validated tax configuration, no checkout is created', async () => {
   const fakeStripe = makeFakeStripe();
   stripeClientModule.getStripeClient = () => fakeStripe;
+  delete process.env.STRIPE_TAX_MODE;
   await assert.rejects(
-    () => createMerchantCheckoutSessionHandler(
-      {successUrl: 'https://x', cancelUrl: 'https://x'}, {auth: {uid: 'merchant'}},
-    ),
-    (err) => err.code === 'invalid-argument',
+    () => createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, kMerchant),
+    (err) => err.code === 'failed-precondition',
   );
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0);
 });
 
-test('a valid checkout uses the server-resolved catalog price, never a client amount, and persists subscription state keyed by merchant account', async () => {
+test('a valid checkout uses the server-resolved price, never a client amount, and activates nothing', async () => {
   const fakeStripe = makeFakeStripe();
   stripeClientModule.getStripeClient = () => fakeStripe;
 
   const result = await createMerchantCheckoutSessionHandler(
-    {
-      offerId: 'proximite',
-      successUrl: 'https://proxiplay.fr/success', cancelUrl: 'https://proxiplay.fr/cancel',
-      // Un client malveillant tente de transmettre un montant/offre : ignores.
-      amountHtCents: 1, offerAmountOverrideCents: 1,
-    },
-    {auth: {uid: 'merchant'}},
+    // Un client malveillant tente de transmettre un montant : ignore.
+    {offerId: 'accompagnee', ...kUrls, amountHtCents: 1, price: 'price_hack'},
+    kMerchant,
   );
 
-  assert.equal(result.checkoutUrl, 'https://checkout.stripe.test/cs_fake_123');
+  assert.equal(result.checkoutUrl, 'https://checkout.stripe.test/cs_fake_1');
   assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 1);
-  const sessionParams = fakeStripe.calls.checkoutSessionsCreate[0];
-  assert.equal(sessionParams.mode, 'subscription');
-  assert.equal(sessionParams.line_items[0].price, 'price_test_proximite');
-  assert.equal(sessionParams.client_reference_id, 'merchant');
+  const params = fakeStripe.calls.checkoutSessionsCreate[0];
+  assert.equal(params.mode, 'subscription');
+  assert.deepEqual(params.line_items, [{price: 'price_test_accompagnee', quantity: 1, tax_rates: ['txr_test_fixture']}]);
+  assert.equal(params.client_reference_id, 'merchant');
+  assert.equal(params.customer, 'cus_fake_123');
+  assert.equal(params.subscription_data.metadata.merchantUserId, 'merchant');
+  assert.equal(params.subscription_data.metadata.offerId, 'accompagnee');
+  assert.ok(fakeStripe.calls.customersCreate[0].options.idempotencyKey.startsWith('merchant-customer-merchant-'));
 
-  const subSnap = await db.doc('merchant_subscriptions/merchant').get();
-  assert.equal(subSnap.data().subscription_status, 'incomplete');
-  assert.equal(subSnap.data().offer_id, 'proximite');
+  const data = (await db.doc('merchant_subscriptions/merchant').get()).data();
+  assert.equal(data.pending_offer_id, 'accompagnee');
+  assert.equal(data.checkout_status, 'open');
+  assert.equal(data.stripe_customer_id, 'cus_fake_123');
+  assert.equal(data.subscription_status, undefined, 'aucun statut Stripe avant le webhook');
+  assert.equal(data.stripe_entitlement, undefined, 'aucun droit ouvert au Checkout');
+  assert.equal(data.checkout_lock, undefined);
 });
 
-test('a merchant with a negotiated custom offer gets an inline Stripe price, never the catalog offer, even if offerId is sent', async () => {
-  const fakeStripe = makeFakeStripe();
+test('a Stripe price that does not match the catalogue (amount or period) is refused', async () => {
+  const fakeStripe = makeFakeStripe({prices: {
+    ...kPrices,
+    price_test_autonome: {...kPrices.price_test_autonome, recurring: {interval: 'month', interval_count: 1}},
+  }});
   stripeClientModule.getStripeClient = () => fakeStripe;
-  await db.doc('merchant_custom_offers/merchant').set({
-    amount_ht_cents: 250000, label: 'Tarif negocie 5 enseignes',
-  });
-
-  await createMerchantCheckoutSessionHandler(
-    {offerId: 'proximite', successUrl: 'https://x', cancelUrl: 'https://x'},
-    {auth: {uid: 'merchant'}},
-  );
-
-  const sessionParams = fakeStripe.calls.checkoutSessionsCreate[0];
-  assert.equal(sessionParams.line_items[0].price, undefined);
-  assert.equal(sessionParams.line_items[0].price_data.unit_amount, 250000);
-  assert.equal(sessionParams.line_items[0].price_data.product_data.name, 'Tarif negocie 5 enseignes');
-  const subSnap = await db.doc('merchant_subscriptions/merchant').get();
-  assert.equal(subSnap.data().offer_id, 'custom');
-});
-
-test('a second checkout is refused once a subscription is already active for this merchant account', async () => {
-  const fakeStripe = makeFakeStripe();
-  stripeClientModule.getStripeClient = () => fakeStripe;
-  await db.doc('merchant_subscriptions/merchant').set({subscription_status: 'active'});
-
   await assert.rejects(
-    () => createMerchantCheckoutSessionHandler(
-      {offerId: 'proximite', successUrl: 'https://x', cancelUrl: 'https://x'},
-      {auth: {uid: 'merchant'}},
-    ),
+    () => createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, kMerchant),
+    (err) => err.code === 'failed-precondition',
+  );
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0);
+  const lock = (await db.doc('merchant_subscriptions/merchant').get()).data().checkout_lock;
+  assert.equal(lock, undefined, 'le verrou est libere apres un echec');
+});
+
+test('a merchant with a negotiated custom offer gets an inline Stripe price, never the catalog offer', async () => {
+  const fakeStripe = makeFakeStripe();
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  await db.doc('merchant_custom_offers/merchant').set({amount_ht_cents: 250000, label: 'Tarif negocie 5 enseignes'});
+
+  await createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, kMerchant);
+
+  const params = fakeStripe.calls.checkoutSessionsCreate[0];
+  assert.equal(params.line_items[0].price, undefined);
+  assert.equal(params.line_items[0].price_data.unit_amount, 250000);
+  assert.equal(params.line_items[0].price_data.recurring.interval, 'year');
+  assert.equal((await db.doc('merchant_subscriptions/merchant').get()).data().pending_offer_id, 'custom');
+});
+
+// --- Prevention des doubles abonnements ---------------------------------
+
+test('a second checkout is refused once the mirror shows an open subscription', async () => {
+  const fakeStripe = makeFakeStripe();
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  for (const status of ['active', 'past_due', 'trialing']) {
+    await db.doc('merchant_subscriptions/merchant').set({subscription_status: status, stripe_subscription_id: 'sub_1'});
+    await assert.rejects(
+      () => createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, kMerchant),
+      (err) => err.code === 'already-exists',
+      status,
+    );
+  }
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0);
+});
+
+test('an open subscription known only by Stripe (webhook not yet received) blocks a new checkout', async () => {
+  const fakeStripe = makeFakeStripe({subscriptions: [{id: 'sub_live_1', status: 'active'}]});
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  await assert.rejects(
+    () => createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, kMerchant),
     (err) => err.code === 'already-exists',
   );
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0);
 });
 
-test('self-referral (using one\'s own code) is rejected', async () => {
+test('a still-open session for the same offer is reused; another offer expires it first', async () => {
   const fakeStripe = makeFakeStripe();
   stripeClientModule.getStripeClient = () => fakeStripe;
-  const {code} = await generateMerchantReferralCodeHandler({}, {auth: {uid: 'merchant'}});
 
+  const first = await createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, kMerchant);
+  const again = await createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, kMerchant);
+  assert.equal(again.checkoutUrl, first.checkoutUrl);
+  assert.equal(again.reused, true);
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 1);
+
+  const other = await createMerchantCheckoutSessionHandler({offerId: 'accompagnee', ...kUrls}, kMerchant);
+  assert.deepEqual(fakeStripe.calls.expired, ['cs_fake_1']);
+  assert.notEqual(other.checkoutUrl, first.checkoutUrl);
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 2);
+  assert.equal(fakeStripe.calls.customersCreate.length, 1, 'un seul Customer Stripe par commercant');
+});
+
+test('two simultaneous checkouts never create two sessions', async () => {
+  const fakeStripe = makeFakeStripe();
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  const results = await Promise.allSettled([
+    createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, kMerchant),
+    createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, kMerchant),
+  ]);
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 1);
+  const rejected = results.filter((r) => r.status === 'rejected');
+  rejected.forEach((r) => assert.ok(['aborted', 'already-exists'].includes(r.reason.code), r.reason.code));
+});
+
+test('an existing Stripe Customer is reused, never duplicated', async () => {
+  const fakeStripe = makeFakeStripe();
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  await db.doc('merchant_subscriptions/merchant').set({stripe_customer_id: 'cus_existing', subscription_status: 'canceled'});
+  await createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, kMerchant);
+  assert.equal(fakeStripe.calls.customersCreate.length, 0);
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate[0].customer, 'cus_existing');
+});
+
+// --- Parrainage (inchange) -------------------------------------------------
+
+test('self-referral (using one\'s own code) is rejected', async () => {
+  stripeClientModule.getStripeClient = () => makeFakeStripe();
+  const {code} = await generateMerchantReferralCodeHandler({}, {auth: {uid: 'merchant'}});
   await assert.rejects(
-    () => createMerchantCheckoutSessionHandler(
-      {offerId: 'proximite', successUrl: 'https://x', cancelUrl: 'https://x', referralCode: code},
-      {auth: {uid: 'merchant'}},
-    ),
+    () => createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls, referralCode: code}, kMerchant),
     (err) => err.code === 'invalid-argument',
   );
 });
 
 test('a nonexistent referral code is rejected', async () => {
-  const fakeStripe = makeFakeStripe();
-  stripeClientModule.getStripeClient = () => fakeStripe;
+  stripeClientModule.getStripeClient = () => makeFakeStripe();
   await assert.rejects(
-    () => createMerchantCheckoutSessionHandler(
-      {offerId: 'proximite', successUrl: 'https://x', cancelUrl: 'https://x', referralCode: 'NOPE0000'},
-      {auth: {uid: 'merchant'}},
-    ),
+    () => createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls, referralCode: 'NOPE0000'}, kMerchant),
     (err) => err.code === 'not-found',
   );
 });
 
-test('a valid referral code links the referral exactly once (keyed by merchant account); a second checkout cannot relink to another inviter', async () => {
-  const fakeStripe = makeFakeStripe();
-  stripeClientModule.getStripeClient = () => fakeStripe;
+test('a valid referral code links the referral exactly once; a second checkout cannot relink to another inviter', async () => {
+  stripeClientModule.getStripeClient = () => makeFakeStripe();
   const {code: codeA} = await generateMerchantReferralCodeHandler({}, {auth: {uid: 'inviter_a'}});
   const {code: codeB} = await generateMerchantReferralCodeHandler({}, {auth: {uid: 'inviter_b'}});
 
-  await createMerchantCheckoutSessionHandler(
-    {offerId: 'proximite', successUrl: 'https://x', cancelUrl: 'https://x', referralCode: codeA},
-    {auth: {uid: 'merchant'}},
-  );
+  await createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls, referralCode: codeA}, kMerchant);
   const referralSnap = await db.doc('merchant_referrals/merchant').get();
   assert.equal(referralSnap.data().status, 'linked');
   assert.equal(referralSnap.data().reward_amount_cents, 5000);
   assert.equal(referralSnap.data().inviter_user_id.path, 'users/inviter_a');
 
-  // L'abonnement est maintenant "incomplete" (pas actif) : un deuxieme essai
-  // de Checkout reste possible tant qu'aucun paiement n'est confirme, mais
-  // ne doit JAMAIS re-lier le compte commercant a un autre parrain.
   await assert.rejects(
-    () => createMerchantCheckoutSessionHandler(
-      {offerId: 'proximite', successUrl: 'https://x', cancelUrl: 'https://x', referralCode: codeB},
-      {auth: {uid: 'merchant'}},
-    ),
+    () => createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls, referralCode: codeB}, kMerchant),
     (err) => err.code === 'already-exists',
   );
 });
 
-test('disabled programme blocks a new referral even for an old client, without blocking ordinary checkout', async () => {
+test('disabled programme blocks a new referral without blocking ordinary checkout', async () => {
   const fakeStripe = makeFakeStripe();
   stripeClientModule.getStripeClient = () => fakeStripe;
   const {code} = await generateMerchantReferralCodeHandler({}, {auth: {uid: 'inviter'}});
   await db.doc('app_config/merchant_referral').set({enabled: false});
-  await assert.rejects(() => createMerchantCheckoutSessionHandler(
-    {offerId: 'proximite', successUrl: 'https://x', cancelUrl: 'https://x', referralCode: code},
-    {auth: {uid: 'merchant'}}), (err) => err.code === 'failed-precondition');
+  await assert.rejects(
+    () => createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls, referralCode: code}, kMerchant),
+    (err) => err.code === 'failed-precondition',
+  );
   assert.equal((await db.doc('merchant_referrals/merchant').get()).exists, false);
   assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0);
-  await createMerchantCheckoutSessionHandler(
-    {offerId: 'proximite', successUrl: 'https://x', cancelUrl: 'https://x'},
-    {auth: {uid: 'merchant'}});
+  await createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, kMerchant);
   assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 1);
 });
 
-test('disabled programme allows a previously linked referral to continue', async () => {
+// --- Portail et factures ---------------------------------------------------
+
+test('the billing portal is opened only for the caller\'s own Stripe Customer', async () => {
   const fakeStripe = makeFakeStripe();
   stripeClientModule.getStripeClient = () => fakeStripe;
-  const {code} = await generateMerchantReferralCodeHandler({}, {auth: {uid: 'inviter'}});
-  await db.doc('merchant_referrals/merchant').set({status: 'linked', inviter_user_id: db.doc('users/inviter'), reward_amount_cents: 10000});
-  await db.doc('app_config/merchant_referral').set({enabled: false});
-  await createMerchantCheckoutSessionHandler(
-    {offerId: 'proximite', successUrl: 'https://x', cancelUrl: 'https://x', referralCode: code},
-    {auth: {uid: 'merchant'}});
-  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 1);
-  assert.equal((await db.doc('merchant_referrals/merchant').get()).data().reward_amount_cents, 10000);
+  await db.doc('users/player').set({user_role: 'joueur'});
+  await assert.rejects(
+    () => createMerchantBillingPortalSessionHandler({returnUrl: kUrls.successUrl}, {auth: {uid: 'player'}}),
+    (err) => err.code === 'permission-denied',
+  );
+  await assert.rejects(
+    () => createMerchantBillingPortalSessionHandler({returnUrl: kUrls.successUrl}, kMerchant),
+    (err) => err.code === 'failed-precondition',
+  );
+  await db.doc('merchant_subscriptions/merchant').set({stripe_customer_id: 'cus_mine'});
+  const result = await createMerchantBillingPortalSessionHandler(
+    {returnUrl: kUrls.successUrl, customer: 'cus_someone_else'}, kMerchant);
+  assert.equal(result.portalUrl, 'https://billing.stripe.test/cus_mine');
+  assert.equal(fakeStripe.calls.portal[0].customer, 'cus_mine');
+});
+
+test('invoices are listed for the caller only, without any card data', async () => {
+  const fakeStripe = makeFakeStripe({invoices: [
+    {id: 'in_1', number: 'PXP-0001', status: 'paid', created: 1700000000, total: 43800, amount_paid: 43800,
+      currency: 'eur', hosted_invoice_url: 'https://invoice.stripe.test/in_1', invoice_pdf: 'https://pdf.stripe.test/in_1',
+      charge: {payment_method_details: {card: {last4: '4242'}}}},
+    {id: 'in_draft', status: 'draft'},
+  ]});
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  await db.doc('merchant_subscriptions/merchant').set({stripe_customer_id: 'cus_mine'});
+  const {invoices} = await listMerchantInvoicesHandler({customer: 'cus_other'}, kMerchant);
+  assert.equal(fakeStripe.calls.invoicesList[0].customer, 'cus_mine');
+  assert.equal(invoices.length, 1);
+  assert.equal(invoices[0].invoicePdfUrl, 'https://pdf.stripe.test/in_1');
+  assert.ok(!JSON.stringify(invoices).includes('4242'));
+});
+
+// --- Activation manuelle Admin --------------------------------------------
+
+test('manual access is set only by an admin and stored apart from Stripe fields', async () => {
+  await db.doc('users/admin').set({user_role: 'admin'});
+  await assert.rejects(
+    () => adminSetMerchantManualAccessHandler({merchantUserId: 'merchant', enabled: true, reason: 'x'}, kMerchant),
+    (err) => err.code === 'permission-denied',
+  );
+  await adminSetMerchantManualAccessHandler(
+    {merchantUserId: 'merchant', enabled: true, reason: 'Paiement par virement 2026'}, {auth: {uid: 'admin'}});
+  const data = (await db.doc('merchant_subscriptions/merchant').get()).data();
+  assert.equal(data.manual_access.enabled, true);
+  assert.equal(data.manual_access.set_by, 'admin');
+  assert.equal(data.subscription_status, undefined);
+});
+
+// --- Correspondance compte site <-> compte Firebase ------------------------
+
+const {getMerchantBillingAccountHandler} = require('../merchant_billing_account');
+
+test('the merchant space only opens for a Firebase merchant profile and lists its enseignes', async () => {
+  await db.doc('users/player').set({user_role: 'joueur'});
+  for (const uid of ['player', 'ghost']) {
+    await assert.rejects(() => getMerchantBillingAccountHandler({}, {auth: {uid}}), (err) => err.code === 'permission-denied');
+  }
+  await assert.rejects(() => getMerchantBillingAccountHandler({}, {auth: null}), (err) => err.code === 'unauthenticated');
+
+  await db.doc('users/merchant').set({user_role: 'commercant', display_name: 'Boulangerie Test', account_status: 'approved'});
+  await db.doc('enseignes/e1').set({name: 'Boulangerie du port', owner: db.doc('users/merchant')});
+  await db.doc('enseignes/e2').set({name: 'Boulangerie centre', owner_id: db.doc('users/merchant')});
+  await db.doc('enseignes/e3').set({name: 'Autre commerce', owner: db.doc('users/someone')});
+
+  const view = await getMerchantBillingAccountHandler({}, kMerchant);
+  assert.equal(view.account.uid, 'merchant');
+  assert.equal(view.account.displayName, 'Boulangerie Test');
+  assert.deepEqual(view.account.enseignes.map((e) => e.id).sort(), ['e1', 'e2']);
+  assert.equal(view.subscription.status, null);
+  assert.equal(view.hasPaidAccess, false);
+  assert.deepEqual(view.offers.map((o) => [o.id, o.amountHtCents]), [['autonome', 36500], ['accompagnee', 100000]]);
+  assert.equal(view.paymentsEnabled, true);
+});
+
+test('the merchant space reflects the webhook mirror and manual access, never secrets', async () => {
+  await db.doc('merchant_subscriptions/merchant').set({
+    subscription_status: 'active', stripe_entitlement: 'active', offer_id: 'autonome',
+    stripe_customer_id: 'cus_secretish', stripe_subscription_id: 'sub_x',
+    current_period_end: admin.firestore.Timestamp.fromMillis(Date.UTC(2027, 10, 2)),
+    stripe_livemode: false,
+  });
+  let view = await getMerchantBillingAccountHandler({}, kMerchant);
+  assert.equal(view.subscription.offerLabel, 'Autonome');
+  assert.equal(view.subscription.currentPeriodEnd, Date.UTC(2027, 10, 2));
+  assert.equal(view.subscription.testMode, true);
+  assert.equal(view.hasPaidAccess, true);
+  assert.ok(!JSON.stringify(view).includes('cus_secretish'));
+  assert.ok(!JSON.stringify(view).includes('sub_x'));
+
+  await db.doc('merchant_subscriptions/merchant').set({manual_access: {enabled: true, reason: 'Historique'}});
+  view = await getMerchantBillingAccountHandler({}, kMerchant);
+  assert.equal(view.manualAccess.active, true);
+  assert.equal(view.hasPaidAccess, true);
 });

@@ -9,10 +9,10 @@ const functionsDirectory = path.resolve(__dirname, "..");
 const stripeEnvironmentKeys = [
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
-  "STRIPE_PRICE_PROXIMITE",
-  "STRIPE_PRICE_SECTEURS_SPECIFIQUES",
-  "STRIPE_PRICE_GRANDES_ENSEIGNES",
-  "STRIPE_TAX_RATE_TVA_20",
+  "STRIPE_PRICE_AUTONOME",
+  "STRIPE_PRICE_ACCOMPAGNEE",
+  "STRIPE_TAX_MODE",
+  "STRIPE_TAX_RATE_ID",
 ];
 
 test("index loads all endpoints without Stripe configuration", () => {
@@ -26,6 +26,8 @@ test("index loads all endpoints without Stripe configuration", () => {
       "createMerchantCheckoutSession",
       "createMerchantBillingPortalSession",
       "stripeWebhook",
+      "listMerchantInvoices",
+      "adminSetMerchantManualAccess",
     ];
     for (const name of names) {
       if (typeof endpoints[name] !== "function") {

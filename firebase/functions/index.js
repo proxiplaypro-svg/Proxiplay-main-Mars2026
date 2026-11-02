@@ -20,6 +20,10 @@ exports.createMerchantCheckoutSession = require('./merchant_checkout').createMer
 exports.stripeWebhook = require('./stripe_webhook').stripeWebhook;
 exports.createMerchantBillingPortalSession =
   require('./merchant_billing_portal').createMerchantBillingPortalSession;
+exports.listMerchantInvoices = require('./merchant_billing_portal').listMerchantInvoices;
+exports.getMerchantBillingAccount = require('./merchant_billing_account').getMerchantBillingAccount;
+exports.adminSetMerchantManualAccess =
+  require('./merchant_referral_engine').adminSetMerchantManualAccess;
 exports.generateMerchantReferralCode =
   require('./merchant_referral_engine').generateMerchantReferralCode;
 exports.adminApproveMerchantReferral =

@@ -6,167 +6,179 @@ clair dans Git.
 
 **Modèle de facturation : un paiement par compte commerçant**, pas par
 enseigne. Un commerçant possédant plusieurs enseignes paie un seul
-abonnement qui couvre toutes ses enseignes. Pour un commerçant
-multi-enseignes dont le tarif de catalogue standard ne convient pas, un
-**tarif négocié** peut être fixé depuis l'Admin (page *Abonnements
-commerçants* → « Fixer un tarif ») : il remplace alors le catalogue pour ce
-compte, sans qu'aucun produit/prix Stripe dédié n'ait besoin d'être créé à
-l'avance (le prix négocié est envoyé à Stripe au moment du paiement).
+abonnement annuel qui couvre toutes ses enseignes. Un **tarif négocié** peut
+toujours être fixé depuis l'Admin (page *Abonnements commerçants*) : il
+remplace alors le catalogue pour ce compte.
 
-## 1. Compte Stripe (mode TEST d'abord)
+**Où se passe le paiement** : sur le site, page
+`https://www.proxiplay.fr/espace-commercant/` (dépôt `proxiplay-website`,
+branche `feat/espace-commercant`). Le commerçant s'y connecte avec **son
+compte Firebase de l'app**. L'Admin reste en lecture seule et n'appelle
+jamais Stripe.
 
-**Où aller** → https://dashboard.stripe.com → créer un compte (ou utiliser
-le compte existant) → rester en mode **TEST** (bouton en haut à droite du
-Dashboard) tant que ce chantier n'est pas validé en production.
+## Architecture en bref
 
-**Quoi créer** → rien à cette étape, juste confirmer l'accès au Dashboard.
+| Élément | Où | Rôle |
+|---|---|---|
+| `getMerchantBillingAccount` | Cloud Function (us-central1) | Vérifie que le compte connecté est un commerçant Firebase (`users/{uid}`, rôle `commercant`, compte ni supprimé ni rejeté ni suspendu), liste ses enseignes, renvoie l'état de l'abonnement. |
+| `createMerchantCheckoutSession` | Cloud Function | Crée la session Stripe Checkout (mode abonnement annuel). Prix résolu **côté serveur** uniquement. |
+| `stripeWebhook` | Cloud Function HTTP | **Seule** source d'activation des droits payants. Signature vérifiée, idempotent, insensible à l'ordre d'arrivée. |
+| `createMerchantBillingPortalSession` | Cloud Function | Ouvre le portail client Stripe (moyen de paiement, factures, résiliation). |
+| `listMerchantInvoices` | Cloud Function | Factures du commerçant connecté (liens Stripe, aucune donnée de carte). |
+| `adminSetMerchantManualAccess` | Cloud Function (admin) | Activation manuelle hors Stripe ; jamais modifiée par le webhook. |
+| `merchant_subscriptions/{uid}` | Firestore | Miroir lu par le site et l'Admin, écrit uniquement par les Functions. |
 
-## 2. Produits et prix (3 offres)
+Garde-fous déjà en place dans le code :
 
-**Où aller** → Dashboard Stripe → *Product catalog* → *Add product*.
+- une clé `sk_live_…` est **refusée** tant que `STRIPE_LIVE_MODE_ENABLED`
+  ne vaut pas `true` ;
+- aucun Checkout n'est créé tant que la fiscalité (`STRIPE_TAX_MODE`) n'est
+  pas explicitement configurée ;
+- le prix Stripe configuré est vérifié avant chaque Checkout (montant HT,
+  EUR, annuel, actif) ;
+- double abonnement bloqué à 4 niveaux (miroir, verrou anti double-clic,
+  abonnements ouverts côté Stripe, réutilisation de la session ouverte) ;
+  un éventuel second abonnement est signalé
+  (`duplicate_subscription_alert`), jamais résilié automatiquement ;
+- les URL de retour Stripe sont limitées aux domaines ProxiPlay.
 
-**Quoi créer**, une fois par offre, en mode **récurrent annuel** :
+## 1. Compte Stripe — rester en mode TEST
 
-| Offre | Prix HT/an (France métropolitaine) |
-|---|---|
-| Proximité | 365,00 € |
-| Secteurs spécifiques | 1 095,00 € |
-| Grandes enseignes (à partir de) | 1 825,00 € |
+Dashboard Stripe → bouton **Test mode** activé. Tout ce qui suit se fait
+d'abord en TEST.
 
-Pour chaque produit : *Pricing* → *Recurring* → *Yearly* → montant exact ci-
-dessus → laisser la TVA à Stripe gérer via un Tax Rate (étape suivante), ou
-configurer Stripe Tax si vous préférez — à votre choix, mais voir §3.
+## 2. Produits et prix (2 offres)
 
-**Quelle valeur récupérer** → l'ID de prix commence par `price_...` (pas
-l'ID produit `prod_...`). Il y en a 3, un par offre.
+Dashboard → *Product catalog* → *Add product*, **récurrent, annuel**, en EUR,
+prix **HT** :
 
-**Où le placer** → ce ne sont pas des secrets (ils sont visibles dans vos
-URLs Stripe Dashboard et ne donnent aucun droit), mais ils n'existent pas
-dans le code : à configurer comme *paramètres d'environnement non secrets*
-des Cloud Functions (`firebase functions:config:set` n'existe plus en
-Gen2/params ; avec `firebase-functions/params`, définissez-les comme
-variables d'environnement au déploiement, par exemple dans un fichier
-`.env.proxi-play-odzp2e` à la racine de `firebase/functions/` — **ce fichier
-ne doit jamais être commité** s'il contient un jour une vraie valeur de
-production sensible, bien que ces ID ne le soient pas strictement) :
+| Offre | Prix HT / an | Variable à renseigner |
+|---|---|---|
+| Autonome | 365,00 € | `STRIPE_PRICE_AUTONOME=price_…` |
+| Accompagnée | 1 000,00 € | `STRIPE_PRICE_ACCOMPAGNEE=price_…` |
+
+Le montant doit être **exactement** celui-ci : sinon le serveur refuse le
+Checkout (contrôle anti-erreur de collage). Si vous utilisez Stripe Tax
+(§3, mode `automatic`), réglez aussi le *Tax behavior* du prix sur
+*Exclusive*.
+
+Ces ID ne sont pas secrets : fichier `firebase/functions/.env.proxi-play-odzp2e`
+(non commité, déjà ignoré par Git).
+
+## 3. Fiscalité — DÉCISION À VALIDER (bloquant)
+
+Le code ne présume **aucun** régime de TVA. Choisir, après validation
+comptable, **une** des trois valeurs :
 
 ```
-STRIPE_PRICE_PROXIMITE=price_...
-STRIPE_PRICE_SECTEURS_SPECIFIQUES=price_...
-STRIPE_PRICE_GRANDES_ENSEIGNES=price_...
+STRIPE_TAX_MODE=tax_rate     # + STRIPE_TAX_RATE_ID=txr_… (taux créé dans Stripe)
+STRIPE_TAX_MODE=automatic    # Stripe Tax (à activer et configurer dans Stripe)
+STRIPE_TAX_MODE=none         # aucune taxe ajoutée (ex. franchise en base)
 ```
 
-## 3. Taux de TVA (20 %)
+Sans cette variable, la page affiche « paiement en ligne pas encore ouvert »
+et aucun Checkout n'est possible.
 
-**Où aller** → Dashboard Stripe → *Product catalog* → *Tax rates* → *New
-tax rate*.
+## 4. Clé secrète
 
-**Quoi créer** → un taux "TVA France" à **20 %**, type *Exclusive* (ajouté
-au prix HT, jamais inclus dedans).
-
-**Quelle valeur récupérer** → l'ID commence par `txr_...`.
-
-**Où le placer** → même mécanisme que les prix ci-dessus :
-
-```
-STRIPE_TAX_RATE_TVA_20=txr_...
-```
-
-## 4. Clés API
-
-**Où aller** → Dashboard Stripe → *Developers* → *API keys*.
-
-**Quoi récupérer** → la **clé secrète** (`sk_test_...` en TEST, `sk_live_...`
-en LIVE plus tard). **Ne jamais** récupérer/utiliser la clé publique
-(`pk_...`) côté serveur — elle n'est pas utilisée dans cette architecture,
-Stripe Checkout étant hébergé par Stripe, pas intégré en JS côté client.
-
-**Où la placer** → Secret Manager Firebase (même mécanisme que
-`GOOGLE_PLACES_API_KEY`, déjà en place sur ce projet) :
+Dashboard → *Developers* → *API keys* → clé secrète `sk_test_…`.
 
 ```
 firebase functions:secrets:set STRIPE_SECRET_KEY --project proxi-play-odzp2e
 ```
 
-Collez la clé **uniquement** quand la commande vous le demande dans le
-terminal — jamais dans un fichier, un message, ou Git.
+Collez la clé **uniquement** à l'invite du terminal. Aucune clé publique
+`pk_…` n'est nécessaire (Checkout et portail sont hébergés par Stripe).
 
 ## 5. Webhook
 
-**Où aller** → Dashboard Stripe → *Developers* → *Webhooks* → *Add
-endpoint*.
+Après déploiement des Functions : Dashboard → *Developers* → *Webhooks* →
+*Add endpoint* :
 
-**Quelle URL** → une fois les Cloud Functions déployées, l'URL est :
-`https://us-central1-proxi-play-odzp2e.cloudfunctions.net/stripeWebhook`
+- URL : `https://us-central1-proxi-play-odzp2e.cloudfunctions.net/stripeWebhook`
+- Événements à cocher :
+  `checkout.session.completed`, `checkout.session.expired`,
+  `customer.subscription.created`, `customer.subscription.updated`,
+  `customer.subscription.deleted`, `customer.subscription.paused`,
+  `customer.subscription.resumed`, `invoice.paid`,
+  `invoice.payment_failed`, `charge.refunded`, `charge.dispute.created`.
 
-**Quels événements écouter** (cocher exactement ceux-ci, pas plus) :
-`invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`,
-`customer.subscription.deleted`, `charge.refunded`, `charge.dispute.created`.
-
-**Quelle valeur récupérer** → le *Signing secret* de cet endpoint,
-`whsec_...` (visible après création de l'endpoint, bouton *Reveal*).
-
-**Où la placer** → Secret Manager, comme la clé secrète :
+Puis le *Signing secret* `whsec_…` :
 
 ```
 firebase functions:secrets:set STRIPE_WEBHOOK_SECRET --project proxi-play-odzp2e
 ```
 
-## 6. Stripe Customer Portal
+## 6. Portail client Stripe
 
-**Où aller** → Dashboard Stripe → *Settings* → *Billing* → *Customer
-portal*.
+Dashboard → *Settings* → *Billing* → *Customer portal* : activer ;
+autoriser l'historique des factures, le changement de moyen de paiement et
+l'annulation **à la fin de la période** (garde la période payée). Laisser
+**désactivé** le changement d'offre tant que la règle de changement en cours
+d'année (prorata) n'est pas décidée.
 
-**Quoi configurer** → activer le portail, autoriser au minimum : voir la
-facturation, changer le moyen de paiement, annuler l'abonnement à la fin de
-la période en cours (pas d'annulation immédiate si vous souhaitez garantir
-la période déjà payée). Pas d'action de notre côté au-delà de cette
-configuration : le code crée uniquement la session, jamais la config du
-portail.
+## 7. Domaines et connexion
 
-## 7. Informations société / TVA / coordonnées bancaires
+- Firebase Console → *Authentication* → *Settings* → *Authorized domains* :
+  ajouter `www.proxiplay.fr` et `proxiplay.fr` (requis pour « Continuer avec
+  Google » ; la connexion e-mail/mot de passe fonctionne déjà).
+- Si la clé API web Firebase est restreinte par référent HTTP (Google Cloud
+  → *Credentials*), y ajouter `https://www.proxiplay.fr/*`.
+- `MERCHANT_BILLING_ALLOWED_ORIGINS` (facultatif) : liste des origines
+  autorisées pour les retours Stripe. Par défaut : `www.proxiplay.fr`,
+  `proxiplay.fr` et les domaines Firebase du projet.
 
-**Où aller** → Dashboard Stripe → *Settings* → *Business settings* (raison
-sociale, SIRET/SIREN, adresse) puis *Settings* → *Bank accounts and
-scheduling* (IBAN de réception des paiements Stripe → ProxiPlay).
+## 8. Recette en mode TEST
 
-**Important** → ce chantier a choisi (décision explicite de Pascal, validée
-en amont de l'implémentation) : TVA à 20 % ajoutée au prix HT référencé en
-§2. Si votre régime de TVA réel diffère de cette hypothèse (franchise en
-base, auto-liquidation...), signalez-le avant la bascule en LIVE : le taux
-`STRIPE_TAX_RATE_TVA_20` (§3) est le seul endroit à changer, rien à modifier
-dans le code.
+1. Déployer les Functions sur un environnement de test (pas la production).
+2. Se connecter sur `/espace-commercant/` avec un compte commerçant de test.
+3. Souscrire avec la carte de test `4242 4242 4242 4242` → statut « Actif »
+   après réception du webhook (jamais avant).
+4. Carte `4000 0000 0000 0341` → échec de paiement → « Paiement en échec ».
+5. Renouvellement : *Test clocks* Stripe (avancer d'un an) → nouvelle date
+   de renouvellement.
+6. Résiliation depuis le portail → « Renouvellement désactivé » puis
+   « Résilié » à l'échéance.
+7. `stripe events resend <evt_…>` → aucun double effet.
+8. Tenter une seconde souscription → refusée.
 
-## 8. Passage TEST → LIVE
+## 9. Passage TEST → LIVE (plus tard, sur décision)
 
-Une fois la recette validée en Stripe TEST (voir rapport final, section
-TESTS) :
+1. Recréer les 2 prix (et le taux de TVA éventuel) en mode LIVE.
+2. Remplacer `STRIPE_PRICE_*`, `STRIPE_TAX_RATE_ID`, `STRIPE_SECRET_KEY`
+   (`sk_live_…`) et recréer le webhook LIVE (`whsec_…` LIVE).
+3. Poser `STRIPE_LIVE_MODE_ENABLED=true` — **sans cela la clé LIVE est
+   refusée**.
 
-1. Recréer les mêmes produits/prix/taux de TVA en mode **LIVE** (Stripe ne
-   duplique pas automatiquement du TEST vers le LIVE).
-2. Récupérer les nouveaux ID (`price_...`, `txr_...`) et la clé secrète
-   `sk_live_...` → remplacer les valeurs des §2/§4 par les valeurs LIVE
-   (mêmes noms de secrets/paramètres, nouvelles valeurs).
-3. Recréer l'endpoint webhook (§5) en pointant sur le même URL mais en mode
-   LIVE, récupérer le nouveau `whsec_...` LIVE.
-4. Vérifier qu'aucun test automatisé ne tourne plus jamais avec une clé
-   LIVE (déjà garanti par ce chantier : les tests ne lisent aucun secret
-   réel, voir rapport final).
+## 10. Commerçants existants
 
-## 9. Commerçants déjà existants
+Aucune migration. Les commerçants actuels n'ont pas de document
+`merchant_subscriptions` et rien ne restreint encore leurs accès : ils ne
+deviennent « impayés » à aucun moment. Une activation manuelle peut être
+posée par l'Admin (`adminSetMerchantManualAccess`) ; le webhook ne la
+modifie jamais.
 
-Aucune action requise : les enseignes déjà actives aujourd'hui n'ont pas de
-document `merchant_subscriptions`, donc aucune régression de statut n'est
-introduite par ce chantier. Elles ne deviennent "impayées" à aucun moment —
-ce système ne s'applique qu'aux nouvelles souscriptions volontaires.
+## 11. Décisions métier encore ouvertes
 
-## 10. Validation des nouvelles inscriptions commerçant via le site
+- **Régime de TVA** (§3) — bloquant pour ouvrir le paiement.
+- **Ce que débloque l'abonnement** : aujourd'hui aucun écran ne restreint
+  l'accès selon `stripe_entitlement` / `manual_access`. Définir quelles
+  fonctions deviennent payantes avant d'appliquer une restriction.
+- **Délai de grâce** après un échec de renouvellement (`past_due`) : accès
+  conservé ou suspendu pendant les relances Stripe ?
+- **Paiement avant validation** : un commerçant `pendingValidation` peut-il
+  souscrire ? (Aujourd'hui : oui ; seuls les comptes rejetés ou suspendus
+  sont bloqués.)
+- **Second abonnement détecté** : remboursement et résiliation manuels par
+  l'équipe (aucune action automatique).
 
-Le site crée un compte avec le même statut `pendingValidation` que
-l'inscription commerçant existante dans l'app mobile. La validation
-(passage à `approved`) se fait aujourd'hui via l'écran mobile existant
-(`validation_commercants_admin_page`) — aucun nouvel écran n'a été ajouté
-dans l'admin web pour cette étape spécifique, afin de ne pas dupliquer un
-mécanisme qui fonctionne déjà. Si vous préférez valider depuis l'admin web
-plutôt que depuis l'app, dites-le : c'est un ajout ciblé et simple à faire
-dans un chantier séparé.
+## 12. Tests locaux
+
+```
+# Functions (émulateurs Firestore + Auth, aucun appel Stripe réel)
+firebase emulators:exec --only firestore,auth --project demo-proxiplay-stripe \
+  "cd firebase/functions && node --test --test-concurrency=1 test/merchant_checkout.test.js test/stripe_webhook.test.js test/stripe_discovery_without_config.test.js test/merchant_referral_engine.test.js test/merchant_signup_referral.test.js test/firestore_rules_merchant_billing.test.js"
+
+# Comptes de test pour l'espace commerçant (émulateurs uniquement)
+node firebase/functions/scripts/seed_merchant_billing_emulator.js
+```

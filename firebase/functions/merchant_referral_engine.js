@@ -297,6 +297,50 @@ async function adminSetMerchantCustomOfferHandler(data, context) {
   return {status: "set"};
 }
 
+/**
+ * Callable Admin : activation manuelle des droits payants d'un commercant
+ * (paiement hors Stripe, geste commercial, compte historique). Ecrite dans
+ * merchant_subscriptions.manual_access, champ que le webhook Stripe n'ecrit
+ * et n'efface jamais. enabled=false la retire (tracee, jamais supprimee).
+ */
+async function adminSetMerchantManualAccessHandler(data, context) {
+  const db = admin.firestore();
+  await assertCallerIsAdmin(db, context);
+  const merchantUserId = typeof data?.merchantUserId === "string" ? data.merchantUserId.trim() : "";
+  const reason = typeof data?.reason === "string" ? data.reason.trim() : "";
+  if (!merchantUserId || typeof data?.enabled !== "boolean" || !reason || reason.length > 200) {
+    throw new functions.https.HttpsError("invalid-argument", "merchantUserId, enabled et reason (200 car. max) sont requis.");
+  }
+  let until = null;
+  if (data.enabled && data.until) {
+    const untilMs = Date.parse(String(data.until));
+    if (!Number.isFinite(untilMs) || untilMs <= Date.now()) {
+      throw new functions.https.HttpsError("invalid-argument", "until doit etre une date future.");
+    }
+    until = admin.firestore.Timestamp.fromMillis(untilMs);
+  }
+  const userSnap = await db.collection("users").doc(merchantUserId).get();
+  if (!userSnap.exists) throw new functions.https.HttpsError("not-found", "Compte introuvable.");
+  await db.collection("merchant_subscriptions").doc(merchantUserId).set({
+    merchant_user_id: db.doc(`users/${merchantUserId}`),
+    manual_access: {
+      enabled: data.enabled,
+      reason,
+      until,
+      set_by: context.auth.uid,
+      set_at: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+  }, {merge: true});
+  return {status: data.enabled ? "enabled" : "disabled"};
+}
+
+exports.adminSetMerchantManualAccess = functions
+  .region(kFunctionsRegion)
+  .runWith({timeoutSeconds: 15, memory: "128MB"})
+  .https.onCall(adminSetMerchantManualAccessHandler);
+exports.adminSetMerchantManualAccessHandler = adminSetMerchantManualAccessHandler;
+
 exports.generateMerchantReferralCode = functions
   .region(kFunctionsRegion)
   .runWith({timeoutSeconds: 30, memory: "256MB"})
