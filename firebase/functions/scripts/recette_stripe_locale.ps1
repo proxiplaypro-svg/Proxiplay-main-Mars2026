@@ -25,10 +25,24 @@ param(
 $ErrorActionPreference = 'Continue'
 $functionsDir = Split-Path -Parent $PSScriptRoot
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-$serverLog = Join-Path $LogDir 'serveur-facturation.log'
-$listenLog = Join-Path $LogDir 'stripe-listen.log'
-Set-Content -Path $serverLog -Value '' -Encoding utf8
-Set-Content -Path $listenLog -Value '' -Encoding utf8
+# Un journal horodate par lancement : jamais de troncature d'un fichier
+# qu'un autre lecteur (ou une recette precedente) tiendrait ouvert.
+$runId = Get-Date -Format 'yyyyMMdd-HHmmss'
+$serverLog = Join-Path $LogDir "serveur-facturation-$runId.log"
+$listenLog = Join-Path $LogDir "stripe-listen-$runId.log"
+
+# Ecriture en mode partage (lecture/ecriture), tolerante aux lecteurs
+# concurrents ; une ligne impossible a ecrire n'arrete jamais la recette.
+$appendBlock = {
+  param($path, $text)
+  try {
+    $stream = [IO.File]::Open($path, [IO.FileMode]::Append, [IO.FileAccess]::Write, [IO.FileShare]::ReadWrite)
+    try {
+      $bytes = [Text.Encoding]::UTF8.GetBytes($text + [Environment]::NewLine)
+      $stream.Write($bytes, 0, $bytes.Length)
+    } finally { $stream.Dispose() }
+  } catch { }
+}
 
 function Stop-Recette {
   param([string]$Message)
@@ -93,24 +107,27 @@ try {
   $events = 'checkout.session.completed,checkout.session.expired,customer.subscription.created,' +
     'customer.subscription.updated,customer.subscription.deleted,customer.subscription.paused,' +
     'customer.subscription.resumed,invoice.paid,invoice.payment_failed,charge.refunded,charge.dispute.created'
-  $jobs += Start-Job -Name 'stripe-listen' -ArgumentList $BillingPort, $events, $listenLog, $maskBlock.ToString() -ScriptBlock {
-    param($port, $events, $log, $mask)
+  $jobs += Start-Job -Name 'stripe-listen' -ArgumentList $BillingPort, $events, $listenLog, $maskBlock.ToString(), $appendBlock.ToString() -ScriptBlock {
+    param($port, $events, $log, $mask, $append)
     $maskFn = [scriptblock]::Create($mask)
+    $appendFn = [scriptblock]::Create($append)
     stripe listen --events $events --forward-to "http://127.0.0.1:$port/stripeWebhook" 2>&1 |
-      ForEach-Object { Add-Content -Path $log -Value (& $maskFn $_) -Encoding utf8 }
+      ForEach-Object { & $appendFn $log (& $maskFn $_) }
   }
-  $jobs += Start-Job -Name 'serveur-facturation' -ArgumentList $functionsDir, $serverLog, $maskBlock.ToString() -ScriptBlock {
-    param($dir, $log, $mask)
+  $jobs += Start-Job -Name 'serveur-facturation' -ArgumentList $functionsDir, $serverLog, $maskBlock.ToString(), $appendBlock.ToString() -ScriptBlock {
+    param($dir, $log, $mask, $append)
     $maskFn = [scriptblock]::Create($mask)
+    $appendFn = [scriptblock]::Create($append)
     Set-Location $dir
     node scripts/local_billing_server.js 2>&1 |
-      ForEach-Object { Add-Content -Path $log -Value (& $maskFn $_) -Encoding utf8 }
+      ForEach-Object { & $appendFn $log (& $maskFn $_) }
   }
 
   Start-Sleep -Seconds 6
   Write-Host "`nRecette prete." -ForegroundColor Green
   Write-Host "  Site     : $SiteOrigin/espace-commercant/?emulator=1&authPort=$AuthPort&functionsPort=$BillingPort"
-  Write-Host "  Journaux : $LogDir"
+  Write-Host "  Journaux : $serverLog"
+  Write-Host "             $listenLog"
   Write-Host "  Carte de test : 4242 4242 4242 4242, date future, CVC 123"
   Read-Host "`nAppuyez sur Entree pour ARRETER la recette et effacer la cle de la session"
 }
