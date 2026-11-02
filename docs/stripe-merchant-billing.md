@@ -233,6 +233,44 @@ Portail Stripe (§6) : n'autoriser que l'annulation **à la fin de la période**
   `game_lifecycle_instant.test.js` › « completing a partial calendar on an
   already-started game is allowed for an admin repair ».
 
+## 11 quater. Message dans l'application
+
+Lorsqu'un commerçant sans droit tente de créer ou publier un jeu, l'app
+affiche : « Un abonnement ProxiPlay actif est nécessaire pour publier un jeu.
+Rendez-vous sur www.proxiplay.fr/espace-commercant/ pour découvrir les
+offres. » — **uniquement** si le contrôle est activé et l'accès refusé
+(Callable `getMerchantPublicationAccess`, refus serveur
+`subscription_required`, ou refus des règles confirmé par cette Callable).
+Si la vérification échoue (réseau, fonction non déployée), le comportement
+actuel est conservé. Fichiers : `lib/utils/merchant_publication_access.dart`,
+`add_game_commercant_page_widget.dart`.
+
+## 11 quinquies. Prix configurés (mode test, 03/11/2026)
+
+`firebase/functions/.env.proxi-play-odzp2e` (ignoré par Git, lu au
+déploiement) et `.env.local` (émulateurs) :
+
+```
+STRIPE_PRICE_AUTONOME=price_1UXUSsJIcR5ze9rtbYnhXaM0
+STRIPE_PRICE_ACCOMPAGNEE=price_1UXUUWJIcR5ze9rtDR018hUF
+```
+
+Vérification (aucune écriture) :
+`node scripts/check_stripe_config.js`, et avec une clé de test dans le
+terminal pour contrôler montant/devise/périodicité chez Stripe.
+
+## 11 sexies. Premier paiement de test en local (sans déploiement)
+
+1. `firebase emulators:start --only auth,firestore --project demo-proxiplay-stripe`
+2. `node firebase/functions/scripts/seed_merchant_billing_emulator.js`
+3. `stripe listen --forward-to http://127.0.0.1:35001/stripeWebhook` → noter le `whsec_…`
+4. Terminal (PowerShell) :
+   `$env:STRIPE_SECRET_KEY="sk_test_…"; $env:STRIPE_WEBHOOK_SECRET="whsec_…"; $env:STRIPE_TAX_MODE="none"`
+   puis `node firebase/functions/scripts/local_billing_server.js`
+5. Servir le site (`proxiplay-website`) sur `http://localhost:5500` et ouvrir
+   `/espace-commercant/?emulator=1&functionsPort=35001`
+6. Se connecter avec le compte commerçant de test, Souscrire, carte `4242 4242 4242 4242`.
+
 ## 12. Tests locaux
 
 ```

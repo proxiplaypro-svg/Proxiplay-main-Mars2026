@@ -28,6 +28,7 @@ test("index loads all endpoints without Stripe configuration", () => {
       "stripeWebhook",
       "listMerchantInvoices",
       "adminSetMerchantManualAccess",
+      "getMerchantPublicationAccess",
     ];
     for (const name of names) {
       if (typeof endpoints[name] !== "function") {

@@ -10,6 +10,7 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/upload_data.dart';
 import '/custom_code/actions/index.dart' as actions;
 import '/index.dart';
+import '/utils/merchant_publication_access.dart';
 import '/utils/share_links.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
@@ -731,6 +732,14 @@ class _AddGameCommercantPageWidgetState
       );
       return false;
     }
+    // Abonnement : uniquement si le contrôle est activé côté serveur et que
+    // l'accès est refusé. Sinon (ou si la vérification échoue), rien ne change.
+    final publicationRefused = await isMerchantPublicationRefused();
+    if (!mounted) return false;
+    if (publicationRefused) {
+      await showSubscriptionRequiredDialog(context);
+      return false;
+    }
     if (_model.formKey.currentState == null ||
         !_model.formKey.currentState!.validate()) {
       return false;
@@ -936,6 +945,7 @@ class _AddGameCommercantPageWidgetState
 
     var instantWinnersGenerationFailed = false;
     var instantWinnersPublished = false;
+    var publicationRefusedForSubscription = false;
     try {
       final generationResult = await FirebaseFunctions.instance
           .httpsCallable('generateInstantWinnersForGame')
@@ -951,6 +961,7 @@ class _AddGameCommercantPageWidgetState
       );
       debugPrintStack(stackTrace: st);
       instantWinnersGenerationFailed = true;
+      publicationRefusedForSubscription = isSubscriptionRequiredError(e);
     }
     safeSetState(() {
       _model.isDataUploading_uploadGameData5ir = false;
@@ -959,6 +970,11 @@ class _AddGameCommercantPageWidgetState
         originalFilename: '',
       );
     });
+    if (publicationRefusedForSubscription) {
+      // Le jeu reste en brouillon (non visible), rien n'est supprimé.
+      if (mounted) await showSubscriptionRequiredDialog(context);
+      return false;
+    }
     if (instantWinnersGenerationFailed || !instantWinnersPublished) {
       // Le jeu reste en brouillon, non visible : "Valider" relancera la
       // génération sur ce même document plutôt que d'en créer un autre.
@@ -1140,6 +1156,14 @@ class _AddGameCommercantPageWidgetState
     } catch (e, st) {
       debugPrint('Game creation failed: $e');
       debugPrintStack(stackTrace: st);
+      // Création refusée par les règles Firestore : si c'est faute
+      // d'abonnement (contrôle activé), le dire explicitement.
+      if (e is FirebaseException &&
+          e.code == 'permission-denied' &&
+          await isMerchantPublicationRefused()) {
+        if (mounted) await showSubscriptionRequiredDialog(context);
+        return false;
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

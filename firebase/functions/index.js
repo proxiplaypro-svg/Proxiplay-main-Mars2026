@@ -22,6 +22,8 @@ exports.createMerchantBillingPortalSession =
   require('./merchant_billing_portal').createMerchantBillingPortalSession;
 exports.listMerchantInvoices = require('./merchant_billing_portal').listMerchantInvoices;
 exports.getMerchantBillingAccount = require('./merchant_billing_account').getMerchantBillingAccount;
+exports.getMerchantPublicationAccess =
+  require('./merchant_publication_access').getMerchantPublicationAccess;
 exports.adminSetMerchantManualAccess =
   require('./merchant_referral_engine').adminSetMerchantManualAccess;
 exports.generateMerchantReferralCode =

@@ -114,7 +114,29 @@ async function assertMerchantCanPublish(db, merchantUserId) {
   return access;
 }
 
+/**
+ * Callable lue par l'app avant de creer un jeu : indique seulement si le
+ * controle est actif et si l'acces de l'appelant (lui-meme) est refuse,
+ * pour afficher le message "abonnement requis" au bon moment. Ne modifie
+ * rien et ne remplace pas les controles (regles + serveur).
+ */
+async function getMerchantPublicationAccessHandler(data, context) {
+  if (!context?.auth?.uid) {
+    throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
+  }
+  const admin = require("firebase-admin");
+  const access = await getPublicationAccess(admin.firestore(), context.auth.uid);
+  return {enforced: access.enforced, allowed: access.allowed, status: access.status};
+}
+
+const getMerchantPublicationAccess = functions
+  .region("us-central1")
+  .runWith({timeoutSeconds: 10, memory: "128MB"})
+  .https.onCall(getMerchantPublicationAccessHandler);
+
 module.exports = {
+  getMerchantPublicationAccess,
+  getMerchantPublicationAccessHandler,
   kDefaultGraceDays,
   kGraceStatuses,
   kPublishingStatuses,

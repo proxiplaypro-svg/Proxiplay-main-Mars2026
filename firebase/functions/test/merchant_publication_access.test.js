@@ -7,6 +7,7 @@ const {
   computePublicationAccess,
   graceUntilMs,
   graceDays,
+  getMerchantPublicationAccessHandler,
 } = require('../merchant_publication_access');
 const {
   planLegacyBackfill,
@@ -249,4 +250,30 @@ test('the report flags merchants without rights who still have running games, wi
   assert.equal(report.byStatus.suspended, 1);
   assert.deepEqual(report.needsDecision, [{uid: 'merchant', status: 'suspended', runningGames: ['running']}]);
   assert.equal((await db.doc('games/running').get()).data().visible_public, true);
+});
+
+// --- Information "abonnement requis" pour l'app -----------------------------
+
+test('the app is told "refused" only when enforcement is on and access is denied', async () => {
+  const ask = (uid = 'merchant') => getMerchantPublicationAccessHandler({}, {auth: {uid}});
+  await assert.rejects(getMerchantPublicationAccessHandler({}, {auth: null}), (err) => err.code === 'unauthenticated');
+  await approve();
+  assert.deepEqual(await ask(), {enforced: false, allowed: true, status: 'free'}, 'controle inactif : rien ne change');
+  await enforce();
+  assert.deepEqual(await ask(), {enforced: true, allowed: false, status: 'free'});
+  await subscription({legacy_access: {enabled: true}});
+  assert.deepEqual(await ask(), {enforced: true, allowed: true, status: 'legacy'});
+});
+
+test('legacy rights of validated merchants never expire; pending accounts get none by default', async () => {
+  await approve();
+  await db.doc('users/pending').set({user_role: 'commercant', account_status: 'pendingValidation'});
+  await db.doc('enseignes/pending_shop').set({name: 'En attente', owner: db.doc('users/pending')});
+  await applyLegacyBackfill(db, await planLegacyBackfill(db));
+  const legacy = (await db.doc('merchant_subscriptions/merchant').get()).data().legacy_access;
+  assert.equal(legacy.enabled, true);
+  assert.equal(legacy.until, undefined, 'aucune expiration');
+  const farFuture = Date.UTC(2040, 0, 1);
+  assert.equal(computePublicationAccess({legacy_access: legacy}, farFuture).canPublish, true);
+  assert.equal((await db.doc('merchant_subscriptions/pending').get()).exists, false);
 });
