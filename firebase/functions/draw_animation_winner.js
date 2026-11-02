@@ -8,6 +8,7 @@ const {
   queuePushNotificationRequest,
 } = require("./push_notification_request.js");
 const {shouldNotifyMerchantForPrize} = require("./prize_merchant_notification_policy");
+const {readSmtpConfig} = require("./lib/notifications/smtp_config");
 
 const db = admin.firestore();
 
@@ -27,7 +28,7 @@ function toBoolean(value, fallback = false) {
 }
 
 function getSmtpSettings() {
-  const smtpConfig = functions.config().smtp || {};
+  const smtpConfig = readSmtpConfig();
   const host = getTrimmedString(smtpConfig.host);
   const port = Number(smtpConfig.port || 587);
   const secure = toBoolean(smtpConfig.secure, port === 465);

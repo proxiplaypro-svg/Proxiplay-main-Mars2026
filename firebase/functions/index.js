@@ -65,6 +65,7 @@ const {
 // calendar rewrite into partial commits.
 const MAX_INSTANT_WINNER_RECONCILIATION_WRITES = 450;
 const {sendTextEmail} = require("./lib/notifications/email_sender");
+const {readSmtpConfig} = require("./lib/notifications/smtp_config");
 const {
   queuePushNotificationRequest,
 } = require("./push_notification_request.js");
@@ -2113,7 +2114,7 @@ function buildMerchantName(ownerData) {
 }
 
 function getSmtpSettings() {
-  const smtpConfig = functions.config().smtp || {};
+  const smtpConfig = readSmtpConfig();
   const host = getTrimmedString(smtpConfig.host);
   const port = Number(smtpConfig.port || 587);
   const secure = toBoolean(smtpConfig.secure, port === 465);

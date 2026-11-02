@@ -1,9 +1,9 @@
-const functions = require("firebase-functions");
 const nodemailer = require("nodemailer");
 const {getTrimmedString, toBoolean} = require("./utils");
+const {readSmtpConfig} = require("./smtp_config");
 
 function getSmtpSettings() {
-  const smtpConfig = functions.config().smtp || {};
+  const smtpConfig = readSmtpConfig();
   const host = getTrimmedString(smtpConfig.host);
   const port = Number(smtpConfig.port || 587);
   const secure = toBoolean(smtpConfig.secure, port === 465);
