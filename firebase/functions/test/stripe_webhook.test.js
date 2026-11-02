@@ -378,3 +378,42 @@ test('an event type outside the subscription cycle is acknowledged and ignored',
   assert.equal(res.statusCode, 200);
   assert.equal((await db.doc('stripe_webhook_events/evt_other').get()).data().outcome, 'ignored_event_type');
 });
+
+// --- Periode de grace ---------------------------------------------------------
+
+test('a renewal failure opens a 14-day grace from the unpaid due date, never extended by retries', async () => {
+  const due = nowSeconds() - 2 * 86400;
+  const state = installFakeStripe({subscriptions: {sub_1: subscription({status: 'past_due', current_period_start: due})}});
+  await deliver(fakeEvent('evt_grace_1', 'invoice.payment_failed', {
+    id: 'in_g', subscription: 'sub_1', attempt_count: 1, hosted_invoice_url: 'https://invoice.stripe.test/in_g',
+  }));
+  let data = await mirror();
+  assert.equal(data.grace_until.toMillis(), (due + 14 * 86400) * 1000);
+  assert.equal(data.publication_access_status, 'grace');
+  assert.equal(data.unpaid_invoice_url, 'https://invoice.stripe.test/in_g');
+
+  state.subscriptions.sub_1 = subscription({status: 'past_due', current_period_start: due + 86400});
+  await deliver(fakeEvent('evt_grace_2', 'invoice.payment_failed', {id: 'in_g', subscription: 'sub_1', attempt_count: 2}));
+  data = await mirror();
+  assert.equal(data.grace_until.toMillis(), (due + 14 * 86400) * 1000, 'jamais repoussee');
+
+  state.subscriptions.sub_1 = subscription({status: 'active', current_period_start: due});
+  await deliver(fakeEvent('evt_grace_paid', 'invoice.paid', {id: 'in_g', subscription: 'sub_1', billing_reason: 'subscription_cycle'}));
+  data = await mirror();
+  assert.equal(data.grace_until, null);
+  assert.equal(data.unpaid_invoice_url, null);
+  assert.equal(data.publication_access_status, 'active', 'droits reactives apres regularisation');
+});
+
+test('after the grace period the mirror reports a suspension, without deleting anything', async () => {
+  const due = nowSeconds() - 20 * 86400;
+  installFakeStripe({subscriptions: {sub_1: subscription({status: 'unpaid', current_period_start: due})}});
+  await db.doc('merchant_subscriptions/merchant1').set({
+    stripe_customer_id: 'cus_1', legacy_access: {enabled: false}, offer_id: 'autonome',
+  });
+  await deliver(fakeEvent('evt_unpaid', 'customer.subscription.updated', subscription({status: 'unpaid'})));
+  const data = await mirror();
+  assert.equal(data.publication_access_status, 'suspended');
+  assert.equal(data.offer_id, 'autonome');
+  assert.equal(data.subscription_status, 'unpaid');
+});

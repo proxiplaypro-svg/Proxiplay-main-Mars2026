@@ -84,6 +84,35 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.account_status == 'approved';
     }
 
+    // Abonnement commercant : droit de publier/relancer un jeu. Miroir exact
+    // de functions/merchant_publication_access.js (computePublicationAccess) :
+    // abonnement actif, droit existant (legacy), activation manuelle valide,
+    // ou renouvellement impaye encore dans son delai de grace. Applique
+    // uniquement si app_config/merchant_billing.enforce_publication_access
+    // vaut true (transition non destructive : sans ce drapeau, rien ne change).
+    function isMerchantPublicationEnforced() {
+      let config = /databases/$(database)/documents/app_config/merchant_billing;
+      return exists(config) &&
+        get(config).data.get('enforce_publication_access', false) == true;
+    }
+
+    function hasMerchantPublicationAccess() {
+      let path = /databases/$(database)/documents/merchant_subscriptions/$(request.auth.uid);
+      return !isMerchantPublicationEnforced() ||
+        (exists(path) && publicationAccessFrom(get(path).data));
+    }
+
+    function publicationAccessFrom(sub) {
+      let status = sub.get('subscription_status', '');
+      let manual = sub.get('manual_access', {});
+      let graceUntil = sub.get('grace_until', null);
+      return status in ['active', 'trialing'] ||
+        sub.get('legacy_access', {}).get('enabled', false) == true ||
+        (manual.get('enabled', false) == true &&
+          (manual.get('until', null) == null || request.time < manual.get('until', null))) ||
+        (status in ['past_due', 'unpaid'] && graceUntil is timestamp && request.time < graceUntil);
+    }
+
     // managed_by_admin absent ou tout sauf true => comportement actuel
     // inchange. Jamais deduit d'un autre champ (owner, owner_id,
     // account_status, approved...).
@@ -392,6 +421,7 @@ service cloud.firestore {
           request.resource.data.create_by == /databases/$(database)/documents/users/$(request.auth.uid) &&
           ownsGame(request.resource.data) &&
           isApprovedMerchant() &&
+          hasMerchantPublicationAccess() &&
           isSafeMerchantGameCreate(request.resource.data)
         );
       allow read: if true;
@@ -618,6 +648,14 @@ service cloud.firestore {
     // Fail-closed cote app : un etat non charge/erreur masque le bloc.
     match /app_config/merchant_referral {
       allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Controle des droits de publication lie a l'abonnement commercant
+    // (enforce_publication_access). Lisible par tout compte connecte (l'app
+    // peut expliquer un refus), modifiable par l'administration seulement.
+    match /app_config/merchant_billing {
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 

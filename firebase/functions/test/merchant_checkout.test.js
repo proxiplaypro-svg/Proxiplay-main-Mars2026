@@ -18,6 +18,7 @@ const {
   createMerchantBillingPortalSessionHandler,
   listMerchantInvoicesHandler,
 } = require('../merchant_billing_portal');
+const {getMerchantBillingAccountHandler} = require('../merchant_billing_account');
 const {
   generateMerchantReferralCodeHandler,
   adminSetMerchantManualAccessHandler,
@@ -82,7 +83,7 @@ async function clearCollections() {
 test.beforeEach(async () => {
   await clearCollections();
   await db.doc('app_config/merchant_referral').delete();
-  await db.doc('users/merchant').set({user_role: 'commercant', email: 'merchant@example.test'});
+  await db.doc('users/merchant').set({user_role: 'commercant', email: 'merchant@example.test', account_status: 'approved'});
   process.env.STRIPE_TAX_MODE = 'tax_rate';
 });
 
@@ -122,6 +123,23 @@ test('a return URL outside ProxiPlay domains is rejected (no open redirect)', as
 test('a live Stripe key is refused unless live mode is explicitly enabled', () => {
   assert.throws(() => stripeClientModule.assertKeyAllowed('sk_live_fixture'), (err) => err.code === 'failed-precondition');
   assert.doesNotThrow(() => stripeClientModule.assertKeyAllowed('sk_test_fixture'));
+});
+
+test('a merchant pending validation sees the offers but cannot open Stripe Checkout', async () => {
+  const fakeStripe = makeFakeStripe();
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  await db.doc('users/merchant').set({user_role: 'commercant', account_status: 'pendingValidation'});
+  await assert.rejects(
+    () => createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, kMerchant),
+    (err) => err.code === 'failed-precondition' && err.details.reason === 'pending_validation',
+  );
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0);
+  assert.equal(fakeStripe.calls.customersCreate.length, 0);
+  assert.equal((await db.doc('merchant_subscriptions/merchant').get()).exists, false);
+  const view = await getMerchantBillingAccountHandler({}, kMerchant);
+  assert.equal(view.validationPending, true);
+  assert.equal(view.canCheckout, false);
+  assert.equal(view.offers.length, 2);
 });
 
 // --- Offre, prix et fiscalite -------------------------------------------
@@ -379,8 +397,6 @@ test('manual access is set only by an admin and stored apart from Stripe fields'
 });
 
 // --- Correspondance compte site <-> compte Firebase ------------------------
-
-const {getMerchantBillingAccountHandler} = require('../merchant_billing_account');
 
 test('the merchant space only opens for a Firebase merchant profile and lists its enseignes', async () => {
   await db.doc('users/player').set({user_role: 'joueur'});

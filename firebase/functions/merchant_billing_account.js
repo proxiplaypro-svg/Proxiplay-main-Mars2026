@@ -7,7 +7,13 @@
 
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const {assertMerchantCaller, isManualAccessActive, stripeEntitlement} = require("./merchant_billing_access");
+const {
+  assertMerchantCaller,
+  isManualAccessActive,
+  isValidatedMerchant,
+  stripeEntitlement,
+} = require("./merchant_billing_access");
+const {getPublicationAccess} = require("./merchant_publication_access");
 const {publicOfferCatalog, offerLabel} = require("./merchant_offers");
 const {stripePriceAutonome, stripePriceAccompagnee, stripeTaxMode} = require("./stripe_secrets");
 
@@ -47,6 +53,8 @@ async function getMerchantBillingAccountHandler(data, context) {
   const entitlement = sub.stripe_entitlement || stripeEntitlement(status);
   const manualActive = isManualAccessActive(sub.manual_access);
   const offerId = sub.offer_id || null;
+  const validated = isValidatedMerchant(user);
+  const publication = await getPublicationAccess(db, uid);
 
   return {
     account: {
@@ -72,9 +80,19 @@ async function getMerchantBillingAccountHandler(data, context) {
       testMode: sub.stripe_livemode === false ? true : null,
     },
     manualAccess: manualActive ? {active: true, until: millis(sub.manual_access.until)} : {active: false, until: null},
-    // Le delai de grace (past_due) reste distinct : sa regle d'acces est a valider.
-    hasPaidAccess: entitlement === "active" || manualActive,
-    inGracePeriod: entitlement === "grace",
+    // Droit de publier/relancer des jeux (meme calcul que firestore.rules).
+    publication: {
+      status: publication.status,
+      canPublish: publication.canPublish,
+      enforced: publication.enforced,
+      allowed: publication.allowed,
+      graceUntil: publication.status === "grace" ? publication.until : null,
+      suspendedSince: publication.status === "suspended" ? publication.since || null : null,
+    },
+    hasPaidAccess: publication.canPublish,
+    regularizeUrl: ["grace", "suspended"].includes(publication.status) ? sub.unpaid_invoice_url || null : null,
+    validationPending: !validated,
+    canCheckout: validated && paymentsConfigured(),
     customOffer: customOffer ? {amountHtCents: customOffer.amount_ht_cents, label: customOffer.label || null} : null,
     offers: publicOfferCatalog(),
     paymentsEnabled: paymentsConfigured(),

@@ -183,6 +183,15 @@ const generateInstantWinnersForGameCallable = functions
       );
     }
 
+    // Abonnement commercant : publier (creation ou relance) un jeu qui n'est
+    // pas encore public exige un droit actif. Un jeu deja public n'est jamais
+    // bloque ici (retry idempotent, jeu en cours non interrompu) ; les appels
+    // admin et la regeneration sans publication sont inchanges.
+    if (publishOnSuccess && !isCallerAdmin && gameData.visible_public !== true) {
+      await require('./merchant_publication_access').assertMerchantCanPublish(
+        firestore, callerRef.id);
+    }
+
     const startDateMs = toMillis(gameData.start_date);
     const endDateMs = toMillis(gameData.end_date);
     const serverNowMs = Date.now();

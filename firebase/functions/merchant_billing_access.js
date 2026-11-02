@@ -59,6 +59,11 @@ async function assertMerchantCaller(db, context) {
   return user;
 }
 
+// Meme critere que isApprovedMerchant() dans firestore.rules.
+function isValidatedMerchant(user) {
+  return String(user?.account_status || "") === "approved";
+}
+
 function allowedOrigins() {
   const configured = merchantBillingAllowedOrigins.value()
     .split(",").map((value) => value.trim().replace(/\/+$/, "")).filter(Boolean);
@@ -107,5 +112,6 @@ module.exports = {
   allowedOrigins,
   stripeEntitlement,
   isManualAccessActive,
+  isValidatedMerchant,
   roleOf,
 };

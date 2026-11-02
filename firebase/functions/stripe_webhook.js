@@ -30,6 +30,7 @@ const {stripeWebhookSecret} = require("./stripe_secrets");
 const {markReferralEligibleOnFirstPayment, cancelReferralIfNotYetPaid} =
   require("./merchant_referral_engine");
 const {kOpenSubscriptionStatuses, stripeEntitlement} = require("./merchant_billing_access");
+const {kGraceStatuses, graceUntilMs, computePublicationAccess} = require("./merchant_publication_access");
 
 const kFunctionsRegion = "us-central1";
 const kMerchantSubscriptionsCollection = "merchant_subscriptions";
@@ -119,11 +120,38 @@ async function resolveMerchantForSubscription(db, stripe, subscription) {
   return {merchantUserId, customerId};
 }
 
+/**
+ * Delai de grace d'un renouvellement impaye : il demarre a l'echeance
+ * impayee (debut de la periode non reglee) et n'est jamais repousse ; il
+ * disparait des que Stripe confirme la regularisation (statut actif).
+ */
+function graceFields(subscription, current, periodStartSeconds) {
+  if (kGraceStatuses.includes(subscription.status)) {
+    const sameSubscription = current.stripe_subscription_id === subscription.id;
+    const existingMs = sameSubscription ? current.grace_until?.toMillis?.() ?? null : null;
+    const dueMs = typeof periodStartSeconds === "number" ? periodStartSeconds * 1000 : Date.now();
+    const untilMs = graceUntilMs(existingMs, dueMs);
+    return {
+      grace_until: admin.firestore.Timestamp.fromMillis(untilMs),
+      grace_started_at: sameSubscription && current.grace_started_at ?
+        current.grace_started_at : admin.firestore.Timestamp.fromMillis(dueMs),
+    };
+  }
+  return {grace_until: null, grace_started_at: null};
+}
+
 function mirrorFields(db, merchantUserId, subscription, current, fetchedAtMs, eventId) {
   const item = subscription.items?.data?.[0];
   const periodStart = subscription.current_period_start ?? item?.current_period_start;
   const periodEnd = subscription.current_period_end ?? item?.current_period_end;
+  const publication = computePublicationAccess({
+    ...current, ...graceFields(subscription, current, periodStart), subscription_status: subscription.status,
+  });
   return {
+    ...graceFields(subscription, current, periodStart),
+    // Statut explicite au moment de la synchronisation (le calcul fait foi a
+    // chaque lecture : la grace expire avec le temps, sans evenement Stripe).
+    publication_access_status: publication.status,
     merchant_user_id: db.doc(`users/${merchantUserId}`),
     stripe_customer_id: idOf(subscription.customer),
     stripe_subscription_id: subscription.id,
@@ -249,6 +277,7 @@ async function handleInvoicePaid(db, event) {
     last_payment_succeeded_at: tsFromSeconds(paidAtSeconds),
     last_invoice_id: invoice.id || null,
     last_payment_failed_at: null,
+    unpaid_invoice_url: null,
     payment_attempt_count: 0,
     next_payment_attempt_at: null,
     ...(invoice.billing_reason === "subscription_cycle" ?
@@ -286,6 +315,9 @@ async function handleInvoicePaymentFailed(db, event) {
   await applyPaymentEvent(db, sync.merchantUserId, event.created, {
     last_payment_failed_at: tsFromSeconds(event.created),
     last_failed_invoice_id: invoice.id || null,
+    // Page Stripe hebergee de la facture impayee : permet au commercant de
+    // regulariser (lisible uniquement par lui-meme et l'Admin).
+    unpaid_invoice_url: invoice.hosted_invoice_url || null,
     payment_attempt_count: typeof invoice.attempt_count === "number" ? invoice.attempt_count : null,
     next_payment_attempt_at: tsFromSeconds(invoice.next_payment_attempt),
   });

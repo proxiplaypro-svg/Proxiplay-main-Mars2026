@@ -150,34 +150,95 @@ d'année (prorata) n'est pas décidée.
 3. Poser `STRIPE_LIVE_MODE_ENABLED=true` — **sans cela la clé LIVE est
    refusée**.
 
-## 10. Commerçants existants
+## 10. Droits commerçants (décisions du 03/11/2026)
 
-Aucune migration. Les commerçants actuels n'ont pas de document
-`merchant_subscriptions` et rien ne restreint encore leurs accès : ils ne
-deviennent « impayés » à aucun moment. Une activation manuelle peut être
-posée par l'Admin (`adminSetMerchantManualAccess`) ; le webhook ne la
-modifie jamais.
+| Action | Règle |
+|---|---|
+| Inscription, connexion, fiche commerçant, espace commerçant, consultation des offres | **Gratuit** |
+| Créer, publier ou relancer un jeu | Exige un droit de publication (ci-dessous) |
+| Lire, masquer, supprimer ses jeux existants ; jeux déjà en cours | **Jamais bloqué** |
+| Souscrire (Stripe Checkout) | Compte **validé** (`account_status == approved`) — refusé côté serveur sinon |
 
-## 11. Décisions métier encore ouvertes
+Statuts explicites (`computePublicationAccess`, miroir exact dans
+`firestore.rules` → `hasMerchantPublicationAccess`) :
+
+| Statut | Publication | Origine |
+|---|---|---|
+| `active` | oui | abonnement Stripe actif (y compris résiliation programmée : effet à la fin de la période payée) |
+| `legacy` | oui | droit commercial existant, posé par le script de transition, jamais retiré automatiquement |
+| `manual` | oui | activation manuelle Admin (`manual_access`, éventuellement datée) |
+| `grace` | oui | renouvellement impayé, **14 jours** depuis l'échéance impayée (`MERCHANT_BILLING_GRACE_DAYS`) |
+| `suspended` | non | délai de grâce dépassé — jeux, comptes, historiques conservés |
+| `ended` | non | abonnement terminé |
+| `pending_payment` | non | premier paiement non abouti |
+| `free` | non | aucun abonnement |
+
+Contrôles appliqués **côté Firebase** :
+
+1. `firestore.rules` → création d'un document `games` par un commerçant ;
+2. `generateInstantWinnersForGame` → publication (`publishOnSuccess`) d'un
+   jeu non encore public. Un jeu déjà public (retry, jeu en cours) et les
+   appels admin ne sont jamais bloqués.
+
+Régularisation : dès que Stripe confirme le paiement (`invoice.paid`), le
+webhook remet le statut à `active` et efface `grace_until` : les droits
+reviennent automatiquement. L'espace commerçant affiche la date de fin de
+grâce et un lien vers la facture Stripe en attente.
+
+## 11. Transition non destructive (à faire dans cet ordre)
+
+Le contrôle est **inactif** tant que
+`app_config/merchant_billing.enforce_publication_access` ne vaut pas `true` :
+déployer ce code ne change rien pour personne.
+
+```
+cd firebase/functions
+node scripts/merchant_publication_access.js backfill-legacy            # simulation
+node scripts/merchant_publication_access.js backfill-legacy --apply --confirm=proxi-play-odzp2e
+node scripts/merchant_publication_access.js report                     # lecture seule
+node scripts/merchant_publication_access.js enforce on --apply --confirm=proxi-play-odzp2e
+```
+
+- `backfill-legacy` ajoute seulement `legacy_access` (merge) aux commerçants
+  **validés** (rôle commerçant ou propriétaire d'enseigne). Il ne touche ni
+  abonnement, ni tarif négocié, ni activation manuelle, ni jeu.
+  `--include-pending` ajoute les comptes en attente (décision à prendre).
+- `enforce on` est **refusé** tant qu'un commerçant validé propriétaire
+  d'une enseigne n'aurait aucun droit (sauf `--force`).
+- `enforce off --apply` revient instantanément à la situation actuelle.
+- `report` liste les commerçants sans droit qui ont encore des jeux en
+  cours : **aucun jeu n'est arrêté**, ces cas sont à arbitrer.
+
+## 11 bis. Résiliation
+
+Portail Stripe (§6) : n'autoriser que l'annulation **à la fin de la période**
+(`cancel_at_period_end`). Le statut reste `active` jusqu'à l'échéance, puis
+`ended`. Ne pas activer l'annulation immédiate.
+
+## 11 ter. Points ouverts
 
 - **Régime de TVA** (§3) — bloquant pour ouvrir le paiement.
-- **Ce que débloque l'abonnement** : aujourd'hui aucun écran ne restreint
-  l'accès selon `stripe_entitlement` / `manual_access`. Définir quelles
-  fonctions deviennent payantes avant d'appliquer une restriction.
-- **Délai de grâce** après un échec de renouvellement (`past_due`) : accès
-  conservé ou suspendu pendant les relances Stripe ?
-- **Paiement avant validation** : un commerçant `pendingValidation` peut-il
-  souscrire ? (Aujourd'hui : oui ; seuls les comptes rejetés ou suspendus
-  sont bloqués.)
-- **Second abonnement détecté** : remboursement et résiliation manuels par
-  l'équipe (aucune action automatique).
+- **Ne pas fusionner** `feat/stripe-merchant-billing` en production avant
+  validation de la TVA et recette complète.
+- **Message dans l'app** : un commerçant sans droit qui crée un jeu dans
+  l'app Flutter voit aujourd'hui l'erreur générique de création ; Flutter
+  n'a pas été modifié. Un message dédié (« abonnement requis », lien vers
+  l'espace commerçant) est recommandé avant `enforce on`.
+- **Jeux en cours d'un commerçant suspendu** : conservés et non interrompus ;
+  liste fournie par `report` pour décision.
+- **Comptes en attente au moment de la transition** : droit existant ou non
+  (`--include-pending`) ?
+- **Second abonnement détecté** : remboursement et résiliation manuels.
+- **Échec préexistant** (antérieur à ce chantier) :
+  `game_lifecycle_instant.test.js` › « completing a partial calendar on an
+  already-started game is allowed for an admin repair ».
 
 ## 12. Tests locaux
 
 ```
 # Functions (émulateurs Firestore + Auth, aucun appel Stripe réel)
 firebase emulators:exec --only firestore,auth --project demo-proxiplay-stripe \
-  "cd firebase/functions && node --test --test-concurrency=1 test/merchant_checkout.test.js test/stripe_webhook.test.js test/stripe_discovery_without_config.test.js test/merchant_referral_engine.test.js test/merchant_signup_referral.test.js test/firestore_rules_merchant_billing.test.js"
+  "cd firebase/functions && node --test --test-concurrency=1 test/merchant_checkout.test.js test/merchant_publication_access.test.js test/stripe_webhook.test.js test/stripe_discovery_without_config.test.js test/merchant_referral_engine.test.js test/merchant_signup_referral.test.js test/firestore_rules_merchant_billing.test.js"
 
 # Comptes de test pour l'espace commerçant (émulateurs uniquement)
 node firebase/functions/scripts/seed_merchant_billing_emulator.js

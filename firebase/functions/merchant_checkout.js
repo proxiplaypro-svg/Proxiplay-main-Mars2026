@@ -32,6 +32,7 @@ const {kRewardAmountCents} = require("./merchant_referral_engine");
 const {
   assertMerchantCaller,
   assertAllowedReturnUrl,
+  isValidatedMerchant,
   kOpenSubscriptionStatuses,
 } = require("./merchant_billing_access");
 // Reference au module (pas destructure) : permet aux tests de remplacer
@@ -247,6 +248,15 @@ async function createMerchantCheckoutSessionHandler(data, context) {
   const db = admin.firestore();
   const user = await assertMerchantCaller(db, context);
   const uid = context.auth.uid;
+  // Un compte en attente de validation consulte son espace et les offres,
+  // mais ne peut pas payer tant que l'equipe ne l'a pas valide.
+  if (!isValidatedMerchant(user)) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "Votre compte commercant est en cours de validation : la souscription sera possible des sa validation.",
+      {reason: "pending_validation"},
+    );
+  }
   const successUrl = assertAllowedReturnUrl(data?.successUrl, "successUrl");
   const cancelUrl = assertAllowedReturnUrl(data?.cancelUrl, "cancelUrl");
   const offerId = typeof data?.offerId === "string" ? data.offerId.trim() : "";
