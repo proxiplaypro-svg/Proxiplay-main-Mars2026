@@ -91,9 +91,10 @@ et aucun Checkout n'est possible.
 Les clés de **TEST** (`sk_test_…`) servent uniquement en local, avec les
 émulateurs (§11 sexies) : elles sont **refusées** sur `proxi-play-odzp2e`.
 
-Sur la production, tant que les paiements restent fermés, le secret doit
-seulement exister (le déploiement l'exige) ; une valeur qui n'est pas une
-clé Stripe le laisse inutilisable :
+Sur la production, tant que les paiements restent fermés, aucun secret
+n'est nécessaire pour l'espace commerçant (§8 bis). Seul le déploiement
+anticipé des fonctions Stripe l'exigerait ; une valeur qui n'est pas une
+clé Stripe le laisse alors inutilisable :
 
 ```
 firebase functions:secrets:set STRIPE_SECRET_KEY --project proxi-play-odzp2e      # saisir : desactive
@@ -156,6 +157,51 @@ d'année (prorata) n'est pas décidée.
    « Résilié » à l'échéance.
 7. `stripe events resend <evt_…>` → aucun double effet.
 8. Tenter une seconde souscription → refusée.
+
+## 8 bis. Premier déploiement, paiements fermés
+
+But : l'espace commerçant du site affiche le compte, les enseignes et les
+offres, avec « Le paiement en ligne ouvrira prochainement » et le bouton
+« Souscrire » désactivé. Aucune règle Firestore, aucune fonction existante
+n'est modifiée.
+
+Paiements fermés, le site n'appelle que `getMerchantBillingAccount` :
+`listMerchantInvoices` et le portail ne sont appelés que pour un compte qui a
+un Customer Stripe, le Checkout que si `paymentsEnabled` est vrai.
+`getMerchantBillingAccount` ne déclare **aucun secret** : le CLI ne valide
+les secrets que des fonctions ciblées par `--only`, il n'en faut donc aucun.
+
+1. Branche à jour (runtime Node 22) et tests verts (§12).
+2. Lecture seule, compte propriétaire du projet :
+   ```
+   firebase functions:list --project proxi-play-odzp2e
+   ```
+   `getMerchantBillingAccount` doit être absente (sinon s'arrêter : ce n'est
+   plus une création). Puis, depuis `firebase/functions` :
+   `node scripts/check_stripe_config.js` doit afficher « paiements fermés ».
+   `.env.proxi-play-odzp2e` ne doit contenir ni `STRIPE_LIVE_MODE_ENABLED`
+   ni `STRIPE_TAX_MODE`.
+3. Contrôle à blanc, puis déploiement de cette seule fonction :
+   ```
+   firebase deploy --only functions:getMerchantBillingAccount --project proxi-play-odzp2e --dry-run
+   firebase deploy --only functions:getMerchantBillingAccount --project proxi-play-odzp2e
+   ```
+   Jamais `firebase deploy` sans `--only` (règles et toutes les fonctions).
+4. Vérifier : `functions:list` montre `getMerchantBillingAccount`,
+   us-central1, nodejs22 ; sur le site, un commerçant connecté voit son
+   espace sans paiement possible.
+5. Retour arrière (fonction nouvelle) :
+   ```
+   firebase functions:delete getMerchantBillingAccount --region us-central1 --project proxi-play-odzp2e
+   ```
+
+Les trois autres fonctions (`listMerchantInvoices`,
+`createMerchantCheckoutSession`, `createMerchantBillingPortalSession`)
+déclarent `STRIPE_SECRET_KEY` : leur déploiement échoue tant que ce secret
+n'a pas de version active (« Failed to validate secret versions »). Les
+déployer à l'ouverture des paiements, avec la clé LIVE (§9). Les déployer
+plus tôt impose un secret temporaire non Stripe (ex. `desactive`), refusé à
+chaque appel (`payments_closed`).
 
 ## 9. Passage TEST → LIVE (plus tard, sur décision)
 
