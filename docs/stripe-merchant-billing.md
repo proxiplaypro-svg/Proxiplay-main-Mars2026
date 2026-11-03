@@ -228,6 +228,15 @@ le Checkout pour **son compte authentifié** avec la remise. Le paiement est
 rattaché par l'UID (métadonnées de l'abonnement), jamais par l'e-mail ; un
 code d'un autre compte est refusé.
 
+**Code de campagne partagé** (ex. `FRIENDS20`, prospection) : même coupon,
+mais un code commun à tous les prospects. Dans Stripe, sur le code :
+métadonnée `proxiplay_usage` = `campagne` (au lieu de `merchantUserId`) et
+option *First-time order only* cochée. Lien :
+`https://www.proxiplay.fr/espace-commercant/?offre=FRIENDS20`. Le serveur
+le réserve à un **premier abonnement** du compte (aucun abonnement Stripe
+antérieur) ; le paiement reste rattaché au compte connecté. Un code sans
+`merchantUserId` ni `proxiplay_usage=campagne` est refusé.
+
 À ne pas utiliser : un « Payment Link » Stripe envoyé directement. Le
 paiement y est anonyme ; le webhook ne le rattache à aucun compte
 (`ignored_unknown_merchant`) et n'ouvre aucun droit.

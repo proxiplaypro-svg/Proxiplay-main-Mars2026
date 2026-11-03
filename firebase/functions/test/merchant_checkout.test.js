@@ -563,3 +563,46 @@ test('preferential offer: never stacked on a negotiated tarif; an open session i
   const plain = await promoCheckout('');
   assert.equal(plain.reused, false, 'sans code : nouvelle session au tarif normal');
 });
+
+// --- Code de campagne partagé (ex. FRIENDS20) ----------------------------------
+
+// Reproduit FRIENDS20 tel que configuré en LIVE (coupon 65 EUR "once" sur
+// Autonome, première commande uniquement), plus la métadonnée de campagne.
+function campaign(overrides = {}) {
+  return promo({
+    id: 'promo_friends', code: 'FRIENDS20', metadata: {proxiplay_usage: 'campagne'},
+    max_redemptions: null, restrictions: {first_time_transaction: true},
+    ...overrides,
+  });
+}
+
+test('campaign code: usable by any validated merchant for a first subscription, attached to the authenticated UID', async () => {
+  const fakeStripe = makeFakeStripe({prices: kPricesWithProduct, promotionCodes: [campaign()]});
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  await promoCheckout('friends20');
+  const params = fakeStripe.calls.checkoutSessionsCreate[0];
+  assert.deepEqual(params.discounts, [{promotion_code: 'promo_friends'}]);
+  assert.equal(params.client_reference_id, 'merchant');
+  assert.equal(params.subscription_data.metadata.merchantUserId, 'merchant');
+  assert.equal(params.subscription_data.metadata.promotionCode, 'FRIENDS20');
+  assert.equal((await db.doc('merchant_subscriptions/merchant').get()).data().pending_promotion_code, 'FRIENDS20');
+});
+
+test('campaign code: refused without the campaign marker, without "first order only", or after a previous subscription', async () => {
+  for (const [label, codes, subscriptions, message] of [
+    ['sans métadonnée (FRIENDS20 actuel)', [campaign({metadata: {}})], [], /n'est pas valide pour ce compte/],
+    ['autre usage', [campaign({metadata: {proxiplay_usage: 'autre'}})], [], /n'est pas valide pour ce compte/],
+    ['sans première commande', [campaign({restrictions: {first_time_transaction: false}})], [], /mal configuree/],
+    ['abonnement précédent résilié', [campaign()], [{id: 'sub_old', status: 'canceled'}], /premier abonnement/],
+    ['coupon permanent', [campaign({coupon: {...promo().coupon, duration: 'forever'}})], [], /mal configuree/],
+    ['personnel et campagne : UID prioritaire', [campaign({metadata: {merchantUserId: 'other', proxiplay_usage: 'campagne'}})], [], /n'est pas valide pour ce compte/],
+  ]) {
+    await clearCollections();
+    await db.doc('users/merchant').set({user_role: 'commercant', email: 'merchant@example.test', account_status: 'approved'});
+    const fakeStripe = makeFakeStripe({prices: kPricesWithProduct, promotionCodes: codes, subscriptions});
+    stripeClientModule.getStripeClient = () => fakeStripe;
+    await assert.rejects(promoCheckout('FRIENDS20'), (err) =>
+      err.code === 'failed-precondition' && err.details?.reason === 'invalid_offer_code' && message.test(err.message), label);
+    assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0, label);
+  }
+});

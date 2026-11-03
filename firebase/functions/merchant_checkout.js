@@ -267,7 +267,14 @@ async function retrieveSessionOrNull(stripe, sessionId) {
 // ici pour SON compte authentifie. Le code n'est jamais cru tel quel : il doit
 // exister chez Stripe, dans le mode attendu, etre reserve a cet UID et ne
 // porter que sur la premiere facture.
+//
+// Code de campagne partage (ex. FRIENDS20, prospection) : pas d'UID, mais
+// metadata.proxiplay_usage = "campagne" et restriction Stripe "premiere
+// commande uniquement". Reserve a un premier abonnement (verifie ici chez
+// Stripe) ; le rattachement reste le compte authentifie. Un code sans l'une
+// de ces deux metadonnees est refuse.
 const kPromotionCodePattern = /^[A-Za-z0-9_-]{3,64}$/;
+const kCampaignUsage = "campagne";
 
 function invalidOfferCode(message = "Ce code d'offre n'est pas valide pour ce compte.") {
   return new functions.https.HttpsError("failed-precondition", message, {reason: "invalid_offer_code"});
@@ -285,10 +292,20 @@ function normalizePromotionCode(raw) {
 async function resolvePromotionCode(stripe, code, {uid, productId, customerId}) {
   const list = await stripe.promotionCodes.list({code, active: true, limit: 1, expand: ["data.coupon.applies_to"]});
   const promotion = list?.data?.[0];
+  const personal = Boolean(promotion?.metadata?.merchantUserId);
+  const campaign = !personal && promotion?.metadata?.proxiplay_usage === kCampaignUsage;
   // Meme message que le code soit inconnu ou reserve a un autre compte :
   // aucune information sur les codes des autres commercants.
-  if (!promotion || promotion.livemode !== expectedLivemode() || promotion.metadata?.merchantUserId !== uid) {
+  if (!promotion || promotion.livemode !== expectedLivemode() || !(personal || campaign) ||
+      (personal && promotion.metadata.merchantUserId !== uid)) {
     throw invalidOfferCode();
+  }
+  if (campaign) {
+    if (promotion.restrictions?.first_time_transaction !== true) {
+      throw invalidOfferCode("Cette offre est mal configuree. Contactez l'equipe ProxiPlay.");
+    }
+    const previous = await stripe.subscriptions.list({customer: customerId, status: "all", limit: 1});
+    if (previous?.data?.length) throw invalidOfferCode("Cette offre est reservee a un premier abonnement.");
   }
   if (promotion.customer && promotion.customer !== customerId) throw invalidOfferCode();
   if (promotion.expires_at && promotion.expires_at * 1000 <= Date.now()) {
