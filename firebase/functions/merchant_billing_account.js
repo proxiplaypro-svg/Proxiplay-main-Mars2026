@@ -11,11 +11,12 @@ const {
   assertMerchantCaller,
   isManualAccessActive,
   isValidatedMerchant,
+  paymentsOpen,
   stripeEntitlement,
 } = require("./merchant_billing_access");
 const {getPublicationAccess} = require("./merchant_publication_access");
 const {publicOfferCatalog, offerLabel} = require("./merchant_offers");
-const {stripePriceAutonome, stripePriceAccompagnee, stripeTaxMode} = require("./stripe_secrets");
+const {isForeignModeMirror} = require("./stripe_mode");
 
 const kFunctionsRegion = "us-central1";
 
@@ -32,11 +33,6 @@ async function enseignesOf(db, uid) {
   return [...byId.values()];
 }
 
-function paymentsConfigured() {
-  return ["tax_rate", "automatic", "none"].includes(stripeTaxMode.value()) &&
-    Boolean(stripePriceAutonome.value() && stripePriceAccompagnee.value());
-}
-
 async function getMerchantBillingAccountHandler(data, context) {
   const db = admin.firestore();
   const user = await assertMerchantCaller(db, context);
@@ -47,7 +43,11 @@ async function getMerchantBillingAccountHandler(data, context) {
     db.collection("merchant_custom_offers").doc(uid).get(),
     enseignesOf(db, uid),
   ]);
-  const sub = subscriptionSnap.exists ? subscriptionSnap.data() : {};
+  const mirror = subscriptionSnap.exists ? subscriptionSnap.data() : {};
+  // Abonnement de l'autre mode (ex. TEST en production) : presente comme
+  // absent ; seuls les droits poses par l'Admin restent.
+  const sub = isForeignModeMirror(mirror) ?
+    {manual_access: mirror.manual_access, legacy_access: mirror.legacy_access} : mirror;
   const customOffer = customOfferSnap.exists ? customOfferSnap.data() : null;
   const status = sub.subscription_status || null;
   const entitlement = sub.stripe_entitlement || stripeEntitlement(status);
@@ -92,10 +92,10 @@ async function getMerchantBillingAccountHandler(data, context) {
     hasPaidAccess: publication.canPublish,
     regularizeUrl: ["grace", "suspended"].includes(publication.status) ? sub.unpaid_invoice_url || null : null,
     validationPending: !validated,
-    canCheckout: validated && paymentsConfigured(),
+    canCheckout: validated && paymentsOpen(),
     customOffer: customOffer ? {amountHtCents: customOffer.amount_ht_cents, label: customOffer.label || null} : null,
     offers: publicOfferCatalog(),
-    paymentsEnabled: paymentsConfigured(),
+    paymentsEnabled: paymentsOpen(),
   };
 }
 

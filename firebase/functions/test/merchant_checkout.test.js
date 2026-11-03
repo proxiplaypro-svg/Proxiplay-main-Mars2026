@@ -34,7 +34,7 @@ const kPrices = {
     type: 'recurring', recurring: {interval: 'year', interval_count: 1}},
 };
 
-function makeFakeStripe({subscriptions = [], prices = kPrices, invoices = []} = {}) {
+function makeFakeStripe({subscriptions = [], prices = kPrices, invoices = [], customers = {}} = {}) {
   const calls = {customersCreate: [], checkoutSessionsCreate: [], expired: [], portal: [], invoicesList: []};
   const sessions = {};
   let sessionCounter = 0;
@@ -43,6 +43,8 @@ function makeFakeStripe({subscriptions = [], prices = kPrices, invoices = []} = 
     sessions,
     prices: {retrieve: async (id) => prices[id]},
     customers: {
+      // Customer connu en mode TEST (projet demo-), sauf fixture contraire.
+      retrieve: async (id) => customers[id] || {id, livemode: false},
       search: async () => ({data: []}),
       create: async (params, options) => {
         calls.customersCreate.push({params, options});
@@ -425,7 +427,7 @@ test('the merchant space reflects the webhook mirror and manual access, never se
     subscription_status: 'active', stripe_entitlement: 'active', offer_id: 'autonome',
     stripe_customer_id: 'cus_secretish', stripe_subscription_id: 'sub_x',
     current_period_end: admin.firestore.Timestamp.fromMillis(Date.UTC(2027, 10, 2)),
-    stripe_livemode: false,
+    stripe_livemode: false, stripe_sandbox: true,
   });
   let view = await getMerchantBillingAccountHandler({}, kMerchant);
   assert.equal(view.subscription.offerLabel, 'Autonome');

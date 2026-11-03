@@ -54,25 +54,49 @@ test('explicit publication statuses', () => {
   const now = Date.UTC(2027, 0, 20);
   const cases = [
     [null, 'free', false],
-    [{subscription_status: 'active'}, 'active', true],
-    [{subscription_status: 'active', cancel_at_period_end: true}, 'active', true],
-    [{subscription_status: 'trialing'}, 'active', true],
+    [{stripe_livemode: true, subscription_status: 'active'}, 'active', true],
+    [{stripe_livemode: true, subscription_status: 'active', cancel_at_period_end: true}, 'active', true],
+    [{stripe_livemode: true, subscription_status: 'trialing'}, 'active', true],
     [{legacy_access: {enabled: true}}, 'legacy', true],
     [{manual_access: {enabled: true, until: ts(now + kDay)}}, 'manual', true],
     [{manual_access: {enabled: true, until: ts(now - kDay)}}, 'free', false],
-    [{subscription_status: 'past_due', grace_until: ts(now + kDay)}, 'grace', true],
-    [{subscription_status: 'past_due', grace_until: ts(now - 1)}, 'suspended', false],
-    [{subscription_status: 'unpaid', grace_until: ts(now - kDay)}, 'suspended', false],
-    [{subscription_status: 'past_due'}, 'suspended', false],
-    [{subscription_status: 'canceled'}, 'ended', false],
-    [{subscription_status: 'incomplete'}, 'pending_payment', false],
-    [{subscription_status: 'canceled', legacy_access: {enabled: true}}, 'legacy', true],
+    [{stripe_livemode: true, subscription_status: 'past_due', grace_until: ts(now + kDay)}, 'grace', true],
+    [{stripe_livemode: true, subscription_status: 'past_due', grace_until: ts(now - 1)}, 'suspended', false],
+    [{stripe_livemode: true, subscription_status: 'unpaid', grace_until: ts(now - kDay)}, 'suspended', false],
+    [{stripe_livemode: true, subscription_status: 'past_due'}, 'suspended', false],
+    [{stripe_livemode: true, subscription_status: 'canceled'}, 'ended', false],
+    [{stripe_livemode: true, subscription_status: 'incomplete'}, 'pending_payment', false],
+    [{stripe_livemode: true, subscription_status: 'canceled', legacy_access: {enabled: true}}, 'legacy', true],
   ];
   for (const [doc, status, canPublish] of cases) {
     const access = computePublicationAccess(doc, now);
     assert.equal(access.status, status, JSON.stringify(doc));
     assert.equal(access.canPublish, canPublish, JSON.stringify(doc));
   }
+});
+
+test('production: only a LIVE Stripe status opens rights; TEST or unknown mode counts as no subscription', () => {
+  const now = Date.UTC(2027, 0, 20);
+  const prod = {sandbox: false};
+  const cases = [
+    [{stripe_livemode: true, subscription_status: 'active'}, 'active', true],
+    [{stripe_livemode: false, subscription_status: 'active'}, 'free', false],
+    // stripe_sandbox n'est jamais cru hors projet demo-, meme pose a la main.
+    [{stripe_livemode: false, stripe_sandbox: true, subscription_status: 'active'}, 'free', false],
+    [{subscription_status: 'active'}, 'free', false],
+    [{stripe_livemode: false, subscription_status: 'past_due', grace_until: ts(now + kDay)}, 'free', false],
+    // Les droits existants (Admin) ne dependent jamais du mode Stripe.
+    [{stripe_livemode: false, subscription_status: 'active', legacy_access: {enabled: true}}, 'legacy', true],
+    [{stripe_livemode: false, subscription_status: 'canceled', manual_access: {enabled: true, until: null}}, 'manual', true],
+  ];
+  for (const [doc, status, canPublish] of cases) {
+    const access = computePublicationAccess(doc, now, prod);
+    assert.equal(access.status, status, JSON.stringify(doc));
+    assert.equal(access.canPublish, canPublish, JSON.stringify(doc));
+  }
+  // Emulateurs (demo-) : un abonnement TEST accepte par le serveur compte.
+  assert.equal(computePublicationAccess(
+    {stripe_livemode: false, stripe_sandbox: true, subscription_status: 'active'}, now, {sandbox: true}).status, 'active');
 });
 
 test('grace lasts 14 days from the unpaid due date by default, is configurable and never extended', () => {
@@ -102,8 +126,8 @@ test('enforced: a merchant without subscription cannot create a game; legacy, ac
 
   for (const [label, fields] of [
     ['legacy', {legacy_access: {enabled: true}}],
-    ['active', {subscription_status: 'active'}],
-    ['grace', {subscription_status: 'past_due', grace_until: ts(Date.now() + 3 * kDay)}],
+    ['active', {stripe_livemode: true, subscription_status: 'active'}],
+    ['grace', {stripe_livemode: true, subscription_status: 'past_due', grace_until: ts(Date.now() + 3 * kDay)}],
     ['manual', {manual_access: {enabled: true, until: null}}],
   ]) {
     await db.doc('merchant_subscriptions/merchant').delete();
@@ -116,10 +140,10 @@ test('enforced: expired grace, ended subscription or expired manual access block
   await approve();
   await enforce();
   for (const [label, fields] of [
-    ['suspended', {subscription_status: 'past_due', grace_until: ts(Date.now() - 1000)}],
-    ['ended', {subscription_status: 'canceled'}],
+    ['suspended', {stripe_livemode: true, subscription_status: 'past_due', grace_until: ts(Date.now() - 1000)}],
+    ['ended', {stripe_livemode: true, subscription_status: 'canceled'}],
     ['manual_expired', {manual_access: {enabled: true, until: ts(Date.now() - 1000)}}],
-    ['pending_payment', {subscription_status: 'incomplete'}],
+    ['pending_payment', {stripe_livemode: true, subscription_status: 'incomplete'}],
   ]) {
     await db.doc('merchant_subscriptions/merchant').delete();
     await subscription(fields);
@@ -127,9 +151,43 @@ test('enforced: expired grace, ended subscription or expired manual access block
   }
 });
 
+test('enforced: a TEST-mode subscription never opens publication (rules and server); legacy and manual still do', async () => {
+  await approve();
+  await enforce();
+  for (const [label, fields] of [
+    ['test_active', {stripe_livemode: false, subscription_status: 'active'}],
+    ['test_trialing', {stripe_livemode: false, stripe_sandbox: false, subscription_status: 'trialing'}],
+    ['no_mode', {subscription_status: 'active'}],
+    ['test_grace', {stripe_livemode: false, subscription_status: 'past_due', grace_until: ts(Date.now() + 3 * kDay)}],
+  ]) {
+    await db.doc('merchant_subscriptions/merchant').delete();
+    await subscription(fields);
+    await assertFails(createDraft(`ko_${label}`));
+    await serverDraft(`srv_${label}`);
+    await assert.rejects(publish(`srv_${label}`), (err) => err.code === 'failed-precondition', label);
+  }
+  for (const [label, fields] of [
+    ['legacy', {stripe_livemode: false, subscription_status: 'active', legacy_access: {enabled: true}}],
+    ['manual', {stripe_livemode: false, subscription_status: 'active', manual_access: {enabled: true, until: null}}],
+  ]) {
+    await db.doc('merchant_subscriptions/merchant').delete();
+    await subscription(fields);
+    await assertSucceeds(createDraft(`ok_${label}`));
+  }
+});
+
+test('enforcement is off by default: without app_config/merchant_billing nobody loses the right to publish', async () => {
+  await approve();
+  await db.doc('app_config/merchant_billing').delete();
+  await subscription({stripe_livemode: false, subscription_status: 'canceled'});
+  await assertSucceeds(createDraft('default_off'));
+  await serverDraft('default_off_srv');
+  assert.equal((await publish('default_off_srv')).published, true);
+});
+
 test('a merchant pending validation still cannot create games, whatever the subscription', async () => {
   await db.doc('users/merchant').set({account_status: 'pendingValidation'}, {merge: true});
-  await subscription({subscription_status: 'active'});
+  await subscription({stripe_livemode: true, subscription_status: 'active'});
   await assertFails(createDraft());
 });
 
@@ -174,7 +232,7 @@ test('enforced: legacy and active merchants publish; an admin is never blocked',
   await serverDraft('legacy_game');
   assert.equal((await publish('legacy_game')).published, true);
 
-  await db.doc('merchant_subscriptions/merchant').set({subscription_status: 'active', legacy_access: {enabled: false}});
+  await db.doc('merchant_subscriptions/merchant').set({stripe_livemode: true, subscription_status: 'active', legacy_access: {enabled: false}});
   await serverDraft('active_game');
   assert.equal((await publish('active_game')).published, true);
 
@@ -186,19 +244,19 @@ test('enforced: legacy and active merchants publish; an admin is never blocked',
 test('expired grace blocks publication; regularisation confirmed by Stripe restores it automatically', async () => {
   await approve();
   await enforce();
-  await subscription({subscription_status: 'past_due', grace_until: ts(Date.now() - 1000)});
+  await subscription({stripe_livemode: true, subscription_status: 'past_due', grace_until: ts(Date.now() - 1000)});
   await serverDraft();
   await assert.rejects(publish(), (err) => err.code === 'failed-precondition');
 
   // Ce que le webhook ecrit apres invoice.paid (statut relu chez Stripe).
-  await subscription({subscription_status: 'active', grace_until: null});
+  await subscription({stripe_livemode: true, subscription_status: 'active', grace_until: null});
   assert.equal((await publish()).published, true);
 });
 
 test('a game already running is never interrupted by a suspension', async () => {
   await approve();
   await enforce();
-  await subscription({subscription_status: 'unpaid', grace_until: ts(Date.now() - kDay)});
+  await subscription({stripe_livemode: true, subscription_status: 'unpaid', grace_until: ts(Date.now() - kDay)});
   await serverDraft('running', {visible_public: true});
   const result = await publish('running');
   assert.equal(result.published, true);
@@ -244,7 +302,7 @@ test('enforcement cannot be switched on while an existing merchant would lose hi
 
 test('the report flags merchants without rights who still have running games, without touching them', async () => {
   await approve();
-  await subscription({subscription_status: 'past_due', grace_until: ts(Date.now() - kDay)});
+  await subscription({stripe_livemode: true, subscription_status: 'past_due', grace_until: ts(Date.now() - kDay)});
   await serverDraft('running', {visible_public: true});
   const report = await buildReport(db);
   assert.equal(report.byStatus.suspended, 1);

@@ -16,6 +16,12 @@
 // Firestore (stripe_customer_id). Toute contradiction est ignoree et tracee,
 // jamais appliquee a un compte au hasard.
 //
+// Mode TEST/LIVE (stripe_mode.js) : un evenement, puis l'abonnement relu
+// chez Stripe, doivent etre dans le mode attendu par le projet (LIVE en
+// production, TEST sur un projet demo-). Sinon rien n'est ecrit : evenement
+// marque "ignored_livemode_mismatch" (200, jamais rejoue). Un miroir issu de
+// l'autre mode n'est jamais repris (Customer, abonnement suivi).
+//
 // Evenements traites (voir docs/stripe-merchant-billing.md) :
 //   checkout.session.completed / expired
 //   customer.subscription.created / updated / deleted / paused / resumed
@@ -31,6 +37,7 @@ const {markReferralEligibleOnFirstPayment, cancelReferralIfNotYetPaid} =
   require("./merchant_referral_engine");
 const {kOpenSubscriptionStatuses, stripeEntitlement} = require("./merchant_billing_access");
 const {kGraceStatuses, graceUntilMs, computePublicationAccess} = require("./merchant_publication_access");
+const {expectedLivemode, isStripeSandbox, isForeignModeMirror, foreignModeResetFields} = require("./stripe_mode");
 
 const kFunctionsRegion = "us-central1";
 const kMerchantSubscriptionsCollection = "merchant_subscriptions";
@@ -144,8 +151,14 @@ function mirrorFields(db, merchantUserId, subscription, current, fetchedAtMs, ev
   const item = subscription.items?.data?.[0];
   const periodStart = subscription.current_period_start ?? item?.current_period_start;
   const periodEnd = subscription.current_period_end ?? item?.current_period_end;
+  const livemode = subscription.livemode === true;
+  // stripe_sandbox : abonnement TEST accepte, uniquement sur un projet demo-
+  // (lu par firestore.rules, qui ne connait pas le projet). Toujours false en
+  // production.
+  const sandbox = isStripeSandbox() && !livemode;
   const publication = computePublicationAccess({
     ...current, ...graceFields(subscription, current, periodStart), subscription_status: subscription.status,
+    stripe_livemode: livemode, stripe_sandbox: sandbox,
   });
   return {
     ...graceFields(subscription, current, periodStart),
@@ -165,7 +178,9 @@ function mirrorFields(db, merchantUserId, subscription, current, fetchedAtMs, ev
     cancel_at: tsFromSeconds(subscription.cancel_at),
     canceled_at: tsFromSeconds(subscription.canceled_at),
     ended_at: tsFromSeconds(subscription.ended_at),
-    stripe_livemode: subscription.livemode === true,
+    stripe_livemode: livemode,
+    stripe_mode: livemode ? "live" : "test",
+    stripe_sandbox: sandbox,
     stripe_fetched_at_ms: fetchedAtMs,
     stripe_synced_at: admin.firestore.FieldValue.serverTimestamp(),
     last_stripe_event_id: eventId,
@@ -173,6 +188,13 @@ function mirrorFields(db, merchantUserId, subscription, current, fetchedAtMs, ev
       {checkout_status: "completed"} : {}),
     updated_at: admin.firestore.FieldValue.serverTimestamp(),
   };
+}
+
+// Miroir vu sans ses donnees Stripe : seuls les droits poses par l'Admin
+// (manual_access, legacy_access) et les champs hors Stripe restent.
+function withoutStripeTracking(doc) {
+  const reset = Object.keys(foreignModeResetFields(admin.firestore.FieldValue));
+  return Object.fromEntries(Object.entries(doc).filter(([key]) => !reset.includes(key)));
 }
 
 /**
@@ -185,6 +207,11 @@ async function syncSubscriptionFromStripe(db, subscriptionId, eventId) {
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   const fetchedAtMs = Date.now();
   if (!subscription?.id) return {outcome: "ignored_subscription_not_found", tracked: false};
+  // Mode lu chez Stripe, pas dans le payload de l'evenement.
+  if (subscription.livemode !== expectedLivemode()) {
+    console.error("[STRIPE_WEBHOOK] abonnement d'un autre mode ignore", {subscriptionId, livemode: subscription.livemode});
+    return {outcome: "ignored_livemode_mismatch", tracked: false};
+  }
 
   const resolved = await resolveMerchantForSubscription(db, stripe, subscription);
   if (!resolved.merchantUserId) {
@@ -196,7 +223,10 @@ async function syncSubscriptionFromStripe(db, subscriptionId, eventId) {
 
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    const current = snap.exists ? snap.data() : {};
+    // Donnees Stripe de l'autre mode (ex. ancien abonnement TEST) : ni
+    // Customer ni abonnement suivi a respecter, elles sont remplacees.
+    const foreign = snap.exists && isForeignModeMirror(snap.data());
+    const current = !snap.exists ? {} : foreign ? withoutStripeTracking(snap.data()) : snap.data();
     if (current.stripe_customer_id && customerId && current.stripe_customer_id !== customerId) {
       console.warn("[STRIPE_WEBHOOK] Customer different du miroir", {merchantUserId, subscriptionId});
       return {outcome: "ignored_customer_mismatch", merchantUserId, tracked: false};
@@ -234,6 +264,7 @@ async function syncSubscriptionFromStripe(db, subscriptionId, eventId) {
     }
 
     tx.set(ref, {
+      ...(foreign ? foreignModeResetFields(admin.firestore.FieldValue) : {}),
       ...mirrorFields(db, merchantUserId, subscription, current, fetchedAtMs, eventId),
       ...(snap.exists ? {} : {created_at: admin.firestore.FieldValue.serverTimestamp()}),
     }, {merge: true});
@@ -448,6 +479,15 @@ async function stripeWebhookHandler(req, res) {
     // Une autre livraison le traite : non-2xx pour que Stripe retente plus
     // tard, au cas ou ce traitement concurrent echouerait.
     res.status(409).send("Traitement en cours.");
+    return;
+  }
+
+  if (event.livemode !== expectedLivemode()) {
+    // Evenement de l'autre mode (endpoint ou secret mal configure) : trace,
+    // jamais applique, jamais rejoue.
+    console.error("[STRIPE_WEBHOOK] evenement d'un autre mode ignore", {eventId: event.id, livemode: event.livemode});
+    await markEvent(db, event.id, "done", {outcome: "ignored_livemode_mismatch"});
+    res.status(200).send("Mode ignore.");
     return;
   }
 

@@ -30,8 +30,15 @@ jamais Stripe.
 
 Garde-fous déjà en place dans le code :
 
+- mode Stripe imposé par le projet Firebase (`stripe_mode.js`) : **LIVE
+  uniquement** sur `proxi-play-odzp2e`, **TEST uniquement** sur un projet
+  `demo-…` (émulateurs). En production, une clé `sk_test_…`/`rk_test_…` est
+  refusée, un événement ou un abonnement TEST n'écrit rien (événement tracé
+  `ignored_livemode_mismatch`) et un miroir TEST n'ouvre aucun droit (serveur
+  et `firestore.rules`) ;
 - une clé `sk_live_…` est **refusée** tant que `STRIPE_LIVE_MODE_ENABLED`
-  ne vaut pas `true` ;
+  ne vaut pas `true` ; sans ce drapeau les paiements sont **fermés** en
+  production (aucun Checkout, page « paiement pas encore ouvert ») ;
 - aucun Checkout n'est créé tant que la fiscalité (`STRIPE_TAX_MODE`) n'est
   pas explicitement configurée ;
 - le prix Stripe configuré est vérifié avant chaque Checkout (montant HT,
@@ -81,14 +88,21 @@ et aucun Checkout n'est possible.
 
 ## 4. Clé secrète
 
-Dashboard → *Developers* → *API keys* → clé secrète `sk_test_…`.
+Les clés de **TEST** (`sk_test_…`) servent uniquement en local, avec les
+émulateurs (§11 sexies) : elles sont **refusées** sur `proxi-play-odzp2e`.
+
+Sur la production, tant que les paiements restent fermés, le secret doit
+seulement exister (le déploiement l'exige) ; une valeur qui n'est pas une
+clé Stripe le laisse inutilisable :
 
 ```
-firebase functions:secrets:set STRIPE_SECRET_KEY --project proxi-play-odzp2e
+firebase functions:secrets:set STRIPE_SECRET_KEY --project proxi-play-odzp2e      # saisir : desactive
+firebase functions:secrets:set STRIPE_WEBHOOK_SECRET --project proxi-play-odzp2e  # saisir : desactive
 ```
 
-Collez la clé **uniquement** à l'invite du terminal. Aucune clé publique
-`pk_…` n'est nécessaire (Checkout et portail sont hébergés par Stripe).
+La clé `sk_live_…` ne sera posée qu'au passage LIVE (§9). Collez toute clé
+**uniquement** à l'invite du terminal. Aucune clé publique `pk_…` n'est
+nécessaire (Checkout et portail sont hébergés par Stripe).
 
 ## 5. Webhook
 
@@ -130,7 +144,8 @@ d'année (prorata) n'est pas décidée.
 
 ## 8. Recette en mode TEST
 
-1. Déployer les Functions sur un environnement de test (pas la production).
+1. En local uniquement (émulateurs, projet `demo-…`, §11 sexies) : le
+   projet de production refuse toute clé et tout événement TEST.
 2. Se connecter sur `/espace-commercant/` avec un compte commerçant de test.
 3. Souscrire avec la carte de test `4242 4242 4242 4242` → statut « Actif »
    après réception du webhook (jamais avant).
@@ -149,6 +164,11 @@ d'année (prorata) n'est pas décidée.
    (`sk_live_…`) et recréer le webhook LIVE (`whsec_…` LIVE).
 3. Poser `STRIPE_LIVE_MODE_ENABLED=true` — **sans cela la clé LIVE est
    refusée**.
+4. Un ancien miroir TEST (`stripe_livemode: false`) éventuellement présent
+   en production n'ouvre aucun droit, ne bloque pas la souscription LIVE et
+   son Customer TEST n'est jamais réutilisé : il est remplacé au premier
+   Checkout ou webhook LIVE. `manual_access` et `legacy_access` sont
+   conservés.
 
 ## 10. Droits commerçants (décisions du 03/11/2026)
 
@@ -276,7 +296,7 @@ terminal pour contrôler montant/devise/périodicité chez Stripe.
 ```
 # Functions (émulateurs Firestore + Auth, aucun appel Stripe réel)
 firebase emulators:exec --only firestore,auth --project demo-proxiplay-stripe \
-  "cd firebase/functions && node --test --test-concurrency=1 test/merchant_checkout.test.js test/merchant_publication_access.test.js test/stripe_webhook.test.js test/stripe_discovery_without_config.test.js test/merchant_referral_engine.test.js test/merchant_signup_referral.test.js test/firestore_rules_merchant_billing.test.js"
+  "cd firebase/functions && node --test --test-concurrency=1 test/merchant_checkout.test.js test/merchant_publication_access.test.js test/stripe_webhook.test.js test/stripe_discovery_without_config.test.js test/merchant_referral_engine.test.js test/merchant_signup_referral.test.js test/firestore_rules_merchant_billing.test.js test/stripe_mode_security.test.js"
 
 # Comptes de test pour l'espace commerçant (émulateurs uniquement)
 node firebase/functions/scripts/seed_merchant_billing_emulator.js

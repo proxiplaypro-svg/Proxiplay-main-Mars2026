@@ -23,9 +23,15 @@
 //   - ici, cote serveur, avant toute publication (generateInstantWinnersForGame).
 // Elle ne s'applique que lorsque app_config/merchant_billing
 // .enforce_publication_access === true (transition non destructive).
+//
+// Statut Stripe pris en compte uniquement s'il vient du mode attendu :
+// abonnement LIVE (stripe_livemode === true), ou TEST sur un projet demo-
+// (stripe_sandbox === true, emulateurs). Un abonnement TEST en production
+// est traite comme absent : seuls legacy et manual comptent alors.
 
 const functions = require("firebase-functions");
 const {isManualAccessActive} = require("./merchant_billing_access");
+const {isStripeSandbox, isTrustedStripeMirror} = require("./stripe_mode");
 
 const kDefaultGraceDays = 14;
 const kGraceStatuses = Object.freeze(["past_due", "unpaid"]);
@@ -55,9 +61,9 @@ function graceUntilMs(existingGraceUntilMs, unpaidDueDateMs, days = graceDays())
  * Statut de publication a partir du miroir merchant_subscriptions/{uid}.
  * Fonction pure : aucun acces reseau.
  */
-function computePublicationAccess(subscriptionDoc, nowMs = Date.now()) {
+function computePublicationAccess(subscriptionDoc, nowMs = Date.now(), {sandbox = isStripeSandbox()} = {}) {
   const sub = subscriptionDoc || {};
-  const status = sub.subscription_status || null;
+  const status = isTrustedStripeMirror(sub, sandbox) ? sub.subscription_status || null : null;
   const graceUntil = millis(sub.grace_until);
   let access;
   if (status === "active" || status === "trialing") {

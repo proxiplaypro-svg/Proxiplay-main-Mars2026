@@ -32,9 +32,11 @@ const {kRewardAmountCents} = require("./merchant_referral_engine");
 const {
   assertMerchantCaller,
   assertAllowedReturnUrl,
+  assertPaymentsOpen,
   isValidatedMerchant,
   kOpenSubscriptionStatuses,
 } = require("./merchant_billing_access");
+const {expectedLivemode, isForeignModeMirror, foreignModeResetFields} = require("./stripe_mode");
 // Reference au module (pas destructure) : permet aux tests de remplacer
 // stripeClientModule.getStripeClient par un mock apres le chargement de ce
 // fichier, sans avoir a mocker require() lui-meme.
@@ -132,7 +134,11 @@ function hasOpenSubscription(subscriptionDoc) {
 async function acquireCheckoutLock(db, subscriptionRef, uid, token) {
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(subscriptionRef);
-    const current = snap.exists ? snap.data() : {};
+    const raw = snap.exists ? snap.data() : {};
+    // Miroir de l'autre mode (ex. abonnement TEST en production) : ni son
+    // statut ni son Customer ne comptent ; il sera remplace a l'ecriture.
+    const foreign = isForeignModeMirror(raw);
+    const current = foreign ? {checkout_lock: raw.checkout_lock, foreign_mode: true} : raw;
     if (hasOpenSubscription(current)) {
       throw new functions.https.HttpsError("already-exists", "Vous avez deja un abonnement en cours.");
     }
@@ -207,7 +213,16 @@ async function linkReferral(db, uid, referral) {
  * d'idempotence (un retry apres coupure ne cree jamais un second Customer).
  */
 async function resolveStripeCustomerId(stripe, uid, email, existingCustomerId) {
-  if (existingCustomerId) return existingCustomerId;
+  if (existingCustomerId) {
+    // Un miroir ancien peut porter un Customer cree avec une cle de l'autre
+    // mode (inconnu de la cle actuelle) : verifie chez Stripe avant reemploi.
+    try {
+      const customer = await stripe.customers.retrieve(existingCustomerId);
+      if (customer && !customer.deleted && customer.livemode === expectedLivemode()) return existingCustomerId;
+    } catch (err) {
+      if (err?.code !== "resource_missing") throw err;
+    }
+  }
   try {
     const found = await stripe.customers.search({query: `metadata['merchantUserId']:'${uid}'`, limit: 1});
     if (found?.data?.[0]?.id) return found.data[0].id;
@@ -257,6 +272,8 @@ async function createMerchantCheckoutSessionHandler(data, context) {
       {reason: "pending_validation"},
     );
   }
+  // Paiements fermes (defaut) : refus avant toute ecriture et tout appel Stripe.
+  assertPaymentsOpen();
   const successUrl = assertAllowedReturnUrl(data?.successUrl, "successUrl");
   const cancelUrl = assertAllowedReturnUrl(data?.cancelUrl, "cancelUrl");
   const offerId = typeof data?.offerId === "string" ? data.offerId.trim() : "";
@@ -330,7 +347,10 @@ async function createMerchantCheckoutSessionHandler(data, context) {
     }, {idempotencyKey: `merchant-checkout-${uid}-${lockToken}`});
 
     await subscriptionRef.set({
+      ...(existing.foreign_mode ? foreignModeResetFields(admin.firestore.FieldValue) : {}),
       stripe_customer_id: stripeCustomerId,
+      // Mode de la cle serveur qui a cree le Customer (stripe_mode.js).
+      stripe_mode: expectedLivemode() ? "live" : "test",
       stripe_checkout_session_id: session.id,
       pending_offer_id: selection.offerIdForMetadata,
       checkout_status: "open",

@@ -8,7 +8,14 @@
 
 const functions = require("firebase-functions");
 const {excluded} = require("./prize_integrity");
-const {merchantBillingAllowedOrigins} = require("./stripe_secrets");
+const {
+  merchantBillingAllowedOrigins,
+  stripeLiveModeEnabled,
+  stripePriceAutonome,
+  stripePriceAccompagnee,
+  stripeTaxMode,
+} = require("./stripe_secrets");
+const {isStripeSandbox} = require("./stripe_mode");
 
 const kMerchantRole = "commercant";
 
@@ -90,6 +97,28 @@ function assertAllowedReturnUrl(rawUrl, fieldName) {
   return url.toString();
 }
 
+/**
+ * Paiements ouverts : regime fiscal et prix configures, et, en production,
+ * bascule LIVE explicite (STRIPE_LIVE_MODE_ENABLED === "true"). Ferme par
+ * defaut. La cle elle-meme est controlee a chaque appel Stripe
+ * (stripe_client.js) : LIVE en production, TEST sur un projet demo-.
+ */
+function paymentsOpen() {
+  const configured = ["tax_rate", "automatic", "none"].includes(stripeTaxMode.value()) &&
+    Boolean(stripePriceAutonome.value() && stripePriceAccompagnee.value());
+  return configured && (isStripeSandbox() || stripeLiveModeEnabled.value() === "true");
+}
+
+function assertPaymentsOpen() {
+  if (!paymentsOpen()) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "Le paiement en ligne n'est pas encore ouvert.",
+      {reason: "payments_closed"},
+    );
+  }
+}
+
 function stripeEntitlement(status) {
   if (kPaidAccessStatuses.includes(status)) return "active";
   if (kGraceStatuses.includes(status)) return "grace";
@@ -109,6 +138,8 @@ module.exports = {
   kGraceStatuses,
   assertMerchantCaller,
   assertAllowedReturnUrl,
+  assertPaymentsOpen,
+  paymentsOpen,
   allowedOrigins,
   stripeEntitlement,
   isManualAccessActive,

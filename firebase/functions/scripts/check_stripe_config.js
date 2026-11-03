@@ -40,6 +40,7 @@ function check(env) {
     problems.push("STRIPE_TAX_RATE_ID (txr_...) requis avec STRIPE_TAX_MODE=tax_rate");
   }
   if (env.STRIPE_LIVE_MODE_ENABLED === "true") notes.push("ATTENTION : STRIPE_LIVE_MODE_ENABLED=true (cles LIVE acceptees).");
+  else notes.push("STRIPE_LIVE_MODE_ENABLED absent : paiements fermes en production (toute cle TEST y est refusee).");
   return {problems, notes};
 }
 

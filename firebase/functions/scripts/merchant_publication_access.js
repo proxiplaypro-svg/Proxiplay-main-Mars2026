@@ -18,6 +18,7 @@
 
 const admin = require("firebase-admin");
 const {computePublicationAccess, kBillingConfigPath} = require("../merchant_publication_access");
+const {isForeignModeMirror} = require("../stripe_mode");
 
 const kLegacySource = "transition-abonnement-2026-11";
 
@@ -110,6 +111,9 @@ async function buildReport(db, nowMs = Date.now()) {
   const byStatus = {};
   const withoutAccess = [];
   const needsDecision = [];
+  // Miroirs Stripe de l'autre mode (ex. abonnements TEST en production) :
+  // ignores pour les droits, listes pour verification.
+  const foreignModeMirrors = subsSnap.docs.filter((doc) => isForeignModeMirror(doc.data())).map((doc) => doc.id);
   for (const doc of usersSnap.docs) {
     const user = doc.data();
     if (!(roleOf(user) === "commercant" || owners.has(doc.id)) || user.deleted === true) continue;
@@ -123,7 +127,7 @@ async function buildReport(db, nowMs = Date.now()) {
   }
   return {
     enforced: configSnap.exists && configSnap.data().enforce_publication_access === true,
-    byStatus, withoutAccess, needsDecision,
+    byStatus, withoutAccess, needsDecision, foreignModeMirrors,
   };
 }
 

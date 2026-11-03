@@ -3,12 +3,17 @@
 // Cloud Function (jamais au chargement du module), donc jamais construite
 // au niveau module. Un seul client reutilise par invocation "chaude".
 //
-// Une cle LIVE est refusee tant que STRIPE_LIVE_MODE_ENABLED !== "true" :
-// aucun paiement reel ne peut partir d'un environnement de test mal
-// configure.
+// Mode de la cle impose par le projet (stripe_mode.js) :
+//   - production : cle LIVE uniquement, et seulement si
+//     STRIPE_LIVE_MODE_ENABLED === "true" ; une cle TEST est refusee (aucun
+//     paiement fictif ne peut ouvrir de droits reels) ;
+//   - projet demo- (emulateurs) : cle TEST uniquement ; une cle LIVE est
+//     refusee (aucun paiement reel depuis un poste de developpement).
+// Toute autre valeur (vide, placeholder) est refusee : paiements fermes.
 
 const Stripe = require("stripe");
 const {stripeSecretKey, stripeLiveModeEnabled} = require("./stripe_secrets");
+const {isStripeSandbox, keyMode} = require("./stripe_mode");
 
 const kStripeApiVersion = "2024-06-20";
 
@@ -16,19 +21,24 @@ let cachedClient = null;
 let cachedKey = null;
 
 function isLiveKey(key) {
-  return /^(sk|rk)_live_/.test(key);
+  return keyMode(key) === "live";
 }
 
 function assertKeyAllowed(key) {
   const {https} = require("firebase-functions");
-  if (!key) {
-    throw new https.HttpsError("failed-precondition", "STRIPE_SECRET_KEY n'est pas configure.");
+  const refuse = (message) => {
+    throw new https.HttpsError("failed-precondition", message, {reason: "payments_closed"});
+  };
+  const mode = keyMode(key);
+  if (!key) refuse("STRIPE_SECRET_KEY n'est pas configure.");
+  if (!mode) refuse("STRIPE_SECRET_KEY n'est pas une cle Stripe : paiements fermes.");
+  if (isStripeSandbox()) {
+    if (mode !== "test") refuse("Cle Stripe LIVE refusee sur un projet d'emulation (demo-).");
+    return;
   }
-  if (isLiveKey(key) && stripeLiveModeEnabled.value() !== "true") {
-    throw new https.HttpsError(
-      "failed-precondition",
-      "Cle Stripe LIVE refusee : STRIPE_LIVE_MODE_ENABLED n'est pas active.",
-    );
+  if (mode !== "live") refuse("Cle Stripe TEST refusee sur le projet de production.");
+  if (stripeLiveModeEnabled.value() !== "true") {
+    refuse("Cle Stripe LIVE refusee : STRIPE_LIVE_MODE_ENABLED n'est pas active.");
   }
 }
 
@@ -42,4 +52,4 @@ function getStripeClient() {
   return cachedClient;
 }
 
-module.exports = {getStripeClient, assertKeyAllowed, isLiveKey, kStripeApiVersion};
+module.exports = {getStripeClient, assertKeyAllowed, isLiveKey, keyMode, kStripeApiVersion};

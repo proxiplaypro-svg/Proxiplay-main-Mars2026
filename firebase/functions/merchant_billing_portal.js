@@ -9,6 +9,7 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripeClientModule = require("./stripe_client");
 const {assertMerchantCaller, assertAllowedReturnUrl} = require("./merchant_billing_access");
+const {isForeignModeMirror} = require("./stripe_mode");
 
 const kFunctionsRegion = "us-central1";
 const kMerchantSubscriptionsCollection = "merchant_subscriptions";
@@ -16,8 +17,15 @@ const kMaxInvoices = 24;
 
 async function callerStripeCustomerId(db, uid) {
   const subscriptionSnap = await db.collection(kMerchantSubscriptionsCollection).doc(uid).get();
-  return subscriptionSnap.exists ? subscriptionSnap.data().stripe_customer_id || null : null;
+  if (!subscriptionSnap.exists) return null;
+  const mirror = subscriptionSnap.data();
+  // Customer de l'autre mode (ex. TEST en production) : jamais utilise.
+  return isForeignModeMirror(mirror) ? null : mirror.stripe_customer_id || null;
 }
+
+// Customer inconnu de la cle actuelle (miroir ancien, autre mode) : traite
+// comme absent plutot qu'en erreur interne.
+const isMissingResource = (err) => err?.code === "resource_missing";
 
 async function createMerchantBillingPortalSessionHandler(data, context) {
   const db = admin.firestore();
@@ -30,11 +38,19 @@ async function createMerchantBillingPortalSessionHandler(data, context) {
   }
 
   const stripe = stripeClientModule.getStripeClient();
-  const portalSession = await stripe.billingPortal.sessions.create({
-    customer: stripeCustomerId,
-    return_url: returnUrl,
-    locale: "fr",
-  });
+  let portalSession;
+  try {
+    portalSession = await stripe.billingPortal.sessions.create({
+      customer: stripeCustomerId,
+      return_url: returnUrl,
+      locale: "fr",
+    });
+  } catch (err) {
+    if (isMissingResource(err)) {
+      throw new functions.https.HttpsError("failed-precondition", "Aucun abonnement Stripe pour ce compte.");
+    }
+    throw err;
+  }
 
   return {portalUrl: portalSession.url};
 }
@@ -50,7 +66,13 @@ async function listMerchantInvoicesHandler(data, context) {
   if (!stripeCustomerId) return {invoices: []};
 
   const stripe = stripeClientModule.getStripeClient();
-  const list = await stripe.invoices.list({customer: stripeCustomerId, limit: kMaxInvoices});
+  let list;
+  try {
+    list = await stripe.invoices.list({customer: stripeCustomerId, limit: kMaxInvoices});
+  } catch (err) {
+    if (isMissingResource(err)) return {invoices: []};
+    throw err;
+  }
   const invoices = (list?.data || [])
     .filter((invoice) => invoice.status !== "draft")
     .map((invoice) => ({

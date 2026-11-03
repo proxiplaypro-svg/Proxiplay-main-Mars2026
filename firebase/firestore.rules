@@ -102,8 +102,13 @@ service cloud.firestore {
         (exists(path) && publicationAccessFrom(get(path).data));
     }
 
+    // Statut Stripe retenu seulement s'il vient du mode attendu : LIVE, ou
+    // TEST accepte par le serveur sur un projet demo- (stripe_sandbox, jamais
+    // vrai en production). Document non modifiable par un client.
     function publicationAccessFrom(sub) {
-      let status = sub.get('subscription_status', '');
+      let trusted = sub.get('stripe_livemode', false) == true ||
+        sub.get('stripe_sandbox', false) == true;
+      let status = trusted ? sub.get('subscription_status', '') : '';
       let manual = sub.get('manual_access', {});
       let graceUntil = sub.get('grace_until', null);
       return status in ['active', 'trialing'] ||
