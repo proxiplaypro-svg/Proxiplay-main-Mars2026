@@ -34,14 +34,19 @@ const kPrices = {
     type: 'recurring', recurring: {interval: 'year', interval_count: 1}},
 };
 
-function makeFakeStripe({subscriptions = [], prices = kPrices, invoices = [], customers = {}} = {}) {
-  const calls = {customersCreate: [], checkoutSessionsCreate: [], expired: [], portal: [], invoicesList: []};
+function makeFakeStripe({subscriptions = [], prices = kPrices, invoices = [], customers = {}, promotionCodes = []} = {}) {
+  const calls = {customersCreate: [], checkoutSessionsCreate: [], expired: [], portal: [], invoicesList: [], promotionCodesList: []};
   const sessions = {};
   let sessionCounter = 0;
   return {
     calls,
     sessions,
     prices: {retrieve: async (id) => prices[id]},
+    // Recherche Stripe insensible a la casse, codes actifs seulement.
+    promotionCodes: {list: async (params) => {
+      calls.promotionCodesList.push(params);
+      return {data: promotionCodes.filter((p) => p.active && p.code.toLowerCase() === params.code.toLowerCase()).slice(0, 1)};
+    }},
     customers: {
       // Customer connu en mode TEST (projet demo-), sauf fixture contraire.
       retrieve: async (id) => customers[id] || {id, livemode: false},
@@ -441,4 +446,120 @@ test('the merchant space reflects the webhook mirror and manual access, never se
   view = await getMerchantBillingAccountHandler({}, kMerchant);
   assert.equal(view.manualAccess.active, true);
   assert.equal(view.hasPaidAccess, true);
+});
+
+// --- Tarif preferentiel : code d'offre cree dans le tableau de bord Stripe ---
+
+const kProduct = 'prod_autonome';
+const kPricesWithProduct = {
+  ...kPrices,
+  price_test_autonome: {...kPrices.price_test_autonome, product: kProduct},
+};
+function promo(overrides = {}) {
+  return {
+    id: 'promo_malle', code: 'MALLE300', active: true, livemode: false,
+    metadata: {merchantUserId: 'merchant'}, customer: null, expires_at: null,
+    max_redemptions: 1, times_redeemed: 0,
+    coupon: {id: 'coupon_65', valid: true, duration: 'once', amount_off: 6500, currency: 'eur',
+      applies_to: {products: [kProduct]}},
+    ...overrides,
+  };
+}
+const promoCheckout = (code, extra = {}) =>
+  createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls, promotionCode: code, ...extra}, kMerchant);
+
+test('preferential offer: a code reserved to this merchant applies a first-year-only discount, verified server side', async () => {
+  const fakeStripe = makeFakeStripe({prices: kPricesWithProduct, promotionCodes: [promo()]});
+  stripeClientModule.getStripeClient = () => fakeStripe;
+
+  const result = await promoCheckout('malle300');
+  assert.equal(result.reused, false);
+  const params = fakeStripe.calls.checkoutSessionsCreate[0];
+  assert.deepEqual(params.discounts, [{promotion_code: 'promo_malle'}]);
+  assert.equal(params.allow_promotion_codes, undefined, 'aucune saisie libre de code chez Stripe');
+  assert.deepEqual(params.line_items, [{price: 'price_test_autonome', quantity: 1, tax_rates: ['txr_test_fixture']}]);
+  assert.equal(params.client_reference_id, 'merchant', 'rattachement par le compte authentifie, jamais par e-mail');
+  assert.equal(params.subscription_data.metadata.merchantUserId, 'merchant');
+  assert.equal(params.subscription_data.metadata.promotionCode, 'MALLE300');
+  assert.equal(fakeStripe.calls.promotionCodesList[0].active, true);
+  const data = (await db.doc('merchant_subscriptions/merchant').get()).data();
+  assert.equal(data.pending_promotion_code, 'MALLE300');
+  assert.equal(data.subscription_status, undefined, 'aucun droit avant le paiement confirme par le webhook');
+});
+
+test('preferential offer: a code of another merchant, unknown, or from the other Stripe mode is refused with the same message', async () => {
+  for (const [label, codes] of [
+    ['autre commercant', [promo({metadata: {merchantUserId: 'someone-else'}})]],
+    ['sans UID', [promo({metadata: {}})]],
+    ['inconnu', []],
+    ['inactif', [promo({active: false})]],
+    ['autre mode', [promo({livemode: true})]],
+    ['client Stripe different', [promo({customer: 'cus_other'})]],
+  ]) {
+    await clearCollections();
+    await db.doc('users/merchant').set({user_role: 'commercant', email: 'merchant@example.test', account_status: 'approved'});
+    const fakeStripe = makeFakeStripe({prices: kPricesWithProduct, promotionCodes: codes});
+    stripeClientModule.getStripeClient = () => fakeStripe;
+    await assert.rejects(promoCheckout('MALLE300'), (err) =>
+      err.code === 'failed-precondition' && err.details?.reason === 'invalid_offer_code' &&
+      err.message === "Ce code d'offre n'est pas valide pour ce compte.", label);
+    assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0, label);
+    const mirror = (await db.doc('merchant_subscriptions/merchant').get()).data();
+    assert.equal(mirror?.checkout_lock, undefined, `${label} : verrou libere`);
+  }
+});
+
+test('preferential offer: expired, already used, not first-year-only or wrong product codes are refused', async () => {
+  for (const [label, overrides, message] of [
+    ['expire', {expires_at: Math.floor(Date.now() / 1000) - 60}, /expire/],
+    ['deja utilise', {times_redeemed: 1}, /deja ete utilise/],
+    ['remise permanente', {coupon: {...promo().coupon, duration: 'forever'}}, /mal configuree/],
+    ['remise sur plusieurs mois', {coupon: {...promo().coupon, duration: 'repeating', duration_in_months: 24}}, /mal configuree/],
+    ['coupon invalide', {coupon: {...promo().coupon, valid: false}}, /mal configuree/],
+    ['autre devise', {coupon: {...promo().coupon, currency: 'usd'}}, /mal configuree/],
+    ['autre produit', {coupon: {...promo().coupon, applies_to: {products: ['prod_accompagnee']}}}, /formule/],
+  ]) {
+    await clearCollections();
+    await db.doc('users/merchant').set({user_role: 'commercant', email: 'merchant@example.test', account_status: 'approved'});
+    const fakeStripe = makeFakeStripe({prices: kPricesWithProduct, promotionCodes: [promo(overrides)]});
+    stripeClientModule.getStripeClient = () => fakeStripe;
+    await assert.rejects(promoCheckout('MALLE300'), (err) =>
+      err.code === 'failed-precondition' && err.details?.reason === 'invalid_offer_code' && message.test(err.message), label);
+    assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0, label);
+  }
+});
+
+test('preferential offer: malformed code refused before any Stripe call; no code keeps the normal 365 EUR checkout', async () => {
+  const fakeStripe = makeFakeStripe({prices: kPricesWithProduct, promotionCodes: [promo()]});
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  for (const code of ['a', 'MALLE 300', 'x'.repeat(65), 42, {code: 'MALLE300'}]) {
+    await assert.rejects(promoCheckout(code), (err) => err.code === 'invalid-argument', String(code));
+  }
+  assert.equal(fakeStripe.calls.promotionCodesList.length, 0);
+  await promoCheckout('');
+  const params = fakeStripe.calls.checkoutSessionsCreate[0];
+  assert.equal(params.discounts, undefined);
+  assert.equal(params.subscription_data.metadata.promotionCode, '');
+});
+
+test('preferential offer: never stacked on a negotiated tarif; an open session is reused only for the same code', async () => {
+  await db.doc('merchant_custom_offers/merchant').set({amount_ht_cents: 182500, label: 'Grande enseigne'});
+  let fakeStripe = makeFakeStripe({prices: kPricesWithProduct, promotionCodes: [promo()]});
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  await assert.rejects(promoCheckout('MALLE300'), (err) => err.details?.reason === 'invalid_offer_code');
+  assert.equal(fakeStripe.calls.promotionCodesList.length, 0);
+  await db.doc('merchant_custom_offers/merchant').delete();
+
+  fakeStripe = makeFakeStripe({prices: kPricesWithProduct, promotionCodes: [promo(), promo({id: 'promo_b', code: 'AUTRE300'})]});
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  const first = await promoCheckout('MALLE300');
+  await db.doc('merchant_subscriptions/merchant').update({checkout_lock: admin.firestore.FieldValue.delete()});
+  const again = await promoCheckout('malle300');
+  assert.equal(again.reused, true);
+  assert.equal(again.checkoutUrl, first.checkoutUrl);
+  const other = await promoCheckout('AUTRE300');
+  assert.equal(other.reused, false);
+  assert.deepEqual(fakeStripe.calls.expired, ['cs_fake_1']);
+  const plain = await promoCheckout('');
+  assert.equal(plain.reused, false, 'sans code : nouvelle session au tarif normal');
 });

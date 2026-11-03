@@ -337,6 +337,24 @@ test('without subscription metadata, the merchant is found through the Customer 
   assert.equal((await mirror()).subscription_status, 'active');
 });
 
+test('a payment made outside the merchant space (raw Stripe payment link) is never attached by e-mail', async () => {
+  // Meme adresse qu'un commercant existant, mais ni metadata d'abonnement,
+  // ni metadata Customer, ni Customer connu du miroir : aucun rattachement.
+  await db.doc('users/merchant1').set({user_role: 'commercant', email: 'merchant1@example.test'});
+  const sub = subscription({id: 'sub_link', customer: 'cus_link', metadata: {}});
+  installFakeStripe({subscriptions: {sub_link: sub}, customers: {cus_link: {id: 'cus_link', email: 'merchant1@example.test', metadata: {}}}});
+  for (const [id, type, object] of [
+    ['evt_link_created', 'customer.subscription.created', sub],
+    ['evt_link_paid', 'invoice.paid', {id: 'in_link', subscription: 'sub_link', billing_reason: 'subscription_create', subtotal: 30000}],
+  ]) {
+    const res = await deliver(fakeEvent(id, type, object));
+    assert.equal(res.statusCode, 200);
+    assert.equal((await db.doc(`stripe_webhook_events/${id}`).get()).data().outcome, 'ignored_unknown_merchant');
+  }
+  assert.equal(await mirror('merchant1'), undefined, 'aucun droit ouvert');
+  assert.equal((await db.collection('merchant_subscriptions').get()).size, 0);
+});
+
 test('contradictory association (metadata vs mirror) is ignored and written nowhere', async () => {
   await db.doc('merchant_subscriptions/merchantB').set({stripe_customer_id: 'cus_1'});
   installFakeStripe({subscriptions: {sub_1: subscription()}});

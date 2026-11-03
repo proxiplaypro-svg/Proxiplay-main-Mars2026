@@ -259,6 +259,57 @@ async function retrieveSessionOrNull(stripe, sessionId) {
   }
 }
 
+// Tarif preferentiel (ex. 300 EUR HT la premiere annee puis 365 EUR HT/an) :
+// ProxiPlay cree dans le tableau de bord Stripe un coupon "une seule fois"
+// et, pour chaque commercant, un code promotionnel portant
+// metadata.merchantUserId = UID Firebase. Le lien envoye au commercant est
+// /espace-commercant/?offre=<code> : il se connecte, et le Checkout est cree
+// ici pour SON compte authentifie. Le code n'est jamais cru tel quel : il doit
+// exister chez Stripe, dans le mode attendu, etre reserve a cet UID et ne
+// porter que sur la premiere facture.
+const kPromotionCodePattern = /^[A-Za-z0-9_-]{3,64}$/;
+
+function invalidOfferCode(message = "Ce code d'offre n'est pas valide pour ce compte.") {
+  return new functions.https.HttpsError("failed-precondition", message, {reason: "invalid_offer_code"});
+}
+
+function normalizePromotionCode(raw) {
+  if (raw === undefined || raw === null || raw === "") return "";
+  const code = typeof raw === "string" ? raw.trim() : "";
+  if (!kPromotionCodePattern.test(code)) {
+    throw new functions.https.HttpsError("invalid-argument", "Code d'offre invalide.", {reason: "invalid_offer_code"});
+  }
+  return code;
+}
+
+async function resolvePromotionCode(stripe, code, {uid, productId, customerId}) {
+  const list = await stripe.promotionCodes.list({code, active: true, limit: 1, expand: ["data.coupon.applies_to"]});
+  const promotion = list?.data?.[0];
+  // Meme message que le code soit inconnu ou reserve a un autre compte :
+  // aucune information sur les codes des autres commercants.
+  if (!promotion || promotion.livemode !== expectedLivemode() || promotion.metadata?.merchantUserId !== uid) {
+    throw invalidOfferCode();
+  }
+  if (promotion.customer && promotion.customer !== customerId) throw invalidOfferCode();
+  if (promotion.expires_at && promotion.expires_at * 1000 <= Date.now()) {
+    throw invalidOfferCode("Ce code d'offre a expire. Contactez l'equipe ProxiPlay.");
+  }
+  if (promotion.max_redemptions && promotion.times_redeemed >= promotion.max_redemptions) {
+    throw invalidOfferCode("Ce code d'offre a deja ete utilise.");
+  }
+  const coupon = promotion.coupon;
+  // Premiere annee seulement : le renouvellement revient au tarif normal.
+  if (!coupon?.valid || coupon.duration !== "once" ||
+      (coupon.amount_off && coupon.currency !== "eur") || !(coupon.amount_off || coupon.percent_off)) {
+    throw invalidOfferCode("Cette offre est mal configuree. Contactez l'equipe ProxiPlay.");
+  }
+  const products = coupon.applies_to?.products;
+  if (products?.length && !products.includes(productId)) {
+    throw invalidOfferCode("Ce code d'offre ne s'applique pas a cette formule.");
+  }
+  return promotion;
+}
+
 async function createMerchantCheckoutSessionHandler(data, context) {
   const db = admin.firestore();
   const user = await assertMerchantCaller(db, context);
@@ -277,10 +328,20 @@ async function createMerchantCheckoutSessionHandler(data, context) {
   const successUrl = assertAllowedReturnUrl(data?.successUrl, "successUrl");
   const cancelUrl = assertAllowedReturnUrl(data?.cancelUrl, "cancelUrl");
   const offerId = typeof data?.offerId === "string" ? data.offerId.trim() : "";
+  const promotionCode = normalizePromotionCode(data?.promotionCode);
 
   // Le serveur seul decide du prix/produit : jamais de montant transmis par
   // le client, meme indirectement.
   const selection = await resolvePriceSelection(db, uid, offerId);
+  if (promotionCode && !selection.catalogOffer) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "Un tarif negocie est deja applique a ce compte : le code d'offre ne peut pas s'y ajouter.",
+      {reason: "invalid_offer_code"},
+    );
+  }
+  // Une session ouverte n'est reutilisee que pour la meme offre ET le meme code.
+  const priceKey = promotionCode ? `${selection.priceKey}|promo:${promotionCode.toUpperCase()}` : selection.priceKey;
   const tax = getTaxConfigOrThrow();
 
   const referral = await resolveReferralCode(db, data?.referralCode);
@@ -299,8 +360,9 @@ async function createMerchantCheckoutSessionHandler(data, context) {
     const referralRef = await linkReferral(db, uid, referral);
     const stripe = stripeClientModule.getStripeClient();
 
+    let price = null;
     if (selection.catalogOffer) {
-      const price = await stripe.prices.retrieve(selection.stripePriceId);
+      price = await stripe.prices.retrieve(selection.stripePriceId);
       assertStripePriceMatchesOffer(price, selection.catalogOffer);
     }
 
@@ -308,10 +370,18 @@ async function createMerchantCheckoutSessionHandler(data, context) {
     const stripeCustomerId = await resolveStripeCustomerId(stripe, uid, email, existing.stripe_customer_id || null);
     await assertNoOpenStripeSubscription(stripe, stripeCustomerId);
 
+    const promotion = promotionCode ?
+      await resolvePromotionCode(stripe, promotionCode, {
+        uid,
+        productId: typeof price?.product === "string" ? price.product : price?.product?.id,
+        customerId: stripeCustomerId,
+      }) :
+      null;
+
     const previousSession = await retrieveSessionOrNull(stripe, existing.stripe_checkout_session_id);
     if (previousSession?.status === "open") {
       const sameSelection = previousSession.metadata?.offerId === selection.offerIdForMetadata &&
-        previousSession.metadata?.priceKey === selection.priceKey;
+        previousSession.metadata?.priceKey === priceKey;
       if (sameSelection && previousSession.url) {
         await subscriptionRef.set({
           stripe_customer_id: stripeCustomerId,
@@ -326,14 +396,18 @@ async function createMerchantCheckoutSessionHandler(data, context) {
     const metadata = {
       merchantUserId: uid,
       offerId: selection.offerIdForMetadata,
-      priceKey: selection.priceKey,
+      priceKey,
       referralCode: referral?.code || "",
+      promotionCode: promotion ? promotion.code : "",
     };
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: stripeCustomerId,
       client_reference_id: uid,
       line_items: [{...selection.lineItem, ...tax.lineItemExtra}],
+      // Remise verifiee cote serveur (premiere facture annuelle seulement) ;
+      // jamais de saisie libre de code chez Stripe.
+      ...(promotion ? {discounts: [{promotion_code: promotion.id}]} : {}),
       ...tax.sessionExtra,
       customer_update: {address: "auto", name: "auto"},
       billing_address_collection: "required",
@@ -353,6 +427,7 @@ async function createMerchantCheckoutSessionHandler(data, context) {
       stripe_mode: expectedLivemode() ? "live" : "test",
       stripe_checkout_session_id: session.id,
       pending_offer_id: selection.offerIdForMetadata,
+      pending_promotion_code: promotion ? promotion.code : null,
       checkout_status: "open",
       checkout_expires_at: admin.firestore.Timestamp.fromMillis(
         (session.expires_at || Math.floor(Date.now() / 1000) + kCheckoutSessionLifetimeSeconds) * 1000,

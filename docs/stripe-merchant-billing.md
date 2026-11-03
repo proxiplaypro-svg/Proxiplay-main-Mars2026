@@ -203,6 +203,35 @@ déployer à l'ouverture des paiements, avec la clé LIVE (§9). Les déployer
 plus tôt impose un secret temporaire non Stripe (ex. `desactive`), refusé à
 chaque appel (`payments_closed`).
 
+## 8 ter. Tarif préférentiel (ex. 300 € HT la 1re année, puis 365 € HT/an)
+
+Tout se fait dans le tableau de bord Stripe (mode du projet : LIVE en
+production), sans interface Admin. La validation du compte reste dans l'app.
+
+1. **Une seule fois** — *Product catalog* → *Coupons* → *Create coupon* :
+   montant fixe **65,00 EUR**, durée **Once** (« une seule fois » : seule la
+   première facture annuelle est réduite, le renouvellement repart à 365 €),
+   *Apply to specific products* → produit **Autonome**.
+2. **Pour chaque commerçant** — dans ce coupon, *Add promotion code* :
+   - code personnel, ex. `MALLE300` (lettres, chiffres, `-`, `_`) ;
+   - *Limit to one redemption* (1 utilisation) et, si souhaité, une date
+     d'expiration ;
+   - **métadonnée obligatoire** `merchantUserId` = UID Firebase du compte
+     commerçant (Firebase Console → Authentication, recherche par e-mail).
+3. Envoyer au commerçant le lien
+   `https://www.proxiplay.fr/espace-commercant/?offre=MALLE300`.
+
+Le commerçant se connecte avec son compte ProxiPlay, clique « Souscrire » :
+le serveur vérifie le code chez Stripe (actif, mode attendu, réservé à cet
+UID, 1re facture seulement, bon produit, non utilisé, non expiré) puis crée
+le Checkout pour **son compte authentifié** avec la remise. Le paiement est
+rattaché par l'UID (métadonnées de l'abonnement), jamais par l'e-mail ; un
+code d'un autre compte est refusé.
+
+À ne pas utiliser : un « Payment Link » Stripe envoyé directement. Le
+paiement y est anonyme ; le webhook ne le rattache à aucun compte
+(`ignored_unknown_merchant`) et n'ouvre aucun droit.
+
 ## 9. Passage TEST → LIVE (plus tard, sur décision)
 
 1. Recréer les 2 prix (et le taux de TVA éventuel) en mode LIVE.
