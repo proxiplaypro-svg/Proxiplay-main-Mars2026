@@ -19,7 +19,10 @@ param(
   [int]$FirestorePort = 8080,
   [int]$BillingPort = 35001,
   [string]$SiteOrigin = 'http://localhost:5500',
-  [string]$LogDir = (Join-Path $env:TEMP 'proxiplay-recette-stripe')
+  [string]$LogDir = (Join-Path $env:TEMP 'proxiplay-recette-stripe'),
+  # Taux de TVA de la sandbox (txr_...) : recette dans les conditions LIVE
+  # (STRIPE_TAX_MODE=tax_rate). Sans lui : aucune taxe ajoutee.
+  [string]$TaxRateId = ''
 )
 
 $ErrorActionPreference = 'Continue'
@@ -80,7 +83,13 @@ $env:STRIPE_API_KEY = $plain      # Stripe CLI (evite la cle sur la ligne de com
 Remove-Variable plain
 
 # Parametres de la recette locale uniquement.
-$env:STRIPE_TAX_MODE = 'none'
+if ($TaxRateId) {
+  if ($TaxRateId -notmatch '^txr_[A-Za-z0-9]+$') { Stop-Recette 'TaxRateId invalide (txr_...).'; return }
+  $env:STRIPE_TAX_MODE = 'tax_rate'
+  $env:STRIPE_TAX_RATE_ID = $TaxRateId
+} else {
+  $env:STRIPE_TAX_MODE = 'none'
+}
 $env:GCLOUD_PROJECT = 'demo-proxiplay-stripe'
 $env:FIRESTORE_EMULATOR_HOST = "127.0.0.1:$FirestorePort"
 $env:FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:$AuthPort"
