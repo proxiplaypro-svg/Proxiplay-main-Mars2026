@@ -58,7 +58,7 @@
     "test:participate-monthly-challenge": "firebase emulators:exec --only firestore \"node --test test/participate_with_monthly_challenge.test.js\""
   },
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "private": true
 }
