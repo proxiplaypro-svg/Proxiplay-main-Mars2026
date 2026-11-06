@@ -1,4 +1,4 @@
-﻿import '/auth/firebase_auth/auth_util.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
 import '/components/list_empty_component_widget.dart';
@@ -220,7 +220,8 @@ class _MesEnseignesCommercantPageWidgetState
                                               highlightColor:
                                                   Colors.transparent,
                                               onTap: () async {
-                                                context.pushNamed(
+                                                final updated =
+                                                    await context.pushNamed(
                                                   UpdateEnseigneCommercantPageWidget
                                                       .routeName,
                                                   queryParameters: {
@@ -235,6 +236,10 @@ class _MesEnseignesCommercantPageWidgetState
                                                         mesEnseignesCommercantPageVarItem,
                                                   },
                                                 );
+                                                if (updated == true &&
+                                                    context.mounted) {
+                                                  safeSetState(() {});
+                                                }
                                               },
                                               child: Container(
                                                 decoration: BoxDecoration(
@@ -275,8 +280,8 @@ class _MesEnseignesCommercantPageWidgetState
                                                                 child: SizedBox(
                                                                   width: 50.0,
                                                                   height: 50.0,
-                                                                  child:
-                                                                      SizedBox.shrink(),
+                                                                  child: SizedBox
+                                                                      .shrink(),
                                                                 ),
                                                               );
                                                             }
@@ -326,11 +331,8 @@ class _MesEnseignesCommercantPageWidgetState
                                                       child: Padding(
                                                         padding:
                                                             const EdgeInsetsDirectional
-                                                                .fromSTEB(
-                                                                    10.0,
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0),
+                                                                .fromSTEB(10.0,
+                                                                0.0, 0.0, 0.0),
                                                         child: Column(
                                                           mainAxisSize:
                                                               MainAxisSize.max,
@@ -493,12 +495,16 @@ class _MesEnseignesCommercantPageWidgetState
                                                                     ),
                                                                   ],
                                                                 ),
-                                                              ].divide(const SizedBox(
-                                                                  height: 5.0)),
+                                                              ].divide(
+                                                                  const SizedBox(
+                                                                      height:
+                                                                          5.0)),
                                                             ),
                                                           ]
-                                                              .divide(const SizedBox(
-                                                                  height: 10.0))
+                                                              .divide(
+                                                                  const SizedBox(
+                                                                      height:
+                                                                          10.0))
                                                               .addToStart(
                                                                   const SizedBox(
                                                                       height:
@@ -549,4 +555,3 @@ class _MesEnseignesCommercantPageWidgetState
     );
   }
 }
-

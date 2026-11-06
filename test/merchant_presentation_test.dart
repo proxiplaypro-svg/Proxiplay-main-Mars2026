@@ -36,6 +36,7 @@ import 'package:proxi_play/components/merchant_pickup_point.dart';
 import 'package:proxi_play/components/merchant_presentation.dart';
 import 'package:proxi_play/components/winner_email_text.dart';
 import 'package:proxi_play/pages/commercant/home_commercant_page/home_commercant_page_widget.dart';
+import 'package:proxi_play/pages/commercant/update_enseigne_commercant_page/update_enseigne_commercant_page_widget.dart';
 import 'package:proxi_play/services/merchant_prizes_service.dart';
 import 'package:proxi_play/pages/commercant/jeux_commercant_page/jeux_commercant_page_widget.dart';
 import 'package:proxi_play/flutter_flow/internationalization.dart';
@@ -47,7 +48,10 @@ import 'package:proxi_play/pages/joueur/lot_detail_joueur_page/lot_detail_joueur
 class _Store extends platform.FirebaseFirestorePlatform {
   final data = <String, Map<String, dynamic>>{};
   final reads = <String>[];
+  final updates = <Map<platform.FieldPath, dynamic>>[];
   final denied = <String>{};
+  Future<void> Function(String path, Map<platform.FieldPath, dynamic> data)?
+      updateHandler;
   // Single-document reads refused by the security rules.
   final deniedGets = <String>{};
   @override
@@ -83,6 +87,12 @@ class _Document extends platform.DocumentReferencePlatform {
   }
 
   @override
+  Future<void> update(Map<platform.FieldPath, dynamic> data) async {
+    store.updates.add(data);
+    await store.updateHandler?.call(path, data);
+  }
+
+  @override
   Stream<platform.DocumentSnapshotPlatform> snapshots(
       {bool includeMetadataChanges = false,
       required platform.ListenSource listenSource}) {
@@ -92,6 +102,41 @@ class _Document extends platform.DocumentReferencePlatform {
     }
     return Stream.value(store.snapshot(path));
   }
+}
+
+class _UpdateMerchantHost extends StatefulWidget {
+  const _UpdateMerchantHost({required this.merchant});
+
+  final EnseignesRecord merchant;
+
+  @override
+  State<_UpdateMerchantHost> createState() => _UpdateMerchantHostState();
+}
+
+class _UpdateMerchantHostState extends State<_UpdateMerchantHost> {
+  bool refreshed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final updated = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => UpdateEnseigneCommercantPageWidget(
+            enseigneDocument: widget.merchant,
+          ),
+        ),
+      );
+      if (updated == true && mounted) {
+        setState(() => refreshed = true);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: Center(child: Text(refreshed ? 'parent refreshed' : 'parent')),
+      );
 }
 
 class _Collection extends platform.CollectionReferencePlatform {
@@ -289,8 +334,10 @@ void main() {
     calls.named.clear();
     store.data.clear();
     store.reads.clear();
+    store.updates.clear();
     store.denied.clear();
     store.deniedGets.clear();
+    store.updateHandler = null;
     calls.handler = (_) async => throw StateError('Unexpected call');
     auth.signIn('gains-player');
   });
@@ -312,9 +359,15 @@ void main() {
         'google_rating': 4.6,
         'google_reviews_count': 73,
       };
-  Future<void> pump(WidgetTester tester, Widget child,
-      {double width = 390, double scale = 1}) async {
-    tester.view.physicalSize = Size(width, 844);
+  Future<void> pump(
+    WidgetTester tester,
+    Widget child, {
+    double width = 390,
+    double height = 844,
+    double scale = 1,
+    TargetPlatform? platform,
+  }) async {
+    tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -329,6 +382,7 @@ void main() {
         ],
         locale: const Locale('fr'),
         theme: ThemeData(
+            platform: platform,
             fontFamily: 'TestSans',
             colorScheme: ColorScheme.fromSeed(seedColor: merchantAccent),
             scaffoldBackgroundColor: const Color(0xFFF7F5F8)),
@@ -553,13 +607,14 @@ void main() {
           width: 320,
           scale: 2);
       if (deadline == null) {
-        expect(find.textContaining('Lot à retirer avant le'), findsNothing);
+        expect(find.textContaining('Lot à retirer ou utiliser avant le'),
+            findsNothing);
         expect(find.byIcon(Icons.calendar_today_outlined), findsNothing);
         expect(tester.getTopLeft(find.text('Suite des règles')).dy, 0);
       } else {
         expect(
             find.text(
-                'Lot à retirer avant le ${deadline.year == 2026 ? '31/10/2026' : '02/01/2020'}'),
+                'Lot à retirer ou utiliser avant le ${deadline.year == 2026 ? '31/10/2026' : '02/01/2020'}'),
             findsOneWidget);
         expect(find.byIcon(Icons.calendar_today_outlined), findsOneWidget);
       }
@@ -659,6 +714,38 @@ void main() {
       expect(count, 2);
       expect(find.text('Impossible de charger vos jeux.'), findsNothing);
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
+  testWidgets('merchant home empty games state is compact on phone viewports',
+      (tester) async {
+    calls.handler = (_) async => {
+          'ids': <String>[],
+          'hasMore': false,
+          'cursor': '',
+        };
+    for (final viewport in [
+      (width: 320.0, height: 640.0, platform: TargetPlatform.android),
+      (width: 430.0, height: 932.0, platform: TargetPlatform.iOS),
+    ]) {
+      await pump(
+        tester,
+        const HomeCommercantPageWidget(),
+        width: viewport.width,
+        height: viewport.height,
+        platform: viewport.platform,
+      );
+
+      final emptyState =
+          find.byKey(const ValueKey('merchant-home-games-empty'));
+      expect(emptyState, findsOneWidget);
+      expect(find.text('Aucun jeu en cours'), findsOneWidget);
+      expect(find.text('Les prochains jeux apparaîtront ici.'), findsOneWidget);
+      expect(tester.getSize(emptyState).height, lessThan(100));
+      expect(tester.getRect(emptyState).bottom, lessThan(viewport.height));
+      expect(tester.takeException(), isNull);
+
       await tester.pumpWidget(const SizedBox.shrink());
     }
   });
@@ -2092,8 +2179,10 @@ void main() {
             .value
             .replaceFirst('shop-qr:', '');
     Future<void> show(WidgetTester tester, GamesRecord game) async {
-      await pump(tester,
-          Scaffold(body: SingleChildScrollView(child: GameQrCodeCard(game: game))));
+      await pump(
+          tester,
+          Scaffold(
+              body: SingleChildScrollView(child: GameQrCodeCard(game: game))));
       await tester.pump();
       await tester.pump();
     }
@@ -2125,14 +2214,16 @@ void main() {
       });
     }
 
-    testWidgets('public game: without a token the plain QR still opens the game',
+    testWidgets(
+        'public game: without a token the plain QR still opens the game',
         (tester) async {
       calls.named['issueGameQrAccess'] =
           (_) async => throw StateError('service unavailable');
       addTearDown(() => calls.named.remove('issueGameQrAccess'));
       await show(tester, shopGame());
       expect(qrData(tester), plain);
-      expect(find.textContaining('Impossible de charger le QR code'), findsNothing);
+      expect(find.textContaining('Impossible de charger le QR code'),
+          findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
@@ -2142,8 +2233,86 @@ void main() {
       addTearDown(() => calls.named.remove('issueGameQrAccess'));
       await show(tester, shopGame(qrOnly: true));
       expect(find.byType(QrImageView), findsNothing);
-      expect(find.textContaining('Impossible de charger le QR code'), findsOneWidget);
+      expect(find.textContaining('Impossible de charger le QR code'),
+          findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
+    });
+  });
+
+  group('merchant profile update', () {
+    EnseignesRecord validMerchant() {
+      final values = complete()..['phone_number'] = '0328000000';
+      return merchant(values);
+    }
+
+    Future<void> openEditor(WidgetTester tester, EnseignesRecord record) async {
+      await pump(tester, _UpdateMerchantHost(merchant: record), height: 900);
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Mettre à jour'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+    }
+
+    testWidgets('saves once, returns to its parent and keeps the confirmation',
+        (tester) async {
+      final pendingWrite = Completer<void>();
+      store.updateHandler = (_, __) => pendingWrite.future;
+      await openEditor(tester, validMerchant());
+
+      await tester.tap(find.text('Mettre à jour'));
+      await tester.pump();
+      expect(find.text('Enregistrement...'), findsOneWidget);
+      await tester.tap(find.text('Enregistrement...'));
+      await tester.pump();
+      expect(store.updates, hasLength(1));
+
+      pendingWrite.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('parent refreshed'), findsOneWidget);
+      expect(find.text('Vos informations ont bien été mises à jour.'),
+          findsOneWidget);
+    });
+
+    testWidgets('keeps the form open and its values when saving fails',
+        (tester) async {
+      store.updateHandler =
+          (_, __) async => throw StateError('Firestore unavailable');
+      await openEditor(tester, validMerchant());
+      final nameBefore = tester
+          .widgetList<TextFormField>(find.byType(TextFormField))
+          .first
+          .controller!
+          .text;
+
+      await tester.tap(find.text('Mettre à jour'));
+      await tester.pumpAndSettle();
+      expect(find.byType(UpdateEnseigneCommercantPageWidget), findsOneWidget);
+      expect(
+          find.text('Impossible de mettre à jour vos informations. Réessayez.'),
+          findsOneWidget);
+      expect(
+        tester
+            .widgetList<TextFormField>(find.byType(TextFormField))
+            .first
+            .controller!
+            .text,
+        nameBefore,
+      );
+      expect(store.updates, hasLength(1));
+    });
+
+    testWidgets('does not submit or leave the page when validation fails',
+        (tester) async {
+      final invalid = complete()..['name'] = '';
+      await openEditor(tester, merchant(invalid));
+
+      await tester.tap(find.text('Mettre à jour'));
+      await tester.pump();
+      expect(find.byType(UpdateEnseigneCommercantPageWidget), findsOneWidget);
+      expect(store.updates, isEmpty);
+      expect(find.text('name is required'), findsOneWidget);
     });
   });
 }

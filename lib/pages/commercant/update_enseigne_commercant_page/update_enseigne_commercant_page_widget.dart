@@ -57,6 +57,7 @@ class _UpdateEnseigneCommercantPageWidgetState
   //                                           pas dans l'update() Firestore
   GooglePlaceSearchResult? _selectedGooglePlace;
   bool _placeIdCleared = false;
+  bool _isSaving = false;
   String? get _persistedPlaceId => widget.enseigneDocument?.googlePlaceId;
   bool get _hasGoogleAssociation =>
       !_placeIdCleared &&
@@ -141,6 +142,59 @@ class _UpdateEnseigneCommercantPageWidgetState
       _selectedGooglePlace = null;
       _placeIdCleared = true;
     });
+  }
+
+  Future<void> _submitUpdate() async {
+    if (_isSaving || !(_model.formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    final trimmedNewPlaceId = _selectedGooglePlace?.placeId.trim() ?? '';
+    try {
+      await widget.enseigneDocument!.reference.update({
+        ...createEnseignesRecordData(
+          name: _model.textFieldNameTextController.text,
+          address: _model.textFieldAdresseTextController.text,
+          city: _model.textFieldCityTextController.text,
+          areaCode: _model.textFieldCodeTextController.text,
+          phoneNumber: _model.textFieldPhoneTextController.text,
+          description: _model.textFieldDescriptionTextController.text,
+          siteWebUrl: _model.textFieldSiteWebTextController.text,
+          instagramLink: _model.textFieldInstTextController.text,
+          twitterLink: _model.textFieldTwitterTextController.text,
+          facebookLink: _model.textFieldFacebookTextController.text,
+        ),
+        ...mapToFirestore({
+          'category': _model.choiceChipsValues,
+        }),
+        if (_placeIdCleared)
+          'google_place_id': FieldValue.delete()
+        else if (trimmedNewPlaceId.isNotEmpty)
+          'google_place_id': trimmedNewPlaceId,
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vos informations ont bien été mises à jour.'),
+        ),
+      );
+      Navigator.of(context).pop(true);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Impossible de mettre à jour vos informations. Réessayez.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   @override
@@ -286,14 +340,14 @@ class _UpdateEnseigneCommercantPageWidgetState
                                       .headlineSmall
                                       .override(
                                         font: GoogleFonts.interTight(
-                                          fontWeight: FlutterFlowTheme.of(
-                                                  context)
-                                              .headlineSmall
-                                              .fontWeight,
-                                          fontStyle: FlutterFlowTheme.of(
-                                                  context)
-                                              .headlineSmall
-                                              .fontStyle,
+                                          fontWeight:
+                                              FlutterFlowTheme.of(context)
+                                                  .headlineSmall
+                                                  .fontWeight,
+                                          fontStyle:
+                                              FlutterFlowTheme.of(context)
+                                                  .headlineSmall
+                                                  .fontStyle,
                                         ),
                                         letterSpacing: 0.0,
                                         fontWeight: FlutterFlowTheme.of(context)
@@ -310,10 +364,10 @@ class _UpdateEnseigneCommercantPageWidgetState
                                       .bodySmall
                                       .override(
                                         font: GoogleFonts.inter(
-                                          fontStyle: FlutterFlowTheme.of(
-                                                  context)
-                                              .bodySmall
-                                              .fontStyle,
+                                          fontStyle:
+                                              FlutterFlowTheme.of(context)
+                                                  .bodySmall
+                                                  .fontStyle,
                                         ),
                                         color: FlutterFlowTheme.of(context)
                                             .secondaryText,
@@ -336,8 +390,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                     decoration: BoxDecoration(
                                       color: FlutterFlowTheme.of(context)
                                           .primaryBackground,
-                                      borderRadius:
-                                          BorderRadius.circular(12.0),
+                                      borderRadius: BorderRadius.circular(12.0),
                                     ),
                                     padding: const EdgeInsets.all(14.0),
                                     child: Column(
@@ -360,26 +413,22 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                 children: [
                                                   Text(
                                                     'Établissement Google associé ✓',
-                                                    style:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .bodyMedium
-                                                            .override(
-                                                              font: GoogleFonts
-                                                                  .inter(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                              ),
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w700,
-                                                            ),
+                                                    style: FlutterFlowTheme.of(
+                                                            context)
+                                                        .bodyMedium
+                                                        .override(
+                                                          font:
+                                                              GoogleFonts.inter(
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                          ),
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                        ),
                                                   ),
                                                   if (_selectedGooglePlace !=
                                                       null) ...[
-                                                    const SizedBox(
-                                                        height: 4.0),
+                                                    const SizedBox(height: 4.0),
                                                     Text(
                                                       _selectedGooglePlace!
                                                           .name,
@@ -402,9 +451,8 @@ class _UpdateEnseigneCommercantPageWidgetState
                                                               .override(
                                                                 font: GoogleFonts
                                                                     .inter(),
-                                                                color: FlutterFlowTheme
-                                                                        .of(
-                                                                            context)
+                                                                color: FlutterFlowTheme.of(
+                                                                        context)
                                                                     .secondaryText,
                                                               ),
                                                     ),
@@ -1479,8 +1527,9 @@ class _UpdateEnseigneCommercantPageWidgetState
                                     borderRadius: BorderRadius.circular(8.0),
                                   ),
                                   child: Padding(
-                                    padding: const EdgeInsetsDirectional.fromSTEB(
-                                        16.0, 16.0, 16.0, 16.0),
+                                    padding:
+                                        const EdgeInsetsDirectional.fromSTEB(
+                                            16.0, 16.0, 16.0, 16.0),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -2129,48 +2178,9 @@ class _UpdateEnseigneCommercantPageWidgetState
                         ),
                       ),
                       FFButtonWidget(
-                        onPressed: () async {
-                          final trimmedNewPlaceId =
-                              _selectedGooglePlace?.placeId.trim() ?? '';
-                          await widget.enseigneDocument!.reference.update({
-                            ...createEnseignesRecordData(
-                              name: _model.textFieldNameTextController.text,
-                              address:
-                                  _model.textFieldAdresseTextController.text,
-                              city: _model.textFieldCityTextController.text,
-                              areaCode: _model.textFieldCodeTextController.text,
-                              phoneNumber:
-                                  _model.textFieldPhoneTextController.text,
-                              description: _model
-                                  .textFieldDescriptionTextController.text,
-                              siteWebUrl:
-                                  _model.textFieldSiteWebTextController.text,
-                              instagramLink:
-                                  _model.textFieldInstTextController.text,
-                              twitterLink:
-                                  _model.textFieldTwitterTextController.text,
-                              facebookLink:
-                                  _model.textFieldFacebookTextController.text,
-                            ),
-                            ...mapToFirestore(
-                              {
-                                'category': _model.choiceChipsValues,
-                              },
-                            ),
-                            // google_place_id n'est envoye que si le
-                            // commercant a explicitement choisi une fiche
-                            // Google ou demande une dissociation cette
-                            // session -- sinon la cle est absente de la map
-                            // et Firestore laisse la valeur existante
-                            // intacte (update() ne touche que les cles
-                            // presentes).
-                            if (_placeIdCleared)
-                              'google_place_id': FieldValue.delete()
-                            else if (trimmedNewPlaceId.isNotEmpty)
-                              'google_place_id': trimmedNewPlaceId,
-                          });
-                        },
-                        text: 'Mettre à jour',
+                        onPressed: _isSaving ? null : _submitUpdate,
+                        showLoadingIndicator: false,
+                        text: _isSaving ? 'Enregistrement...' : 'Mettre à jour',
                         options: FFButtonOptions(
                           width: MediaQuery.sizeOf(context).width * 1.0,
                           height: 50.0,
@@ -2210,7 +2220,8 @@ class _UpdateEnseigneCommercantPageWidgetState
                                   builder: (alertDialogContext) {
                                     return WebViewAware(
                                       child: AlertDialog(
-                                        title: const Text('Supprimer l\'enseigne'),
+                                        title:
+                                            const Text('Supprimer l\'enseigne'),
                                         content: const Text(
                                             'Êtes-vous sûr de vouloir supprimer votre enseigne'),
                                         actions: [

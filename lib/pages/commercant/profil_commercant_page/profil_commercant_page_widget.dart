@@ -415,7 +415,7 @@ class _ProfilCommercantPageWidgetState
                                   }
 
                                   if (enseigne != null) {
-                                    context.pushNamed(
+                                    final updated = await context.pushNamed(
                                       UpdateEnseigneCommercantPageWidget
                                           .routeName,
                                       queryParameters: {
@@ -428,6 +428,9 @@ class _ProfilCommercantPageWidgetState
                                         'enseigneDocument': enseigne,
                                       },
                                     );
+                                    if (updated == true && context.mounted) {
+                                      safeSetState(() {});
+                                    }
                                   } else {
                                     context.pushNamed(
                                       MesEnseignesCommercantPageWidget

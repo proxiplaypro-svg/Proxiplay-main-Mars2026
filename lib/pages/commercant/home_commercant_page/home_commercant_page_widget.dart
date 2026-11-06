@@ -5,7 +5,6 @@ import '/services/merchant_games_service.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_commercant2_widget.dart';
-import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
@@ -47,6 +46,9 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
   // A fast answer replaces the results directly; the "searching" line only
   // appears when the call takes longer, so typing does not make it flicker.
   static const _searchingIndicatorDelay = Duration(milliseconds: 250);
+
+  double _gamesPanelHeight(double availableHeight) =>
+      availableHeight > 500 ? availableHeight - 320 : 180;
 
   String? _merchantPrizeCacheUid;
   List<PrizesRecord> _codeSuggestions = const [];
@@ -1013,128 +1015,118 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
                                   ),
                                 ),
                               ),
-                              SizedBox(
-                                height: availableHeight > 500
-                                    ? availableHeight - 320
-                                    : 180,
-                                child: Container(
-                                  height: double.infinity,
-                                  decoration: const BoxDecoration(),
-                                  child: FutureBuilder<List<GamesRecord>>(
-                                    future: (_model
-                                                .firestoreRequestCompleter ??=
-                                            Completer<List<GamesRecord>>()
-                                              ..complete(logMerchantGamesFailure(
-                                                      loadAllMerchantGames(),
-                                                      'home')
-                                                  .then((games) => games
-                                                      .where((g) =>
-                                                          g.endDate != null &&
-                                                          !g.endDate!.isBefore(
-                                                              getCurrentTimestamp))
-                                                      .toList())))
-                                        .future,
-                                    builder: (context, snapshot) {
-                                      // Customize what your widget looks like when it's loading.
-                                      if (snapshot.connectionState ==
-                                          ConnectionState.waiting) {
-                                        return const Center(
-                                          child: SizedBox(
-                                            width: 40.0,
-                                            height: 40.0,
-                                            child: ProxiplayLoadingLogo(
-                                                size: 42.0),
-                                          ),
-                                        );
-                                      }
-                                      if (snapshot.hasError) {
-                                        return MerchantGamesLoadError(
-                                            onRetry: () => setState(() {
-                                                  _model.firestoreRequestCompleter =
-                                                      null;
-                                                }));
-                                      }
-                                      List<GamesRecord>
-                                          listViewGamesRecordList =
-                                          snapshot.data!;
-                                      if (listViewGamesRecordList.isEmpty) {
-                                        return const SizedBox(
-                                          height: double.infinity,
-                                          child: ListEmptyComponentWidget(
-                                            title: 'Liste vide',
-                                            description: 'Aucun jeux en cours',
-                                          ),
-                                        );
-                                      }
-
-                                      return RefreshIndicator(
-                                        onRefresh: () async {
-                                          safeSetState(() =>
-                                              _model.firestoreRequestCompleter =
-                                                  null);
-                                          await _model
-                                              .waitForFirestoreRequestCompleted();
-                                        },
-                                        child: ListView.separated(
-                                          padding: EdgeInsets.zero,
-                                          scrollDirection: Axis.vertical,
-                                          itemCount:
-                                              listViewGamesRecordList.length,
-                                          separatorBuilder: (_, __) =>
-                                              const SizedBox(height: 10.0),
-                                          itemBuilder:
-                                              (context, listViewIndex) {
-                                            final listViewGamesRecord =
-                                                listViewGamesRecordList[
-                                                    listViewIndex];
-                                            return InkWell(
-                                              splashColor: Colors.transparent,
-                                              focusColor: Colors.transparent,
-                                              hoverColor: Colors.transparent,
-                                              highlightColor:
-                                                  Colors.transparent,
-                                              onTap: () async {
-                                                _model.enseigneRef =
-                                                    await EnseignesRecord
-                                                        .getDocumentOnce(
-                                                            listViewGamesRecord
-                                                                .enseigneId!);
-                                                if (!context.mounted) return;
-
-                                                context.pushNamed(
-                                                  JeuDetailCommercantPageWidget
-                                                      .routeName,
-                                                  queryParameters: {
-                                                    'gameDoc': serializeParam(
-                                                      listViewGamesRecord,
-                                                      ParamType.Document,
-                                                    ),
-                                                    'enseigneDoc':
-                                                        serializeParam(
-                                                      _model.enseigneRef,
-                                                      ParamType.Document,
-                                                    ),
-                                                  }.withoutNulls,
-                                                  extra: <String, dynamic>{
-                                                    'gameDoc':
-                                                        listViewGamesRecord,
-                                                    'enseigneDoc':
-                                                        _model.enseigneRef,
-                                                  },
-                                                );
-
-                                                safeSetState(() {});
-                                              },
-                                              child: _buildCurrentGameCard(
-                                                listViewGamesRecord,
-                                              ),
-                                            );
-                                          },
+                              FutureBuilder<List<GamesRecord>>(
+                                future: (_model.firestoreRequestCompleter ??=
+                                        Completer<List<GamesRecord>>()
+                                          ..complete(logMerchantGamesFailure(
+                                                  loadAllMerchantGames(),
+                                                  'home')
+                                              .then((games) => games
+                                                  .where((g) =>
+                                                      g.endDate != null &&
+                                                      !g.endDate!.isBefore(
+                                                          getCurrentTimestamp))
+                                                  .toList())))
+                                    .future,
+                                builder: (context, snapshot) {
+                                  // Customize what your widget looks like when it's loading.
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return SizedBox(
+                                      height:
+                                          _gamesPanelHeight(availableHeight),
+                                      child: const Center(
+                                        child: SizedBox(
+                                          width: 40.0,
+                                          height: 40.0,
+                                          child:
+                                              ProxiplayLoadingLogo(size: 42.0),
                                         ),
-                                      );
-                                    },
-                                  ),
-                                ),
+                                      ),
+                                    );
+                                  }
+                                  if (snapshot.hasError) {
+                                    return SizedBox(
+                                      height:
+                                          _gamesPanelHeight(availableHeight),
+                                      child: MerchantGamesLoadError(
+                                          onRetry: () => setState(() {
+                                                _model.firestoreRequestCompleter =
+                                                    null;
+                                              })),
+                                    );
+                                  }
+                                  List<GamesRecord> listViewGamesRecordList =
+                                      snapshot.data!;
+                                  if (listViewGamesRecordList.isEmpty) {
+                                    return const _MerchantGamesEmptyState();
+                                  }
+
+                                  return SizedBox(
+                                    height: _gamesPanelHeight(availableHeight),
+                                    child: RefreshIndicator(
+                                      onRefresh: () async {
+                                        safeSetState(() => _model
+                                            .firestoreRequestCompleter = null);
+                                        await _model
+                                            .waitForFirestoreRequestCompleted();
+                                      },
+                                      child: ListView.separated(
+                                        padding: EdgeInsets.zero,
+                                        scrollDirection: Axis.vertical,
+                                        itemCount:
+                                            listViewGamesRecordList.length,
+                                        separatorBuilder: (_, __) =>
+                                            const SizedBox(height: 10.0),
+                                        itemBuilder: (context, listViewIndex) {
+                                          final listViewGamesRecord =
+                                              listViewGamesRecordList[
+                                                  listViewIndex];
+                                          return InkWell(
+                                            splashColor: Colors.transparent,
+                                            focusColor: Colors.transparent,
+                                            hoverColor: Colors.transparent,
+                                            highlightColor: Colors.transparent,
+                                            onTap: () async {
+                                              _model.enseigneRef =
+                                                  await EnseignesRecord
+                                                      .getDocumentOnce(
+                                                          listViewGamesRecord
+                                                              .enseigneId!);
+                                              if (!context.mounted) return;
+
+                                              context.pushNamed(
+                                                JeuDetailCommercantPageWidget
+                                                    .routeName,
+                                                queryParameters: {
+                                                  'gameDoc': serializeParam(
+                                                    listViewGamesRecord,
+                                                    ParamType.Document,
+                                                  ),
+                                                  'enseigneDoc': serializeParam(
+                                                    _model.enseigneRef,
+                                                    ParamType.Document,
+                                                  ),
+                                                }.withoutNulls,
+                                                extra: <String, dynamic>{
+                                                  'gameDoc':
+                                                      listViewGamesRecord,
+                                                  'enseigneDoc':
+                                                      _model.enseigneRef,
+                                                },
+                                              );
+
+                                              safeSetState(() {});
+                                            },
+                                            child: _buildCurrentGameCard(
+                                              listViewGamesRecord,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ].divide(const SizedBox(height: 10.0)),
                           ),
@@ -1154,6 +1146,62 @@ class _HomeCommercantPageWidgetState extends State<HomeCommercantPageWidget> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Compact, intrinsic empty state reserved for the merchant Home games panel.
+/// Other screens keep their existing ListEmptyComponentWidget presentation.
+class _MerchantGamesEmptyState extends StatelessWidget {
+  const _MerchantGamesEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    return Container(
+      key: const ValueKey('merchant-home-games-empty'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+      decoration: BoxDecoration(
+        color: theme.secondaryBackground,
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.sports_esports_outlined,
+            size: 22.0,
+            color: theme.secondaryText,
+          ),
+          const SizedBox(width: 12.0),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Aucun jeu en cours',
+                  style: theme.bodyMedium.override(
+                    font: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                    color: theme.primary,
+                    letterSpacing: 0.0,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2.0),
+                Text(
+                  'Les prochains jeux apparaîtront ici.',
+                  style: theme.bodySmall.override(
+                    font: GoogleFonts.inter(),
+                    color: theme.secondaryText,
+                    letterSpacing: 0.0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
