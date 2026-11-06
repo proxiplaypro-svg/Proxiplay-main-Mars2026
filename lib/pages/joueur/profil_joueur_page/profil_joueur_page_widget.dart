@@ -3,8 +3,10 @@ import '/backend/backend.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/config/marketing_consent.dart';
 import '/index.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
@@ -22,6 +24,7 @@ class ProfilJoueurPageWidget extends StatefulWidget {
 }
 
 class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
+  bool _isSavingMarketingConsent = false;
   late ProfilJoueurPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
@@ -287,6 +290,75 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                             const SizedBox(height: 28.0),
                             _buildSectionTitle(context, 'MON COMPTE'),
                             const SizedBox(height: 14.0),
+                            AuthUserStreamWidget(builder: (context) {
+                              final hasChoice = currentUserDocument
+                                      ?.hasMarketingConsent() ==
+                                  true;
+                              final enabled = currentUserDocument
+                                      ?.marketingConsent['enabled'] ==
+                                  true;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 14.0),
+                                child: Card(
+                                  child: SwitchListTile(
+                                    title: const Text(
+                                      'Préférences de communication',
+                                    ),
+                                    subtitle: Text(
+                                      hasChoice
+                                          ? kMarketingPlayerConsentText
+                                          : 'Vous n’avez pas encore indiqué votre préférence. $kMarketingPlayerConsentText',
+                                    ),
+                                    value: enabled,
+                                    onChanged: _isSavingMarketingConsent
+                                        ? null
+                                        : (value) async {
+                                            setState(() =>
+                                                _isSavingMarketingConsent =
+                                                    true);
+                                            try {
+                                              await FirebaseFunctions.instanceFor(
+                                                      region: 'us-central1')
+                                                  .httpsCallable(
+                                                      'setMarketingConsent')
+                                                  .call({
+                                                'enabled': value,
+                                                'textVersion':
+                                                    kMarketingPlayerTextVersion,
+                                                'source': 'player-profile',
+                                              });
+                                            } on FirebaseFunctionsException {
+                                              if (context.mounted) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Votre préférence n’a pas été enregistrée. Réessayez.',
+                                                    ),
+                                                  ),
+                                                );
+                                              }
+                                            } finally {
+                                              if (mounted) {
+                                                setState(() =>
+                                                    _isSavingMarketingConsent =
+                                                        false);
+                                              }
+                                            }
+                                          },
+                                    secondary: _isSavingMarketingConsent
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                ),
+                              );
+                            }),
                             Padding(
                               padding: const EdgeInsets.only(bottom: 14.0),
                               child: StreamBuilder<List<MyLotsRecord>>(

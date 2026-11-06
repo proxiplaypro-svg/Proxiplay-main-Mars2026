@@ -10,8 +10,10 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import '/index.dart';
 import '/services/city_autocomplete_service.dart';
 import '/utils/city_compat.dart';
+import '/config/marketing_consent.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -1300,6 +1302,20 @@ class _InscriptionInformationsPageWidgetState
                               ),
                             ),
                           ),
+                          if (!isMerchant)
+                            Padding(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
+                                  20.0, 0.0, 20.0, 12.0),
+                              child: CheckboxListTile(
+                                value: _model.marketingConsent,
+                                onChanged: (value) => safeSetState(() =>
+                                    _model.marketingConsent = value ?? false),
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text(kMarketingPlayerConsentText),
+                              ),
+                            ),
                           Align(
                             alignment: const AlignmentDirectional(0.0, 0.0),
                             child: Padding(
@@ -1405,6 +1421,36 @@ class _InscriptionInformationsPageWidgetState
                                               kCurrentUserProfileSchemaVersion,
                                         ),
                                         SetOptions(merge: true));
+                                    // A box left unchecked means no response,
+                                    // not an explicit withdrawal. Both states
+                                    // remain excluded from commercial email.
+                                    if (!isMerchant &&
+                                        _model.marketingConsent) {
+                                      try {
+                                        await FirebaseFunctions.instanceFor(
+                                                region: 'us-central1')
+                                            .httpsCallable(
+                                                'setMarketingConsent')
+                                            .call({
+                                          'enabled': true,
+                                          'textVersion':
+                                              kMarketingPlayerTextVersion,
+                                          'source': 'signup',
+                                        });
+                                      } on FirebaseFunctionsException {
+                                        // Profile completion remains valid;
+                                        // only an acknowledged server consent
+                                        // can enable future marketing.
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(const SnackBar(
+                                            content: Text(
+                                              'Votre inscription est enregistrée, mais votre préférence email n’a pas pu être sauvegardée.',
+                                            ),
+                                          ));
+                                        }
+                                      }
+                                    }
                                     if (_isOptionalProfileCompletionFlow) {
                                       FFAppState().update(() {
                                         if (currentUserUid.isNotEmpty) {

@@ -12,6 +12,7 @@ class InscriptionInformationsPageModel
   FFUploadedFile? photoCarteIdentite;
   String? cityInseeCode;
   String? selectedCityLabel;
+  bool marketingConsent = false;
 
   ///  State fields for stateful widgets in this page.
 

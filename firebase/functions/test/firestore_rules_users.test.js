@@ -29,6 +29,8 @@ const {
 } = require("@firebase/rules-unit-testing");
 
 let testEnv;
+const [emulatorHost, emulatorPort] = (process.env.FIRESTORE_EMULATOR_HOST || "").split(":");
+if (!emulatorHost || !/^\d+$/.test(emulatorPort || "")) throw new Error("FIRESTORE_EMULATOR_HOST requis (hôte:port) : aucun accès production n'est autorisé.");
 
 test.before(async () => {
   testEnv = await initializeTestEnvironment({
@@ -38,8 +40,8 @@ test.before(async () => {
         path.resolve(__dirname, "../../firestore.rules"),
         "utf8",
       ),
-      host: "127.0.0.1",
-      port: 8080,
+      host: emulatorHost,
+      port: Number(emulatorPort),
     },
   });
 
@@ -216,4 +218,13 @@ test("un utilisateur peut finaliser son inscription (profile_completed/_at/_sche
       {merge: true},
     ),
   );
+});
+
+test("un client ne peut ni falsifier le consentement ni lire son journal", async () => {
+  const bob = testEnv.authenticatedContext("bob_uid");
+  await assertFails(bob.firestore().collection("users").doc("bob_uid").set(
+    {marketing_consent: {enabled: true}}, {merge: true},
+  ));
+  await assertFails(bob.firestore().collection("users").doc("bob_uid").collection("marketing_consent_events").doc("x").set({enabled: true}));
+  await assertFails(bob.firestore().collection("users").doc("bob_uid").collection("marketing_consent_events").get());
 });

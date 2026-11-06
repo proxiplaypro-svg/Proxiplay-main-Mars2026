@@ -142,6 +142,10 @@ class UsersRecord extends FirestoreRecord {
   int get profileSchemaVersion => _profileSchemaVersion ?? 0;
   bool hasProfileSchemaVersion() => _profileSchemaVersion != null;
 
+  Map<String, dynamic>? _marketingConsent;
+  Map<String, dynamic> get marketingConsent => _marketingConsent ?? const {};
+  bool hasMarketingConsent() => _marketingConsent != null;
+
   void _initializeFields() {
     _email = snapshotData['email'] as String?;
     _uid = snapshotData['uid'] as String?;
@@ -174,6 +178,9 @@ class UsersRecord extends FirestoreRecord {
     _profileCompletedAt = snapshotData['profile_completed_at'] as DateTime?;
     _profileSchemaVersion =
         castToType<int>(snapshotData['profile_schema_version']);
+    _marketingConsent = snapshotData['marketing_consent'] is Map
+        ? Map<String, dynamic>.from(snapshotData['marketing_consent'] as Map)
+        : null;
   }
 
   static CollectionReference get collection =>

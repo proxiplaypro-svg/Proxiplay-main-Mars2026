@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const {isFunctionsEmulator} = require("./lib/emulator_runtime");
 admin.initializeApp();
+exports.setMarketingConsent = require('./marketing_consent').setMarketingConsent;
 exports.notifyPartnerPrize = require('./partner_prize_delivery').notifyPartnerPrize;
 exports.deliverPartnerPrizeDigests = require('./partner_prize_delivery').deliverPartnerPrizeDigests;
 const {shopOwnerRef,ownsPrize}=require('./merchant_ownership');

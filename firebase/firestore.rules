@@ -274,6 +274,7 @@ service cloud.firestore {
     function isAllowedSelfUserCreate(userId) {
       return isSelf(userId) &&
         request.resource.data.uid == request.auth.uid &&
+        !('marketing_consent' in request.resource.data) &&
         (!('userRole' in request.resource.data) ||
           request.resource.data.userRole in ['joueur', 'commercant']) &&
         (
