@@ -10,6 +10,11 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
+  # `apk/` is an independent Flutter project with its own analysis options.
+  # Analyze it from that directory so the root package is not resolved against
+  # its unrelated package name and generated platform registrants.
+  exclude:
+    - apk/**
   errors:
     unused_import: ignore
 
