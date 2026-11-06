@@ -8,9 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   test('exactly the three validated shop QR invitations, without unlimited promise', () {
     expect(kPartnerPlayMessages, [
-      'Passe sur place et scanne le QR pour rejouer !',
-      "Pas gagné ? Une nouvelle chance t'attend sur place !",
-      'Envie de retenter ta chance ? Scanne le QR sur place !',
+      'Et si vous passiez tenter votre chance en boutique ?',
+      'Une petite visite chez ce commerçant ?',
+      'Et si vous alliez découvrir cette boutique ?',
     ]);
     for (final message in kPartnerPlayMessages) {
       final lower = message.toLowerCase();
@@ -79,7 +79,7 @@ void main() {
     expect(chosen, greaterThan(losing));
     final gate = page.substring(losing, chosen).replaceAll(RegExp(r'\s+'), '');
     expect(gate, contains('if(mayInviteToShopQr('));
-    expect(gate, contains('shopQrPlayAvailable:widget.shopQrPlayAvailable'));
+    expect(gate, contains('isClassicPlay:widget.isClassicPlay'));
     expect(gate, contains('isReplay:isAlreadyPlayedStatus'));
     // Displayed inside the existing result panel, never after a win, no popup.
     final display = page.indexOf("ValueKey(\n                                                  'partner-play-message')");

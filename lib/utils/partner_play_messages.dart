@@ -3,12 +3,12 @@ import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Short invitations to the shop QR of this game, shown after a losing
-/// classic play while its extra QR play is still available (see
-/// mayInviteToShopQr). Never promises unlimited plays.
+/// classic play (see [mayInviteToShopQr]). The message does not change
+/// participation rights.
 const List<String> kPartnerPlayMessages = [
-  'Passe sur place et scanne le QR pour rejouer !',
-  "Pas gagné ? Une nouvelle chance t'attend sur place !",
-  'Envie de retenter ta chance ? Scanne le QR sur place !',
+  'Et si vous passiez tenter votre chance en boutique ?',
+  'Une petite visite chez ce commerçant ?',
+  'Et si vous alliez découvrir cette boutique ?',
 ];
 
 /// About one losing scratch out of [kPartnerPlayMessageOneIn].

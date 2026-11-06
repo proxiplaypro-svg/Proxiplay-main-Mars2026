@@ -48,6 +48,7 @@ class ShareJeuPageWidget extends StatefulWidget {
 }
 
 class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
+  bool _isClassicPlayAfterPlay = false;
   late ShareJeuPageModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
@@ -335,6 +336,10 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                   source: widget.source,
                   attemptId: attemptId,
                   alreadyParticipatedToday: outcome.alreadyParticipatedToday,
+                isClassicPlay: _isClassicPlayAfterPlay &&
+                    !outcome.alreadyParticipatedToday &&
+                    !(response.jsonBody is Map &&
+                        (response.jsonBody as Map)['shopPlay'] == true),
                   onGameScreenMounted: () {
                     if (!mountedBy.isCompleted) {
                       mountedBy.complete();
@@ -753,6 +758,7 @@ class _ShareJeuPageWidgetState extends State<ShareJeuPageWidget> {
                                                                   ),
                                                                   now: DateTime.now(),
                                                                 );
+                                                                _isClassicPlayAfterPlay = !shopPlay;
                                                                 final attemptId = shopPlay
                                                                     ? shopPlayAttemptId(
                                                                         gameId,

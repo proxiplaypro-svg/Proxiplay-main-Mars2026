@@ -41,56 +41,50 @@ void main() {
     expect(lossMessagePool(hasMainPrize: null), kInstantLossMessages);
   });
 
-  test('the shop QR invitation only after a new, losing classic play with the QR still available', () {
-    expect(mayInviteToShopQr(shopQrPlayAvailable: true, isWin: false, isReplay: false), isTrue);
-    expect(mayInviteToShopQr(shopQrPlayAvailable: false, isWin: false, isReplay: false), isFalse,
-        reason: 'QR play used, QR play just played, or state unknown');
-    expect(mayInviteToShopQr(shopQrPlayAvailable: true, isWin: true, isReplay: false), isFalse);
-    expect(mayInviteToShopQr(shopQrPlayAvailable: true, isWin: false, isReplay: true), isFalse,
+  test('the shop QR invitation follows every new, losing classic play independently of QR availability', () {
+    expect(mayInviteToShopQr(isClassicPlay: true, isWin: false, isReplay: false), isTrue);
+    expect(mayInviteToShopQr(isClassicPlay: false, isWin: false, isReplay: false), isFalse,
+        reason: 'the QR play itself never receives the invitation');
+    expect(mayInviteToShopQr(isClassicPlay: true, isWin: true, isReplay: false), isFalse);
+    expect(mayInviteToShopQr(isClassicPlay: true, isWin: false, isReplay: true), isFalse,
         reason: 'a replayed result keeps its classic message only');
   });
 
-  test('no QR invitation once the QR play of the day is used (real ticket ids)', () {
-    final now = DateTime(2026, 10, 26, 15);
-    // Same condition as the game page (shopPlayAvailable), from Firestore ids.
-    bool invite(List<String> ticketIds) {
-      final state = dailyPlayState(ticketIds: ticketIds, lastPlay: now, now: now);
-      return mayInviteToShopQr(
-        shopQrPlayAvailable: !state.shopPlayedToday,
-        isWin: false,
-        isReplay: false,
-      );
-    }
-    expect(invite(['20261026_uid']), isTrue, reason: 'classic played, QR still available');
-    expect(invite(['20261026_uid', '20261026_uid_qr']), isFalse, reason: 'QR already used');
-    expect(invite(['20261026_uid_qr']), isFalse);
+  test('a used QR play never suppresses a later classic-loss invitation', () {
+    final state = dailyPlayState(
+      ticketIds: ['20261026_uid', '20261026_uid_qr'],
+      lastPlay: DateTime(2026, 10, 26, 15),
+      now: DateTime(2026, 10, 26, 15),
+    );
+    expect(state.shopPlayedToday, isTrue);
+    expect(mayInviteToShopQr(isClassicPlay: true, isWin: false, isReplay: false), isTrue);
   });
 
   test('the result page picks the draw pool from the stored main-prize flag only', () {
     final page = compact('lib/pages/joueur/play_joueur_page/play_joueur_page_widget.dart');
     expect(page, contains('finalmainPrize=game!=null&&game.hasHasMainPrize()&&game.hasMainPrize;'));
     expect(page, contains('lossMessagePool(hasMainPrize:mainPrize)'));
-    expect(page, contains('this.shopQrPlayAvailable=false'));
+    expect(page, contains('this.isClassicPlay=false'));
   });
 
-  test('the game page allows the invitation only for a classic play with the QR state known', () {
+  test('the game page allows the invitation only for a classic play', () {
     final detail = compact('lib/pages/joueur/jeu_detail_joueur_page/jeu_detail_joueur_page_widget.dart');
-    // Known only once the tickets are loaded, and only while unused today.
-    expect(detail, contains('shopPlayAvailable:ticketSnapshot.hasData&&!state.shopPlayedToday&&!shopPlayUsedToday('));
-    // Both public buttons: never for the shop play itself.
-    expect(RegExp(r'_shopQrPlayAvailableAfterPlay=!shopPlay&&daily\.shopPlayAvailable;').allMatches(detail).length, 2);
+    // Both public buttons: never for the shop play itself, regardless of
+    // whether the QR part was already consumed.
+    expect(RegExp(r'_isClassicPlayAfterPlay=!shopPlay;').allMatches(detail).length, 2);
     // QR-only plays reset it.
-    expect(detail, contains('_currentAttemptId=id;//QR-onlyplays:noclassicplay,sonoshopQRinvitation._shopQrPlayAvailableAfterPlay=false;'));
+    expect(detail, contains('_currentAttemptId=id;//QR-onlyplays:noclassicplay,sonoshopQRinvitation._isClassicPlayAfterPlay=false;'));
     // Not for a replay nor when the server says it was the shop play.
-    expect(detail, contains("shopQrPlayAvailable:_shopQrPlayAvailableAfterPlay&&!outcome.alreadyParticipatedToday&&!(response.jsonBodyisMap&&(response.jsonBodyasMap)['shopPlay']==true),"));
+    expect(detail, contains("isClassicPlay:_isClassicPlayAfterPlay&&!outcome.alreadyParticipatedToday&&!(response.jsonBodyisMap&&(response.jsonBodyasMap)['shopPlay']==true),"));
   });
 
-  test('callers that cannot know the QR state never pass it', () {
-    for (final path in [
-      'lib/pages/joueur/share_jeu_page/share_jeu_page_widget.dart',
-      'lib/flutter_flow/nav/nav.dart',
-    ]) {
-      expect(compact(path), isNot(contains('shopQrPlayAvailable:')), reason: path);
-    }
+  test('all participation callers identify classic versus QR plays', () {
+    final share = compact(
+        'lib/pages/joueur/share_jeu_page/share_jeu_page_widget.dart');
+    expect(share, contains('_isClassicPlayAfterPlay=!shopPlay;'));
+    expect(share, contains("isClassicPlay:_isClassicPlayAfterPlay&&!outcome.alreadyParticipatedToday&&!(response.jsonBodyisMap&&(response.jsonBodyasMap)['shopPlay']==true),"));
+    final route = compact('lib/flutter_flow/nav/nav.dart');
+    expect(route, isNot(contains('isClassicPlay:')),
+        reason: 'a direct route has no participation mode to classify');
   });
 }

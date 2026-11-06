@@ -29,12 +29,13 @@ List<String> lossMessagePool({required bool? hasMainPrize}) =>
     hasMainPrize == true ? kDrawLossMessages : kInstantLossMessages;
 
 /// Whether the result screen may invite the player to the shop QR: only
-/// after a new, losing classic play, when the game page knew the extra QR
-/// play was still available ([shopQrPlayAvailable]). Never after the QR
-/// play itself, nor on a replayed result.
+/// after a new, losing classic play. It is deliberately independent of the
+/// availability of the QR play itself: the invitation promotes the shop QR,
+/// but never changes participation rights. Never after the QR play itself,
+/// nor on a replayed result.
 bool mayInviteToShopQr({
-  required bool shopQrPlayAvailable,
+  required bool isClassicPlay,
   required bool isWin,
   required bool isReplay,
 }) =>
-    shopQrPlayAvailable && !isWin && !isReplay;
+    isClassicPlay && !isWin && !isReplay;

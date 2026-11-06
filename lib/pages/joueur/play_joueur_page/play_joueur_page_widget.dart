@@ -51,12 +51,12 @@ class PlayJoueurPageWidget extends StatefulWidget {
     this.attemptId,
     this.onGameScreenMounted,
     this.alreadyParticipatedToday = false,
-    this.shopQrPlayAvailable = false,
+    this.isClassicPlay = false,
   });
 
-  /// True only when the caller knows this was a classic play and the extra
-  /// shop QR play of this game is still available today; false when unknown.
-  final bool shopQrPlayAvailable;
+  /// True only when the caller knows this result comes from a classic play.
+  /// It gates the invitation only; it never grants an extra participation.
+  final bool isClassicPlay;
 
   final GamesRecord? game;
   final ResultParticipationGameStruct? resultParticipation;
@@ -1139,11 +1139,11 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                       _model.isWin = false;
                                                       safeSetState(() {});
                                                       // About one real losing classic scratch out of
-                                                      // three, while the shop QR play is still
-                                                      // available: a short invitation to scan it.
+                                                      // three: a short invitation to scan the shop QR.
+                                                      // Its availability never changes this message.
                                                       if (mayInviteToShopQr(
-                                                        shopQrPlayAvailable:
-                                                            widget.shopQrPlayAvailable,
+                                                        isClassicPlay:
+                                                            widget.isClassicPlay,
                                                         isWin: false,
                                                         isReplay: isAlreadyPlayedStatus,
                                                       )) {
