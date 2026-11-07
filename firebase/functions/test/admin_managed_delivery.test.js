@@ -23,6 +23,7 @@ async function scenario(c,extra={}) {
 async function verify(id,c){
   const p=(await db.doc('prizes/'+id).get()).data();
   assert.equal(p.fulfillment_type,c.type);assert.equal(p.owner_id?.path||null,c.owner?'users/merchant':null);
+  assert.equal(p.partner_delivery_eligible, c.type==='partner');
   assert.equal((await db.doc('users/player/my_lots/'+id).get()).data().prize_id.path,'prizes/'+id);
   await assertSucceeds(client('player').doc('prizes/'+id).get());
   assert.equal((await merchantPrizesPage('merchant')).ids.includes(id),c.owner);
@@ -174,4 +175,27 @@ test('managed shop and its games survive deletion of an unrelated creator mercha
   await ft.wrap(functions.onUserDeleted)({uid:'merchant'});
   assert.equal((await db.doc('enseignes/managed-survives').get()).exists,true);
   assert.equal((await db.doc('games/managed-survives').get()).exists,true);
+});
+test('D owned shop delivered by ProxiPlay: instant and main draw, operator claims, never the merchant',async()=>{
+  const c={owner:true,creator:'operator',type:'platform'};
+  await scenario(c);await instant();const r=await participate();assert.equal(r.isWin,true);
+  const main=await drawMainPrize('game',{now:time('2026-10-01')});assert.equal(main.status,'completed');
+  for(const id of [r.prize_id.split('/').at(-1),main.prizeId]){
+    const p=(await db.doc('prizes/'+id).get()).data();
+    assert.equal(p.fulfillment_type,'platform');assert.equal(p.owner_id.path,'users/merchant');
+    assert.equal(p.partner_delivery_eligible,false);assert.equal(p.partner_ref,undefined);
+    await assertSucceeds(client('merchant').doc('prizes/'+id).get());
+    await assertFails(client('merchant').doc('prizes/'+id).update({claimed:true}));
+    assert.equal(await queuePartnerPrize(id,{now:0}),null);
+    const input={prizeId:id,winnerId:'player',code:p.claim_code,requestId:'owned_platform_'+id};
+    await assert.rejects(claim(input,{auth:{uid:'merchant'}}),{code:'permission-denied'});
+    assert.equal((await claim(input,{auth:{uid:'operator'}})).status,'claimed');
+  }
+  // The shop keeps its account and is never switched to admin management.
+  assert.equal((await db.doc('enseignes/shop').get()).data().managed_by_admin,undefined);
+});
+test('owned shop refuses partner delivery (partner is only for shops without an account)',async()=>{
+  await scenario({owner:true,creator:'operator',type:'partner'});
+  await assert.rejects(participate(),{code:'failed-precondition'});
+  assert.equal((await db.collection('prizes').get()).size,0);
 });

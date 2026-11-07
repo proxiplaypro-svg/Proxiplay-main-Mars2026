@@ -658,8 +658,11 @@ exports.participateInGameTransaction = functions.https.onCall(
         prizeOwnership = gamePrizeOwnership(db, ownership, enseigneRef, fulfillment);
         // Explicit per-game activation: old prizes are never eligible for the
         // partner mail recovery path after a Functions deployment.
+        // prizeFulfillment returns the delivery type itself (a string), not
+        // an object. Keep the explicit per-game activation gate so historic
+        // partner prizes are never queued merely after a Functions deploy.
         prizeOwnership.partner_delivery_eligible =
-          fulfillment.type === 'partner' && gameData.partner_delivery_enabled === true;
+          fulfillment === 'partner' && gameData.partner_delivery_enabled === true;
         ownerRef = prizeOwnership.owner_id;
         enseigneName = getTrimmedString(enseigneData.name);
 
