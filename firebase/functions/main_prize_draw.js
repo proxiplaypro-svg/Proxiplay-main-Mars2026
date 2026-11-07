@@ -240,7 +240,7 @@ async function drawMainPrize(gameId,{now=admin.firestore.Timestamp.now()}={}) {
     step('phase3_claim_code_reserved');
     const first=String(winner.data.first_name||winner.data.firstName||'').split(/\s+/)[0];
     const city=String(winner.data.city||'');
-    const prize={prize_type:'principal',...gamePrizeOwnership(db,freshOwnership,enseigneRef,fulfillment),partner_delivery_eligible:fulfillment.type==='partner'&&freshGame.partner_delivery_enabled===true,name:freshGame.name||'Lot principal',description:freshGame.description||'',
+    const prize={prize_type:'principal',...gamePrizeOwnership(db,freshOwnership,enseigneRef,fulfillment),partner_delivery_eligible:fulfillment==='partner'&&freshGame.partner_delivery_enabled===true,name:freshGame.name||'Lot principal',description:freshGame.description||'',
       winner_id:winner.ref,game_id:gameRef,enseigne_id:enseigneRef,enseigne_name:freshShop.data().name||freshGame.enseigne_name||'',
       claim_code:claimCode,claimed:false,win_date:now,
       prize_value:Number.isFinite(Number(freshGame.prize_value))?Number(freshGame.prize_value):0,
