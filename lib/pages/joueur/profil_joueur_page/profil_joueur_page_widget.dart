@@ -1,6 +1,8 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
+import '/components/marketing_preference_card.dart';
+import '/utils/marketing_consent_state.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/config/marketing_consent.dart';
@@ -42,6 +44,40 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
   void dispose() {
     _model.dispose();
     super.dispose();
+  }
+
+  /// Agreement and withdrawal go through the server only (setMarketingConsent);
+  /// the switch reflects the stored state once the server has written it.
+  Future<void> _saveMarketingConsent(bool value) async {
+    void inform(String message) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
+
+    final precheck = value
+        ? marketingConsentAgreementPrecheck(currentUserDocument?.birthday)
+        : null;
+    if (precheck != null) {
+      inform(precheck);
+      return;
+    }
+    setState(() => _isSavingMarketingConsent = true);
+    try {
+      await FirebaseFunctions.instanceFor(region: 'us-central1')
+          .httpsCallable('setMarketingConsent')
+          .call({
+        'enabled': value,
+        'textVersion': kMarketingPlayerTextVersion,
+        'source': 'player-profile',
+      });
+    } on FirebaseFunctionsException catch (error) {
+      inform(marketingConsentErrorMessage(error.code));
+    } catch (_) {
+      inform(marketingConsentErrorMessage(null));
+    } finally {
+      if (mounted) setState(() => _isSavingMarketingConsent = false);
+    }
   }
 
   Future<int> _countUnclaimedLots(List<MyLotsRecord> myLots) async {
@@ -291,71 +327,18 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                             _buildSectionTitle(context, 'MON COMPTE'),
                             const SizedBox(height: 14.0),
                             AuthUserStreamWidget(builder: (context) {
-                              final hasChoice = currentUserDocument
-                                      ?.hasMarketingConsent() ==
-                                  true;
-                              final enabled = currentUserDocument
-                                      ?.marketingConsent['enabled'] ==
-                                  true;
+                              final document = currentUserDocument;
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 14.0),
-                                child: Card(
-                                  child: SwitchListTile(
-                                    title: const Text(
-                                      'Préférences de communication',
-                                    ),
-                                    subtitle: Text(
-                                      hasChoice
-                                          ? kMarketingPlayerConsentText
-                                          : 'Vous n’avez pas encore indiqué votre préférence. $kMarketingPlayerConsentText',
-                                    ),
-                                    value: enabled,
-                                    onChanged: _isSavingMarketingConsent
-                                        ? null
-                                        : (value) async {
-                                            setState(() =>
-                                                _isSavingMarketingConsent =
-                                                    true);
-                                            try {
-                                              await FirebaseFunctions.instanceFor(
-                                                      region: 'us-central1')
-                                                  .httpsCallable(
-                                                      'setMarketingConsent')
-                                                  .call({
-                                                'enabled': value,
-                                                'textVersion':
-                                                    kMarketingPlayerTextVersion,
-                                                'source': 'player-profile',
-                                              });
-                                            } on FirebaseFunctionsException {
-                                              if (context.mounted) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                      'Votre préférence n’a pas été enregistrée. Réessayez.',
-                                                    ),
-                                                  ),
-                                                );
-                                              }
-                                            } finally {
-                                              if (mounted) {
-                                                setState(() =>
-                                                    _isSavingMarketingConsent =
-                                                        false);
-                                              }
-                                            }
-                                          },
-                                    secondary: _isSavingMarketingConsent
-                                        ? const SizedBox(
-                                            width: 20,
-                                            height: 20,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : null,
-                                  ),
+                                child: MarketingPreferenceCard(
+                                  state: marketingConsentStateOf(
+                                      document?.hasMarketingConsent() == true
+                                          ? document!.marketingConsent
+                                          : null),
+                                  saving: _isSavingMarketingConsent,
+                                  onChanged: _isSavingMarketingConsent
+                                      ? null
+                                      : _saveMarketingConsent,
                                 ),
                               );
                             }),

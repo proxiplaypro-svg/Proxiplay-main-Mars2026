@@ -37,7 +37,10 @@ test.before(async () => {
     projectId: "demo-proxiplay-rules-test",
     firestore: {
       rules: fs.readFileSync(
-        path.resolve(__dirname, "../../firestore.rules"),
+        // FIRESTORE_RULES_FILE: compare another rules file (e.g. a copy of
+        // the deployed rules) with the same assertions.
+        process.env.FIRESTORE_RULES_FILE ||
+          path.resolve(__dirname, "../../firestore.rules"),
         "utf8",
       ),
       host: emulatorHost,
@@ -220,11 +223,30 @@ test("un utilisateur peut finaliser son inscription (profile_completed/_at/_sche
   );
 });
 
+test("un client ne peut pas créer son profil avec un consentement marketing", async () => {
+  const carol = testEnv.authenticatedContext("carol_new_uid");
+  const profile = carol.firestore().collection("users").doc("carol_new_uid");
+  await assertFails(profile.set({
+    uid: "carol_new_uid",
+    user_role: "joueur",
+    marketing_consent: {enabled: true, newsletter_eligibility: "age_15_plus_confirmed"},
+  }));
+  // The same creation without the server-owned field remains allowed.
+  await assertSucceeds(profile.set({uid: "carol_new_uid", user_role: "joueur"}));
+});
+
 test("un client ne peut ni falsifier le consentement ni lire son journal", async () => {
   const bob = testEnv.authenticatedContext("bob_uid");
   await assertFails(bob.firestore().collection("users").doc("bob_uid").set(
     {marketing_consent: {enabled: true}}, {merge: true},
   ));
+  // Existing profile (seeded above): a plain update is refused as well.
+  await assertFails(bob.firestore().collection("users").doc("bob_uid").update({
+    "marketing_consent": {enabled: true, newsletter_eligibility: "age_15_plus_confirmed"},
+  }));
+  await assertFails(bob.firestore().collection("users").doc("bob_uid").update({
+    "marketing_consent.enabled": true,
+  }));
   await assertFails(bob.firestore().collection("users").doc("bob_uid").collection("marketing_consent_events").doc("x").set({enabled: true}));
   await assertFails(bob.firestore().collection("users").doc("bob_uid").collection("marketing_consent_events").get());
 });

@@ -11,6 +11,7 @@ import '/index.dart';
 import '/services/city_autocomplete_service.dart';
 import '/utils/city_compat.dart';
 import '/config/marketing_consent.dart';
+import '/utils/marketing_consent_state.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -393,6 +394,12 @@ class _InscriptionInformationsPageWidgetState
   bool get _shouldShowLegacyPseudoField => false;
 
   bool get _shouldHandleLegacyReconnectFallback => false;
+
+  /// Server-written preference of the signed-in account, if any.
+  Map<String, dynamic>? _storedMarketingConsent() =>
+      currentUserDocument?.hasMarketingConsent() == true
+          ? currentUserDocument!.marketingConsent
+          : null;
 
   @override
   Widget build(BuildContext context) {
@@ -1302,7 +1309,15 @@ class _InscriptionInformationsPageWidgetState
                               ),
                             ),
                           ),
-                          if (!isMerchant)
+                          // Unchecked by default (no answer). Hidden once a
+                          // birthday under 15 is entered (the server would
+                          // refuse the agreement) and for an account whose
+                          // preference is already recorded (managed from
+                          // the profile, never reset here).
+                          if (shouldOfferSignupMarketingConsent(
+                              isMerchant: isMerchant,
+                              birthday: _model.datePicked,
+                              storedConsent: _storedMarketingConsent()))
                             Padding(
                               padding: const EdgeInsetsDirectional.fromSTEB(
                                   20.0, 0.0, 20.0, 12.0),
@@ -1424,8 +1439,16 @@ class _InscriptionInformationsPageWidgetState
                                     // A box left unchecked means no response,
                                     // not an explicit withdrawal. Both states
                                     // remain excluded from commercial email.
-                                    if (!isMerchant &&
-                                        _model.marketingConsent) {
+                                    // Optional and never blocking: the
+                                    // profile above is already saved, so a
+                                    // failed or unavailable consent call
+                                    // must not turn into a signup error.
+                                    if (shouldSendSignupMarketingConsent(
+                                        isMerchant: isMerchant,
+                                        checked: _model.marketingConsent,
+                                        birthday: _model.datePicked,
+                                        storedConsent:
+                                            _storedMarketingConsent())) {
                                       try {
                                         await FirebaseFunctions.instanceFor(
                                                 region: 'us-central1')
@@ -1437,7 +1460,7 @@ class _InscriptionInformationsPageWidgetState
                                               kMarketingPlayerTextVersion,
                                           'source': 'signup',
                                         });
-                                      } on FirebaseFunctionsException {
+                                      } catch (_) {
                                         // Profile completion remains valid;
                                         // only an acknowledged server consent
                                         // can enable future marketing.

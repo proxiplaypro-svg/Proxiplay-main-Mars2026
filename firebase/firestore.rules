@@ -732,6 +732,15 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Cacheable catalogue for the public marketing site. It contains only
+    // server-projected, non-personal fields for games currently in progress.
+    // Exact-document get only: no enumeration and no client-side mutation.
+    match /public_content/active_catalog {
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
     match /stats/{document} {
       allow read: if true;
       allow write: if false;
