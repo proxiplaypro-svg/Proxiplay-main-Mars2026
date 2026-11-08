@@ -1,0 +1,899 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '/components/merchant_presentation.dart';
+import 'merchant_directory_logic.dart';
+import 'merchant_directory_source.dart';
+
+const _muted = Color(0xFF656171);
+const _cardBorder = Color(0xFFF0ECF1);
+const _activeGameText = Color(0xFF1B7A43);
+const _activeGameBackground = Color(0xFFE3F4EA);
+const _searchBackground = Color(0xFFD4D3E7);
+const _searchBorder = Color(0xFFE0E3E7);
+const _searchText = Color(0xFF605F83);
+
+enum _FilterKind { all, favorites, category }
+
+class _Filter {
+  const _Filter(this.kind, [this.category = '']);
+  static const all = _Filter(_FilterKind.all);
+  static const favorites = _Filter(_FilterKind.favorites);
+  final _FilterKind kind;
+  final String category;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _Filter && other.kind == kind && other.category == category;
+
+  @override
+  int get hashCode => Object.hash(kind, category);
+}
+
+/// Compact, paginated list of merchants with search and one active filter.
+///
+/// Reads: one ongoing-games query, the merchants with a confirmed game (by id,
+/// 30 per query), then pages of [pageSize] merchants on demand. Favorites come
+/// from one page-level stream; a photo is read once, only for a displayed card.
+class MerchantDirectoryView extends StatefulWidget {
+  const MerchantDirectoryView({
+    super.key,
+    required this.source,
+    required this.knownCategories,
+    required this.onOpenMerchant,
+    this.pageSize = 30,
+    this.searchDebounce = const Duration(milliseconds: 300),
+    this.now = DateTime.now,
+  });
+
+  final MerchantDirectorySource source;
+  final List<String> knownCategories;
+  final void Function(DirectoryMerchant merchant) onOpenMerchant;
+  final int pageSize;
+  final Duration searchDebounce;
+  final DateTime Function() now;
+
+  @override
+  State<MerchantDirectoryView> createState() => _MerchantDirectoryViewState();
+}
+
+class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
+  final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
+  Timer? _debounce;
+  String _query = '';
+  _Filter _filter = _Filter.all;
+
+  ActiveGamesResult _active = ActiveGamesResult.unavailable;
+  List<DirectoryMerchant> _pinned = const [];
+  final List<DirectoryMerchant> _paged = [];
+  final Set<String> _pagedIds = {};
+  final Map<String, DirectoryMerchant> _extra = {};
+  Object? _cursor;
+  bool _hasMore = true;
+  bool _initialLoading = true;
+  bool _loadingMore = false;
+  Object? _initialError;
+  Object? _moreError;
+
+  StreamSubscription<Map<String, List<Object>>>? _favoritesSubscription;
+  bool _favoritesEnabled = false;
+  bool _favoritesLoaded = false;
+  bool _favoritesFailed = false;
+  Map<String, List<Object>> _favorites = const {};
+  final Set<String> _favoritePending = {};
+  final Set<String> _requestedFavoriteIds = {};
+  bool _loadingFavoriteMerchants = false;
+  bool _favoriteMerchantsFailed = false;
+
+  final Map<String, Future<String>> _photos = {};
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _listenFavorites();
+    _loadInitial();
+  }
+
+  @override
+  void dispose() {
+    _generation++;
+    _debounce?.cancel();
+    _favoritesSubscription?.cancel();
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _listenFavorites() {
+    final stream = widget.source.favorites();
+    _favoritesEnabled = stream != null;
+    _favoritesSubscription = stream?.listen(
+      (value) {
+        if (!mounted) return;
+        setState(() {
+          _favorites = value;
+          _favoritesLoaded = true;
+          _favoritesFailed = false;
+        });
+        if (_filter == _Filter.favorites) _ensureFavoriteMerchants();
+      },
+      onError: (Object _) {
+        if (!mounted) return;
+        setState(() {
+          _favoritesLoaded = true;
+          _favoritesFailed = true;
+        });
+      },
+    );
+  }
+
+  Future<void> _loadInitial() async {
+    final generation = ++_generation;
+    setState(() {
+      _initialLoading = true;
+      _initialError = null;
+      _moreError = null;
+    });
+    final activeFuture = widget.source
+        .fetchActiveGames(widget.now())
+        .catchError((Object _) => ActiveGamesResult.unavailable);
+    try {
+      final page = await widget.source.fetchPage(limit: widget.pageSize);
+      final active = await activeFuture;
+      var pinned = <DirectoryMerchant>[];
+      if (active.complete && active.merchantIds.isNotEmpty) {
+        try {
+          pinned = await widget.source
+              .fetchByIds(active.merchantIds.toList()..sort());
+        } catch (_) {
+          // Ranking is optional; the badge still uses the confirmed ids.
+        }
+      }
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _active = active;
+        _pinned = pinned.toList()..sort(compareDirectoryNames);
+        _paged
+          ..clear()
+          ..addAll(page.merchants);
+        _pagedIds
+          ..clear()
+          ..addAll(page.merchants.map((m) => m.id));
+        _cursor = page.cursor;
+        _hasMore = page.hasMore;
+        _initialLoading = false;
+      });
+      _fillViewport();
+    } catch (error) {
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _initialLoading = false;
+        _initialError = error;
+      });
+    }
+  }
+
+  /// Loads up to three pages until at least one merchant is added to the list
+  /// (a page can contain only merchants already shown first).
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore || _initialLoading) return;
+    final generation = _generation;
+    setState(() {
+      _loadingMore = true;
+      _moreError = null;
+    });
+    try {
+      var added = 0;
+      for (var round = 0; round < 3 && _hasMore && added == 0; round++) {
+        final page = await widget.source
+            .fetchPage(cursor: _cursor, limit: widget.pageSize);
+        if (!mounted || generation != _generation) return;
+        final fresh =
+            page.merchants.where((m) => !_pagedIds.contains(m.id)).toList();
+        _paged.addAll(fresh);
+        _pagedIds.addAll(fresh.map((m) => m.id));
+        _cursor = page.cursor;
+        _hasMore = page.hasMore;
+        final pinned = _pinnedIds;
+        added += fresh.where((m) => !pinned.contains(m.id)).length;
+      }
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+      _fillViewport();
+    } catch (error) {
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _loadingMore = false;
+        _moreError = error;
+      });
+    }
+  }
+
+  /// In "Tous" without search, keep loading while the list cannot scroll yet.
+  void _fillViewport() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      if (_filter == _Filter.all &&
+          _query.isEmpty &&
+          _hasMore &&
+          _moreError == null &&
+          _scrollController.position.maxScrollExtent <= 0) {
+        _loadMore();
+      }
+    });
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (_moreError == null &&
+        position.pixels >= position.maxScrollExtent - 400) {
+      _loadMore();
+    }
+  }
+
+  Set<String> get _pinnedIds => {for (final m in _pinned) m.id};
+
+  /// "Tous": every merchant, with or without a known category. Confirmed
+  /// ongoing games first (only when the games query was complete), then the
+  /// stable page order.
+  List<DirectoryMerchant> get _baseList {
+    final pinned = _pinnedIds;
+    return [
+      ..._pinned,
+      ..._paged.where((m) => !pinned.contains(m.id)),
+    ];
+  }
+
+  List<DirectoryMerchant> get _favoriteList {
+    final byId = <String, DirectoryMerchant>{
+      ..._extra,
+      for (final m in _paged) m.id: m,
+      for (final m in _pinned) m.id: m,
+    };
+    final list = _favorites.keys
+        .map((id) => byId[id])
+        .whereType<DirectoryMerchant>()
+        .toList();
+    list.sort((a, b) {
+      if (_active.complete) {
+        final byGame =
+            (_hasActiveGame(b) ? 1 : 0) - (_hasActiveGame(a) ? 1 : 0);
+        if (byGame != 0) return byGame;
+      }
+      return compareDirectoryNames(a, b);
+    });
+    return list;
+  }
+
+  List<DirectoryMerchant> get _visible {
+    final source = switch (_filter.kind) {
+      _FilterKind.all => _baseList,
+      _FilterKind.favorites => _favoriteList,
+      _FilterKind.category => _baseList
+          .where((m) => m.categories.contains(_filter.category))
+          .toList(),
+    };
+    return source.where((m) => merchantMatchesQuery(m, _query)).toList();
+  }
+
+  bool _hasActiveGame(DirectoryMerchant merchant) =>
+      _active.merchantIds.contains(merchant.id);
+
+  /// Results come from loaded pages only while more pages exist.
+  bool get _resultsArePartial =>
+      _hasMore && (_filter.kind == _FilterKind.category || _query.isNotEmpty);
+
+  Future<void> _ensureFavoriteMerchants() async {
+    final known = <String>{
+      ..._extra.keys,
+      ..._pagedIds,
+      ..._pinnedIds,
+      ..._requestedFavoriteIds,
+    };
+    final missing = _favorites.keys.where((id) => !known.contains(id)).toList();
+    if (missing.isEmpty) return;
+    _requestedFavoriteIds.addAll(missing);
+    setState(() {
+      _loadingFavoriteMerchants = true;
+      _favoriteMerchantsFailed = false;
+    });
+    try {
+      final merchants = await widget.source.fetchByIds(missing);
+      if (!mounted) return;
+      setState(() {
+        for (final merchant in merchants) {
+          _extra[merchant.id] = merchant;
+        }
+        _loadingFavoriteMerchants = false;
+      });
+    } catch (_) {
+      _requestedFavoriteIds.removeAll(missing);
+      if (!mounted) return;
+      setState(() {
+        _loadingFavoriteMerchants = false;
+        _favoriteMerchantsFailed = true;
+      });
+    }
+  }
+
+  void _selectFilter(_Filter filter) {
+    if (_filter == filter) return;
+    setState(() => _filter = filter);
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    if (filter == _Filter.favorites) _ensureFavoriteMerchants();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(widget.searchDebounce, () {
+      if (!mounted) return;
+      setState(() => _query = value.trim());
+    });
+    setState(() {}); // clear button visibility
+  }
+
+  void _clearSearch() {
+    _debounce?.cancel();
+    _searchController.clear();
+    setState(() => _query = '');
+  }
+
+  bool _isFavorite(DirectoryMerchant merchant) {
+    final stored = _favorites.containsKey(merchant.id);
+    return _favoritePending.contains(merchant.id) ? !stored : stored;
+  }
+
+  Future<void> _toggleFavorite(DirectoryMerchant merchant) async {
+    if (_favoritePending.contains(merchant.id)) return;
+    final handles = _favorites[merchant.id];
+    setState(() => _favoritePending.add(merchant.id));
+    try {
+      if (handles != null && handles.isNotEmpty) {
+        await widget.source.removeFavorite(handles);
+      } else {
+        await widget.source.addFavorite(merchant.id);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(
+            content: Text('Impossible de mettre à jour vos favoris.')));
+      }
+    } finally {
+      if (mounted) {
+        // The stream carries the stored state; the pending flip ends here.
+        setState(() => _favoritePending.remove(merchant.id));
+      }
+    }
+  }
+
+  Future<String> _photo(DirectoryMerchant merchant) => _photos.putIfAbsent(
+      merchant.id,
+      () => widget.source.photoUrl(merchant).catchError((Object _) => ''));
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildSearchField(),
+        const SizedBox(height: 10),
+        _buildFilters(),
+        const SizedBox(height: 10),
+        Expanded(child: _buildBody()),
+      ],
+    );
+  }
+
+  Widget _buildSearchField() => Container(
+        decoration: BoxDecoration(
+          color: _searchBackground,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _searchBorder),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(children: [
+          const Icon(Icons.search_rounded, color: merchantInk, size: 22),
+          const SizedBox(width: 6),
+          Expanded(
+            child: TextField(
+              key: const Key('directory-search'),
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              textInputAction: TextInputAction.search,
+              style: const TextStyle(color: _searchText, fontSize: 14),
+              decoration: const InputDecoration(
+                hintText: 'Rechercher un commerce, une catégorie…',
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          if (_searchController.text.isNotEmpty)
+            IconButton(
+              key: const Key('directory-search-clear'),
+              tooltip: 'Effacer la recherche',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.cancel_outlined, color: merchantInk),
+              onPressed: _clearSearch,
+            ),
+        ]),
+      );
+
+  Widget _buildFilters() {
+    final categories = availableDirectoryCategories(
+        [..._pinned, ..._paged], widget.knownCategories);
+    final filters = <(_Filter, String, Key)>[
+      (_Filter.all, 'Tous', const Key('directory-filter-all')),
+      if (_favoritesEnabled)
+        (_Filter.favorites, 'Favoris', const Key('directory-filter-favorites')),
+      for (final category in categories)
+        (
+          _Filter(_FilterKind.category, category),
+          category,
+          Key('directory-filter-category-$category'),
+        ),
+    ];
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final (filter, label, key) = filters[index];
+          final selected = filter == _filter;
+          return ChoiceChip(
+            key: key,
+            label: Text(label),
+            selected: selected,
+            showCheckmark: false,
+            onSelected: (_) => _selectFilter(filter),
+            labelStyle: TextStyle(
+              color: selected ? Colors.white : merchantInk,
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+            selectedColor: merchantInk,
+            backgroundColor: merchantPaper,
+            side: BorderSide(color: selected ? merchantInk : _cardBorder),
+            shape: const StadiumBorder(),
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_initialLoading) {
+      return const _DirectoryMessage(
+        key: Key('directory-loading'),
+        loading: true,
+        title: 'Chargement des commerces…',
+      );
+    }
+    if (_initialError != null) {
+      return _DirectoryMessage(
+        key: const Key('directory-error'),
+        icon: Icons.wifi_off_rounded,
+        title: 'Impossible de charger les commerces',
+        body: 'Vérifiez votre connexion puis réessayez.',
+        actionLabel: 'Réessayer',
+        onAction: _loadInitial,
+      );
+    }
+    if (_filter == _Filter.favorites) {
+      if (!_favoritesLoaded || _loadingFavoriteMerchants) {
+        return const _DirectoryMessage(
+            key: Key('directory-loading'),
+            loading: true,
+            title: 'Chargement de vos favoris…');
+      }
+      if (_favoritesFailed || _favoriteMerchantsFailed) {
+        return _DirectoryMessage(
+          key: const Key('directory-error'),
+          icon: Icons.wifi_off_rounded,
+          title: 'Impossible de charger vos favoris',
+          actionLabel: 'Réessayer',
+          onAction: () {
+            if (_favoritesFailed) {
+              _favoritesSubscription?.cancel();
+              setState(() => _favoritesLoaded = false);
+              _listenFavorites();
+            } else {
+              _ensureFavoriteMerchants();
+            }
+          },
+        );
+      }
+    }
+
+    final merchants = _visible;
+    if (merchants.isEmpty) {
+      if (_filter == _Filter.all && _query.isEmpty && !_hasMore) {
+        return const _DirectoryMessage(
+          key: Key('directory-empty'),
+          icon: Icons.storefront_outlined,
+          title: 'Aucun commerce pour le moment',
+          body: 'Les commerces partenaires apparaîtront ici.',
+        );
+      }
+      if (_filter == _Filter.favorites && _query.isEmpty) {
+        return const _DirectoryMessage(
+          key: Key('directory-no-favorites'),
+          icon: Icons.favorite_border_rounded,
+          title: 'Aucun commerce favori',
+          body: 'Touchez le cœur d’un commerce pour le retrouver ici.',
+        );
+      }
+      return ListView(
+        controller: _scrollController,
+        padding: const EdgeInsets.only(bottom: 24),
+        children: [
+          _DirectoryMessage(
+            key: const Key('directory-no-results'),
+            icon: Icons.search_off_rounded,
+            title: 'Aucun résultat',
+            body: _resultsArePartial
+                ? 'Aucun commerce chargé ne correspond.'
+                : 'Aucun commerce ne correspond à votre recherche.',
+            expand: false,
+          ),
+          if (_resultsArePartial || _moreError != null)
+            _DirectoryFooter(
+              loading: _loadingMore,
+              error: _moreError != null,
+              partial: _resultsArePartial,
+              loadedCount: _baseList.length,
+              onLoadMore: _loadMore,
+            ),
+        ],
+      );
+    }
+
+    final showFooter = _filter != _Filter.favorites &&
+        (_hasMore || _loadingMore || _moreError != null);
+    return ListView.separated(
+      key: const Key('directory-list'),
+      controller: _scrollController,
+      padding: const EdgeInsets.only(bottom: 24),
+      itemCount: merchants.length + (showFooter ? 1 : 0),
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        if (index == merchants.length) {
+          return _DirectoryFooter(
+            loading: _loadingMore,
+            error: _moreError != null,
+            partial: _resultsArePartial,
+            loadedCount: _baseList.length,
+            onLoadMore: _loadMore,
+          );
+        }
+        final merchant = merchants[index];
+        return DirectoryMerchantCard(
+          key: Key('directory-card-${merchant.id}'),
+          merchant: merchant,
+          hasActiveGame: _hasActiveGame(merchant),
+          photo: _photo(merchant),
+          isFavorite: _favoritesEnabled ? _isFavorite(merchant) : null,
+          favoriteBusy: _favoritePending.contains(merchant.id),
+          onTap: () => widget.onOpenMerchant(merchant),
+          onFavorite: () => _toggleFavorite(merchant),
+        );
+      },
+    );
+  }
+}
+
+class _DirectoryFooter extends StatelessWidget {
+  const _DirectoryFooter({
+    required this.loading,
+    required this.error,
+    required this.partial,
+    required this.loadedCount,
+    required this.onLoadMore,
+  });
+
+  final bool loading;
+  final bool error;
+  final bool partial;
+  final int loadedCount;
+  final VoidCallback onLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Padding(
+        key: Key('directory-loading-more'),
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+            child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2.5))),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(children: [
+        if (error)
+          const Text('Le chargement a échoué.',
+              key: Key('directory-more-error'),
+              style: TextStyle(color: _muted)),
+        TextButton(
+          key: const Key('directory-load-more'),
+          onPressed: onLoadMore,
+          style: TextButton.styleFrom(foregroundColor: merchantAccent),
+          child: Text(error ? 'Réessayer' : 'Voir plus de commerces'),
+        ),
+        // Discreet but explicit: the search is not exhaustive yet.
+        if (partial && !error)
+          Text(
+            'Recherche effectuée uniquement parmi les $loadedCount '
+            'commerces chargés.',
+            key: const Key('directory-partial-notice'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: _muted, fontSize: 12),
+          ),
+      ]),
+    );
+  }
+}
+
+class _DirectoryMessage extends StatelessWidget {
+  const _DirectoryMessage({
+    super.key,
+    required this.title,
+    this.body,
+    this.icon,
+    this.loading = false,
+    this.actionLabel,
+    this.onAction,
+    this.expand = true,
+  });
+
+  final String title;
+  final String? body;
+  final IconData? icon;
+  final bool loading;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final bool expand;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (loading)
+          const SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(strokeWidth: 3))
+        else if (icon != null)
+          Icon(icon, size: 40, color: merchantInk),
+        const SizedBox(height: 12),
+        Text(title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                color: merchantInk, fontSize: 16, fontWeight: FontWeight.w700)),
+        if (body != null) ...[
+          const SizedBox(height: 6),
+          Text(body!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: _muted, height: 1.35)),
+        ],
+        if (actionLabel != null) ...[
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: onAction,
+            style: FilledButton.styleFrom(backgroundColor: merchantAccent),
+            child: Text(actionLabel!),
+          ),
+        ],
+      ]),
+    );
+    if (!expand) return content;
+    return SingleChildScrollView(child: Center(child: content));
+  }
+}
+
+/// Horizontal merchant card (reference design): photo flush on the left over
+/// the full card height, name, two-line description, Google rating, optional
+/// "Jeu en cours" badge and an independent favorite heart.
+class DirectoryMerchantCard extends StatelessWidget {
+  const DirectoryMerchantCard({
+    super.key,
+    required this.merchant,
+    required this.hasActiveGame,
+    required this.photo,
+    required this.onTap,
+    required this.onFavorite,
+    this.isFavorite,
+    this.favoriteBusy = false,
+  });
+
+  final DirectoryMerchant merchant;
+  final bool hasActiveGame;
+  final Future<String> photo;
+  final VoidCallback onTap;
+  final VoidCallback onFavorite;
+
+  /// null hides the heart (no signed-in player).
+  final bool? isFavorite;
+  final bool favoriteBusy;
+
+  static const photoWidth = 96.0;
+  static const minHeight = 84.0;
+
+  /// Below this text width the badge leaves the name line for the rating line,
+  /// so a long name stays readable on a 320 px screen.
+  static const badgeBesideNameMinWidth = 210.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final description = merchant.description.trim();
+    final rating = merchant.ratingLabel;
+    final ratingText = rating == null
+        ? null
+        : merchant.googleReviewsCount != null
+            ? '$rating Google (${merchant.googleReviewsCount} avis)'
+            : '$rating Google';
+
+    final content = LayoutBuilder(builder: (context, constraints) {
+      final badgeBesideName =
+          hasActiveGame && constraints.maxWidth >= badgeBesideNameMinWidth;
+      final badgeOnRatingLine = hasActiveGame && !badgeBesideName;
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(
+              child: Text(
+                merchant.displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    color: merchantInk,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2),
+              ),
+            ),
+            if (badgeBesideName) ...[
+              const SizedBox(width: 6),
+              // Bounded: the badge text is Flexible.
+              ConstrainedBox(
+                constraints:
+                    BoxConstraints(maxWidth: constraints.maxWidth * 0.5),
+                child: const _ActiveGameBadge(),
+              ),
+            ],
+          ]),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style:
+                  const TextStyle(color: _muted, fontSize: 12.5, height: 1.3),
+            ),
+          ],
+          if (ratingText != null || badgeOnRatingLine) ...[
+            const SizedBox(height: 4),
+            // One line whatever the width: parts shrink with an ellipsis.
+            Row(children: [
+              if (ratingText != null) ...[
+                const Icon(Icons.star_rounded,
+                    color: Color(0xFFF5AB16), size: 17),
+                const SizedBox(width: 3),
+                Flexible(
+                  child: Text(ratingText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          const TextStyle(color: merchantInk, fontSize: 12.5)),
+                ),
+              ],
+              if (ratingText != null && badgeOnRatingLine)
+                const SizedBox(width: 6),
+              if (badgeOnRatingLine) const Flexible(child: _ActiveGameBadge()),
+            ]),
+          ],
+        ],
+      );
+    });
+
+    return Material(
+      color: merchantPaper,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: _cardBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: minHeight),
+          child: Stack(children: [
+            Padding(
+              padding: const EdgeInsets.only(left: photoWidth),
+              child: Row(children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+                    child: content,
+                  ),
+                ),
+                if (isFavorite != null)
+                  IconButton(
+                    key: Key('directory-favorite-${merchant.id}'),
+                    tooltip: isFavorite!
+                        ? 'Retirer des favoris'
+                        : 'Ajouter aux favoris',
+                    onPressed: favoriteBusy ? null : onFavorite,
+                    icon: Icon(
+                      isFavorite!
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color: merchantAccent,
+                      size: 24,
+                    ),
+                  )
+                else
+                  const SizedBox(width: 8),
+              ]),
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: photoWidth,
+              child: FutureBuilder<String>(
+                future: photo,
+                builder: (context, snapshot) =>
+                    MerchantPhotoContent(url: snapshot.data ?? ''),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActiveGameBadge extends StatelessWidget {
+  const _ActiveGameBadge();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        key: const Key('directory-active-game-badge'),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: _activeGameBackground,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.sports_esports_rounded, color: _activeGameText, size: 14),
+          SizedBox(width: 4),
+          Flexible(
+            child: Text('Jeu en cours',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: _activeGameText,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ]),
+      );
+}
