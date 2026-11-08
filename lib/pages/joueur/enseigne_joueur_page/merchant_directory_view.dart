@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 
 import '/components/merchant_presentation.dart';
+import '/utils/merchant_category_session_order.dart';
 import 'merchant_directory_logic.dart';
 import 'merchant_directory_source.dart';
 
@@ -31,18 +33,29 @@ class _Filter {
   int get hashCode => Object.hash(kind, category);
 }
 
-/// Compact, paginated list of merchants with search and one active filter.
+/// Compact list of merchants with search and one active filter, in a random
+/// order drawn once per opening (historic behaviour).
 ///
-/// Reads: one ongoing-games query, the merchants with a confirmed game (by id,
-/// 30 per query), then pages of [pageSize] merchants on demand. Favorites come
-/// from one page-level stream; a photo is read once, only for a displayed card.
+/// Firestore cannot order randomly, and a stored random field would only
+/// rotate one fixed permutation. The directory therefore reads the merchants
+/// once at opening ([batchSize] per query, at most [maxMerchants]), shuffles
+/// the whole list once with [random], and keeps that order for the session:
+/// scrolling, filters and search only read it. Cards and photos are still
+/// built progressively. Only beyond [maxMerchants] are further batches
+/// appended on demand, each shuffled on its own: that tail is not part of the
+/// global shuffle.
+///
+/// Other reads: one ongoing-games query for the badge (no ranking), one
+/// favorites stream; a photo is read once, only for a displayed card.
 class MerchantDirectoryView extends StatefulWidget {
   const MerchantDirectoryView({
     super.key,
     required this.source,
     required this.knownCategories,
     required this.onOpenMerchant,
-    this.pageSize = 30,
+    this.batchSize = 100,
+    this.maxMerchants = 500,
+    this.random,
     this.searchDebounce = const Duration(milliseconds: 300),
     this.now = DateTime.now,
   });
@@ -50,7 +63,11 @@ class MerchantDirectoryView extends StatefulWidget {
   final MerchantDirectorySource source;
   final List<String> knownCategories;
   final void Function(DirectoryMerchant merchant) onOpenMerchant;
-  final int pageSize;
+  final int batchSize;
+  final int maxMerchants;
+
+  /// Session shuffle source; a new one per opening when null.
+  final Random? random;
   final Duration searchDebounce;
   final DateTime Function() now;
 
@@ -65,8 +82,10 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
   String _query = '';
   _Filter _filter = _Filter.all;
 
+  late final Random _sessionRandom = widget.random ?? Random();
   ActiveGamesResult _active = ActiveGamesResult.unavailable;
-  List<DirectoryMerchant> _pinned = const [];
+
+  /// Session order: drawn once, then only appended to (beyond the cap).
   final List<DirectoryMerchant> _paged = [];
   final Set<String> _pagedIds = {};
   final Map<String, DirectoryMerchant> _extra = {};
@@ -142,29 +161,36 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
         .fetchActiveGames(widget.now())
         .catchError((Object _) => ActiveGamesResult.unavailable);
     try {
-      final page = await widget.source.fetchPage(limit: widget.pageSize);
-      final active = await activeFuture;
-      var pinned = <DirectoryMerchant>[];
-      if (active.complete && active.merchantIds.isNotEmpty) {
-        try {
-          pinned = await widget.source
-              .fetchByIds(active.merchantIds.toList()..sort());
-        } catch (_) {
-          // Ranking is optional; the badge still uses the confirmed ids.
+      final loaded = <DirectoryMerchant>[];
+      final seen = <String>{};
+      Object? cursor;
+      var hasMore = true;
+      while (hasMore && loaded.length < widget.maxMerchants) {
+        final remaining = widget.maxMerchants - loaded.length;
+        final page = await widget.source.fetchPage(
+            cursor: cursor,
+            limit: remaining < widget.batchSize ? remaining : widget.batchSize);
+        if (!mounted || generation != _generation) return;
+        for (final merchant in page.merchants) {
+          if (seen.add(merchant.id)) loaded.add(merchant);
         }
+        cursor = page.cursor;
+        hasMore = page.hasMore;
       }
+      final active = await activeFuture;
       if (!mounted || generation != _generation) return;
+      // One global shuffle for the whole session.
+      final ordered = shuffledSessionCopy(loaded, _sessionRandom);
       setState(() {
         _active = active;
-        _pinned = pinned.toList()..sort(compareDirectoryNames);
         _paged
           ..clear()
-          ..addAll(page.merchants);
+          ..addAll(ordered);
         _pagedIds
           ..clear()
-          ..addAll(page.merchants.map((m) => m.id));
-        _cursor = page.cursor;
-        _hasMore = page.hasMore;
+          ..addAll(ordered.map((m) => m.id));
+        _cursor = cursor;
+        _hasMore = hasMore;
         _initialLoading = false;
       });
       _fillViewport();
@@ -177,8 +203,8 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
     }
   }
 
-  /// Loads up to three pages until at least one merchant is added to the list
-  /// (a page can contain only merchants already shown first).
+  /// Only beyond [MerchantDirectoryView.maxMerchants]: appends the next batch,
+  /// shuffled on its own, after the session order (never reordering it).
   Future<void> _loadMore() async {
     if (_loadingMore || !_hasMore || _initialLoading) return;
     final generation = _generation;
@@ -190,16 +216,15 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
       var added = 0;
       for (var round = 0; round < 3 && _hasMore && added == 0; round++) {
         final page = await widget.source
-            .fetchPage(cursor: _cursor, limit: widget.pageSize);
+            .fetchPage(cursor: _cursor, limit: widget.batchSize);
         if (!mounted || generation != _generation) return;
         final fresh =
             page.merchants.where((m) => !_pagedIds.contains(m.id)).toList();
-        _paged.addAll(fresh);
+        _paged.addAll(shuffledSessionCopy(fresh, _sessionRandom));
         _pagedIds.addAll(fresh.map((m) => m.id));
         _cursor = page.cursor;
         _hasMore = page.hasMore;
-        final pinned = _pinnedIds;
-        added += fresh.where((m) => !pinned.contains(m.id)).length;
+        added += fresh.length;
       }
       if (!mounted) return;
       setState(() => _loadingMore = false);
@@ -236,39 +261,22 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
     }
   }
 
-  Set<String> get _pinnedIds => {for (final m in _pinned) m.id};
+  /// "Tous": every merchant, with or without a known category, in the
+  /// session order. No merchant is ranked first for having a game.
+  List<DirectoryMerchant> get _baseList => _paged;
 
-  /// "Tous": every merchant, with or without a known category. Confirmed
-  /// ongoing games first (only when the games query was complete), then the
-  /// stable page order.
-  List<DirectoryMerchant> get _baseList {
-    final pinned = _pinnedIds;
-    return [
-      ..._pinned,
-      ..._paged.where((m) => !pinned.contains(m.id)),
-    ];
-  }
+  /// Favorites in the session order; a favorite outside the loaded merchants
+  /// (only possible beyond the cap) follows, in a session-shuffled order.
+  List<DirectoryMerchant> get _favoriteList => [
+        ..._paged.where((m) => _favorites.containsKey(m.id)),
+        ..._extraOrder
+            .where(
+                (id) => _favorites.containsKey(id) && !_pagedIds.contains(id))
+            .map((id) => _extra[id])
+            .whereType<DirectoryMerchant>(),
+      ];
 
-  List<DirectoryMerchant> get _favoriteList {
-    final byId = <String, DirectoryMerchant>{
-      ..._extra,
-      for (final m in _paged) m.id: m,
-      for (final m in _pinned) m.id: m,
-    };
-    final list = _favorites.keys
-        .map((id) => byId[id])
-        .whereType<DirectoryMerchant>()
-        .toList();
-    list.sort((a, b) {
-      if (_active.complete) {
-        final byGame =
-            (_hasActiveGame(b) ? 1 : 0) - (_hasActiveGame(a) ? 1 : 0);
-        if (byGame != 0) return byGame;
-      }
-      return compareDirectoryNames(a, b);
-    });
-    return list;
-  }
+  final List<String> _extraOrder = [];
 
   List<DirectoryMerchant> get _visible {
     final source = switch (_filter.kind) {
@@ -292,7 +300,6 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
     final known = <String>{
       ..._extra.keys,
       ..._pagedIds,
-      ..._pinnedIds,
       ..._requestedFavoriteIds,
     };
     final missing = _favorites.keys.where((id) => !known.contains(id)).toList();
@@ -306,7 +313,8 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
       final merchants = await widget.source.fetchByIds(missing);
       if (!mounted) return;
       setState(() {
-        for (final merchant in merchants) {
+        for (final merchant in shuffledSessionCopy(merchants, _sessionRandom)) {
+          if (!_extra.containsKey(merchant.id)) _extraOrder.add(merchant.id);
           _extra[merchant.id] = merchant;
         }
         _loadingFavoriteMerchants = false;
@@ -426,8 +434,8 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
       );
 
   Widget _buildFilters() {
-    final categories = availableDirectoryCategories(
-        [..._pinned, ..._paged], widget.knownCategories);
+    final categories =
+        availableDirectoryCategories(_paged, widget.knownCategories);
     final filters = <(_Filter, String, Key)>[
       (_Filter.all, 'Tous', const Key('directory-filter-all')),
       if (_favoritesEnabled)

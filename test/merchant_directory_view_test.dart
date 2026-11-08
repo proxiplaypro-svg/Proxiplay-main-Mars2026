@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:proxi_play/pages/joueur/enseigne_joueur_page/merchant_directory_logic.dart';
 import 'package:proxi_play/pages/joueur/enseigne_joueur_page/merchant_directory_source.dart';
 import 'package:proxi_play/pages/joueur/enseigne_joueur_page/merchant_directory_view.dart';
+import 'package:proxi_play/utils/merchant_category_session_order.dart';
 
 const categories = [
   'Alimentation',
@@ -41,6 +43,9 @@ class FakeSource implements MerchantDirectorySource {
   Object? pageError;
   bool failActive = false;
 
+  /// Repeats the previous page's last merchant at the start of each next page.
+  bool overlapPages = false;
+
   @override
   Future<DirectoryPage> fetchPage({Object? cursor, required int limit}) async {
     pageCalls++;
@@ -49,7 +54,10 @@ class FakeSource implements MerchantDirectorySource {
     final end =
         start + limit > merchants.length ? merchants.length : start + limit;
     return DirectoryPage(
-      merchants: merchants.sublist(start, end),
+      merchants: [
+        if (overlapPages && start > 0) merchants[start - 1],
+        ...merchants.sublist(start, end),
+      ],
       cursor: end,
       hasMore: end < merchants.length,
     );
@@ -125,12 +133,26 @@ DirectoryMerchant merchant(
 
 final opened = <DirectoryMerchant>[];
 
+/// List.shuffle swaps position `length - 1` with `nextInt(length)`:
+/// always answering `max - 1` keeps the original order.
+class KeepOrderRandom implements Random {
+  @override
+  int nextInt(int max) => max - 1;
+  @override
+  double nextDouble() => 0;
+  @override
+  bool nextBool() => false;
+}
+
 Future<void> pumpDirectory(
   WidgetTester tester,
   FakeSource source, {
   Size size = const Size(390, 844),
   double textScale = 1.0,
-  int pageSize = 30,
+  int batchSize = 100,
+  int maxMerchants = 500,
+  Random? random,
+  Object? openingKey,
 }) async {
   opened.clear();
   tester.view.physicalSize = size;
@@ -145,11 +167,13 @@ Future<void> pumpDirectory(
         body: Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
           child: MerchantDirectoryView(
-            key: ObjectKey(source),
+            key: ObjectKey(openingKey ?? source),
             source: source,
             knownCategories: categories,
             onOpenMerchant: opened.add,
-            pageSize: pageSize,
+            batchSize: batchSize,
+            maxMerchants: maxMerchants,
+            random: random ?? KeepOrderRandom(),
             now: () => DateTime(2026, 11, 8, 12),
           ),
         ),
@@ -221,9 +245,8 @@ void main() {
 
     expect(source.activeCalls, 1);
     expect(source.pageCalls, 1);
-    expect(source.byIdCalls, [
-      ['m7', 'm9']
-    ]);
+    expect(source.byIdCalls, isEmpty,
+        reason: 'aucun commerce n’est relu pour être placé en tête');
     expect(source.favoritesStreams, 1, reason: 'un seul flux favoris par page');
     final firstPhotos = source.photoCalls.toList();
     expect(firstPhotos.toSet().length, firstPhotos.length);
@@ -240,8 +263,8 @@ void main() {
   });
 
   testWidgets(
-      'jeux confirmés en premier si la requête est complète ; sinon ordre '
-      'stable et badge conservé', (tester) async {
+      'aucune priorité aux jeux en cours : l’ordre de session est conservé, '
+      'le badge reste affiché', (tester) async {
     final merchants = [
       merchant('a', name: 'Alpha'),
       merchant('b', name: 'Bravo'),
@@ -249,7 +272,8 @@ void main() {
     ];
     var source = FakeSource(merchants: merchants, activeIds: {'c'});
     await pumpDirectory(tester, source);
-    expect(cardIds(tester), ['c', 'a', 'b']);
+    expect(cardIds(tester), ['a', 'b', 'c']);
+    expect(source.byIdCalls, isEmpty);
 
     source = FakeSource(
         merchants: merchants, activeIds: {'c'}, activeComplete: false);
@@ -309,8 +333,8 @@ void main() {
       for (var i = 0; i < 10; i++) merchant('m$i'),
       merchant('z', name: 'Zinc Café'),
     ]);
-    await pumpDirectory(tester, source, pageSize: 10);
-    expect(source.pageCalls, 1, reason: 'la première page remplit l’écran');
+    await pumpDirectory(tester, source, batchSize: 10, maxMerchants: 10);
+    expect(source.pageCalls, 1, reason: 'plafond atteint : 10 chargés');
 
     await search(tester, 'zinc');
     expect(find.byKey(const Key('directory-no-results')), findsOneWidget);
@@ -375,7 +399,7 @@ void main() {
         'far': ['fav/far']
       },
     );
-    await pumpDirectory(tester, source, pageSize: 10);
+    await pumpDirectory(tester, source, batchSize: 10, maxMerchants: 10);
     expect(source.pageCalls, 1);
 
     await tester.tap(find.byKey(const Key('directory-favorite-a')));
@@ -444,12 +468,12 @@ void main() {
     expect(cardIds(tester), ['a']);
   });
 
-  testWidgets('chargement progressif au défilement, ordre stable',
+  testWidgets('au-delà du plafond : suite chargée au défilement, sans doublon',
       (tester) async {
     final source = FakeSource(merchants: [
       for (var i = 0; i < 25; i++) merchant('m${i.toString().padLeft(2, '0')}')
     ]);
-    await pumpDirectory(tester, source, pageSize: 10);
+    await pumpDirectory(tester, source, batchSize: 10, maxMerchants: 10);
     final initialPages = source.pageCalls;
     expect(initialPages, greaterThanOrEqualTo(1));
 
@@ -466,6 +490,161 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Commerce m24'), findsOneWidget);
     expect(source.pageCalls, 3, reason: 'aucune page de trop');
+  });
+
+  group('ordre aléatoire de session', () {
+    final all = [for (var i = 0; i < 10; i++) merchant('s$i')];
+    List<String> shuffled(int seed, [List<DirectoryMerchant>? items]) =>
+        shuffledSessionCopy(items ?? all, Random(seed))
+            .map((m) => m.id)
+            .toList();
+    // Tall surface: every card is built, so the full order is visible.
+    const tall = Size(390, 2400);
+
+    testWidgets(
+        'mélange global en une fois, même chargé par lots (pas lot par lot)',
+        (tester) async {
+      final source = FakeSource(merchants: all);
+      await pumpDirectory(tester, source,
+          size: tall, batchSize: 4, random: Random(7));
+      expect(source.pageCalls, 3, reason: '10 commerces lus par lots de 4');
+      expect(cardIds(tester), shuffled(7));
+      // A per-batch shuffle would keep s0..s3 in the first four places.
+      expect(cardIds(tester).take(4).toSet(), isNot({'s0', 's1', 's2', 's3'}));
+    });
+
+    testWidgets('nouvel ordre à chaque ouverture de la page', (tester) async {
+      final source = FakeSource(merchants: all);
+      await pumpDirectory(tester, source,
+          size: tall, random: Random(1), openingKey: 'ouverture-1');
+      final first = cardIds(tester);
+      await pumpDirectory(tester, source,
+          size: tall, random: Random(2), openingKey: 'ouverture-2');
+      final second = cardIds(tester);
+      expect(first, shuffled(1));
+      expect(second, shuffled(2));
+      expect(second, isNot(first));
+      expect(source.pageCalls, 2, reason: 'chaque ouverture relit la liste');
+      for (final order in [first, second]) {
+        expect(order.toSet(), all.map((m) => m.id).toSet());
+        expect(order.length, all.length);
+      }
+    });
+
+    testWidgets(
+        'ordre conservé pendant la consultation : défilement, filtres, '
+        'recherche et favoris', (tester) async {
+      final source = FakeSource(
+        merchants: [
+          for (var i = 0; i < 10; i++)
+            merchant('s$i',
+                cats: [i.isEven ? 'Alimentation' : 'Restaurants & bars'])
+        ],
+        favorites: {
+          for (final id in ['s1', 's4', 's8']) id: ['fav/$id']
+        },
+      );
+      await pumpDirectory(tester, source, size: tall, random: Random(3));
+      final session = cardIds(tester);
+      List<String> inSession(bool Function(String id) keep) =>
+          session.where(keep).toList();
+
+      await tester.drag(
+          find.byKey(const Key('directory-list')), const Offset(0, -600));
+      await tester.pumpAndSettle();
+      await tester.drag(
+          find.byKey(const Key('directory-list')), const Offset(0, 600));
+      await tester.pumpAndSettle();
+      expect(cardIds(tester), session);
+
+      await tester
+          .tap(find.byKey(const Key('directory-filter-category-Alimentation')));
+      await tester.pumpAndSettle();
+      expect(cardIds(tester),
+          inSession((id) => int.parse(id.substring(1)).isEven));
+
+      await tester.tap(find.byKey(const Key('directory-filter-favorites')));
+      await tester.pumpAndSettle();
+      expect(cardIds(tester), inSession({'s1', 's4', 's8'}.contains));
+
+      await tester.tap(find.byKey(const Key('directory-filter-all')));
+      await tester.pumpAndSettle();
+      await search(tester, 'commerce');
+      expect(cardIds(tester), session);
+      await search(tester, 's');
+      expect(cardIds(tester), session);
+      await tester.tap(find.byKey(const Key('directory-search-clear')));
+      await tester.pumpAndSettle();
+      expect(cardIds(tester), session);
+      expect(source.pageCalls, 1, reason: 'rien n’est relu ni remélangé');
+    });
+
+    testWidgets(
+        'retour depuis une fiche et reconstruction de la page : ni relecture '
+        'ni nouveau mélange', (tester) async {
+      final source = FakeSource(merchants: all);
+      await pumpDirectory(tester, source, size: tall, random: Random(4));
+      final session = cardIds(tester);
+      final photos = source.photoCalls.length;
+
+      // A merchant page is pushed above the directory (pushNamed), then popped.
+      tester.state<NavigatorState>(find.byType(Navigator)).push(
+          MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('fiche'))));
+      await tester.pumpAndSettle();
+      expect(find.text('fiche'), findsOneWidget);
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+
+      // The page rebuilds its directory (keyboard, app bar...): same state.
+      await pumpDirectory(tester, source, size: tall, random: Random(99));
+
+      expect(cardIds(tester), session);
+      expect(source.pageCalls, 1);
+      expect(source.activeCalls, 1);
+      expect(source.favoritesStreams, 1);
+      expect(source.photoCalls.length, photos, reason: 'photos en cache');
+    });
+
+    testWidgets('aucun doublon ni omission, même si les lots se chevauchent',
+        (tester) async {
+      final source = FakeSource(merchants: all)..overlapPages = true;
+      await pumpDirectory(tester, source,
+          size: tall, batchSize: 3, random: Random(11));
+      final ids = cardIds(tester);
+      expect(ids.length, all.length);
+      expect(ids.toSet(), all.map((m) => m.id).toSet());
+    });
+
+    testWidgets('un commerce avec jeu en cours n’est pas forcé en tête',
+        (tester) async {
+      final order = shuffled(5);
+      final source = FakeSource(merchants: all, activeIds: {order.last});
+      await pumpDirectory(tester, source, size: tall, random: Random(5));
+      expect(cardIds(tester), order);
+      expect(
+          find.descendant(
+              of: find.byKey(Key('directory-card-${order.last}')),
+              matching: find.text('Jeu en cours')),
+          findsOneWidget);
+    });
+
+    testWidgets(
+        'au-delà du plafond seulement : le reste s’ajoute après, sans '
+        'modifier l’ordre déjà affiché', (tester) async {
+      final source = FakeSource(merchants: all);
+      await pumpDirectory(tester, source,
+          size: tall, batchSize: 6, maxMerchants: 6, random: Random(9));
+      // The screen is not full: the view itself loads the tail at once.
+      final ids = cardIds(tester);
+      expect(source.pageCalls, 2);
+      expect(ids.take(6), shuffled(9, all.sublist(0, 6)),
+          reason: 'l’ordre des 6 premiers n’est jamais modifié');
+      expect(ids.skip(6).toSet(), {'s6', 's7', 's8', 's9'},
+          reason: 'la suite est ajoutée après, sans s’intercaler');
+      expect(ids.toSet(), all.map((m) => m.id).toSet());
+      expect(ids.length, all.length);
+    });
   });
 
   for (final (label, size) in [

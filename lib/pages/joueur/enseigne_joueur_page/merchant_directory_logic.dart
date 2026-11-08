@@ -150,9 +150,3 @@ class ActiveGamesResult {
   final Set<String> merchantIds;
   final bool complete;
 }
-
-int compareDirectoryNames(DirectoryMerchant a, DirectoryMerchant b) {
-  final byName = normalizeDirectoryText(a.displayName)
-      .compareTo(normalizeDirectoryText(b.displayName));
-  return byName != 0 ? byName : a.id.compareTo(b.id);
-}
