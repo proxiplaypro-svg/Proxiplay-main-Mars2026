@@ -5429,18 +5429,27 @@ exports.notifyPrizeWon = functions
       "L\u2019\u00E9quipe ProxiPlay",
     ].join("\n");
 
+    // A referral game prize has no shop: never say "chez votre enseigne".
+    const isReferralGamePrize = prizeData.prize_type === "referral_game";
     const playerEmailSubject = `Bravo ${winnerFirstName}, vous avez gagn\u00E9 !`;
     const playerEmailBody = [
       `Bonjour ${winnerFirstName},`,
-      `F\u00E9licitations, vous avez remport\u00E9 ${prizeName} offert par ${shopName}`,
+      isReferralGamePrize
+        ? `F\u00E9licitations, vous avez remport\u00E9 ${prizeName} au jeu du parrainage ProxiPlay.`
+        : `F\u00E9licitations, vous avez remport\u00E9 ${prizeName} offert par ${shopName}`,
       prizeData.fulfillment_type === "platform" ? `Remise organisée par ProxiPlay. Code : ${claimCode}` : `Votre code à présenter au commerçant / partenaire : ${claimCode}`,
+      ...(isReferralGamePrize ? ["Votre lot vous attend dans \u00AB Mes lots \u00BB de l\u2019application."] : []),
       prizeData.fulfillment_type === "platform" ? "Contactez ProxiPlay pour recevoir votre lot." : `Retrouvez la boutique ici : ${shopLink}`,
       "Continuez \u00E0 jouer chaque jour pour multiplier vos chances !",
       "\u00C0 tr\u00E8s vite sur ProxiPlay",
     ].join("\n");
 
-    const playerPushTitle = "Vous avez gagn\u00E9 !";
-    const playerPushBody = `Vous avez gagn\u00E9 ${prizeName} chez ${shopName}\nCode : ${claimCode}`;
+    const playerPushTitle = isReferralGamePrize
+      ? "Vous avez gagn\u00E9 le jeu du parrainage !"
+      : "Vous avez gagn\u00E9 !";
+    const playerPushBody = isReferralGamePrize
+      ? `${prizeName}\nRetrouvez votre lot dans \u00AB Mes lots \u00BB. Code : ${claimCode}`
+      : `Vous avez gagn\u00E9 ${prizeName} chez ${shopName}\nCode : ${claimCode}`;
     const merchantPushTitle = "Nouveau gagnant";
     const merchantPushBody =
       `${winnerFullName} de (${winnerCity}) a gagné ${prizeName}\n` +
