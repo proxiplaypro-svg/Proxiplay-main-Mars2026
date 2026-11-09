@@ -6,7 +6,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const admin = require('firebase-admin');
 const {initializeTestEnvironment, assertSucceeds, assertFails} = require('@firebase/rules-unit-testing');
-if (!admin.apps.length) admin.initializeApp();
+// Explicit project: under `emulators:exec --project <other>`, FIREBASE_CONFIG
+// would point the Admin SDK at another project than the rules environment.
+if (!admin.apps.length) admin.initializeApp({projectId: process.env.GCLOUD_PROJECT});
 const db = admin.firestore();
 const {merchantPrizesPage, getMerchantPrizes} = require('../merchant_prizes');
 let env;
