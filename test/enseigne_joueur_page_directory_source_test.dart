@@ -9,10 +9,12 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final page = File(
           'lib/pages/joueur/enseigne_joueur_page/enseigne_joueur_page_widget.dart')
-      .readAsStringSync();
+      .readAsStringSync()
+      .replaceAll('\r\n', '\n');
   final source = File(
           'lib/pages/joueur/enseigne_joueur_page/merchant_directory_source.dart')
-      .readAsStringSync();
+      .readAsStringSync()
+      .replaceAll('\r\n', '\n');
   final playerNavigation =
       File('lib/components/custom_nav_bar_joueur_widget.dart')
           .readAsStringSync()
