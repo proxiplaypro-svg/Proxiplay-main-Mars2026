@@ -535,6 +535,46 @@ test("a started game schedules new unassigned occurrences from server now", () =
   assert.equal(plan.missingPayloads[0].payload.dateMs, 600);
 });
 
+// Historical rule: once an instant is reached, the first eligible player who
+// participates afterwards wins it (participation consumes every
+// hasWinner == false instant with date <= now). An admin repair must never
+// push such a due instant back into the future.
+test("a repair preserves reached, unassigned instants of an unchanged configuration", () => {
+  const initial = planInstantWinnerReconciliation({
+    gameId: "reached", startDateMs: 0, endDateMs: 1000, nowMs: 0,
+    secondaryPrizes: [{name: "Lot", count: 2}], randomUnit: () => 0.1,
+  });
+  const repair = planInstantWinnerReconciliation({
+    gameId: "reached", startDateMs: 0, endDateMs: 1000, nowMs: 500,
+    secondaryPrizes: [{name: "Lot", count: 2}],
+    existingEntries: persistedEntriesFromPlan(initial), randomUnit: () => 0.9,
+  });
+  assert.equal(repair.preservedEntries.length, 2);
+  assert.equal(repair.replacementPayloads.length, 0);
+  assert.equal(repair.missingPayloads.length, 0);
+  assert.equal(repair.deleteEntries.length, 0);
+  repair.preservedEntries.forEach((entry) => assert.equal(entry.dateMs, 100));
+});
+
+test("a repair keeps a reached legacy instant due and only schedules the missing one", () => {
+  const plan = planInstantWinnerReconciliation({
+    gameId: "legacy", startDateMs: 0, endDateMs: 1000, nowMs: 500,
+    secondaryPrizes: [{name: "Lot A", presentation: "Fixture", count: 2}],
+    existingEntries: [{
+      id: "instant_0", dateMs: 400, hasWinner: false,
+      secondary_prize_index: 0, secondary_prize_occurrence_index: 0,
+      secondary_prize_name: "Lot A", secondary_prize_presentation: "Fixture",
+    }],
+    randomUnit: () => 0,
+  });
+  assert.deepEqual(plan.preservedEntries.map((entry) => entry.id), ["instant_0"]);
+  assert.equal(plan.replacementPayloads.length, 0);
+  assert.equal(plan.deleteEntries.length, 0);
+  assert.equal(plan.missingPayloads.length, 1);
+  assert.equal(plan.missingPayloads[0].payload.secondary_prize_occurrence_index, 1);
+  assert.ok(plan.missingPayloads[0].payload.dateMs >= 500);
+});
+
 test("a game without a future scheduling window fails before mutations", () => {
   assert.throws(() => planInstantWinnerReconciliation({
     gameId: "ended", startDateMs: 0, endDateMs: 1000, nowMs: 1000,

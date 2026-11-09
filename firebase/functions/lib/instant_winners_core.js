@@ -244,7 +244,22 @@ function planInstantWinnerReconciliation({
         getTrimmedString(existingEntry.secondary_prize_name) === payload.secondary_prize_name &&
         hasSameOptionalPresentation(existingEntry, payload);
 
-      if (isCurrentConfiguration) {
+      // Historical game rule: once an instant is reached, the first eligible
+      // player who participates afterwards wins it (participation consumes
+      // every hasWinner == false instant with date <= now). A reached,
+      // unassigned occurrence of the same prize inside the current game
+      // window is therefore already due: a repair must keep it as is, even
+      // when it predates the configuration fingerprint, instead of moving it
+      // back into the future.
+      const isReachedDueInstant =
+        Number.isFinite(nowMs) &&
+        Number.isFinite(existingDateMs) &&
+        existingDateMs >= startDateMs &&
+        existingDateMs <= Math.min(nowMs, endDateMs) &&
+        getTrimmedString(existingEntry.secondary_prize_name) === payload.secondary_prize_name &&
+        hasSameOptionalPresentation(existingEntry, payload);
+
+      if (isCurrentConfiguration || isReachedDueInstant) {
         preservedEntries.push(existingEntry);
         return;
       }

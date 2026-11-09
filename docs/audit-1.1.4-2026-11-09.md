@@ -13,7 +13,7 @@ Légende : **[T]** terminé et testé · **[M]** modifié, validation incomplèt
 | Suite | Résultat |
 |---|---|
 | Functions, 104 fichiers, Node 20, avant intervention | 1.1.3 et 1.1.4 : mêmes 13 échecs + 1 annulé |
-| Functions, après interventions, Node 22.23.4 | 880 tests, 879 réussis, 1 échec (§5.1) |
+| Functions, après interventions, Node 22.23.4 | 882 tests, 882 réussis (après correction §5.1) |
 | Scénario QR 350 instants (long, isolé) | 4/4 en 11 min |
 | `flutter analyze` | 0 erreur, 23 avertissements, 163 infos (base 1.1.3) |
 | `flutter test` | 724/724 après correction d'un test (§2) |
@@ -26,7 +26,7 @@ Origine des 14 cas de la 1.1.3 :
 | `merchant_prizes` (3-4) | environnement : SDK Admin sur un autre projet | [T] projet explicite dans le test |
 | `storage_rules_ads` (3) | environnement : émulateur Storage absent | [T] 3/3 avec Storage |
 | `scenario_qr_year_350_instants` (1) | environnement : délai de 120 s | [T] 4/4 sans délai court |
-| `game_lifecycle_instant` (1) | règle de jeu à trancher | [D] voir §5 |
+| `game_lifecycle_instant` (1) | régression de `11dfab9` : instants atteints replanifiés | [T] logique de réparation corrigée, voir §5.1 |
 | `operator_prize_claim` | jamais en échec (erreur d'attribution initiale) | — |
 
 ## 2. Commits
@@ -71,11 +71,20 @@ Source : `prize_merchant_notification_policy.js` (6a16eda) et Admin
 
 ## 5. Décisions métier à prendre
 
-1. **Réparation d'un calendrier d'instants gagnants** (`game_lifecycle_instant`) :
-   depuis `11dfab9` (06/10), une réparation admin sur un jeu commencé replanifie
-   aussi un instant passé non gagné (créé 2, attendu 1). Un instant passé non
-   gagné doit-il rester « dû » (gagné par le prochain joueur) ou être
-   replanifié ? Code et test laissés en l'état.
+1. **Réparation d'un calendrier d'instants gagnants** — *tranché le 09/11,
+   corrigé.* Règle historique confirmée : un instant atteint est gagné par le
+   premier joueur éligible qui participe ensuite (la participation consomme
+   tout instant `hasWinner == false` et `date <= now`). Depuis `11dfab9`
+   (06/10), `planInstantWinnerReconciliation` ne conservait une occurrence non
+   gagnée que si sa date était `>= max(début, maintenant)` et si elle portait
+   l'empreinte de configuration : une réparation admin repoussait donc dans le
+   futur un instant déjà dû. Correctif : une occurrence non attribuée du même
+   lot (nom et présentation), datée entre le début du jeu et
+   `min(maintenant, fin)`, est conservée telle quelle ; seules les occurrences
+   manquantes sont planifiées à partir de maintenant. Inchangé : refus pour un
+   commerçant sur un jeu commencé, refus sur un jeu terminé, remplacement des
+   instants futurs d'une configuration modifiée. Tests : `instant_winners_core`
+   (2 cas ajoutés), `game_lifecycle_instant` réussi.
 2. **Bonus** : `resetDailyRemainingParts` remet chaque joueur à 3 parties à
    minuit (Paris) ; aucun report des parties bonus. Conserver ou non ?
 3. **Date de naissance modifiable par le joueur** (`isSafeSelfUserUpdate`) : elle
@@ -104,7 +113,7 @@ fichier). Redéployer depuis 1.1.4 apporte donc toujours du code nouveau.
 | G1 L13 `6ba5f99` | 8 | autoManageReferralGames, drawReferralGameWinner, inscriptions parrainage… | iso-production, après le passage de 14:30 |
 | G0 L10 `4c87e82` | 4 | notifyPrizeWon, getMerchantPrizes, searchMerchantPrizeCodes, syncPrizeSearchCode | **depuis 1.1.4** (texte parrainage, quotas « Vérifier ») |
 | G6 `fb56b4f` | 1 | enforceSingleActiveReferralGame | **depuis 1.1.4**, avec adminReconcileReferralGameTickets |
-| G7 L07 `41ebff0` | 1 | generateInstantWinnersForGame | après la décision §5.1 |
+| G7 L07 `41ebff0` | 1 | generateInstantWinnersForGame | **depuis 1.1.4** (correctif §5.1) |
 
 Hors périmètre : 14 fonctions Admin (gen2), 4 orphelines. Attention :
 `unlockCommercantAccount` (orpheline) est appelée par l'écran admin de l'app
@@ -121,8 +130,8 @@ Runtime Config, dépréciée ; vérifier à chaque déploiement que
 
 Suite complète (103 fichiers, scénario QR 350 exécuté à part) avec Node
 22.23.4, émulateurs Firestore + Auth + Storage, après tous les commits de la
-session : **880 tests, 879 réussis, 1 échec** — le cas `game_lifecycle_instant`
-en attente de décision (§5.1), identique sous Node 20. Aucune incompatibilité
+session : **882 tests, 882 réussis** après la correction du §5.1 (avant :
+880 tests, 1 échec `game_lifecycle_instant`, identique sous Node 20). Aucune incompatibilité
 Node 22 constatée.
 
 ## 8. Audit fonctionnel de l'app (analyse de code, sans appareil)
