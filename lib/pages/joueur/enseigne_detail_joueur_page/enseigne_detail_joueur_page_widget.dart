@@ -10,10 +10,12 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/widgets/proxiplay_loading_logo.dart';
 import '/widgets/proxiplay_network_image.dart';
 import '/utils/player_game_visibility.dart';
+import '/utils/external_link.dart';
 
 import '/index.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'enseigne_detail_joueur_page_model.dart';
 export 'enseigne_detail_joueur_page_model.dart';
@@ -521,26 +523,12 @@ class _EnseigneDetailJoueurPageWidgetState
                       if (images.isEmpty) return const MerchantPhotoContent();
                       return Stack(children: [
                         PageView.builder(
+                          key: const Key('merchant-photo-carousel'),
                           itemCount: images.length,
                           onPageChanged: (index) =>
                               setState(() => _model.currentImageIndex = index),
-                          itemBuilder: (context, index) => InkWell(
-                              onTap: () => Navigator.of(context)
-                                      .push(MaterialPageRoute<void>(
-                                    builder: (_) => Scaffold(
-                                      backgroundColor: merchantInk,
-                                      appBar: AppBar(
-                                          backgroundColor: merchantInk,
-                                          foregroundColor: merchantPaper),
-                                      body: Center(
-                                          child: InteractiveViewer(
-                                              child: ProxiplayNetworkImage(
-                                                  imageUrl: images[index].url,
-                                                  fit: BoxFit.contain))),
-                                    ),
-                                  )),
-                              child:
-                                  MerchantPhotoContent(url: images[index].url)),
+                          itemBuilder: (context, index) =>
+                              MerchantPhotoContent(url: images[index].url),
                         ),
                         if (images.length > 1)
                           Positioned(
@@ -615,6 +603,63 @@ class _EnseigneDetailJoueurPageWidgetState
             ])),
       );
 
+  /// Brand marks (font_awesome_flutter, already a dependency) in their
+  /// official colours, all readable on white; the site keeps the app accent.
+  static const _externalLinkIcons = <String, (FaIconData, Color)>{
+    'Site web': (FontAwesomeIcons.globe, merchantAccent),
+    'Instagram': (FontAwesomeIcons.instagram, Color(0xFFE4405F)),
+    'Facebook': (FontAwesomeIcons.facebook, Color(0xFF1877F2)),
+    'X': (FontAwesomeIcons.xTwitter, Color(0xFF000000)),
+  };
+
+  /// Contact actions without border or background, at least 48 x 48 px.
+  static final _contactActionStyle = TextButton.styleFrom(
+      foregroundColor: merchantAccent,
+      backgroundColor: Colors.transparent,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      minimumSize: const Size(48, 48),
+      tapTargetSize: MaterialTapTargetSize.padded,
+      shape: const StadiumBorder());
+
+  /// Directions and phone: icon and text, no frame.
+  Widget _contactTextAction(
+          {required Key key,
+          required IconData icon,
+          required String label,
+          required VoidCallback onPressed}) =>
+      TextButton.icon(
+          key: key,
+          style: _contactActionStyle,
+          onPressed: onPressed,
+          icon: Icon(icon, size: 22),
+          label: Text(label,
+              style: const TextStyle(
+                  color: merchantInk, fontWeight: FontWeight.w600)));
+
+  /// Web site, Instagram, Facebook, X: the logo alone, in its official
+  /// colour. The visible label is gone, so the name is given to screen
+  /// readers (merged into the button) and shown on long press.
+  Widget _externalLinkButton(String label, String url) {
+    final (icon, color) =
+        _externalLinkIcons[label] ?? (FontAwesomeIcons.globe, merchantAccent);
+    return IconButton(
+      key: Key('merchant-link-$label'),
+      tooltip: label,
+      style: IconButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          minimumSize: const Size(48, 48),
+          tapTargetSize: MaterialTapTargetSize.padded),
+      // Outside the app (Instagram, Facebook, browser…), see external_link.dart.
+      onPressed: () => openMerchantExternalLink(url),
+      icon: Semantics(
+          label: label,
+          child: SizedBox(
+              width: 26,
+              height: 26,
+              child: Center(child: FaIcon(icon, size: 24, color: color)))),
+    );
+  }
+
   Widget _practicalInformation(EnseignesRecord merchant) {
     final address = merchantAddress(merchant);
     final links = <(String, String?)>[
@@ -634,41 +679,42 @@ class _EnseigneDetailJoueurPageWidgetState
                     address.isEmpty ? 'Adresse non renseignée' : address,
                     style: const TextStyle(color: merchantInk, height: 1.5))),
           ]),
-          const SizedBox(height: 12),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            if (address.isNotEmpty)
-              OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                      foregroundColor: merchantAccent,
-                      side: const BorderSide(color: Color(0xFFE7D5DF))),
-                  onPressed: () => launchURL(
-                      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}'),
-                  icon: const Icon(Icons.directions_outlined),
-                  label: const Text('Itinéraire')),
-            if (merchant.phoneNumber.trim().isNotEmpty)
-              OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                      foregroundColor: merchantAccent,
-                      side: const BorderSide(color: Color(0xFFE7D5DF))),
-                  onPressed: () =>
-                      launchURL('tel:${merchant.phoneNumber.trim()}'),
-                  icon: const Icon(Icons.phone_outlined),
-                  label: Text(merchant.phoneNumber.trim())),
-          ]),
+          const SizedBox(height: 8),
+          // Practical actions and social profiles intentionally occupy two
+          // rows: contact first, then a single horizontal strip of logos.
+          Wrap(
+              key: const Key('merchant-contact-row'),
+              spacing: 4,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (address.isNotEmpty)
+                  _contactTextAction(
+                      key: const Key('merchant-contact-directions'),
+                      icon: Icons.directions_outlined,
+                      label: 'Itinéraire',
+                      onPressed: () => openMerchantExternalLink(
+                          'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}')),
+                if (merchant.phoneNumber.trim().isNotEmpty)
+                  _contactTextAction(
+                      key: const Key('merchant-contact-phone'),
+                      icon: Icons.phone_outlined,
+                      label: merchant.phoneNumber.trim(),
+                      onPressed: () =>
+                          launchURL('tel:${merchant.phoneNumber.trim()}')),
+              ]),
           if (links.any((link) => link.$2 != null)) ...[
-            const SizedBox(height: 8),
-            Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: links
-                    .where((link) => link.$2 != null)
-                    .map((link) => TextButton.icon(
-                        style: TextButton.styleFrom(
-                            foregroundColor: merchantAccent),
-                        onPressed: () => launchURL(link.$2!),
-                        icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                        label: Text(link.$1)))
-                    .toList()),
+            const SizedBox(height: 2),
+            // Social icons remain together; horizontal scrolling is only a
+            // fallback for exceptionally narrow screens or large text.
+            SingleChildScrollView(
+              key: const Key('merchant-social-row'),
+              scrollDirection: Axis.horizontal,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                for (final link in links)
+                  if (link.$2 != null) _externalLinkButton(link.$1, link.$2!),
+              ]),
+            ),
           ],
           const Padding(
               padding: EdgeInsets.symmetric(vertical: 14),

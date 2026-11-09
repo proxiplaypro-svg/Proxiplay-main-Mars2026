@@ -1,4 +1,4 @@
-﻿import '/backend/backend.dart';
+import '/backend/backend.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
 import '/components/custom_nav_bar_admin_widget.dart';
 import '/components/list_empty_component_widget.dart';
@@ -105,7 +105,8 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                           builderDelegate: PagedChildBuilderDelegate<
                               AccountDeletionRequestsRecord>(
                             // Customize what your widget looks like when it's loading the first page.
-                            firstPageProgressIndicatorBuilder: (_) => const Center(
+                            firstPageProgressIndicatorBuilder: (_) =>
+                                const Center(
                               child: SizedBox(
                                 width: 50.0,
                                 height: 50.0,
@@ -113,17 +114,20 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                               ),
                             ),
                             // Customize what your widget looks like when it's loading another page.
-                            newPageProgressIndicatorBuilder: (_) => const Center(
+                            newPageProgressIndicatorBuilder: (_) =>
+                                const Center(
                               child: SizedBox(
                                 width: 50.0,
                                 height: 50.0,
                                 child: SizedBox.shrink(),
                               ),
                             ),
-                            noItemsFoundIndicatorBuilder: (_) =>
-                                const ListEmptyComponentWidget(
-                              title: 'Liste vide',
-                              description: 'Aucune demande de suppression',
+                            noItemsFoundIndicatorBuilder: (_) => const SizedBox(
+                              height: 180.0,
+                              child: ListEmptyComponentWidget(
+                                title: 'Liste vide',
+                                description: 'Aucune demande de suppression',
+                              ),
                             ),
                             itemBuilder: (context, _, listViewIndex) {
                               final listViewAccountDeletionRequestsRecord =
@@ -197,8 +201,7 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                 child: SizedBox(
                                                   width: 50.0,
                                                   height: 50.0,
-                                                  child:
-                                                      SizedBox.shrink(),
+                                                  child: SizedBox.shrink(),
                                                 ),
                                               );
                                             }
@@ -210,18 +213,21 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 Padding(
-                                                  padding: const EdgeInsets.all(12.0),
+                                                  padding: const EdgeInsets.all(
+                                                      12.0),
                                                   child: Container(
                                                     width: double.infinity,
                                                     decoration: BoxDecoration(
-                                                      color: const Color(0xFFF5F5F5),
+                                                      color: const Color(
+                                                          0xFFF5F5F5),
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                               8.0),
                                                     ),
                                                     child: Padding(
                                                       padding:
-                                                          const EdgeInsets.all(12.0),
+                                                          const EdgeInsets.all(
+                                                              12.0),
                                                       child: Row(
                                                         mainAxisSize:
                                                             MainAxisSize.max,
@@ -235,8 +241,9 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                                     .max,
                                                             children: [
                                                               Padding(
-                                                                padding: const EdgeInsetsDirectional
-                                                                    .fromSTEB(
+                                                                padding:
+                                                                    const EdgeInsetsDirectional
+                                                                        .fromSTEB(
                                                                         12.0,
                                                                         0.0,
                                                                         12.0,
@@ -328,8 +335,9 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                       .alternate,
                                                 ),
                                                 Padding(
-                                                  padding: const EdgeInsetsDirectional
-                                                      .fromSTEB(
+                                                  padding:
+                                                      const EdgeInsetsDirectional
+                                                          .fromSTEB(
                                                           16.0, 8.0, 16.0, 0.0),
                                                   child: Container(
                                                     child: Column(
@@ -343,10 +351,10 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                           padding:
                                                               const EdgeInsetsDirectional
                                                                   .fromSTEB(
-                                                                      0.0,
-                                                                      8.0,
-                                                                      0.0,
-                                                                      0.0),
+                                                                  0.0,
+                                                                  8.0,
+                                                                  0.0,
+                                                                  0.0),
                                                           child: Text(
                                                             'Demande soumise le ${dateTimeFormat(
                                                               "d/M/y",
@@ -432,8 +440,9 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                   ],
                                                 ),
                                                 Padding(
-                                                  padding: const EdgeInsetsDirectional
-                                                      .fromSTEB(16.0, 16.0,
+                                                  padding:
+                                                      const EdgeInsetsDirectional
+                                                          .fromSTEB(16.0, 16.0,
                                                           16.0, 0.0),
                                                   child: Row(
                                                     mainAxisSize:
@@ -445,11 +454,8 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                       Padding(
                                                         padding:
                                                             const EdgeInsetsDirectional
-                                                                .fromSTEB(
-                                                                    8.0,
-                                                                    0.0,
-                                                                    8.0,
-                                                                    0.0),
+                                                                .fromSTEB(8.0,
+                                                                0.0, 8.0, 0.0),
                                                         child: FFButtonWidget(
                                                           onPressed: () async {
                                                             await listViewAccountDeletionRequestsRecord
@@ -463,17 +469,17 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                             padding:
                                                                 const EdgeInsetsDirectional
                                                                     .fromSTEB(
-                                                                        16.0,
-                                                                        0.0,
-                                                                        16.0,
-                                                                        0.0),
+                                                                    16.0,
+                                                                    0.0,
+                                                                    16.0,
+                                                                    0.0),
                                                             iconPadding:
                                                                 const EdgeInsetsDirectional
                                                                     .fromSTEB(
-                                                                        0.0,
-                                                                        0.0,
-                                                                        0.0,
-                                                                        0.0),
+                                                                    0.0,
+                                                                    0.0,
+                                                                    0.0,
+                                                                    0.0),
                                                             color: const Color(
                                                                 0x15FF5963),
                                                             textStyle:
@@ -559,17 +565,17 @@ class _DeleteCommAdminPageWidgetState extends State<DeleteCommAdminPageWidget> {
                                                             padding:
                                                                 const EdgeInsetsDirectional
                                                                     .fromSTEB(
-                                                                        16.0,
-                                                                        0.0,
-                                                                        16.0,
-                                                                        0.0),
+                                                                    16.0,
+                                                                    0.0,
+                                                                    16.0,
+                                                                    0.0),
                                                             iconPadding:
                                                                 const EdgeInsetsDirectional
                                                                     .fromSTEB(
-                                                                        0.0,
-                                                                        0.0,
-                                                                        0.0,
-                                                                        0.0),
+                                                                    0.0,
+                                                                    0.0,
+                                                                    0.0,
+                                                                    0.0),
                                                             color: FlutterFlowTheme
                                                                     .of(context)
                                                                 .primary,

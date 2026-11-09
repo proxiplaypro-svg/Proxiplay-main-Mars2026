@@ -2,6 +2,7 @@
 // Imports other custom widgets
 // Imports custom actions
 // Imports custom functions
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
@@ -40,6 +41,19 @@ class _ScratchCardWidgetState extends State<ScratchCardWidget> {
   bool _isRevealed = false;
   bool _hasScratchStarted = false;
   bool _hasReachedThreshold = false;
+  String? _lastVisibleBonusTrace;
+
+  void _traceVisibleBonusIfNeeded() {
+    final visibleBonus = _isRevealed ? widget.rewardTextBonus : '';
+    if (!kDebugMode ||
+        visibleBonus.isEmpty ||
+        visibleBonus == _lastVisibleBonusTrace) {
+      return;
+    }
+    _lastVisibleBonusTrace = visibleBonus;
+    // Only log rendering state, never the content itself.
+    debugPrint('[PARTNER_PLAY_TRACE] event=secondary_text_displayed');
+  }
 
   void _logScratchTrace(String stage, {String? detail}) {
     final message = StringBuffer('[SCRATCH_CARD_TRACE] ')
@@ -103,6 +117,7 @@ class _ScratchCardWidgetState extends State<ScratchCardWidget> {
   @override
   Widget build(BuildContext context) {
     _logScratchTrace('build');
+    _traceVisibleBonusIfNeeded();
     return GestureDetector(
       child: Scratcher(
         brushSize: 60.0,

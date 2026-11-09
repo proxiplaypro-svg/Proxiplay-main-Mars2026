@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:proxi_play/components/marketing_preference_card.dart';
-import 'package:proxi_play/config/marketing_consent.dart';
 import 'package:proxi_play/utils/marketing_consent_state.dart';
 
 void main() {
@@ -72,16 +71,13 @@ void main() {
       await tester.pump();
     }
 
-    String status(WidgetTester tester) => tester
-        .widget<Text>(find.byKey(const Key('marketing-consent-status')))
-        .data!;
-
-    testWidgets('titre court, texte de consentement exact, mention facultative',
+    testWidgets('présentation courte et état par défaut désactivé',
         (tester) async {
       await pumpCard(tester, state: MarketingConsentState.unanswered);
-      expect(find.text('Actualités par e-mail'), findsOneWidget);
-      expect(find.text(kMarketingPlayerConsentText), findsOneWidget);
-      expect(status(tester), 'Facultatif · Aucune préférence enregistrée');
+      expect(find.text('Recevoir les actualités de ProxiPlay'), findsOneWidget);
+      expect(find.text('Nouveaux jeux, cadeaux et actualités'), findsOneWidget);
+      expect(find.byKey(const Key('marketing-consent-status')), findsNothing);
+      expect(find.byKey(const Key('marketing-consent-text')), findsNothing);
       expect(
           tester
               .widget<Switch>(find.byKey(const Key('marketing-consent-switch')))
@@ -90,16 +86,20 @@ void main() {
           reason: 'jamais d’accord par défaut');
     });
 
-    testWidgets('accord et retrait affichés différemment', (tester) async {
+    testWidgets('accord et retrait conservent la valeur de l’interrupteur',
+        (tester) async {
       await pumpCard(tester, state: MarketingConsentState.granted);
-      expect(status(tester), 'Facultatif · Activé');
       expect(
           tester
               .widget<Switch>(find.byKey(const Key('marketing-consent-switch')))
               .value,
           isTrue);
       await pumpCard(tester, state: MarketingConsentState.withdrawn);
-      expect(status(tester), 'Facultatif · Désactivé');
+      expect(
+          tester
+              .widget<Switch>(find.byKey(const Key('marketing-consent-switch')))
+              .value,
+          isFalse);
     });
 
     testWidgets('l’interrupteur transmet le choix ; enregistrement en cours',
@@ -126,11 +126,19 @@ void main() {
               scale: scale,
               onChanged: (_) {});
           expect(tester.takeException(), isNull);
-          final card = tester.getRect(find.byType(MarketingPreferenceCard));
+          final card = tester.getRect(
+              find.byKey(const Key('marketing-preference-card-surface')));
           final toggle =
               tester.getRect(find.byKey(const Key('marketing-consent-switch')));
           expect(card.right - toggle.right, lessThan(30));
           expect(toggle.center.dy, closeTo(card.center.dy, 2));
+          expect(
+              tester
+                  .getSize(find
+                      .byKey(const Key('marketing-preference-card-surface')))
+                  .height,
+              lessThan(scale == 1 ? 190 : 300),
+              reason: 'hauteur dictée par les deux textes, jamais par la page');
         });
       }
     }

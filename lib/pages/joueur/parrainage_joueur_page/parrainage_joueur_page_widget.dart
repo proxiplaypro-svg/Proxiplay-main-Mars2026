@@ -1,6 +1,5 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
-import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -40,11 +39,24 @@ class _ParrainageJoueurPageWidgetState
   // Reported by the server; null until loaded (or if loading failed), in
   // which case no reward is promised.
   bool? _referralGameActive;
+  Stream<QuerySnapshot>? _referralsStream;
+
+  /// The player's referrals, newest first (rules: inviterUid == uid).
+  void _listenReferrals() {
+    _referralsStream = currentUserReference == null
+        ? null
+        : FirebaseFirestore.instance
+            .collection('referrals')
+            .where('inviterUid', isEqualTo: currentUserUid)
+            .orderBy('createdAt', descending: true)
+            .snapshots();
+  }
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => ParrainageJoueurPageModel());
+    _listenReferrals();
     _sharePromoService.getSharePromoState().then((state) {
       if (mounted) setState(() => _referralGameActive = state.referralGameActive);
     }).catchError((_) {});
@@ -325,11 +337,16 @@ class _ParrainageJoueurPageWidgetState
                   children: [
                     const Icon(Icons.share_rounded, size: 20.0),
                     const SizedBox(width: 10.0),
-                    Text(
-                      _isInviting ? 'Ouverture...' : 'Inviter un ami',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15.0,
+                    // Wraps instead of overflowing on narrow screens or
+                    // with larger text.
+                    Flexible(
+                      child: Text(
+                        _isInviting ? 'Ouverture...' : 'Inviter un ami',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15.0,
+                        ),
                       ),
                     ),
                   ],
@@ -500,6 +517,89 @@ class _ParrainageJoueurPageWidgetState
     );
   }
 
+  /// Same card as ListEmptyComponentWidget, at its natural height:
+  /// that component forces height: double.infinity, which cannot be laid out
+  /// inside the page's SingleChildScrollView ("RenderBox was not laid out")
+  /// and left the whole page blank as soon as a list was empty.
+  Widget _buildEmptyState(BuildContext context,
+      {required Key key, required String title, required String description}) {
+    final theme = FlutterFlowTheme.of(context);
+    return Card(
+      key: key,
+      margin: EdgeInsets.zero,
+      color: theme.secondaryBackground,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.inbox_rounded, color: theme.secondaryText, size: 48.0),
+              const SizedBox(height: 12.0),
+              Text(title,
+                  textAlign: TextAlign.center,
+                  style: theme.headlineSmall.override(
+                    font: GoogleFonts.interTight(
+                        fontWeight: theme.headlineSmall.fontWeight),
+                    letterSpacing: 0.0,
+                  )),
+              const SizedBox(height: 12.0),
+              Text(description,
+                  textAlign: TextAlign.center,
+                  style: theme.bodyMedium.override(
+                    font: GoogleFonts.inter(
+                        fontWeight: theme.bodyMedium.fontWeight),
+                    color: theme.secondaryText,
+                    letterSpacing: 0.0,
+                  )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Loading or unavailable list: never an empty area.
+  Widget _buildListStatus(BuildContext context, {required bool failed}) {
+    if (!failed) {
+      return const Padding(
+        key: ValueKey('referrals-loading'),
+        padding: EdgeInsets.symmetric(vertical: 32.0),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return Container(
+      key: const ValueKey('referrals-error'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: FlutterFlowTheme.of(context).secondaryBackground,
+        borderRadius: BorderRadius.circular(20.0),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.cloud_off_rounded,
+              color: Color(0xFF6B6B8B), size: 32.0),
+          const SizedBox(height: 10.0),
+          Text(
+            'Impossible de charger tes parrainages pour le moment. '
+            'Vérifie ta connexion puis réessaie.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+                fontSize: 14.0, color: const Color(0xFF2D2A72)),
+          ),
+          const SizedBox(height: 8.0),
+          TextButton(
+            onPressed: () => setState(_listenReferrals),
+            child: const Text('Réessayer'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -563,52 +663,56 @@ class _ParrainageJoueurPageWidgetState
                   child: Padding(
                     padding: const EdgeInsetsDirectional.fromSTEB(
                         20.0, 18.0, 20.0, 0.0),
-                    child: currentUserReference == null
-                        ? const SizedBox.shrink()
-                        : StreamBuilder<QuerySnapshot>(
-                            stream: FirebaseFirestore.instance
-                                .collection('referrals')
-                                .where('inviterUid', isEqualTo: currentUserUid)
-                                .orderBy('createdAt', descending: true)
-                                .snapshots(),
-                            builder: (context, snapshot) {
-                              if (!snapshot.hasData) {
-                                return const Center(
-                                  child: SizedBox(
-                                    width: 50.0,
-                                    height: 50.0,
-                                    child: SizedBox.shrink(),
-                                  ),
-                                );
-                              }
-
-                              final docs = snapshot.data!.docs;
-                              final pending = docs.where((doc) {
-                                final data = doc.data() as Map<String, dynamic>;
-                                return data['status'] == 'pending';
-                              }).toList();
-                              final accepted = docs.where((doc) {
-                                final data = doc.data() as Map<String, dynamic>;
-                                return data['status'] == 'accepted';
-                              }).toList();
-
-                              return SingleChildScrollView(
-                                child: Column(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeaderCard(context),
+                          const SizedBox(height: 24.0),
+                          if (_referralsStream == null)
+                            _buildListStatus(context, failed: true)
+                          else
+                            StreamBuilder<QuerySnapshot>(
+                              stream: _referralsStream,
+                              builder: (context, snapshot) {
+                                if (snapshot.hasError) {
+                                  debugPrint(
+                                      'Referral list unavailable: ${snapshot.error}');
+                                  return _buildListStatus(context,
+                                      failed: true);
+                                }
+                                if (!snapshot.hasData) {
+                                  return _buildListStatus(context,
+                                      failed: false);
+                                }
+                                final docs = snapshot.data!.docs;
+                                final pending = docs.where((doc) {
+                                  final data =
+                                      doc.data() as Map<String, dynamic>;
+                                  return data['status'] == 'pending';
+                                }).toList();
+                                final accepted = docs.where((doc) {
+                                  final data =
+                                      doc.data() as Map<String, dynamic>;
+                                  return data['status'] == 'accepted';
+                                }).toList();
+                                return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    _buildHeaderCard(context),
-                                    const SizedBox(height: 24.0),
                                     _buildSectionTitle(context, 'Mes filleuls',
                                         accepted.length),
                                     const SizedBox(height: 14.0),
                                     if (accepted.isEmpty)
-                                      const Padding(
-                                        padding: EdgeInsets.only(bottom: 14.0),
-                                        child: ListEmptyComponentWidget(
-                                          title: 'Aucun filleul pour le moment',
-                                          description:
-                                              'Invite un ami pour qu\'il apparaisse ici dès son inscription.',
-                                        ),
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 14.0),
+                                        child: _buildEmptyState(context,
+                                            key: const ValueKey(
+                                                'referrals-empty-accepted'),
+                                            title:
+                                                'Aucun filleul pour le moment',
+                                            description:
+                                                'Invite un ami pour qu\'il apparaisse ici dès son inscription.'),
                                       )
                                     else
                                       ...accepted.map(
@@ -624,13 +728,16 @@ class _ParrainageJoueurPageWidgetState
                                         context, 'Mes envois', pending.length),
                                     const SizedBox(height: 14.0),
                                     if (pending.isEmpty)
-                                      const Padding(
-                                        padding: EdgeInsets.only(bottom: 24.0),
-                                        child: ListEmptyComponentWidget(
-                                          title: 'Aucune invitation en attente',
-                                          description:
-                                              'Tes invitations envoyées mais pas encore acceptées apparaîtront ici.',
-                                        ),
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 24.0),
+                                        child: _buildEmptyState(context,
+                                            key: const ValueKey(
+                                                'referrals-empty-pending'),
+                                            title:
+                                                'Aucune invitation en attente',
+                                            description:
+                                                'Tes invitations envoyées mais pas encore acceptées apparaîtront ici.'),
                                       )
                                     else
                                       ...pending.map(
@@ -640,12 +747,14 @@ class _ParrainageJoueurPageWidgetState
                                           child: _buildPendingRow(context, doc),
                                         ),
                                       ),
-                                    const SizedBox(height: 24.0),
                                   ],
-                                ),
-                              );
-                            },
-                          ),
+                                );
+                              },
+                            ),
+                          const SizedBox(height: 24.0),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 wrapWithModel(

@@ -6,6 +6,7 @@ import 'update_enseigne_commercant_page_widget.dart'
     show UpdateEnseigneCommercantPageWidget;
 import 'package:flutter/material.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import '/utils/french_phone.dart';
 
 class UpdateEnseigneCommercantPageModel
     extends FlutterFlowModel<UpdateEnseigneCommercantPageWidget> {
@@ -19,11 +20,7 @@ class UpdateEnseigneCommercantPageModel
   String? _textFieldNameTextControllerValidator(
       BuildContext context, String? val) {
     if (val == null || val.isEmpty) {
-      return 'name is required';
-    }
-
-    if (val.isEmpty) {
-      return 'Requires at least 1 characters.';
+      return 'Nom du point de vente requis.';
     }
 
     return null;
@@ -37,11 +34,7 @@ class UpdateEnseigneCommercantPageModel
   String? _textFieldDescriptionTextControllerValidator(
       BuildContext context, String? val) {
     if (val == null || val.isEmpty) {
-      return 'description is required';
-    }
-
-    if (val.isEmpty) {
-      return 'Requires at least 1 characters.';
+      return 'Description requise.';
     }
 
     return null;
@@ -55,14 +48,8 @@ class UpdateEnseigneCommercantPageModel
       textFieldPhoneTextControllerValidator;
   String? _textFieldPhoneTextControllerValidator(
       BuildContext context, String? val) {
-    if (val == null || val.isEmpty) {
-      return 'phone_number is required';
-    }
-
-    if (!RegExp('^(?:\\+33|0)[1-9](?:\\d{2}){4}\$').hasMatch(val)) {
-      return 'Invalid text';
-    }
-    return null;
+    // Spaces, dots and +33 accepted; the number is normalised on save.
+    return validateFrenchPhone(val);
   }
 
   // State field(s) for TextFieldAdresse widget.
@@ -73,11 +60,7 @@ class UpdateEnseigneCommercantPageModel
   String? _textFieldAdresseTextControllerValidator(
       BuildContext context, String? val) {
     if (val == null || val.isEmpty) {
-      return 'address is required';
-    }
-
-    if (val.isEmpty) {
-      return 'Requires at least 1 characters.';
+      return 'Rue requise.';
     }
 
     return null;
@@ -90,11 +73,11 @@ class UpdateEnseigneCommercantPageModel
   String? _textFieldCodeTextControllerValidator(
       BuildContext context, String? val) {
     if (val == null || val.isEmpty) {
-      return 'area_code is required';
+      return 'Code postal requis.';
     }
 
     if (val.length < 5) {
-      return 'Requires at least 5 characters.';
+      return 'Le code postal doit contenir 5 caractères.';
     }
 
     return null;
@@ -107,11 +90,7 @@ class UpdateEnseigneCommercantPageModel
   String? _textFieldCityTextControllerValidator(
       BuildContext context, String? val) {
     if (val == null || val.isEmpty) {
-      return 'city is required';
-    }
-
-    if (val.isEmpty) {
-      return 'Requires at least 1 characters.';
+      return 'Ville requise.';
     }
 
     return null;

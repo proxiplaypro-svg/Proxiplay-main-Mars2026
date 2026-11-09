@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:proxi_play/pages/joueur/enseigne_joueur_page/merchant_directory_logic.dart';
 import 'package:proxi_play/pages/joueur/enseigne_joueur_page/merchant_directory_source.dart';
@@ -133,6 +136,22 @@ DirectoryMerchant merchant(
 
 final opened = <DirectoryMerchant>[];
 
+/// Real Roboto from the Flutter SDK (offline), so card heights are measured
+/// with realistic glyphs; without it the square test font is used and only
+/// the overflow / truncation checks remain meaningful.
+bool robotoLoaded = false;
+
+Future<void> loadRoboto() async {
+  final root = Platform.environment['FLUTTER_ROOT'];
+  final file =
+      File('$root/bin/cache/artifacts/material_fonts/roboto-regular.ttf');
+  if (root == null || !file.existsSync()) return;
+  await (FontLoader('TestSans')
+        ..addFont(Future.value(ByteData.sublistView(file.readAsBytesSync()))))
+      .load();
+  robotoLoaded = true;
+}
+
 /// List.shuffle swaps position `length - 1` with `nextInt(length)`:
 /// always answering `max - 1` keeps the original order.
 class KeepOrderRandom implements Random {
@@ -160,6 +179,7 @@ Future<void> pumpDirectory(
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(MaterialApp(
+    theme: ThemeData(fontFamily: 'TestSans'),
     home: MediaQuery(
       data:
           MediaQueryData(size: size, textScaler: TextScaler.linear(textScale)),
@@ -195,6 +215,8 @@ List<String> cardIds(WidgetTester tester) => tester
     .toList();
 
 void main() {
+  setUpAll(loadRoboto);
+
   testWidgets(
       'cartes compactes : nom, description sur 2 lignes, note, badge seulement '
       'pour un jeu confirmé, aucun titre de catégorie', (tester) async {
@@ -253,7 +275,7 @@ void main() {
     expect(firstPhotos.length, lessThan(12),
         reason: 'les cartes hors écran ne lisent pas leur photo');
 
-    await tester.tap(find.byKey(const Key('directory-filter-favorites')));
+    await tester.tap(find.byKey(const Key('directory-filter-active-games')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('directory-filter-all')));
     await tester.pumpAndSettle();
@@ -274,6 +296,10 @@ void main() {
     await pumpDirectory(tester, source);
     expect(cardIds(tester), ['a', 'b', 'c']);
     expect(source.byIdCalls, isEmpty);
+    await tester.tap(find.byKey(const Key('directory-filter-active-games')));
+    await tester.pumpAndSettle();
+    expect(cardIds(tester), ['c'],
+        reason: 'le filtre reprend exactement le commerce du badge');
 
     source = FakeSource(
         merchants: merchants, activeIds: {'c'}, activeComplete: false);
@@ -352,7 +378,7 @@ void main() {
   });
 
   testWidgets(
-      'filtres : Tous, Favoris puis catégories présentes ; un seul actif',
+      'filtres : Tous, Jeux en cours puis catégories présentes ; un seul actif',
       (tester) async {
     final source = FakeSource(merchants: [
       merchant('a', cats: ['Alimentation']),
@@ -367,8 +393,13 @@ void main() {
         .widgetList<ChoiceChip>(find.byType(ChoiceChip))
         .map((chip) => (chip.label as Text).data)
         .toList();
-    expect(chips,
-        ['Tous', 'Favoris', 'Alimentation', 'Restaurants & bars', 'Autre']);
+    expect(chips, [
+      'Tous',
+      'Jeux en cours',
+      'Alimentation',
+      'Restaurants & bars',
+      'Autre'
+    ]);
     expect(cardIds(tester), ['a', 'b', 'c', 'd'],
         reason: 'Tous inclut les commerces sans catégorie connue ou sans '
             'catégorie');
@@ -383,11 +414,15 @@ void main() {
         .map((chip) => (chip.label as Text).data)
         .toList();
     expect(selected, ['Restaurants & bars']);
+
+    await tester.tap(find.byKey(const Key('directory-filter-active-games')));
+    await tester.pumpAndSettle();
+    expect(cardIds(tester), isEmpty);
+    expect(find.byKey(const Key('directory-no-active-games')), findsOneWidget);
   });
 
-  testWidgets(
-      'favoris : le cœur agit seul, sans ouvrir la fiche ; filtre Favoris '
-      'complet, y compris hors des pages chargées', (tester) async {
+  testWidgets('favoris : le cœur agit seul, sans ouvrir la fiche',
+      (tester) async {
     final source = FakeSource(
       merchants: [
         merchant('a'),
@@ -395,9 +430,6 @@ void main() {
         for (var i = 0; i < 10; i++) merchant('x$i'),
         merchant('far', name: 'Lointain'),
       ],
-      favorites: {
-        'far': ['fav/far']
-      },
     );
     await pumpDirectory(tester, source, batchSize: 10, maxMerchants: 10);
     expect(source.pageCalls, 1);
@@ -410,25 +442,16 @@ void main() {
         .widget<IconButton>(find.byKey(const Key('directory-favorite-a')));
     expect((heart.icon as Icon).icon, Icons.favorite_rounded);
 
-    await tester.tap(find.byKey(const Key('directory-filter-favorites')));
-    await tester.pumpAndSettle();
-    expect(cardIds(tester), ['a', 'far']);
-    expect(source.byIdCalls.last, ['far'],
-        reason: 'favori non chargé : lu par identifiant');
-    expect(find.byKey(const Key('directory-partial-notice')), findsNothing);
-
-    await tester.tap(find.byKey(const Key('directory-favorite-far')));
-    await tester.pumpAndSettle();
-    expect(source.removed, [
-      ['fav/far']
-    ]);
-    expect(cardIds(tester), ['a']);
+    expect(source.byIdCalls, isEmpty,
+        reason: 'les favoris ne modifient pas le contenu de l’annuaire');
   });
 
-  testWidgets('invité : ni cœur ni filtre Favoris', (tester) async {
+  testWidgets('invité : pas de cœur, filtre Jeux en cours disponible',
+      (tester) async {
     final source = FakeSource(merchants: [merchant('a')], signedIn: false);
     await pumpDirectory(tester, source);
-    expect(find.byKey(const Key('directory-filter-favorites')), findsNothing);
+    expect(
+        find.byKey(const Key('directory-filter-active-games')), findsOneWidget);
     expect(find.byKey(const Key('directory-favorite-a')), findsNothing);
     expect(source.favoritesStreams, 0);
   });
@@ -445,13 +468,14 @@ void main() {
     expect(opened.map((m) => m.id), ['a', 'a']);
   });
 
-  testWidgets('états : aucun favori, aucun commerce, erreur puis Réessayer',
+  testWidgets(
+      'états : aucun jeu en cours, aucun commerce, erreur puis Réessayer',
       (tester) async {
     var source = FakeSource(merchants: [merchant('a')]);
     await pumpDirectory(tester, source);
-    await tester.tap(find.byKey(const Key('directory-filter-favorites')));
+    await tester.tap(find.byKey(const Key('directory-filter-active-games')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('directory-no-favorites')), findsOneWidget);
+    expect(find.byKey(const Key('directory-no-active-games')), findsOneWidget);
 
     source = FakeSource(merchants: []);
     await pumpDirectory(tester, source);
@@ -540,9 +564,7 @@ void main() {
             merchant('s$i',
                 cats: [i.isEven ? 'Alimentation' : 'Restaurants & bars'])
         ],
-        favorites: {
-          for (final id in ['s1', 's4', 's8']) id: ['fav/$id']
-        },
+        activeIds: {'s1', 's4', 's8'},
       );
       await pumpDirectory(tester, source, size: tall, random: Random(3));
       final session = cardIds(tester);
@@ -563,7 +585,7 @@ void main() {
       expect(cardIds(tester),
           inSession((id) => int.parse(id.substring(1)).isEven));
 
-      await tester.tap(find.byKey(const Key('directory-filter-favorites')));
+      await tester.tap(find.byKey(const Key('directory-filter-active-games')));
       await tester.pumpAndSettle();
       expect(cardIds(tester), inSession({'s1', 's4', 's8'}.contains));
 
@@ -674,10 +696,17 @@ void main() {
         expect(tester.takeException(), isNull, reason: '$label x$scale');
         final card = tester.getSize(find.byKey(const Key('directory-card-a')));
         expect(card.width, lessThanOrEqualTo(size.width - 32));
-        // Test font glyphs are as wide as they are tall: real fonts are
-        // narrower, so these are upper bounds. Minimum card height: 84.
-        expect(card.height, lessThanOrEqualTo(scale == 1.0 ? 100 : 125),
-            reason: 'plusieurs commerces visibles sans défilement');
+        // Measured with Roboto. Card a is the extreme case (50-character
+        // name, 2-line description, 12345 reviews, badge on its own line);
+        // card c is a usual one (short name, rating, badge beside the name).
+        if (robotoLoaded) {
+          expect(card.height, lessThanOrEqualTo(scale == 1.0 ? 140 : 180),
+              reason: 'cas extrême : la carte grandit sans rien couper');
+          expect(
+              tester.getSize(find.byKey(const Key('directory-card-c'))).height,
+              lessThanOrEqualTo(scale == 1.0 ? 92 : 125),
+              reason: 'carte courante compacte');
+        }
         expect(tester.getSize(find.byKey(const Key('directory-card-b'))).height,
             84);
         for (final id in ['a', 'c']) {
@@ -715,4 +744,65 @@ void main() {
       }
     });
   }
+
+  group('aucune troncature du badge ni de la note', () {
+    for (final width in [320.0, 360.0, 390.0, 412.0, 430.0]) {
+      for (final scale in [1.0, 1.3, 1.6]) {
+        testWidgets('${width.toInt()} px, texte x$scale', (tester) async {
+          final source = FakeSource(merchants: [
+            merchant('long',
+                name: 'Maison Jouve l’Épicerie fine du centre-ville',
+                description: 'Des produits de qualité et de saison. ' * 3,
+                rating: 4.9,
+                reviews: 12345),
+            merchant('short', name: 'DK’BUS', rating: 3.3, reviews: 480),
+            merchant('bare', name: 'Fleur de Lys'),
+          ], activeIds: {
+            'long',
+            'short',
+            'bare'
+          }, favorites: {
+            'long': ['fav/long']
+          });
+          await pumpDirectory(tester, source,
+              size: Size(width, 2000), textScale: scale);
+          expect(tester.takeException(), isNull);
+          for (final id in ['long', 'short', 'bare']) {
+            final card = find.byKey(Key('directory-card-$id'));
+            final badgeText = find.descendant(
+                of: card,
+                matching: find.byKey(const Key('directory-active-game-text')));
+            expect(badgeText, findsOneWidget, reason: id);
+            expect(
+                tester
+                    .renderObject<RenderParagraph>(badgeText)
+                    .didExceedMaxLines,
+                isFalse,
+                reason: 'badge coupé : $id');
+            final rating = find.descendant(
+                of: card,
+                matching: find.byKey(const Key('directory-rating-text')));
+            if (id != 'bare') {
+              expect(
+                  tester
+                      .renderObject<RenderParagraph>(rating)
+                      .didExceedMaxLines,
+                  isFalse,
+                  reason: 'note coupée : $id');
+            }
+            expect(find.byKey(Key('directory-favorite-$id')), findsOneWidget,
+                reason: 'cœur conservé : $id');
+            final cardRect = tester.getRect(card);
+            final badgeRect = tester.getRect(find.descendant(
+                of: card,
+                matching:
+                    find.byKey(const Key('directory-active-game-badge'))));
+            expect(badgeRect.right, lessThanOrEqualTo(cardRect.right),
+                reason: id);
+          }
+          expect(find.text('4,9 Google (12345 avis)'), findsOneWidget);
+        });
+      }
+    }
+  });
 }

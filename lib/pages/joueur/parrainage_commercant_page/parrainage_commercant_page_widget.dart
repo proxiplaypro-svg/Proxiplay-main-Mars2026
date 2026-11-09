@@ -1,5 +1,4 @@
 import '/auth/firebase_auth/auth_util.dart';
-import '/components/list_empty_component_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -444,6 +443,35 @@ class _ParrainageCommercantPageWidgetState
     );
   }
 
+  Widget _buildSuiviMessage({
+    required Key key,
+    required IconData icon,
+    required String text,
+  }) =>
+      _card(
+        child: Row(
+          key: key,
+          children: [
+            Container(
+              width: 40.0,
+              height: 40.0,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF7E6EE),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: accent, size: 20.0),
+            ),
+            const SizedBox(width: 12.0),
+            Expanded(
+              child: Text(
+                text,
+                style: GoogleFonts.inter(fontSize: 13.0, color: muted),
+              ),
+            ),
+          ],
+        ),
+      );
+
   Widget _buildSuiviSection(BuildContext context) {
     final userRef = currentUserReference;
     if (userRef == null) {
@@ -456,29 +484,54 @@ class _ParrainageCommercantPageWidgetState
           .where('inviter_user_id', isEqualTo: userRef)
           .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox.shrink();
+        // Titled section; a compact message instead of the former 260 px
+        // block whose only content was a grey inbox icon.
+        final Widget body;
+        if (snapshot.hasError) {
+          body = _buildSuiviMessage(
+            key: const Key('merchant-referral-tracking-error'),
+            icon: Icons.cloud_off_rounded,
+            text:
+                'Le suivi est momentanément indisponible. Réessayez plus tard.',
+          );
+        } else if (!snapshot.hasData) {
+          body = const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12.0),
+            child: Center(
+                child: SizedBox(
+                    width: 22.0,
+                    height: 22.0,
+                    child: CircularProgressIndicator(strokeWidth: 2.4))),
+          );
+        } else if (snapshot.data!.docs.isEmpty) {
+          body = _buildSuiviMessage(
+            key: const Key('merchant-referral-tracking-empty'),
+            icon: Icons.storefront_outlined,
+            text: 'Aucun parrainage pour le moment. Les commerçants que vous '
+                'parrainez apparaîtront ici dès qu\'ils auront utilisé votre '
+                'code.',
+          );
+        } else {
+          body = Column(
+            children: snapshot.data!.docs
+                .map((doc) => _buildReferralRow(context, doc))
+                .toList(),
+          );
         }
-        final docs = snapshot.data!.docs;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (docs.isEmpty)
-              // ListEmptyComponentWidget fills its parent. Inside this
-              // scroll view the height is unbounded, so layout failed and,
-              // with an accessibility service on, every frame then threw
-              // and no button of the page responded.
-              const SizedBox(
-                height: 260.0,
-                child: ListEmptyComponentWidget(
-                  title: 'Aucun parrainage pour le moment',
-                  description:
-                      'Les commerçants que vous parrainez apparaîtront ici dès qu\'ils auront utilisé votre code.',
-                ),
-              )
-            else
-              ...docs.map((doc) => _buildReferralRow(context, doc)),
+            Text(
+              'Suivi de vos parrainages',
+              style: GoogleFonts.interTight(
+                fontWeight: FontWeight.w800,
+                fontSize: 17.0,
+                color: ink,
+              ),
+            ),
+            const SizedBox(height: 10.0),
+            body,
           ],
         );
       },

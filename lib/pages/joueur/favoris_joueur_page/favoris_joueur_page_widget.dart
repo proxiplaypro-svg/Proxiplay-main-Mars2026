@@ -4,13 +4,15 @@ import '/backend/backend.dart';
 import '/components/app_bar_joueur_widget.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/game_card_widget.dart';
-import '/components/list_empty_component_widget.dart';
+import '/components/favorites_empty_state.dart';
 import '/flutter_flow/flutter_flow_button_tabbar.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/utils/winner_identity.dart';
 import '/widgets/proxiplay_network_image.dart';
 import '/utils/player_game_visibility.dart';
+import '/pages/joueur/home_joueur_page/home_games_logic.dart'
+    show finishedGameStatusText, gameCardEndDateText;
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -402,11 +404,17 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                     child: SizedBox.shrink(),
                                                   ),
                                                 ),
-                                                noItemsFoundIndicatorBuilder: (_) =>
-                                                    const ListEmptyComponentWidget(
-                                                  title: 'Aucun Favori',
+                                                noItemsFoundIndicatorBuilder:
+                                                    (_) => FavoritesEmptyState(
+                                                  title:
+                                                      'Aucun favori pour le moment',
                                                   description:
-                                                      'Votre liste est actuellement vide',
+                                                      'Retrouvez ici les commerçants que vous aimez.',
+                                                  onDiscoverMerchants: () =>
+                                                      context.pushNamed(
+                                                    EnseigneJoueurPageWidget
+                                                        .routeName,
+                                                  ),
                                                 ),
                                                 itemBuilder: (context, _,
                                                     listViewIndex) {
@@ -530,13 +538,11 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                 final favoriteGameItems =
                                                     snapshot.data!;
                                                 if (favoriteGameItems.isEmpty) {
-                                                  return const Center(
-                                                    child:
-                                                        ListEmptyComponentWidget(
-                                                      title: 'Aucun favori',
-                                                      description:
-                                                          'Votre liste est actuellement vide',
-                                                    ),
+                                                  return const FavoritesEmptyState(
+                                                    title:
+                                                        'Aucun jeu favori pour le moment',
+                                                    description:
+                                                        'Vos jeux favoris apparaîtront ici.',
                                                   );
                                                 }
 
@@ -569,18 +575,18 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
 
                                                     Widget buildCard(
                                                         {String? winnerText}) {
-                                                      final hasVisibleMainPrize =
-                                                          _hasVisibleMainPrizeForPlayer(
-                                                              containerGamesRecord);
+                                                      // "Lots attribués" only once an attribution is
+                                                      // confirmed on the game; otherwise "Jeu terminé".
+                                                      final finishedStatusText =
+                                                          finishedGameStatusText(
+                                                              containerGamesRecord
+                                                                  .snapshotData);
                                                       final finishedBadgeText =
-                                                          isFinished &&
-                                                                  !hasVisibleMainPrize
-                                                              ? 'Lots attribués'
+                                                          isFinished
+                                                              ? finishedStatusText
                                                               : null;
                                                       final finishedInfoText =
-                                                          !hasVisibleMainPrize
-                                                              ? 'Lots attribués'
-                                                              : 'Jeu terminé';
+                                                          finishedStatusText;
                                                       return GameCardWidget(
                                                         title:
                                                             containerGamesRecord
@@ -598,11 +604,20 @@ class _FavorisJoueurPageWidgetState extends State<FavorisJoueurPageWidget>
                                                                 0
                                                             ? 'Gains instantanés'
                                                             : '${containerGamesRecord.prizeValue} €',
-                                                        endDateText: containerGamesRecord
-                                                                    .endDate !=
-                                                                null
-                                                            ? 'Valable jusqu\'au : ${dateTimeFormat("d/M/y", containerGamesRecord.endDate, locale: FFLocalizations.of(context).languageCode)}'
-                                                            : 'Valable jusqu\'au : -',
+                                                        endDateText:
+                                                            gameCardEndDateText(
+                                                          endDate:
+                                                              containerGamesRecord
+                                                                  .endDate,
+                                                          finished: isFinished,
+                                                          format: (d) => dateTimeFormat(
+                                                              "d/M/y", d,
+                                                              locale: FFLocalizations
+                                                                      .of(context)
+                                                                  .languageCode),
+                                                          ongoingPrefix:
+                                                              'Valable jusqu\'au : ',
+                                                        ),
                                                         badgeText:
                                                             finishedBadgeText,
                                                         winnerText: winnerText,

@@ -13,6 +13,32 @@ void main() {
   final source = File(
           'lib/pages/joueur/enseigne_joueur_page/merchant_directory_source.dart')
       .readAsStringSync();
+  final playerNavigation =
+      File('lib/components/custom_nav_bar_joueur_widget.dart')
+          .readAsStringSync()
+          .replaceAll('\r\n', '\n');
+  final routes = File('lib/flutter_flow/nav/nav.dart')
+      .readAsStringSync()
+      .replaceAll('\r\n', '\n');
+
+  test('l’onglet Commerçants ouvre uniquement le nouvel annuaire', () {
+    // The tab targets the player merchant route; that route has no role or
+    // parameter-dependent alternative and builds the page below.
+    expect(
+        playerNavigation,
+        contains(
+            'context.goNamed(\n                                EnseigneJoueurPageWidget.routeName'));
+    expect(routes, contains('name: EnseigneJoueurPageWidget.routeName'));
+    expect(
+        routes,
+        contains(
+            'builder: (context, params) => const EnseigneJoueurPageWidget()'));
+
+    // The route page always instantiates the compact directory implementation.
+    expect(page, contains("import 'merchant_directory_view.dart';"));
+    expect(page, contains('child: MerchantDirectoryView('));
+    expect(page, isNot(contains('Rechercher un point de vente')));
+  });
 
   test(
       'la page garde l’en-tête, la navigation basse et ouvre la fiche existante',

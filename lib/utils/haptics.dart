@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 Future<void> triggerLightHaptic() async {
@@ -13,8 +14,26 @@ const Duration kWinHapticGap = Duration(milliseconds: 120);
 /// during the pulses is harmless.
 Future<void> triggerWinHaptic({Duration gap = kWinHapticGap}) async {
   try {
+    if (kDebugMode) {
+      debugPrint('[WIN_HAPTIC_TRACE] event=first_pulse_requested');
+    }
     await HapticFeedback.mediumImpact();
+    if (kDebugMode) {
+      debugPrint('[WIN_HAPTIC_TRACE] event=first_pulse_completed');
+    }
     await Future<void>.delayed(gap);
+    if (kDebugMode) {
+      debugPrint(
+          '[WIN_HAPTIC_TRACE] event=second_pulse_requested gapMs=${gap.inMilliseconds}');
+    }
     await HapticFeedback.mediumImpact();
-  } catch (_) {}
+    if (kDebugMode) {
+      debugPrint('[WIN_HAPTIC_TRACE] event=second_pulse_completed');
+    }
+  } catch (error) {
+    if (kDebugMode) {
+      debugPrint(
+          '[WIN_HAPTIC_TRACE] event=pulse_failed errorType=${error.runtimeType}');
+    }
+  }
 }

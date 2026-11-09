@@ -1,4 +1,4 @@
-﻿import '/auth/firebase_auth/auth_util.dart';
+import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -14,6 +14,7 @@ import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/index.dart';
 import 'package:rive/rive.dart' hide Image, LinearGradient;
 import 'package:auto_size_text/auto_size_text.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
@@ -101,6 +102,11 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
+  void _debugPartnerPlayTrace(String event, {required String detail}) {
+    if (!kDebugMode) return;
+    debugPrint('[PARTNER_PLAY_TRACE] event=$event $detail');
+  }
+
   bool hasMainPrize(GamesRecord game) {
     if (game.hasHasMainPrize()) {
       return game.hasMainPrize;
@@ -165,13 +171,13 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     }
 
     final game = widget.game;
-    final mainPrize = game != null && game.hasHasMainPrize() && game.hasMainPrize;
+    final mainPrize =
+        game != null && game.hasHasMainPrize() && game.hasMainPrize;
     final messages = lossMessagePool(hasMainPrize: mainPrize);
     final pickedMessage = _pickDisplayMessage(messages);
     _logPlayPageTrace(
       'play_page_resolve_display_message_return',
-      detail:
-          'reason=random_pool mainPrize=$mainPrize value=$pickedMessage',
+      detail: 'reason=random_pool mainPrize=$mainPrize value=$pickedMessage',
     );
     return pickedMessage;
   }
@@ -458,14 +464,11 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
     return value[0].toUpperCase() + value.substring(1).toLowerCase();
   }
 
-  void _logPlayPageTrace(String stage, {String? detail}) {
-  }
+  void _logPlayPageTrace(String stage, {String? detail}) {}
 
-  void _logPlayPagePop(String reason) {
-  }
+  void _logPlayPagePop(String reason) {}
 
-  void _logPlayPageDispose() {
-  }
+  void _logPlayPageDispose() {}
 
   @override
   void initState() {
@@ -549,6 +552,12 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
 
     final rewardText = _resultMessage ?? '';
     final rewardTextBonus = _resultMessageBonus ?? '';
+    // The scratch card already owns the visual slot for a real bonus. An
+    // invitation is complementary information, so it may use that same slot
+    // only when it cannot hide a server-confirmed bonus.
+    final secondaryRevealText = rewardTextBonus.isNotEmpty
+        ? rewardTextBonus
+        : (_model.cardReveal ? _partnerPlayMessage ?? '' : '');
     final lowerBackendMessage =
         (widget.resultParticipation?.message ?? '').trim().toLowerCase();
     // Le flag explicite (transmis par l'appelant depuis la reponse de
@@ -635,7 +644,8 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                           ),
                           color: FlutterFlowTheme.of(context).primary,
                           onPressed: () async {
-                            _logPlayPagePop('appbar_back_button_context.safePop');
+                            _logPlayPagePop(
+                                'appbar_back_button_context.safePop');
                             context.safePop();
                           },
                         ),
@@ -985,8 +995,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                             width: MediaQuery.sizeOf(context)
                                                     .width *
                                                 1.0,
-                                            padding:
-                                                const EdgeInsets.all(24.0),
+                                            padding: const EdgeInsets.all(24.0),
                                             decoration: BoxDecoration(
                                               color: const Color(0xFFF5F5F5),
                                               borderRadius:
@@ -1000,15 +1009,14 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                   textAlign: TextAlign.center,
                                                   style: TextStyle(
                                                     fontSize: 16.0,
-                                                    fontWeight:
-                                                        FontWeight.w600,
+                                                    fontWeight: FontWeight.w600,
                                                     color: Colors.black87,
                                                   ),
                                                 ),
                                                 if (widget.game != null)
                                                   FutureBuilder<QuerySnapshot>(
-                                                    future: widget.game!
-                                                        .reference
+                                                    future: widget
+                                                        .game!.reference
                                                         .collection(
                                                             'participants')
                                                         .where('user_id',
@@ -1038,18 +1046,19 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                       return Padding(
                                                         padding:
                                                             const EdgeInsets
-                                                                .only(
-                                                                top: 8.0),
+                                                                .only(top: 8.0),
                                                         child: Text(
                                                           mainPrizeTicketLabel(
                                                               ticketCount),
-                                                          style: const TextStyle(
-                                                              fontSize: 15.0,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                              color: Colors
-                                                                  .black54),
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize:
+                                                                      15.0,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w500,
+                                                                  color: Colors
+                                                                      .black54),
                                                         ),
                                                       );
                                                     },
@@ -1082,7 +1091,7 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                   rewardImageUrl:
                                                       widget.game!.photo,
                                                   rewardTextBonus:
-                                                      rewardTextBonus,
+                                                      secondaryRevealText,
                                                   onScratchStart: () {
                                                     _logPlayPageTrace(
                                                       'scratch_card_onScratchStart',
@@ -1106,18 +1115,39 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                           'isWin=${widget.resultParticipation?.isWin == true}',
                                                     );
                                                     _model.cardReveal = true;
+                                                    // A server-confirmed bonus (currently the
+                                                    // three additional plays) deserves the same
+                                                    // positive feedback as a prize, without
+                                                    // turning it into a prize win in the UI.
+                                                    final hasPositiveBonus =
+                                                        rewardTextBonus
+                                                            .trim()
+                                                            .isNotEmpty;
+                                                    if (kDebugMode) {
+                                                      debugPrint(
+                                                        '[WIN_HAPTIC_TRACE] event=reveal_evaluated isWin=${widget.resultParticipation?.isWin == true} hasPositiveBonus=$hasPositiveBonus alreadyPlayed=$_winHapticPlayed',
+                                                      );
+                                                    }
+                                                    if ((widget.resultParticipation
+                                                                    ?.isWin ==
+                                                                true ||
+                                                            hasPositiveBonus) &&
+                                                        !_winHapticPlayed) {
+                                                      _winHapticPlayed = true;
+                                                      if (kDebugMode) {
+                                                        debugPrint(
+                                                          '[WIN_HAPTIC_TRACE] event=win_haptic_requested cause=${hasPositiveBonus ? 'server_bonus' : 'instant_prize'}',
+                                                        );
+                                                      }
+                                                      unawaited(
+                                                          triggerWinHaptic());
+                                                    }
                                                     if (widget
                                                             .resultParticipation
                                                             ?.isWin ==
                                                         true) {
                                                       _model.isWin = true;
                                                       safeSetState(() {});
-                                                      // Two short pulses, once per revealed win; not
-                                                      // awaited, so sound and result are not delayed.
-                                                      if (!_winHapticPlayed) {
-                                                        _winHapticPlayed = true;
-                                                        unawaited(triggerWinHaptic());
-                                                      }
                                                       await _stopScratchSound();
                                                       _model.soundPlayer ??=
                                                           AudioPlayer();
@@ -1141,17 +1171,44 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                                       // About one real losing classic scratch out of
                                                       // three: a short invitation to scan the shop QR.
                                                       // Its availability never changes this message.
-                                                      if (mayInviteToShopQr(
-                                                        isClassicPlay:
-                                                            widget.isClassicPlay,
+                                                      final invitationEligible =
+                                                          mayInviteToShopQr(
+                                                        isClassicPlay: widget
+                                                            .isClassicPlay,
                                                         isWin: false,
-                                                        isReplay: isAlreadyPlayedStatus,
-                                                      )) {
+                                                        isReplay:
+                                                            isAlreadyPlayedStatus,
+                                                      );
+                                                      _debugPartnerPlayTrace(
+                                                        'eligibility',
+                                                        detail:
+                                                            'eligible=$invitationEligible isClassicPlay=${widget.isClassicPlay} isReplay=$isAlreadyPlayedStatus isWin=false',
+                                                      );
+                                                      if (invitationEligible) {
                                                         final partnerMessage =
                                                             await nextPartnerPlayMessage();
-                                                        if (mounted && partnerMessage != null) {
+                                                        _debugPartnerPlayTrace(
+                                                          'selection_result',
+                                                          detail:
+                                                              'selected=${partnerMessage != null}',
+                                                        );
+                                                        if (mounted &&
+                                                            partnerMessage !=
+                                                                null) {
                                                           safeSetState(() =>
-                                                              _partnerPlayMessage = partnerMessage);
+                                                              _partnerPlayMessage =
+                                                                  partnerMessage);
+                                                          _debugPartnerPlayTrace(
+                                                            'widget_value_scheduled',
+                                                            detail:
+                                                                'hasInvitation=true hasServerBonus=${rewardTextBonus.isNotEmpty}',
+                                                          );
+                                                        } else if (!mounted) {
+                                                          _debugPartnerPlayTrace(
+                                                            'widget_value_skipped',
+                                                            detail:
+                                                                'reason=page_unmounted',
+                                                          );
                                                         }
                                                       }
                                                     }
@@ -1550,44 +1607,6 @@ class _PlayJoueurPageWidgetState extends State<PlayJoueurPageWidget> {
                                       child: Column(
                                         mainAxisSize: MainAxisSize.max,
                                         children: [
-                                          if (_partnerPlayMessage != null &&
-                                              widget.resultParticipation
-                                                      ?.isWin !=
-                                                  true)
-                                            Row(
-                                              key: const ValueKey(
-                                                  'partner-play-message'),
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.qr_code_2_rounded,
-                                                  size: 18.0,
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .secondaryText,
-                                                ),
-                                                const SizedBox(width: 8.0),
-                                                Flexible(
-                                                  child: Text(
-                                                    _partnerPlayMessage!,
-                                                    textAlign:
-                                                        TextAlign.center,
-                                                    style: FlutterFlowTheme.of(
-                                                            context)
-                                                        .bodySmall
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(),
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .secondaryText,
-                                                          letterSpacing: 0.0,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
                                           if (widget
                                                   .resultParticipation?.isWin ==
                                               true)

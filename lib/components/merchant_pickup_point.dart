@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '/backend/backend.dart';
 import '/components/merchant_presentation.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/utils/external_link.dart';
 import '/pages/joueur/enseigne_detail_joueur_page/enseigne_detail_joueur_page_widget.dart';
 
 /// Receives only the prize's enseigneId, never the source game's merchant.
@@ -93,7 +94,7 @@ class _MerchantPickupPointState extends State<MerchantPickupPoint> {
                         TextButton.icon(
                             style: TextButton.styleFrom(
                                 foregroundColor: merchantAccent),
-                            onPressed: () => launchURL(
+                            onPressed: () => openMerchantExternalLink(
                                 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}'),
                             icon: const Icon(Icons.directions_outlined),
                             label: const Text('Itinéraire')),

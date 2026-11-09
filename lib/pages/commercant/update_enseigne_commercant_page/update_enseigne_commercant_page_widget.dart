@@ -15,6 +15,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:webviewx_plus/webviewx_plus.dart';
+import '/utils/french_phone.dart';
+import 'merchant_update_result.dart';
 import 'update_enseigne_commercant_page_model.dart';
 export 'update_enseigne_commercant_page_model.dart';
 
@@ -158,7 +160,9 @@ class _UpdateEnseigneCommercantPageWidgetState
           address: _model.textFieldAdresseTextController.text,
           city: _model.textFieldCityTextController.text,
           areaCode: _model.textFieldCodeTextController.text,
-          phoneNumber: _model.textFieldPhoneTextController.text,
+          // Validated above: always the "0X XX XX XX XX" display form.
+          phoneNumber:
+              normalizeFrenchPhone(_model.textFieldPhoneTextController.text),
           description: _model.textFieldDescriptionTextController.text,
           siteWebUrl: _model.textFieldSiteWebTextController.text,
           instagramLink: _model.textFieldInstTextController.text,
@@ -172,7 +176,7 @@ class _UpdateEnseigneCommercantPageWidgetState
           'google_place_id': FieldValue.delete()
         else if (trimmedNewPlaceId.isNotEmpty)
           'google_place_id': trimmedNewPlaceId,
-      });
+      }).timeout(kMerchantUpdateTimeout);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -181,14 +185,11 @@ class _UpdateEnseigneCommercantPageWidgetState
         ),
       );
       Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (error) {
+      // Stay on the page: the values typed are kept for a new attempt.
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Impossible de mettre à jour vos informations. Réessayez.',
-          ),
-        ),
+        SnackBar(content: Text(merchantUpdateErrorMessage(error))),
       );
     } finally {
       if (mounted) {
@@ -869,7 +870,7 @@ class _UpdateEnseigneCommercantPageWidgetState
                                   validator: _model
                                       .textFieldPhoneTextControllerValidator
                                       .asValidator(context),
-                                  inputFormatters: [_model.textFieldPhoneMask],
+                                  inputFormatters: kFrenchPhoneInputFormatters,
                                 ),
                               ].divide(const SizedBox(height: 16.0)),
                             ),

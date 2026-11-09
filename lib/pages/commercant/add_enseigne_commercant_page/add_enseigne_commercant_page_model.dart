@@ -6,6 +6,7 @@ import 'add_enseigne_commercant_page_widget.dart'
     show AddEnseigneCommercantPageWidget;
 import 'package:flutter/material.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import '/utils/french_phone.dart';
 
 class AddEnseigneCommercantPageModel
     extends FlutterFlowModel<AddEnseigneCommercantPageWidget> {
@@ -70,15 +71,8 @@ class AddEnseigneCommercantPageModel
       textFieldPhoneTextControllerValidator;
   String? _textFieldPhoneTextControllerValidator(
       BuildContext context, String? val) {
-    if (val == null || val.isEmpty) {
-      return 'Numéro de téléphone requis';
-    }
-
-    if (val.length < 14) {
-      return 'Requires at least 14 characters.';
-    }
-
-    return null;
+    // Same French rule as the update form (mask 0X XX XX XX XX kept).
+    return validateFrenchPhone(val);
   }
 
   // State field(s) for TextFieldAdresse widget.

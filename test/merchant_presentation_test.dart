@@ -14,6 +14,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +25,8 @@ import 'package:proxi_play/backend/backend.dart';
 import 'package:proxi_play/auth/base_auth_user_provider.dart';
 import 'package:proxi_play/app_state.dart';
 import 'package:proxi_play/components/player_gain_card.dart';
+import 'package:proxi_play/components/list_empty_component_widget.dart';
+import 'package:proxi_play/pages/joueur/parrainage_joueur_page/parrainage_joueur_page_widget.dart';
 import 'package:proxi_play/components/game_qr_code_card_widget.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:proxi_play/utils/merchant_game_visibility.dart';
@@ -37,6 +40,8 @@ import 'package:proxi_play/components/merchant_presentation.dart';
 import 'package:proxi_play/components/winner_email_text.dart';
 import 'package:proxi_play/pages/commercant/home_commercant_page/home_commercant_page_widget.dart';
 import 'package:proxi_play/pages/commercant/update_enseigne_commercant_page/update_enseigne_commercant_page_widget.dart';
+import 'package:proxi_play/pages/commercant/update_enseigne_commercant_page/merchant_update_result.dart';
+import 'package:proxi_play/utils/french_phone.dart';
 import 'package:proxi_play/services/merchant_prizes_service.dart';
 import 'package:proxi_play/pages/commercant/jeux_commercant_page/jeux_commercant_page_widget.dart';
 import 'package:proxi_play/flutter_flow/internationalization.dart';
@@ -150,6 +155,8 @@ class _Collection extends platform.CollectionReferencePlatform {
       store.doc('$path/$documentPath');
   @override
   platform.QueryPlatform where(List<List<dynamic>> conditions) => this;
+  @override
+  platform.QueryPlatform orderBy(Iterable<List<dynamic>> orders) => this;
   @override
   platform.QueryPlatform limit(int limit) => this;
   @override
@@ -1301,6 +1308,182 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  group('Informations pratiques : liens externes', () {
+    Map<String, dynamic> withLinks() => {
+          ...complete(),
+          'instagram_link': '@lunique.dk',
+          'facebook_link': 'https://www.facebook.com/lunique',
+          'twitter_link': '@lunique',
+        };
+    final logos = <String, (FaIconData, Color)>{
+      'Site web': (FontAwesomeIcons.globe, merchantAccent),
+      'Instagram': (FontAwesomeIcons.instagram, const Color(0xFFE4405F)),
+      'Facebook': (FontAwesomeIcons.facebook, const Color(0xFF1877F2)),
+      'X': (FontAwesomeIcons.xTwitter, const Color(0xFF000000)),
+    };
+
+    Future<void> showLinks(WidgetTester tester, Map<String, dynamic> data,
+        {double width = 390,
+        double scale = 1,
+        TargetPlatform? platform}) async {
+      store.data['enseignes/shop'] = data;
+      await pump(
+          tester, EnseigneDetailJoueurPageWidget(enseigneDoc: merchant(data)),
+          width: width, scale: scale, platform: platform);
+      await tester.scrollUntilVisible(find.text('Horaires'), 300,
+          scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
+    }
+
+    const contactKeys = [
+      'merchant-contact-directions',
+      'merchant-contact-phone',
+      'merchant-link-Site web',
+      'merchant-link-Instagram',
+      'merchant-link-Facebook',
+      'merchant-link-X',
+    ];
+
+    testWidgets('logos officiels seuls, sans libellé visible ni cadre',
+        (tester) async {
+      await showLinks(tester, withLinks());
+      for (final MapEntry(key: label, value: (logo, color)) in logos.entries) {
+        final button = find.byKey(Key('merchant-link-$label'));
+        expect(button, findsOneWidget, reason: label);
+        expect(find.descendant(of: button, matching: find.text(label)),
+            findsNothing,
+            reason: 'logo seul');
+        final icon = tester.widget<FaIcon>(
+            find.descendant(of: button, matching: find.byType(FaIcon)));
+        expect(icon.icon, logo.data, reason: label);
+        expect(icon.color, color, reason: label);
+        expect(tester.widget<IconButton>(button).onPressed, isNotNull,
+            reason: 'ouverture externe conservée');
+      }
+      // Itinéraire et téléphone gardent icône et texte.
+      final directions = find.byKey(const Key('merchant-contact-directions'));
+      expect(find.descendant(of: directions, matching: find.text('Itinéraire')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: directions, matching: find.byIcon(Icons.directions_outlined)),
+          findsOneWidget);
+      final phone = find.byKey(const Key('merchant-contact-phone'));
+      expect(find.descendant(of: phone, matching: find.text('03 28 00 00 00')),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: phone, matching: find.byIcon(Icons.phone_outlined)),
+          findsOneWidget);
+      // Plus aucun bouton encadré ni fond dans la section.
+      expect(find.byType(OutlinedButton), findsNothing);
+      for (final key in contactKeys) {
+        final style = switch (tester.widget(find.byKey(Key(key)))) {
+          final TextButton b => b.style,
+          final IconButton b => b.style,
+          _ => null,
+        };
+        expect(style?.side?.resolve({}), isNull, reason: key);
+        expect(style?.backgroundColor?.resolve({}), Colors.transparent,
+            reason: key);
+      }
+      expect(find.byIcon(Icons.open_in_new_rounded), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('destinations inchangées (site, réseaux, itinéraire, appel)',
+        (tester) async {
+      final src = File(
+              'lib/pages/joueur/enseigne_detail_joueur_page/enseigne_detail_joueur_page_widget.dart')
+          .readAsStringSync();
+      expect(src.contains('onPressed: () => openMerchantExternalLink(url)'),
+          isTrue);
+      expect(
+          src.contains(
+              "'https://www.google.com/maps/search/?api=1&query=\${Uri.encodeComponent(address)}'"),
+          isTrue);
+      expect(src.contains("launchURL('tel:\${merchant.phoneNumber.trim()}')"),
+          isTrue);
+    });
+
+    testWidgets('contacts puis logos sociaux sur une seconde ligne non cassée',
+        (tester) async {
+      await showLinks(tester, withLinks(), width: 320, scale: 1.6);
+      final contactRow = find.byKey(const Key('merchant-contact-row'));
+      final socialRow = find.byKey(const Key('merchant-social-row'));
+      expect(contactRow, findsOneWidget);
+      expect(socialRow, findsOneWidget);
+      expect(tester.getRect(socialRow).top,
+          greaterThan(tester.getRect(contactRow).bottom));
+      final socialCenters = logos.keys
+          .map((label) =>
+              tester.getCenter(find.byKey(Key('merchant-link-$label'))).dy)
+          .toSet();
+      expect(socialCenters, hasLength(1),
+          reason: 'les logos sociaux ne reviennent jamais à la ligne');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('seuls les moyens de contact renseignés sont affichés',
+        (tester) async {
+      await showLinks(tester, {
+        ...complete(),
+        'site_web_url': '   ',
+        'facebook_link': 'lunique',
+        'phone_number': ' ',
+      });
+      expect(find.byKey(const Key('merchant-link-Site web')), findsNothing);
+      expect(find.byKey(const Key('merchant-link-Instagram')), findsNothing);
+      expect(find.byKey(const Key('merchant-link-Facebook')), findsOneWidget);
+      expect(find.byKey(const Key('merchant-link-X')), findsNothing);
+      expect(find.byKey(const Key('merchant-contact-phone')), findsNothing);
+      expect(
+          find.byKey(const Key('merchant-contact-directions')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('sans adresse : pas d’itinéraire', (tester) async {
+      await showLinks(tester, {
+        ...complete(),
+        'address': '',
+        'city': '',
+        'area_code': '',
+      });
+      expect(
+          find.byKey(const Key('merchant-contact-directions')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      for (final width in [320.0, 360.0, 390.0]) {
+        for (final scale in [1.0, 1.3, 1.6]) {
+          testWidgets(
+              '${platform.name} ${width.toInt()} px, texte x$scale : retour à la '
+              'ligne, cibles tactiles d’au moins 44 px, sans débordement',
+              (tester) async {
+            await showLinks(tester, withLinks(),
+                width: width, scale: scale, platform: platform);
+            expect(tester.takeException(), isNull);
+            for (final key in contactKeys) {
+              final rect = tester.getRect(find.byKey(Key(key)));
+              expect(rect.height, greaterThanOrEqualTo(44), reason: key);
+              expect(rect.width, greaterThanOrEqualTo(44), reason: key);
+              expect(rect.right, lessThanOrEqualTo(width), reason: key);
+            }
+            final handle = tester.ensureSemantics();
+            for (final label in logos.keys) {
+              expect(
+                  tester.getSemantics(find.byKey(Key('merchant-link-$label'))),
+                  isSemantics(label: label, isButton: true),
+                  reason: 'icône seule annoncée');
+            }
+            handle.dispose();
+          });
+        }
+      }
+    }
+  });
+
   testWidgets(
       'detail without description, rating, images or hours invents no content',
       (tester) async {
@@ -1766,6 +1949,11 @@ void main() {
     await pump(tester, const ParrainageCommercantPageWidget());
     expect(tester.takeException(), isNull);
     expect(find.text('P8RWGZ53'), findsOneWidget);
+    // Tracking: titled section and a compact empty state, no lone grey icon.
+    expect(find.text('Suivi de vos parrainages'), findsOneWidget);
+    expect(find.byKey(const Key('merchant-referral-tracking-empty')),
+        findsOneWidget);
+    expect(find.byIcon(Icons.inbox_rounded), findsNothing);
 
     await tester.ensureVisible(find.text('Voir les conditions du programme'));
     await tester.tap(find.text('Voir les conditions du programme'));
@@ -2239,6 +2427,108 @@ void main() {
     });
   });
 
+  group('page Parrainage du joueur', () {
+    Future<void> openReferrals(WidgetTester tester,
+        {double width = 390, double height = 800, double scale = 1}) async {
+      final previousUser = currentUser;
+      currentUser = _GainsUser();
+      addTearDown(() => currentUser = previousUser);
+      await pump(tester, const ParrainageJoueurPageWidget(),
+          width: width, height: height, scale: scale);
+    }
+
+    testWidgets(
+        'cause reproduite : la liste vide d’origine ne peut pas être mise en '
+        'page dans une zone défilante', (tester) async {
+      final errors = <FlutterErrorDetails>[];
+      final previous = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      try {
+        await tester.pumpWidget(const MaterialApp(
+            home: Scaffold(
+                body: SingleChildScrollView(
+                    child: Column(children: [
+          ListEmptyComponentWidget(title: 'Vide', description: '…'),
+        ])))));
+      } finally {
+        FlutterError.onError = previous;
+      }
+      // The same cascade as on the device: infinite height constraint, then
+      // "RenderBox was not laid out" / NEEDS-PAINT up the tree.
+      expect(errors, isNotEmpty);
+      expect(
+          errors.map((e) => e.exceptionAsString()).join('\n'),
+          anyOf(contains('BoxConstraints forces an infinite height'),
+              contains('RenderBox was not laid out')));
+    });
+
+    for (final (width, scale) in [
+      (320.0, 1.0),
+      (360.0, 1.3),
+      (412.0, 1.0),
+      (412.0, 1.6),
+    ]) {
+      testWidgets(
+          'sans parrainage, ${width.toInt()} px texte x$scale : contenu visible, '
+          'sans erreur de mise en page', (tester) async {
+        await openReferrals(tester, width: width, height: 760, scale: scale);
+        expect(tester.takeException(), isNull);
+        expect(find.text('Parraine tes amis'), findsOneWidget);
+        expect(find.text('Inviter un ami'), findsOneWidget);
+        expect(find.text('Mes filleuls (0)'), findsOneWidget);
+        await tester.scrollUntilVisible(
+            find.byKey(const ValueKey('referrals-empty-pending')), 200,
+            scrollable: find.byType(Scrollable).first);
+        expect(find.byKey(const ValueKey('referrals-empty-accepted')),
+            findsOneWidget);
+        expect(find.text('Aucune invitation en attente'), findsOneWidget);
+        expect(find.byType(ListEmptyComponentWidget), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('avec des parrainages : filleuls et envois affichés',
+        (tester) async {
+      store.data['referrals/r1'] = {
+        'inviterUid': 'gains-player',
+        'status': 'accepted',
+        'rewardStatus': 'granted',
+        'acceptedAt': Timestamp.fromDate(DateTime(2026, 11, 2)),
+        'createdAt': Timestamp.fromDate(DateTime(2026, 11, 1)),
+      };
+      store.data['referrals/r2'] = {
+        'inviterUid': 'gains-player',
+        'status': 'pending',
+        'inviteCode': 'ABC123',
+        'createdAt': Timestamp.fromDate(DateTime(2026, 11, 5)),
+      };
+      await openReferrals(tester);
+      expect(find.text('Mes filleuls (1)'), findsOneWidget);
+      expect(find.text('Ami inscrit'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Relancer'), 200,
+          scrollable: find.byType(Scrollable).first);
+      expect(find.text('Mes envois (1)'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'données indisponibles : message explicite, invitation possible',
+        (tester) async {
+      store.denied.add('referrals');
+      await openReferrals(tester);
+      expect(find.byKey(const ValueKey('referrals-error')), findsOneWidget);
+      expect(find.text('Réessayer'), findsOneWidget);
+      expect(find.text('Inviter un ami'), findsOneWidget);
+
+      store.denied.remove('referrals');
+      await tester.tap(find.text('Réessayer'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('referrals-error')), findsNothing);
+      expect(find.text('Mes filleuls (0)'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('merchant profile update', () {
     EnseignesRecord validMerchant() {
       final values = complete()..['phone_number'] = '0328000000';
@@ -2312,7 +2602,108 @@ void main() {
       await tester.pump();
       expect(find.byType(UpdateEnseigneCommercantPageWidget), findsOneWidget);
       expect(store.updates, isEmpty);
-      expect(find.text('name is required'), findsOneWidget);
+      expect(find.text('Nom du point de vente requis.'), findsOneWidget);
+    });
+
+    dynamic savedPhone() =>
+        store.updates.single[platform.FieldPath(const ['phone_number'])];
+
+    Finder phoneField() =>
+        find.widgetWithText(TextFormField, 'Numéro de téléphone');
+
+    Future<void> typePhone(WidgetTester tester, String value) async {
+      await tester.scrollUntilVisible(phoneField(), -300,
+          scrollable: find.byType(Scrollable).first);
+      await tester.enterText(phoneField(), value);
+      await tester.scrollUntilVisible(find.text('Mettre à jour'), 300,
+          scrollable: find.byType(Scrollable).first);
+    }
+
+    testWidgets('accepts the spaced number of the Android capture and saves it',
+        (tester) async {
+      // The stored value as shown on the device: "06 46 30 79 86".
+      await openEditor(
+          tester, merchant(complete()..['phone_number'] = '06 46 30 79 86'));
+
+      await tester.tap(find.text('Mettre à jour'));
+      await tester.pumpAndSettle();
+      expect(find.text('Invalid text'), findsNothing);
+      expect(savedPhone(), '06 46 30 79 86');
+      expect(find.text('parent refreshed'), findsOneWidget);
+      expect(find.text('Vos informations ont bien été mises à jour.'),
+          findsOneWidget);
+    });
+
+    testWidgets('normalises +33 and unspaced input before saving',
+        (tester) async {
+      await openEditor(tester, validMerchant());
+      await typePhone(tester, '+33 6 46 30 79 86');
+      expect(tester.widget<TextFormField>(phoneField()).controller!.text,
+          '+33 6 46 30 79 86',
+          reason: 'shown as typed');
+
+      await tester.tap(find.text('Mettre à jour'));
+      await tester.pumpAndSettle();
+      expect(savedPhone(), '06 46 30 79 86');
+      expect(find.text('parent refreshed'), findsOneWidget);
+    });
+
+    testWidgets('rejects an invalid number in French without saving',
+        (tester) async {
+      await openEditor(tester, validMerchant());
+      await typePhone(tester, '06 46 30');
+
+      await tester.tap(find.text('Mettre à jour'));
+      await tester.pumpAndSettle();
+      expect(store.updates, isEmpty);
+      expect(find.byType(UpdateEnseigneCommercantPageWidget), findsOneWidget);
+      await tester.scrollUntilVisible(find.text(kPhoneInvalidMessage), -300,
+          scrollable: find.byType(Scrollable).first);
+      expect(find.text(kPhoneInvalidMessage), findsOneWidget);
+    });
+
+    testWidgets('letters cannot be typed in the phone field', (tester) async {
+      await openEditor(tester, validMerchant());
+      await typePhone(tester, '06a46b30');
+      expect(tester.widget<TextFormField>(phoneField()).controller!.text,
+          '064630');
+    });
+
+    testWidgets('stays open with an explicit error when Firestore refuses',
+        (tester) async {
+      store.updateHandler = (_, __) async => throw FirebaseException(
+          plugin: 'cloud_firestore', code: 'permission-denied');
+      await openEditor(tester, validMerchant());
+      await typePhone(tester, '06 46 30 79 86');
+
+      await tester.tap(find.text('Mettre à jour'));
+      await tester.pumpAndSettle();
+      expect(find.byType(UpdateEnseigneCommercantPageWidget), findsOneWidget);
+      expect(find.text('parent refreshed'), findsNothing);
+      expect(
+          find.text(
+              'Vous n’avez pas l’autorisation de modifier cet établissement.'),
+          findsOneWidget);
+      expect(tester.widget<TextFormField>(phoneField()).controller!.text,
+          '06 46 30 79 86');
+      expect(find.text('Mettre à jour'), findsOneWidget,
+          reason: 'button enabled again for a retry');
+    });
+
+    testWidgets('an unconfirmed write times out and keeps the page open',
+        (tester) async {
+      store.updateHandler = (_, __) => Completer<void>().future;
+      await openEditor(tester, validMerchant());
+
+      await tester.tap(find.text('Mettre à jour'));
+      await tester.pump();
+      expect(find.text('Enregistrement...'), findsOneWidget);
+      await tester.pump(kMerchantUpdateTimeout + const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.byType(UpdateEnseigneCommercantPageWidget), findsOneWidget);
+      expect(find.text('parent refreshed'), findsNothing);
+      expect(find.textContaining('ne sont pas confirmées'), findsOneWidget);
+      expect(find.text('Mettre à jour'), findsOneWidget);
     });
   });
 }

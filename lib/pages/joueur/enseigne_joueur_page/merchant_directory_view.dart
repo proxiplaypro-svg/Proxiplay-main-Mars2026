@@ -16,12 +16,12 @@ const _searchBackground = Color(0xFFD4D3E7);
 const _searchBorder = Color(0xFFE0E3E7);
 const _searchText = Color(0xFF605F83);
 
-enum _FilterKind { all, favorites, category }
+enum _FilterKind { all, activeGames, category }
 
 class _Filter {
   const _Filter(this.kind, [this.category = '']);
   static const all = _Filter(_FilterKind.all);
-  static const favorites = _Filter(_FilterKind.favorites);
+  static const activeGames = _Filter(_FilterKind.activeGames);
   final _FilterKind kind;
   final String category;
 
@@ -88,7 +88,6 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
   /// Session order: drawn once, then only appended to (beyond the cap).
   final List<DirectoryMerchant> _paged = [];
   final Set<String> _pagedIds = {};
-  final Map<String, DirectoryMerchant> _extra = {};
   Object? _cursor;
   bool _hasMore = true;
   bool _initialLoading = true;
@@ -98,13 +97,8 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
 
   StreamSubscription<Map<String, List<Object>>>? _favoritesSubscription;
   bool _favoritesEnabled = false;
-  bool _favoritesLoaded = false;
-  bool _favoritesFailed = false;
   Map<String, List<Object>> _favorites = const {};
   final Set<String> _favoritePending = {};
-  final Set<String> _requestedFavoriteIds = {};
-  bool _loadingFavoriteMerchants = false;
-  bool _favoriteMerchantsFailed = false;
 
   final Map<String, Future<String>> _photos = {};
   int _generation = 0;
@@ -135,17 +129,11 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
         if (!mounted) return;
         setState(() {
           _favorites = value;
-          _favoritesLoaded = true;
-          _favoritesFailed = false;
         });
-        if (_filter == _Filter.favorites) _ensureFavoriteMerchants();
       },
       onError: (Object _) {
-        if (!mounted) return;
-        setState(() {
-          _favoritesLoaded = true;
-          _favoritesFailed = true;
-        });
+        // Favorites are an optional convenience. Keep the directory usable
+        // if their stream is temporarily unavailable.
       },
     );
   }
@@ -265,23 +253,11 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
   /// session order. No merchant is ranked first for having a game.
   List<DirectoryMerchant> get _baseList => _paged;
 
-  /// Favorites in the session order; a favorite outside the loaded merchants
-  /// (only possible beyond the cap) follows, in a session-shuffled order.
-  List<DirectoryMerchant> get _favoriteList => [
-        ..._paged.where((m) => _favorites.containsKey(m.id)),
-        ..._extraOrder
-            .where(
-                (id) => _favorites.containsKey(id) && !_pagedIds.contains(id))
-            .map((id) => _extra[id])
-            .whereType<DirectoryMerchant>(),
-      ];
-
-  final List<String> _extraOrder = [];
-
   List<DirectoryMerchant> get _visible {
     final source = switch (_filter.kind) {
       _FilterKind.all => _baseList,
-      _FilterKind.favorites => _favoriteList,
+      // Deliberately use the exact same predicate as the green card badge.
+      _FilterKind.activeGames => _baseList.where(_hasActiveGame).toList(),
       _FilterKind.category => _baseList
           .where((m) => m.categories.contains(_filter.category))
           .toList(),
@@ -294,46 +270,15 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
 
   /// Results come from loaded pages only while more pages exist.
   bool get _resultsArePartial =>
-      _hasMore && (_filter.kind == _FilterKind.category || _query.isNotEmpty);
-
-  Future<void> _ensureFavoriteMerchants() async {
-    final known = <String>{
-      ..._extra.keys,
-      ..._pagedIds,
-      ..._requestedFavoriteIds,
-    };
-    final missing = _favorites.keys.where((id) => !known.contains(id)).toList();
-    if (missing.isEmpty) return;
-    _requestedFavoriteIds.addAll(missing);
-    setState(() {
-      _loadingFavoriteMerchants = true;
-      _favoriteMerchantsFailed = false;
-    });
-    try {
-      final merchants = await widget.source.fetchByIds(missing);
-      if (!mounted) return;
-      setState(() {
-        for (final merchant in shuffledSessionCopy(merchants, _sessionRandom)) {
-          if (!_extra.containsKey(merchant.id)) _extraOrder.add(merchant.id);
-          _extra[merchant.id] = merchant;
-        }
-        _loadingFavoriteMerchants = false;
-      });
-    } catch (_) {
-      _requestedFavoriteIds.removeAll(missing);
-      if (!mounted) return;
-      setState(() {
-        _loadingFavoriteMerchants = false;
-        _favoriteMerchantsFailed = true;
-      });
-    }
-  }
+      _hasMore &&
+      (_filter.kind == _FilterKind.category ||
+          _filter.kind == _FilterKind.activeGames ||
+          _query.isNotEmpty);
 
   void _selectFilter(_Filter filter) {
     if (_filter == filter) return;
     setState(() => _filter = filter);
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
-    if (filter == _Filter.favorites) _ensureFavoriteMerchants();
   }
 
   void _onSearchChanged(String value) {
@@ -438,8 +383,11 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
         availableDirectoryCategories(_paged, widget.knownCategories);
     final filters = <(_Filter, String, Key)>[
       (_Filter.all, 'Tous', const Key('directory-filter-all')),
-      if (_favoritesEnabled)
-        (_Filter.favorites, 'Favoris', const Key('directory-filter-favorites')),
+      (
+        _Filter.activeGames,
+        'Jeux en cours',
+        const Key('directory-filter-active-games')
+      ),
       for (final category in categories)
         (
           _Filter(_FilterKind.category, category),
@@ -497,32 +445,6 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
         onAction: _loadInitial,
       );
     }
-    if (_filter == _Filter.favorites) {
-      if (!_favoritesLoaded || _loadingFavoriteMerchants) {
-        return const _DirectoryMessage(
-            key: Key('directory-loading'),
-            loading: true,
-            title: 'Chargement de vos favoris…');
-      }
-      if (_favoritesFailed || _favoriteMerchantsFailed) {
-        return _DirectoryMessage(
-          key: const Key('directory-error'),
-          icon: Icons.wifi_off_rounded,
-          title: 'Impossible de charger vos favoris',
-          actionLabel: 'Réessayer',
-          onAction: () {
-            if (_favoritesFailed) {
-              _favoritesSubscription?.cancel();
-              setState(() => _favoritesLoaded = false);
-              _listenFavorites();
-            } else {
-              _ensureFavoriteMerchants();
-            }
-          },
-        );
-      }
-    }
-
     final merchants = _visible;
     if (merchants.isEmpty) {
       if (_filter == _Filter.all && _query.isEmpty && !_hasMore) {
@@ -533,12 +455,14 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
           body: 'Les commerces partenaires apparaîtront ici.',
         );
       }
-      if (_filter == _Filter.favorites && _query.isEmpty) {
+      if (_filter == _Filter.activeGames && _query.isEmpty && !_hasMore) {
         return const _DirectoryMessage(
-          key: Key('directory-no-favorites'),
-          icon: Icons.favorite_border_rounded,
-          title: 'Aucun commerce favori',
-          body: 'Touchez le cœur d’un commerce pour le retrouver ici.',
+          key: Key('directory-no-active-games'),
+          icon: Icons.sports_esports_outlined,
+          title: 'Aucun jeu en cours',
+          body: 'Revenez bientôt découvrir les prochains jeux.',
+          compact: true,
+          expand: false,
         );
       }
       return ListView(
@@ -566,8 +490,7 @@ class _MerchantDirectoryViewState extends State<MerchantDirectoryView> {
       );
     }
 
-    final showFooter = _filter != _Filter.favorites &&
-        (_hasMore || _loadingMore || _moreError != null);
+    final showFooter = _hasMore || _loadingMore || _moreError != null;
     return ListView.separated(
       key: const Key('directory-list'),
       controller: _scrollController,
@@ -665,6 +588,7 @@ class _DirectoryMessage extends StatelessWidget {
     this.actionLabel,
     this.onAction,
     this.expand = true,
+    this.compact = false,
   });
 
   final String title;
@@ -674,11 +598,13 @@ class _DirectoryMessage extends StatelessWidget {
   final String? actionLabel;
   final VoidCallback? onAction;
   final bool expand;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+      padding:
+          EdgeInsets.symmetric(horizontal: 16, vertical: compact ? 16 : 32),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         if (loading)
           const SizedBox(
@@ -739,11 +665,8 @@ class DirectoryMerchantCard extends StatelessWidget {
   final bool favoriteBusy;
 
   static const photoWidth = 96.0;
+  static const compactPhotoWidth = 80.0;
   static const minHeight = 84.0;
-
-  /// Below this text width the badge leaves the name line for the rating line,
-  /// so a long name stays readable on a 320 px screen.
-  static const badgeBesideNameMinWidth = 210.0;
 
   @override
   Widget build(BuildContext context) {
@@ -755,10 +678,23 @@ class DirectoryMerchantCard extends StatelessWidget {
             ? '$rating Google (${merchant.googleReviewsCount} avis)'
             : '$rating Google';
 
+    const nameStyle = TextStyle(
+        color: merchantInk,
+        fontSize: 15.5,
+        fontWeight: FontWeight.w800,
+        height: 1.2);
+    const ratingStyle = TextStyle(color: merchantInk, fontSize: 12.5);
     final content = LayoutBuilder(builder: (context, constraints) {
-      final badgeBesideName =
-          hasActiveGame && constraints.maxWidth >= badgeBesideNameMinWidth;
-      final badgeOnRatingLine = hasActiveGame && !badgeBesideName;
+      // Measured with the real text scale: the badge is never cut, it moves
+      // to the line where it fits completely.
+      final placement = hasActiveGame
+          ? _badgePlacement(context,
+              maxWidth: constraints.maxWidth,
+              name: merchant.displayName,
+              nameStyle: nameStyle,
+              ratingText: ratingText,
+              ratingStyle: ratingStyle)
+          : _BadgePlacement.none;
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -769,21 +705,12 @@ class DirectoryMerchantCard extends StatelessWidget {
                 merchant.displayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    color: merchantInk,
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w800,
-                    height: 1.2),
+                style: nameStyle,
               ),
             ),
-            if (badgeBesideName) ...[
+            if (placement == _BadgePlacement.besideName) ...[
               const SizedBox(width: 6),
-              // Bounded: the badge text is Flexible.
-              ConstrainedBox(
-                constraints:
-                    BoxConstraints(maxWidth: constraints.maxWidth * 0.5),
-                child: const _ActiveGameBadge(),
-              ),
+              const _ActiveGameBadge(),
             ],
           ]),
           if (description.isNotEmpty) ...[
@@ -796,26 +723,36 @@ class DirectoryMerchantCard extends StatelessWidget {
                   const TextStyle(color: _muted, fontSize: 12.5, height: 1.3),
             ),
           ],
-          if (ratingText != null || badgeOnRatingLine) ...[
+          if (ratingText != null ||
+              placement == _BadgePlacement.ratingLine) ...[
             const SizedBox(height: 4),
-            // One line whatever the width: parts shrink with an ellipsis.
-            Row(children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               if (ratingText != null) ...[
                 const Icon(Icons.star_rounded,
                     color: Color(0xFFF5AB16), size: 17),
                 const SizedBox(width: 3),
+                // Wraps to a second line rather than being cut.
                 Flexible(
                   child: Text(ratingText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style:
-                          const TextStyle(color: merchantInk, fontSize: 12.5)),
+                      key: const Key('directory-rating-text'),
+                      softWrap: true,
+                      style: ratingStyle),
                 ),
               ],
-              if (ratingText != null && badgeOnRatingLine)
-                const SizedBox(width: 6),
-              if (badgeOnRatingLine) const Flexible(child: _ActiveGameBadge()),
+              if (placement == _BadgePlacement.ratingLine) ...[
+                if (ratingText != null) const SizedBox(width: 6),
+                const _ActiveGameBadge(),
+              ],
             ]),
+          ],
+          if (placement == _BadgePlacement.ownLine) ...[
+            const SizedBox(height: 4),
+            // Extreme text scale on a 320 px screen: shrink slightly, never cut.
+            const FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: _ActiveGameBadge(),
+            ),
           ],
         ],
       );
@@ -830,53 +767,101 @@ class DirectoryMerchantCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: minHeight),
-          child: Stack(children: [
-            Padding(
-              padding: const EdgeInsets.only(left: photoWidth),
-              child: Row(children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
-                    child: content,
-                  ),
-                ),
-                if (isFavorite != null)
-                  IconButton(
-                    key: Key('directory-favorite-${merchant.id}'),
-                    tooltip: isFavorite!
-                        ? 'Retirer des favoris'
-                        : 'Ajouter aux favoris',
-                    onPressed: favoriteBusy ? null : onFavorite,
-                    icon: Icon(
-                      isFavorite!
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      color: merchantAccent,
-                      size: 24,
+        child: LayoutBuilder(builder: (context, constraints) {
+          // Narrower photo on 320 px screens: the room goes to the rating and
+          // the badge, which are never cut.
+          final photoWidth = constraints.maxWidth < 320
+              ? compactPhotoWidth
+              : DirectoryMerchantCard.photoWidth;
+          return ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: minHeight),
+            child: Stack(children: [
+              Padding(
+                padding: EdgeInsets.only(left: photoWidth),
+                child: Row(children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+                      child: content,
                     ),
-                  )
-                else
-                  const SizedBox(width: 8),
-              ]),
-            ),
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: photoWidth,
-              child: FutureBuilder<String>(
-                future: photo,
-                builder: (context, snapshot) =>
-                    MerchantPhotoContent(url: snapshot.data ?? ''),
+                  ),
+                  if (isFavorite != null)
+                    IconButton(
+                      key: Key('directory-favorite-${merchant.id}'),
+                      tooltip: isFavorite!
+                          ? 'Retirer des favoris'
+                          : 'Ajouter aux favoris',
+                      onPressed: favoriteBusy ? null : onFavorite,
+                      icon: Icon(
+                        isFavorite!
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color: merchantAccent,
+                        size: 24,
+                      ),
+                    )
+                  else
+                    const SizedBox(width: 8),
+                ]),
               ),
-            ),
-          ]),
-        ),
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: photoWidth,
+                child: FutureBuilder<String>(
+                  future: photo,
+                  builder: (context, snapshot) =>
+                      MerchantPhotoContent(url: snapshot.data ?? ''),
+                ),
+              ),
+            ]),
+          );
+        }),
       ),
     );
   }
+}
+
+const _activeGameStyle = TextStyle(
+    color: _activeGameText, fontSize: 11.5, fontWeight: FontWeight.w700);
+
+enum _BadgePlacement { none, besideName, ratingLine, ownLine }
+
+double _textWidth(BuildContext context, String text, TextStyle style) {
+  final painter = TextPainter(
+    text: TextSpan(
+        text: text, style: DefaultTextStyle.of(context).style.merge(style)),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
+
+/// Width of [_ActiveGameBadge]: padding 7 + icon 14 + gap 4 + text + padding 7.
+double _badgeWidth(BuildContext context) =>
+    32 + _textWidth(context, 'Jeu en cours', _activeGameStyle) + 1;
+
+_BadgePlacement _badgePlacement(
+  BuildContext context, {
+  required double maxWidth,
+  required String name,
+  required TextStyle nameStyle,
+  required String? ratingText,
+  required TextStyle ratingStyle,
+}) {
+  final badge = _badgeWidth(context);
+  if (_textWidth(context, name, nameStyle) + 6 + badge <= maxWidth) {
+    return _BadgePlacement.besideName;
+  }
+  final rating = ratingText == null
+      ? 0.0
+      : 20 + _textWidth(context, ratingText, ratingStyle) + 6;
+  if (rating + badge <= maxWidth) return _BadgePlacement.ratingLine;
+  return _BadgePlacement.ownLine;
 }
 
 class _ActiveGameBadge extends StatelessWidget {
@@ -893,15 +878,11 @@ class _ActiveGameBadge extends StatelessWidget {
         child: const Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.sports_esports_rounded, color: _activeGameText, size: 14),
           SizedBox(width: 4),
-          Flexible(
-            child: Text('Jeu en cours',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: _activeGameText,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700)),
-          ),
+          Text('Jeu en cours',
+              key: Key('directory-active-game-text'),
+              maxLines: 1,
+              softWrap: false,
+              style: _activeGameStyle),
         ]),
       );
 }
