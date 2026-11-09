@@ -67,7 +67,16 @@ test.after(async () => {
   await functionsTest.cleanup();
 });
 
-async function seedPrize({managedByAdmin}) {
+// Regle en vigueur (prize_merchant_notification_policy.js, 6a16eda du
+// 28/09/2026) : la remise est un contrat du lot. fulfillment_type "merchant"
+// => le commercant remet le lot et est notifie, meme si l'enseigne est
+// administree ; "partner" / "platform" => aucune notification marchand. Seuls
+// les lots historiques SANS fulfillment_type suivent encore managed_by_admin
+// (raison "managed_by_admin_legacy"). L'Admin pose toujours ce contrat a la
+// creation d'un jeu (planGameFulfillment). Par defaut, un lot d'enseigne
+// administree est donc seme ici comme un lot historique (sans contrat), pour
+// tester l'interrupteur managed_by_admin ; les contrats sont testes en 20-22.
+async function seedPrize({managedByAdmin, fulfillmentType = managedByAdmin ? null : "merchant"}) {
   const winnerRef = firestore.collection("users").doc("winner1");
   const merchantRef = firestore.collection("users").doc("merchant1");
   const enseigneRef = firestore.collection("enseignes").doc("shop1");
@@ -100,7 +109,7 @@ async function seedPrize({managedByAdmin}) {
     claim_code: "CODE123",
     claimed: false,
     prize_type: "principal",
-    fulfillment_type: "merchant",
+    ...(fulfillmentType ? {fulfillment_type: fulfillmentType} : {}),
   };
   await prizeRef.set(prizeData);
   // Requis par inspectPrizeAssignmentConsistency() pour que l'email joueur
@@ -133,7 +142,7 @@ test("11. managed_by_admin=true : aucun email marchand envoye", async () => {
 
   const status = (await statusRef("prize1").get()).data() || {};
   assert.equal(status.merchant_email_skipped, true);
-  assert.equal(status.merchant_email_skip_reason, "managed_by_admin");
+  assert.equal(status.merchant_email_skip_reason, "managed_by_admin_legacy");
 });
 
 // --- 12 : managed_by_admin=true => aucun push marchand ---
@@ -148,7 +157,7 @@ test("12. managed_by_admin=true : aucun push marchand mis en file", async () => 
 
   const status = (await statusRef("prize1").get()).data() || {};
   assert.equal(status.merchant_push_skipped, true);
-  assert.equal(status.merchant_push_skip_reason, "managed_by_admin");
+  assert.equal(status.merchant_push_skip_reason, "managed_by_admin_legacy");
 });
 
 // --- 13/14 : notifications joueur inchangees ---
@@ -307,7 +316,8 @@ test("19. transition false -> true : un lot cree apres activation reste bloque, 
     claim_code: "CODE789",
     claimed: false,
     prize_type: "principal",
-    fulfillment_type: "merchant",
+    // Lot historique (sans contrat de remise) : seul cas encore regi par
+    // managed_by_admin. Un lot "merchant" notifierait le commercant (test 22).
   });
   await firestore.collection("users").doc("winner1")
     .collection("my_lots").doc(secondPrizeRef.id).set({prize_id: secondPrizeRef});
@@ -317,10 +327,49 @@ test("19. transition false -> true : un lot cree apres activation reste bloque, 
   assert.equal(sentEmails.filter((m) => m.to === "merchant@example.com").length, 0);
   const status = (await statusRef("prize2").get()).data() || {};
   assert.equal(status.merchant_email_skipped, true);
-  assert.equal(status.merchant_push_skip_reason, "managed_by_admin");
+  assert.equal(status.merchant_push_skip_reason, "managed_by_admin_legacy");
 
   // Le premier lot (notifie avant l'activation) ne doit pas etre affecte
   // retroactivement par le changement d'etat survenu apres son traitement.
   const firstStatus = (await statusRef("prize1").get()).data() || {};
   assert.equal(firstStatus.merchant_email_skipped || false, false);
+});
+
+// --- 20-22 : contrat de remise du lot (regle en vigueur depuis 6a16eda) -----
+// Le contrat pose par l'Admin (planGameFulfillment) prime sur managed_by_admin.
+
+test("20. remise platform (ProxiPlay remet le lot) : aucune notification marchand, joueur notifie", async () => {
+  const {prizeRef} = await seedPrize({managedByAdmin: true, fulfillmentType: "platform"});
+  await invoke(prizeRef);
+
+  assert.equal(sentEmails.filter((m) => m.to === "merchant@example.com").length, 0);
+  assert.equal(sentEmails.filter((m) => m.to === "alice@example.com").length, 1);
+  const pushDoc = await firestore.collection(kPushNotificationsCollection)
+    .doc("prize_prize1_merchant_push").get();
+  assert.equal(pushDoc.exists, false);
+  const status = (await statusRef("prize1").get()).data() || {};
+  assert.equal(status.merchant_email_skip_reason, "platform_delivery");
+  assert.equal(status.merchant_push_skip_reason, "platform_delivery");
+});
+
+test("21. remise partner (liste des gagnants envoyee au partenaire) : aucune notification marchand", async () => {
+  const {prizeRef} = await seedPrize({managedByAdmin: true, fulfillmentType: "partner"});
+  await invoke(prizeRef);
+
+  assert.equal(sentEmails.filter((m) => m.to === "merchant@example.com").length, 0);
+  const status = (await statusRef("prize1").get()).data() || {};
+  assert.equal(status.merchant_email_skip_reason, "partner_delivery");
+  assert.equal(status.merchant_push_skip_reason, "partner_delivery");
+});
+
+test("22. enseigne administree mais remise confiee au commercant (merchant) : le commercant est notifie", async () => {
+  const {prizeRef} = await seedPrize({managedByAdmin: true, fulfillmentType: "merchant"});
+  await invoke(prizeRef);
+
+  assert.equal(sentEmails.filter((m) => m.to === "merchant@example.com").length, 1,
+    "le commercant qui remet le lot doit recevoir son code, meme enseigne administree");
+  const pushDoc = await firestore.collection(kPushNotificationsCollection)
+    .doc("prize_prize1_merchant_push").get();
+  assert.equal(pushDoc.exists, true);
+  assert.equal(sentEmails.filter((m) => m.to === "alice@example.com").length, 1);
 });
