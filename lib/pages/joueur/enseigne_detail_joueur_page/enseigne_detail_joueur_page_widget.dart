@@ -505,6 +505,22 @@ class _EnseigneDetailJoueurPageWidgetState
         ]),
       ));
 
+  void _openMerchantPhotos(List<ImagesRecord> images, int initialIndex) {
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        opaque: true,
+        transitionDuration: const Duration(milliseconds: 180),
+        reverseTransitionDuration: const Duration(milliseconds: 140),
+        pageBuilder: (_, __, ___) => MerchantPhotoViewer(
+          photoUrls: images.map((image) => image.url).toList(growable: false),
+          initialIndex: initialIndex,
+        ),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
+      ),
+    );
+  }
+
   Widget _identity(EnseignesRecord merchant) => ClipRRect(
         borderRadius: BorderRadius.circular(28),
         child: ColoredBox(
@@ -527,8 +543,11 @@ class _EnseigneDetailJoueurPageWidgetState
                           itemCount: images.length,
                           onPageChanged: (index) =>
                               setState(() => _model.currentImageIndex = index),
-                          itemBuilder: (context, index) =>
-                              MerchantPhotoContent(url: images[index].url),
+                          itemBuilder: (context, index) => GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _openMerchantPhotos(images, index),
+                            child: MerchantPhotoContent(url: images[index].url),
+                          ),
                         ),
                         if (images.length > 1)
                           Positioned(
@@ -826,6 +845,93 @@ class _EnseigneDetailJoueurPageWidgetState
                       .toList()));
         },
       );
+}
+
+/// Full-screen, read-only merchant gallery. The separate route means Android
+/// Back returns to the merchant detail without changing its scroll position.
+class MerchantPhotoViewer extends StatefulWidget {
+  const MerchantPhotoViewer({
+    super.key,
+    required this.photoUrls,
+    required this.initialIndex,
+  });
+
+  final List<String> photoUrls;
+  final int initialIndex;
+
+  @override
+  State<MerchantPhotoViewer> createState() => _MerchantPhotoViewerState();
+}
+
+class _MerchantPhotoViewerState extends State<MerchantPhotoViewer> {
+  late final PageController _controller;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index =
+        widget.initialIndex.clamp(0, widget.photoUrls.length - 1).toInt();
+    _controller = PageController(initialPage: _index);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final multiplePhotos = widget.photoUrls.length > 1;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            PageView.builder(
+              key: const Key('merchant-photo-viewer-pages'),
+              controller: _controller,
+              itemCount: widget.photoUrls.length,
+              onPageChanged: (index) => setState(() => _index = index),
+              itemBuilder: (context, index) => Center(
+                child: ProxiplayNetworkImage(
+                  imageUrl: widget.photoUrls[index],
+                  fit: BoxFit.contain,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBackgroundColor: Colors.black,
+                  errorIconColor: Colors.white70,
+                ),
+              ),
+            ),
+            if (multiplePhotos)
+              Positioned(
+                top: 12,
+                left: 16,
+                child: Semantics(
+                  label: 'Photo ${_index + 1} sur ${widget.photoUrls.length}',
+                  child: Text(
+                    '${_index + 1} / ${widget.photoUrls.length}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 15),
+                  ),
+                ),
+              ),
+            Positioned(
+              top: 0,
+              right: 4,
+              child: IconButton(
+                key: const Key('merchant-photo-viewer-close'),
+                tooltip: 'Fermer',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _MerchantDescription extends StatefulWidget {

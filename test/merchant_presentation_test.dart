@@ -44,6 +44,7 @@ import 'package:proxi_play/pages/commercant/update_enseigne_commercant_page/merc
 import 'package:proxi_play/utils/french_phone.dart';
 import 'package:proxi_play/services/merchant_prizes_service.dart';
 import 'package:proxi_play/pages/commercant/jeux_commercant_page/jeux_commercant_page_widget.dart';
+import 'package:proxi_play/pages/commercant/stat_commercant_page/stat_commercant_page_widget.dart';
 import 'package:proxi_play/flutter_flow/internationalization.dart';
 import 'package:proxi_play/pages/joueur/enseigne_detail_joueur_page/enseigne_detail_joueur_page_widget.dart';
 import 'package:proxi_play/pages/joueur/lot_detail_joueur_page/lot_detail_joueur_page_widget.dart';
@@ -722,6 +723,33 @@ void main() {
       expect(find.text('Impossible de charger vos jeux.'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
+  group('Statistiques commerçant sans jeu terminé', () {
+    for (final width in [320.0, 360.0, 390.0]) {
+      for (final scale in [1.0, 1.3]) {
+        testWidgets(
+            '${width.toInt()} px, texte x$scale : état vide affiché, sans '
+            'erreur de mise en page', (tester) async {
+          calls.handler =
+              (_) async => {'ids': <String>[], 'cursor': '', 'hasMore': false};
+          await pump(tester, const StatCommercantPageWidget(),
+              width: width, height: 760, scale: scale);
+          expect(tester.takeException(), isNull,
+              reason: 'liste vide : aucune hauteur infinie');
+          await tester.scrollUntilVisible(
+              find.text('Aucun jeu terminé'), 200,
+              scrollable: find.byType(Scrollable).first);
+          expect(find.text('Aucun jeu terminé'), findsOneWidget);
+          expect(find.text('Vos jeux terminés apparaîtront ici'),
+              findsOneWidget);
+          expect(find.text('Participations'), findsOneWidget,
+              reason: 'le reste de la page reste affiché');
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        });
+      }
     }
   });
 

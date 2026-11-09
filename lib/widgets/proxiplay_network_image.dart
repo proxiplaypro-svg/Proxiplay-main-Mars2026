@@ -11,6 +11,8 @@ class ProxiplayNetworkImage extends StatelessWidget {
     this.height,
     this.fit = BoxFit.cover,
     this.borderRadius,
+    this.errorBackgroundColor = const Color(0xFFE9EAF2),
+    this.errorIconColor = const Color(0xFF6B70A7),
   });
 
   final String imageUrl;
@@ -18,6 +20,8 @@ class ProxiplayNetworkImage extends StatelessWidget {
   final double? height;
   final BoxFit fit;
   final BorderRadius? borderRadius;
+  final Color errorBackgroundColor;
+  final Color errorIconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -34,11 +38,11 @@ class ProxiplayNetworkImage extends StatelessWidget {
         ),
       ),
       errorWidget: (_, __, ___) => Container(
-        color: const Color(0xFFE9EAF2),
+        color: errorBackgroundColor,
         alignment: Alignment.center,
-        child: const Icon(
+        child: Icon(
           Icons.broken_image_outlined,
-          color: Color(0xFF6B70A7),
+          color: errorIconColor,
           size: 20.0,
         ),
       ),

@@ -479,17 +479,14 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
     );
   }
 
+  /// Placed in a bounded SizedBox (240 px, scaled with the text) by the caller. ListEmptyComponentWidget
+  /// fills its parent (height: double.infinity): a Column around it gave it
+  /// an unbounded height, so a merchant without finished games got a layout
+  /// error and a blank list. It now receives that bounded height directly.
   Widget _buildEmptyState() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          ListEmptyComponentWidget(
-            title: 'Aucun jeu termin\u00E9',
-            description: 'Vos jeux termin\u00E9s appara\u00EEtront ici',
-          ),
-        ],
-      ),
+    return const ListEmptyComponentWidget(
+      title: 'Aucun jeu termin\u00E9',
+      description: 'Vos jeux termin\u00E9s appara\u00EEtront ici',
     );
   }
 
@@ -778,7 +775,10 @@ class _StatCommercantPageWidgetState extends State<StatCommercantPageWidget>
                           const SizedBox(height: 6.0),
                           if (finishedGames.isEmpty)
                             SizedBox(
-                              height: 240.0,
+                              // Grows with the system text size so the
+                              // texts of the empty card never overflow.
+                              height: MediaQuery.textScalerOf(context)
+                                  .scale(240.0),
                               child: _buildEmptyState(),
                             )
                           else

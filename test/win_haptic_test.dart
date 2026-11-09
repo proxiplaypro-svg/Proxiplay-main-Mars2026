@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:proxi_play/utils/haptics.dart';
 
-// Positive-result haptic: two medium pulses 120 ms apart when a won instant
+// Positive-result haptic: one native success notification when a won instant
 // prize or a server-confirmed bonus is revealed; never on an ordinary loss,
 // replay or rebuild.
 void main() {
@@ -14,8 +14,9 @@ void main() {
     calls.clear();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) async {
-      if (call.method == 'HapticFeedback.vibrate')
+      if (call.method == 'HapticFeedback.vibrate') {
         calls.add('${call.arguments}');
+      }
       return null;
     });
   });
@@ -23,17 +24,13 @@ void main() {
       .instance.defaultBinaryMessenger
       .setMockMethodCallHandler(SystemChannels.platform, null));
 
-  testWidgets('two medium pulses, 120 ms apart', (tester) async {
-    expect(kWinHapticGap, const Duration(milliseconds: 120));
+  testWidgets('one short native success notification', (tester) async {
     final done = triggerWinHaptic();
     await tester.pump();
-    expect(calls, ['HapticFeedbackType.mediumImpact']);
-    await tester.pump(const Duration(milliseconds: 119));
-    expect(calls, hasLength(1), reason: 'the second pulse waits the gap');
-    await tester.pump(const Duration(milliseconds: 1));
+    expect(calls, ['HapticFeedbackType.successNotification']);
+    await tester.pump(const Duration(milliseconds: 300));
     await done;
-    expect(calls,
-        ['HapticFeedbackType.mediumImpact', 'HapticFeedbackType.mediumImpact']);
+    expect(calls, hasLength(1), reason: 'no repeated positive vibration');
   });
 
   testWidgets('a device without haptics or a failing channel is ignored',
@@ -47,11 +44,11 @@ void main() {
     await done; // completes without throwing
   });
 
-  test('debug traces keep the two native pulse requests observable', () {
+  test('debug traces keep the native success request observable', () {
     final source = File('lib/utils/haptics.dart').readAsStringSync();
-    expect(source, contains('event=first_pulse_requested'));
-    expect(source, contains('event=second_pulse_requested'));
-    expect(source, contains(r'gapMs=${gap.inMilliseconds}'));
+    expect(source, contains('HapticFeedback.successNotification()'));
+    expect(source, contains('event=success_notification_requested'));
+    expect(source, contains('event=success_notification_completed'));
     expect(source, contains('event=pulse_failed'));
   });
 
@@ -64,7 +61,7 @@ void main() {
         .pumpWidget(const MaterialApp(home: Text('accueil'))); // screen left
     await tester.pump(const Duration(milliseconds: 150));
     await done;
-    expect(calls, hasLength(2));
+    expect(calls, hasLength(1));
     expect(tester.takeException(), isNull);
   });
 

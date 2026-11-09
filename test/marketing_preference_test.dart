@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:proxi_play/components/marketing_preference_card.dart';
+import 'package:proxi_play/config/marketing_consent.dart';
 import 'package:proxi_play/utils/marketing_consent_state.dart';
 
 void main() {
@@ -77,7 +78,17 @@ void main() {
       expect(find.text('Recevoir les actualités de ProxiPlay'), findsOneWidget);
       expect(find.text('Nouveaux jeux, cadeaux et actualités'), findsOneWidget);
       expect(find.byKey(const Key('marketing-consent-status')), findsNothing);
-      expect(find.byKey(const Key('marketing-consent-text')), findsNothing);
+      // The exact legal text of marketing-player-v1 is readable before the
+      // switch is used, and it is the text the server version refers to.
+      final legal = find.byKey(const Key('marketing-consent-text'));
+      expect(legal, findsOneWidget);
+      expect(tester.widget<Text>(legal).data, kMarketingPlayerConsentText);
+      expect(kMarketingPlayerTextVersion, 'marketing-player-v1');
+      expect(
+          kMarketingPlayerConsentText,
+          'Je souhaite recevoir par email les nouveaux jeux, cadeaux à gagner '
+          'et actualités de ProxiPlay.',
+          reason: 'changer ce texte impose une nouvelle version');
       expect(
           tester
               .widget<Switch>(find.byKey(const Key('marketing-consent-switch')))
@@ -132,13 +143,20 @@ void main() {
               tester.getRect(find.byKey(const Key('marketing-consent-switch')));
           expect(card.right - toggle.right, lessThan(30));
           expect(toggle.center.dy, closeTo(card.center.dy, 2));
-          expect(
-              tester
-                  .getSize(find
-                      .byKey(const Key('marketing-preference-card-surface')))
-                  .height,
-              lessThan(scale == 1 ? 190 : 300),
-              reason: 'hauteur dictée par les deux textes, jamais par la page');
+          // Height set by its content (texts or switch) plus the 12 + 12
+          // vertical padding, never stretched by the page.
+          final texts = tester.getRect(find
+              .ancestor(
+                  of: find.byKey(const Key('marketing-consent-text')),
+                  matching: find.byType(Column))
+              .first);
+          final content = texts.height > 48 ? texts.height : 48.0;
+          expect(card.height, closeTo(content + 24, 1),
+              reason: 'hauteur dictée par le contenu, jamais par la page');
+          expect(tester.getRect(find.byKey(const Key('marketing-consent-text')))
+                  .bottom,
+              lessThanOrEqualTo(card.bottom),
+              reason: 'texte légal entièrement visible');
         });
       }
     }

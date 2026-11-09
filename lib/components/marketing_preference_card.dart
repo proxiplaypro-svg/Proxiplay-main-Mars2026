@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '/config/marketing_consent.dart';
 import '/utils/marketing_consent_state.dart';
 
 const _ink = Color(0xFF2D2A72);
@@ -59,18 +60,26 @@ class MarketingPreferenceCard extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Recevoir les actualités de ProxiPlay',
+                  children: const [
+                    Text('Recevoir les actualités de ProxiPlay',
                         style: TextStyle(
                             color: _ink,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                             height: 1.2)),
-                    const SizedBox(height: 4),
-                    const Text('Nouveaux jeux, cadeaux et actualités',
+                    SizedBox(height: 4),
+                    Text('Nouveaux jeux, cadeaux et actualités',
                         key: Key('marketing-preference-subtitle'),
                         style: TextStyle(
                             color: _muted, fontSize: 12.5, height: 1.3)),
+                    SizedBox(height: 6),
+                    // Exact text of kMarketingPlayerTextVersion, the one the
+                    // server records with the choice: always readable before
+                    // the switch is used.
+                    Text(kMarketingPlayerConsentText,
+                        key: Key('marketing-consent-text'),
+                        style: TextStyle(
+                            color: _muted, fontSize: 11.5, height: 1.3)),
                   ],
                 ),
               ),
