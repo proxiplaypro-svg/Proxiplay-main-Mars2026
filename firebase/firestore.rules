@@ -287,7 +287,42 @@ service cloud.firestore {
         !('games_played_count' in request.resource.data) &&
         !('player_status_cached' in request.resource.data) &&
         !('last_inactive_relaunch_at' in request.resource.data) &&
-        !('last_real_activity_at' in request.resource.data);
+        !('last_real_activity_at' in request.resource.data) &&
+        (
+          !('birthday' in request.resource.data) ||
+          request.resource.data.birthday == null ||
+          isPlausibleBirthday(request.resource.data.birthday)
+        );
+    }
+
+    // Date de naissance (1.1.4) : elle conditionne les jeux et publicites
+    // reserves aux majeurs, l'eligibilite marketing (15 ans) et le cadeau
+    // d'anniversaire. Le joueur la saisit une fois ; une fois enregistree,
+    // elle n'est plus modifiable que par la callable
+    // adminCorrectPlayerBirthday (motif obligatoire, correction journalisee).
+    function isPlausibleBirthday(value) {
+      return value is timestamp &&
+        value >= timestamp.date(1900, 1, 1) &&
+        value <= request.time;
+    }
+
+    function hasStoredBirthday() {
+      return ('birthday' in resource.data) && resource.data.birthday != null;
+    }
+
+    function touchesBirthday() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['birthday']);
+    }
+
+    // Une valeur identique n'est pas "affectee" : les anciennes versions de
+    // l'app, qui renvoient la date enregistree a chaque validation du
+    // formulaire, continuent de fonctionner. Retirer la date est refuse
+    // (request.resource.data.birthday absent : l'evaluation echoue).
+    function isAllowedSelfBirthdayWrite() {
+      return !touchesBirthday() ||
+        (!hasStoredBirthday() &&
+          isPlausibleBirthday(request.resource.data.birthday));
     }
 
     function isSafeSelfUserUpdate() {
@@ -328,8 +363,25 @@ service cloud.firestore {
       allow create: if isAdmin() || isAllowedSelfUserCreate(document);
       allow get: if isSelf(document) || isAdmin();
       allow list: if isAdmin();
-      allow update: if isAdmin() || (isSelf(document) && isSafeSelfUserUpdate());
-      allow delete: if isSelf(document) || isAdmin();
+      // Meme un administrateur ne modifie pas la date de naissance depuis un
+      // client : la correction passe par la callable, qui la journalise.
+      allow update: if (isAdmin() && !touchesBirthday()) ||
+        (isSelf(document) && isSafeSelfUserUpdate() &&
+          isAllowedSelfBirthdayWrite());
+      // Le joueur supprime son compte par Firebase Auth (profil > supprimer
+      // mon compte) ; onUserDeleted efface ensuite le document avec le SDK
+      // Admin. Une suppression directe du document par le joueur permettait
+      // de le recreer aussitot avec une autre date de naissance.
+      allow delete: if isAdmin();
+    }
+
+    // Journal des corrections de date de naissance : ecrit uniquement par la
+    // callable adminCorrectPlayerBirthday (SDK Admin), lu par l'Admin. Il ne
+    // contient ni l'ancienne ni la nouvelle date (tranches d'age seulement)
+    // et il est supprime avec le compte (onUserDeleted).
+    match /users/{userId}/birthday_corrections/{correctionId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     match /users/{parent}/favorite_games/{document} {
