@@ -76,6 +76,7 @@ const {readSmtpConfig} = require("./lib/notifications/smtp_config");
 const {
   queuePushNotificationRequest,
 } = require("./push_notification_request.js");
+const {matchesTargetUserGroup} = require("./bonus_reserve_announcement");
 const {
   getMonthlyChallengeStateCallable,
   getMonthlyChallengesStateCallable,
@@ -5187,16 +5188,9 @@ async function sendPushNotifications(snapshot) {
           }
         }
 
-        const isAdmin = role === "admin";
-        const isProfessional = role === "commercant";
-        const roleMatches =
-          targetUserGroup === "Admins"
-            ? isAdmin
-            : targetUserGroup === "Professionals"
-              ? isProfessional
-              : targetUserGroup === "NormalUsers"
-                ? !isAdmin
-                : true;
+        // Groupes existants inchanges ; "Players" = role joueur seulement
+        // (bonus_reserve_announcement.js).
+        const roleMatches = matchesTargetUserGroup(targetUserGroup, role);
         if (roleMatches) {
           tokens.add(data.fcm_token);
           rememberTokenRef(data.fcm_token, tokenDoc.ref);

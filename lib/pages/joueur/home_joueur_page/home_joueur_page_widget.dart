@@ -12,6 +12,8 @@ import '/components/list_empty_component_widget.dart';
 import '/components/share_promo_banner_widget.dart';
 import '/components/referral_bonus_congrats_dialog.dart';
 import '/components/referral_ticket_congrats_dialog.dart';
+import '/components/bonus_reserve_announcement_dialog.dart';
+import '/utils/bonus_reserve_announcement.dart';
 import '/utils/referral_bonus_notice.dart';
 import '/flutter_flow/app_styles.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -215,6 +217,10 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     _monthlyChallengeFuture = _loadMonthlyChallengeState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _ensureTickerLoaded();
+    });
+    // Annonce unique de la reserve de parties bonus (1.1.4).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_presentBonusReserveAnnouncement());
     });
   }
 
@@ -933,6 +939,34 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
         builder: (_) => const ReferralBonusCongratsDialog(),
       );
     });
+  }
+
+  /// Annonce de la reserve de parties bonus (1.1.4) : une seule fois par
+  /// compte sur cet appareil (voir bonus_reserve_announcement.dart). Rien
+  /// n'est ecrit sur le serveur ; les regles de jeu ne changent pas.
+  Future<void> _presentBonusReserveAnnouncement() async {
+    // Laisse l'accueil s'installer (redirections, fenetre de mise a jour).
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    if (!mounted) {
+      return;
+    }
+    final isAudience = isBonusReserveAnnouncementAudience(
+      accountId: currentUserUid,
+      isGuestOrAnonymous: isGuestOrAnonymous,
+      userRole: currentUserDocument?.userRole?.name,
+    );
+    // Une autre fenetre est ouverte : l'annonce attendra une prochaine
+    // ouverture de l'accueil, sans etre comptee comme vue.
+    if (!isAudience || !(ModalRoute.of(context)?.isCurrent ?? false)) {
+      return;
+    }
+    if (!await takeBonusReserveAnnouncement(currentUserUid) || !mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (_) => const BonusReserveAnnouncementDialog(),
+    );
   }
 
   /// Confirmation of a referral game ticket: once per ticket, apart from the
