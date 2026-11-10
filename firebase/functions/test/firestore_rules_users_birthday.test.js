@@ -161,7 +161,9 @@ test("un administrateur ne modifie pas la date depuis un client, mais gere le re
   await assertFails(updateDoc(doc(db, "users", "without_birthday"), {birthday: kBirthday}));
   await assertSucceeds(updateDoc(doc(db, "users", "with_birthday"),
     {city: "Lens", account_status: "approved"}));
-  await assertSucceeds(deleteDoc(doc(db, "users", "with_birthday")));
+  // Depuis adminDeletePlayerAccount, meme un administrateur ne supprime plus
+  // la seule fiche depuis un client (le compte Auth restait actif).
+  await assertFails(deleteDoc(doc(db, "users", "with_birthday")));
 });
 
 test("journal des corrections : lecture admin seulement, aucune ecriture client", async () => {

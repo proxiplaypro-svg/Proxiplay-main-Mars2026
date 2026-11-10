@@ -370,9 +370,12 @@ service cloud.firestore {
           isAllowedSelfBirthdayWrite());
       // Le joueur supprime son compte par Firebase Auth (profil > supprimer
       // mon compte) ; onUserDeleted efface ensuite le document avec le SDK
-      // Admin. Une suppression directe du document par le joueur permettait
-      // de le recreer aussitot avec une autre date de naissance.
-      allow delete: if isAdmin();
+      // Admin. L'Admin passe par adminDeletePlayerAccount (compte Auth
+      // supprime, journal) ou deleteCommercantAccount. Une suppression
+      // directe du seul document, par le joueur ou depuis la console,
+      // laissait le compte Auth actif : l'app recreait la fiche a la
+      // connexion suivante, avec une autre date de naissance.
+      allow delete: if false;
     }
 
     // Journal des corrections de date de naissance : ecrit uniquement par la
@@ -380,6 +383,15 @@ service cloud.firestore {
     // contient ni l'ancienne ni la nouvelle date (tranches d'age seulement)
     // et il est supprime avec le compte (onUserDeleted).
     match /users/{userId}/birthday_corrections/{correctionId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Journal des suppressions de comptes joueurs par l'Admin : ecrit
+    // uniquement par la callable adminDeletePlayerAccount (SDK Admin).
+    // Identifiant technique du compte, administrateur, motif, resultat ;
+    // aucune donnee de profil.
+    match /admin_account_deletions/{deletionId} {
       allow read: if isAdmin();
       allow write: if false;
     }
