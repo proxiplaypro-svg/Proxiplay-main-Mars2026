@@ -3,6 +3,7 @@ import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
 import '/components/marketing_preference_card.dart';
+import '/components/play_balance_card.dart';
 import '/utils/marketing_consent_state.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -383,6 +384,20 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
                             const SizedBox(height: 28.0),
                             _buildSectionTitle(context, 'MON COMPTE'),
                             const SizedBox(height: 14.0),
+                            // Solde : parties du jour et reserve bonus (1.1.4).
+                            AuthUserStreamWidget(
+                              builder: (context) => Padding(
+                                padding: const EdgeInsets.only(bottom: 14.0),
+                                child: PlayBalanceCard(
+                                  dailyRemaining: getSafeRemainingPart(
+                                    currentUserDocument,
+                                    source: 'profil_joueur',
+                                  ),
+                                  bonusPart:
+                                      currentUserDocument?.bonusPart ?? 0,
+                                ),
+                              ),
+                            ),
                             AuthUserStreamWidget(builder: (context) {
                               final document = currentUserDocument;
                               return Padding(

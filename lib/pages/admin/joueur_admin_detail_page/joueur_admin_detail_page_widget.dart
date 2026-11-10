@@ -403,8 +403,13 @@ class _JoueurAdminDetailPageWidgetState
                         ),
                       _buildInfoRow(
                         context,
-                        'Parties restantes',
+                        'Parties du jour',
                         user.hasRemainingPart() ? '${user.remainingPart}' : '-',
+                      ),
+                      _buildInfoRow(
+                        context,
+                        'Parties bonus',
+                        '${user.bonusPart}',
                       ),
                       _buildInfoRow(
                         context,

@@ -6,6 +6,7 @@ import 'dart:async';
 
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/utils/play_balance.dart';
 import '/backend/custom_cloud_functions/custom_cloud_function_response_manager.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
@@ -123,14 +124,17 @@ class _JeuDetailJoueurPageWidgetState extends State<JeuDetailJoueurPageWidget> {
       return false;
     }
     // Balance only: the free shop QR play is offered on top of it, see
-    // offersShopPlay (QR-only games have their own button).
-    return getSafeRemainingPart(
-              user,
-              triggerRepair: true,
-              source: 'jeu_detail_joueur',
-            ) <=
-            0 &&
-        !_hasUnlimitedAccess(user, now);
+    // offersShopPlay (QR-only games have their own button). Daily plays
+    // then kept bonus plays (1.1.4), as the server consumes them.
+    return hasNoPlayableParts(
+      dailyRemaining: getSafeRemainingPart(
+        user,
+        triggerRepair: true,
+        source: 'jeu_detail_joueur',
+      ),
+      bonusPart: user?.bonusPart ?? 0,
+      unlimitedAccess: _hasUnlimitedAccess(user, now),
+    );
   }
 
   void _setLaunchingGame(bool value) {

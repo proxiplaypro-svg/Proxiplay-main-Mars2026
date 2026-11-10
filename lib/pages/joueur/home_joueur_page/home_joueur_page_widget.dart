@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/utils/play_balance.dart';
 import '/backend/schema/enums/enums.dart';
 import '/components/app_bar_joueur_widget.dart';
 import '/components/bonus_game_card_widget.dart';
@@ -1653,10 +1654,15 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   Widget _buildTopDynamicZone(BuildContext context) {
     return AuthUserStreamWidget(
       builder: (context) {
-        final remainingPart = getSafeRemainingPart(
-          currentUserDocument,
-          triggerRepair: true,
-          source: 'home_joueur',
+        // Parties du jour plus reserve bonus (1.1.4) : la banniere « plus de
+        // chances » n'apparait que si aucune des deux ne reste.
+        final remainingPart = playablePartsCount(
+          dailyRemaining: getSafeRemainingPart(
+            currentUserDocument,
+            triggerRepair: true,
+            source: 'home_joueur',
+          ),
+          bonusPart: currentUserDocument?.bonusPart ?? 0,
         );
         final hasRemainingPart = remainingPart > 0;
         final hasNoRemainingPart = remainingPart <= 0;

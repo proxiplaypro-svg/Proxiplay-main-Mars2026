@@ -1,5 +1,6 @@
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
+import '/utils/play_balance.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import 'package:flutter/material.dart';
@@ -66,9 +67,16 @@ class _AppBarJoueurWidgetState extends State<AppBarJoueurWidget> {
                       triggerRepair: true,
                       source: 'app_bar_joueur',
                     );
+                    // Reserve bonus conservee (1.1.4), affichee sous les
+                    // parties du jour quand elle existe.
+                    final bonusPart = currentUserDocument?.bonusPart ?? 0;
+                    final bonusLabel = bonusBadgeLabel(bonusPart);
                     return Container(
                       decoration: BoxDecoration(
-                        color: remainingPart <= 1
+                        color: playablePartsCount(
+                                    dailyRemaining: remainingPart,
+                                    bonusPart: bonusPart) <=
+                                1
                             ? const Color(0xFFA0134D)
                             : FlutterFlowTheme.of(context).primary,
                         borderRadius: BorderRadius.circular(12.0),
@@ -151,6 +159,23 @@ class _AppBarJoueurWidgetState extends State<AppBarJoueurWidget> {
                                   ),
                                 ].divide(const SizedBox(width: 4.0)),
                               ),
+                              if (bonusLabel.isNotEmpty)
+                                Text(
+                                  bonusLabel,
+                                  semanticsLabel: bonusBalanceTitle(bonusPart),
+                                  style: FlutterFlowTheme.of(context)
+                                      .labelSmall
+                                      .override(
+                                        font: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        color: FlutterFlowTheme.of(context)
+                                            .alternate,
+                                        fontSize: 11.0,
+                                        letterSpacing: 0.0,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
                             ],
                           ),
                         ),

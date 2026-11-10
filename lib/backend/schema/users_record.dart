@@ -77,6 +77,12 @@ class UsersRecord extends FirestoreRecord {
   int get remainingPart => _remainingPart ?? 0;
   bool hasRemainingPart() => _remainingPart != null;
 
+  // "bonus_part" field: kept bonus plays (1.1.4), written by the server only,
+  // never sent by createUsersRecordData.
+  int? _bonusPart;
+  int get bonusPart => _bonusPart == null || _bonusPart! < 0 ? 0 : _bonusPart!;
+  bool hasBonusPart() => _bonusPart != null;
+
   // "city" field.
   String? _city;
   String get city => _city ?? '';
@@ -163,6 +169,7 @@ class UsersRecord extends FirestoreRecord {
     _displayName = snapshotData['display_name'] as String?;
     _photoUrl = snapshotData['photo_url'] as String?;
     _remainingPart = _readFlexibleInt(snapshotData['remaining_part']);
+    _bonusPart = _readFlexibleInt(snapshotData['bonus_part']);
     _city = snapshotData['city'] as String?;
     _cityInseeCode = snapshotData['city_insee_code'] as String?;
     _partLastUpdate = snapshotData['part_last_update'] as DateTime?;
