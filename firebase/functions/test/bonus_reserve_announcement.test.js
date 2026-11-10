@@ -4,14 +4,22 @@
 // Emulateurs uniquement (lifecycle_helpers.cjs).
 const fs = require('node:fs');
 const path = require('node:path');
-const {test, assert, db} = require('./lifecycle_helpers.cjs');
+const {test, assert, db, ft, functions} = require('./lifecycle_helpers.cjs');
 const {
   buildBonusReserveAnnouncementRequest,
   kBonusReserveAnnouncement,
   kBonusReserveAnnouncementDocId,
-  matchesTargetUserGroup,
   queueBonusReserveAnnouncement,
 } = require('../bonus_reserve_announcement');
+const {
+  isPlayersGroupRecipient,
+  matchesTargetUserGroup,
+  selectPlayersGroupTokens,
+} = require('../push_target_groups');
+const {
+  kDailyPlaysReminderMessage,
+  shouldRemindDailyPlays,
+} = require('../lib/share_promo/daily_plays_reminder');
 const {kParticipationBonusMessage} = require('../play_balance');
 const {kDefaultBirthdayMessage} = require('../lib/notifications/constants');
 const {getBirthdayMessage} = require('../lib/notifications/runners/birthday_runner');
@@ -94,4 +102,81 @@ test('les messages de gain et d anniversaire ne parlent plus de bonus du jour', 
   }}}, {first_name: 'Lea'});
   assert.equal(legacy.title, 'Joyeux anniversaire Lea 🎉');
   assert.ok(!kTodayOnly.test(legacy.body), legacy.body);
+});
+
+test('groupe Players : profil joueur actif seulement', () => {
+  assert.equal(isPlayersGroupRecipient({user_role: 'joueur'}), true);
+  for (const user of [
+    null, {}, {user_role: 'commercant'}, {user_role: 'admin'}, {user_role: ''},
+    {user_role: 'joueur', deleted: true}, {user_role: 'joueur', auto_deleted: true},
+    {user_role: 'joueur', account_status: 'suspended'},
+    {user_role: 'joueur', account_status: 'rejected'},
+    {user_role: 'joueur', player_status_cached: 'Suspendu'},
+  ]) {
+    assert.equal(isPlayersGroupRecipient(user), false, JSON.stringify(user));
+  }
+});
+
+test('groupe Players : un telephone partage avec un commercant ou un admin est exclu', () => {
+  const selected = selectPlayersGroupTokens([
+    {token: 'joueur-seul', ref: 'users/a/fcm_tokens/x', eligible: true},
+    {token: 'partage-commercant', ref: 'users/b/fcm_tokens/y', eligible: true},
+    {token: 'partage-commercant', ref: 'users/m/fcm_tokens/y', eligible: false},
+    {token: 'admin', ref: 'users/o/fcm_tokens/z', eligible: false},
+    {token: 'deux-joueurs', ref: 'users/c/fcm_tokens/w', eligible: true},
+    {token: 'deux-joueurs', ref: 'users/d/fcm_tokens/w', eligible: true},
+    null,
+  ]);
+  assert.deepEqual(selected.map((item) => item.token), ['joueur-seul', 'deux-joueurs']);
+  assert.equal(selected[1].refs.length, 2);
+});
+
+test('l envoi Players lit le role dans le profil, pas dans le jeton', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8')
+    .replace(/\r\n/g, '\n');
+  const start = source.indexOf('if (targetUserGroup === kPlayersUserGroup) {');
+  assert.ok(start > 0);
+  const branch = source.slice(start, source.indexOf('} else {', start));
+  assert.ok(branch.includes('tokenDoc.ref.parent.parent.get()'));
+  assert.ok(branch.includes('isPlayersGroupRecipient(userData)'));
+  assert.ok(branch.includes('selectPlayersGroupTokens(entries)'));
+  assert.ok(!branch.includes('user_role'));
+});
+
+test('rappel quotidien : texte qui distingue parties du jour et parties bonus', () => {
+  assert.equal(kDailyPlaysReminderMessage.title, 'Il vous reste des parties du jour !');
+  assert.equal(kDailyPlaysReminderMessage.body,
+    'Jouez-les avant minuit. Vos parties bonus, elles, sont conservées.');
+  assert.equal(shouldRemindDailyPlays({user_role: 'joueur', remaining_part: 2}), true);
+  assert.equal(shouldRemindDailyPlays({remaining_part: 1}), true);
+  for (const user of [
+    {user_role: 'joueur', remaining_part: 0},
+    {user_role: 'joueur', remaining_part: 0, bonus_part: 5},
+    {user_role: 'joueur'},
+    {user_role: 'commercant', remaining_part: 3},
+    {user_role: 'admin', remaining_part: 3},
+    undefined,
+  ]) {
+    assert.equal(shouldRemindDailyPlays(user), false, JSON.stringify(user));
+  }
+});
+
+test('rappel quotidien : seuls les joueurs avec des parties du jour le recoivent', async () => {
+  await db.doc('users/player').update({remaining_part: 2, bonus_part: 0});
+  await db.doc('users/merchant').update({remaining_part: 3});
+  await db.doc('users/other').update({remaining_part: 0});
+  await db.doc('users/operator').update({remaining_part: 3});
+  await db.doc('users/bonusOnly').set({user_role: 'joueur', remaining_part: 0, bonus_part: 6});
+  const before = await db.collection('ff_push_notifications').get();
+  await Promise.all(before.docs.map((doc) => doc.ref.delete()));
+
+  await ft.wrap(functions.remindUsersWithRemainingDailyPlays)({});
+
+  const sent = await db.collection('ff_push_notifications').get();
+  assert.deepEqual(sent.docs.map((doc) => doc.data().user_refs), ['users/player']);
+  const push = sent.docs[0].data();
+  assert.equal(push.notification_title, kDailyPlaysReminderMessage.title);
+  assert.equal(push.notification_text, kDailyPlaysReminderMessage.body);
+  await Promise.all(sent.docs.map((doc) => doc.ref.delete()));
+  await db.doc('users/bonusOnly').delete();
 });

@@ -5,20 +5,20 @@ import { db, queueUserPushNotification, region } from './firestore';
 const kNotificationsConfigPath = 'app_config/notifications';
 const kDailyPlaysReminderPageSize = 300;
 
-const dailyPlaysReminderVariants: { title: string; body: string }[] = [
-  { title: 'Il vous reste des chances !', body: 'Tentez votre chance avant minuit.' },
-  { title: 'Vos parties du jour vous attendent', body: "Vous avez encore des chances à jouer aujourd'hui." },
-  { title: 'Ne laissez pas vos parties expirer', body: 'Utilisez vos chances avant la fin de la journée.' },
-  { title: 'Des jeux vous attendent encore', body: "Vous pouvez encore jouer sur ProxiPlay aujourd'hui." },
-  { title: 'Il est encore temps de jouer', body: 'Vos chances du jour ne sont pas encore utilisées.' },
-  { title: "Vous n'avez pas tout utilisé", body: 'Revenez tenter votre chance avant minuit.' },
-  { title: 'Encore des chances disponibles', body: "Profitez-en tant qu'il est encore temps." },
-  { title: "Votre journée ProxiPlay n'est pas finie", body: 'Il vous reste encore des parties à jouer.' },
-];
+// Rappel unique (1.1.4) : distingue les parties du jour, perdues a minuit,
+// des parties bonus, conservees (bonus_part). Envoye seulement aux joueurs
+// qui ont encore des parties du jour (requete remaining_part > 0).
+export const kDailyPlaysReminderMessage = Object.freeze({
+  title: 'Il vous reste des parties du jour !',
+  body: 'Jouez-les avant minuit. Vos parties bonus, elles, sont conservées.',
+});
 
-function pickRandomVariant(): { title: string; body: string } {
-  const index = Math.floor(Math.random() * dailyPlaysReminderVariants.length);
-  return dailyPlaysReminderVariants[index];
+// Comptes sans parties a jouer : jamais relances.
+export function shouldRemindDailyPlays(userData: FirebaseFirestore.DocumentData | undefined): boolean {
+  const remainingPart = Number(userData?.remaining_part);
+  if (!Number.isFinite(remainingPart) || remainingPart <= 0) return false;
+  const role = userData?.user_role;
+  return role !== 'commercant' && role !== 'admin';
 }
 
 function getParisDateKey(date: Date = new Date()): string {
@@ -39,8 +39,8 @@ async function isDailyRemainingChancesReminderEnabled(): Promise<boolean> {
   );
 }
 
-// Relance chaque joueur ayant encore des chances (remaining_part > 0) non
-// jouees le jour meme. Paginee (curseur sur remaining_part + id document)
+// Relance chaque joueur ayant encore des parties du jour (remaining_part > 0)
+// non jouees le jour meme ; jamais les commercants ni les administrateurs. Paginee (curseur sur remaining_part + id document)
 // pour ne jamais depasser le timeout -- contrairement a l'ancienne version
 // (boucle non paginee sur tous les utilisateurs avec remaining_part > 0,
 // qui timeoutait systematiquement passe un certain volume d'utilisateurs,
@@ -91,18 +91,16 @@ export const remindUsersWithRemainingDailyPlays = functions
 
       for (const userDoc of docs) {
         scanned += 1;
-        const remainingPart = Number(userDoc.get('remaining_part'));
-        if (!Number.isFinite(remainingPart) || remainingPart <= 0) {
+        if (!shouldRemindDailyPlays(userDoc.data())) {
           skippedWithoutParts += 1;
           continue;
         }
 
-        const variant = pickRandomVariant();
         try {
           await queueUserPushNotification({
             docId: `daily_remaining_plays_${dateKey}_${userDoc.id}`,
-            title: variant.title,
-            body: variant.body,
+            title: kDailyPlaysReminderMessage.title,
+            body: kDailyPlaysReminderMessage.body,
             userUid: userDoc.id,
             createdBy: 'system/remindUsersWithRemainingDailyPlays',
           });

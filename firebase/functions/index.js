@@ -76,7 +76,12 @@ const {readSmtpConfig} = require("./lib/notifications/smtp_config");
 const {
   queuePushNotificationRequest,
 } = require("./push_notification_request.js");
-const {matchesTargetUserGroup} = require("./bonus_reserve_announcement");
+const {
+  isPlayersGroupRecipient,
+  kPlayersUserGroup,
+  matchesTargetUserGroup,
+  selectPlayersGroupTokens,
+} = require("./push_target_groups");
 const {
   getMonthlyChallengeStateCallable,
   getMonthlyChallengesStateCallable,
@@ -5162,6 +5167,35 @@ async function sendPushNotifications(snapshot) {
         .endBefore(getDocIdBound(batchIndex + 1, numBatches));
     }
     const userTokens = await userTokensQuery.get();
+    if (targetUserGroup === kPlayersUserGroup) {
+      // Joueurs eligibles seulement, role lu dans le profil ; un jeton
+      // partage avec un autre type de compte est exclu
+      // (push_target_groups.js).
+      const entries = await Promise.all(
+        userTokens.docs.map(async (tokenDoc) => {
+          const data = tokenDoc.data();
+          const audienceMatches =
+            targetAudience === "All" || data.device_type === targetAudience;
+          if (!audienceMatches || !data.fcm_token) return null;
+          let userData = null;
+          try {
+            const userSnap = await tokenDoc.ref.parent.parent.get();
+            userData = userSnap.exists ? userSnap.data() : null;
+          } catch (_) {
+            userData = null;
+          }
+          return {
+            token: data.fcm_token,
+            ref: tokenDoc.ref,
+            eligible: isPlayersGroupRecipient(userData),
+          };
+        }),
+      );
+      for (const {token, refs} of selectPlayersGroupTokens(entries)) {
+        tokens.add(token);
+        refs.forEach((ref) => rememberTokenRef(token, ref));
+      }
+    } else {
     // Filter by device audience + (optionally) by user role group.
     await Promise.all(
       userTokens.docs.map(async (tokenDoc) => {
@@ -5197,6 +5231,7 @@ async function sendPushNotifications(snapshot) {
         }
       }),
     );
+    }
   }
 
   const tokensArr = Array.from(tokens);

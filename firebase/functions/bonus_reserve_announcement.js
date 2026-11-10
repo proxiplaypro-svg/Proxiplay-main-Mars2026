@@ -10,14 +10,14 @@
 // est cree avec create(), qui echoue s'il existe deja. Un second lancement
 // ne renvoie donc jamais la notification.
 //
-// Cible : le groupe "Players" (role joueur seulement), traite par
-// matchesTargetUserGroup. Il faut que sendPushNotificationsTrigger connaisse
+// Cible : le groupe "Players" (joueurs eligibles seulement, voir
+// push_target_groups.js). Il faut que sendPushNotificationsTrigger connaisse
 // ce groupe AVANT l'envoi : l'ancienne version traite un groupe inconnu
 // comme "All" (commercants et administrateurs compris).
 const admin = require("firebase-admin");
+const {kPlayersUserGroup, matchesTargetUserGroup} = require("./push_target_groups");
 
 const kBonusReserveAnnouncementDocId = "announcement_bonus_reserve_1_1_4";
-const kPlayersUserGroup = "Players";
 
 const kBonusReserveAnnouncement = Object.freeze({
   title: "🎁 Vos parties bonus ne disparaissent plus !",
@@ -26,27 +26,6 @@ const kBonusReserveAnnouncement = Object.freeze({
   // Un appui ouvre l'accueil joueur, qui existe dans toutes les versions.
   initialPageName: "HomeJoueurPage",
 });
-
-/**
- * Groupe cible d'une notification groupee (sendPushNotifications).
- * Les groupes existants sont inchanges ; "Players" ne vise que les joueurs.
- */
-function matchesTargetUserGroup(targetUserGroup, role) {
-  const isAdmin = role === "admin";
-  const isProfessional = role === "commercant";
-  switch (targetUserGroup) {
-    case "Admins":
-      return isAdmin;
-    case "Professionals":
-      return isProfessional;
-    case "NormalUsers":
-      return !isAdmin;
-    case kPlayersUserGroup:
-      return role === "joueur";
-    default:
-      return true;
-  }
-}
 
 function buildBonusReserveAnnouncementRequest({createdBy}) {
   return {
