@@ -1,3 +1,4 @@
+import '/auth/account_deletion.dart';
 import '/auth/firebase_auth/auth_util.dart';
 import '/backend/backend.dart';
 import '/components/custom_nav_bar_joueur_widget.dart';
@@ -139,11 +140,67 @@ class _ProfilJoueurPageWidgetState extends State<ProfilJoueurPageWidget> {
           },
         ) ??
         false;
-    if (!context.mounted) return;
-    if (confirmDialogResponse) {
-      await authManager.deleteUser(context);
-      if (!context.mounted) return;
-      context.pushNamed(LoginPageWidget.routeName);
+    if (!mounted) return;
+    if (!confirmDialogResponse) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final outcome = await authManager.deleteUser(context);
+    if (!mounted) return;
+    await _handleAccountDeletionOutcome(outcome, messenger);
+  }
+
+  // Le joueur n'est renvoye vers la connexion qu'apres une suppression
+  // confirmee par Firebase, ou s'il choisit lui-meme de se reconnecter.
+  Future<void> _handleAccountDeletionOutcome(
+    AccountDeletionOutcome outcome,
+    ScaffoldMessengerState messenger,
+  ) async {
+    void notify(String message) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    }
+
+    switch (outcome) {
+      case AccountDeletionOutcome.deleted:
+      case AccountDeletionOutcome.notSignedIn:
+        if (outcome == AccountDeletionOutcome.deleted) {
+          notify(kAccountDeletedMessage);
+        }
+        context.goNamed(LoginPageWidget.routeName);
+        return;
+      case AccountDeletionOutcome.cancelled:
+        notify(kAccountDeletionCancelledMessage);
+        return;
+      case AccountDeletionOutcome.reauthenticationFailed:
+        notify(kReauthWrongPasswordMessage);
+        return;
+      case AccountDeletionOutcome.failed:
+        notify(kAccountDeletionFailedMessage);
+        return;
+      case AccountDeletionOutcome.requiresRecentLogin:
+        final reconnect = await showDialog<bool>(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                title: const Text(kRecentLoginRequiredTitle),
+                content: const Text(kRecentLoginRequiredMessage),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Plus tard'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('Me reconnecter'),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+        if (!reconnect || !mounted) return;
+        await authManager.signOut();
+        if (!mounted) return;
+        context.goNamed(LoginPageWidget.routeName);
+        return;
     }
   }
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../account_deletion.dart';
 import '../auth_manager.dart';
 import '../../app_state.dart';
 
@@ -18,6 +19,7 @@ import 'firebase_user_provider.dart';
 import 'google_auth.dart';
 import 'jwt_token_auth.dart';
 import 'github_auth.dart';
+import 'reauthenticate.dart';
 
 export '../base_auth_user_provider.dart';
 
@@ -82,27 +84,20 @@ class FirebaseAuthManager extends AuthManager
     }
   }
 
+  // Seule une suppression confirmee par Firebase Auth renvoie `deleted`.
+  // Connexion trop ancienne : reauthentification avec le mode de connexion
+  // du joueur, puis une seule nouvelle tentative. L'appelant informe le
+  // joueur ; aucun message ni redirection ici.
   @override
-  Future deleteUser(BuildContext context) async {
-    try {
-      if (!loggedIn) {
-        return;
-      }
-      await currentUser?.delete();
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'requires-recent-login') {
-        if (!context.mounted) {
-          return;
-        }
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text(
-                  'Too long since most recent sign in. Sign in again before deleting your account.')),
-        );
-      }
-    }
-  }
+  Future<AccountDeletionOutcome> deleteUser(BuildContext context) =>
+      deleteAccountWithReauth(
+        signedIn: loggedIn && FirebaseAuth.instance.currentUser != null,
+        delete: () => FirebaseAuth.instance.currentUser!.delete(),
+        reauthenticate: () async =>
+            context.mounted && await reauthenticateCurrentUser(context),
+        errorCode: (error) =>
+            error is FirebaseAuthException ? error.code : null,
+      );
 
   @override
   Future updateEmail({

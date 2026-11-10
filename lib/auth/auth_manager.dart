@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+import 'account_deletion.dart';
 import 'base_auth_user_provider.dart';
 import '/backend/schema/enums/enums.dart';
 
 abstract class AuthManager {
   Future signOut();
-  Future deleteUser(BuildContext context);
+  Future<AccountDeletionOutcome> deleteUser(BuildContext context);
   Future updateEmail({required String email, required BuildContext context});
   Future resetPassword({required String email, required BuildContext context});
   Future sendEmailVerification() async => currentUser?.sendEmailVerification();
