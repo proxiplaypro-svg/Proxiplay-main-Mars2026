@@ -126,7 +126,24 @@ durable, et inéquitable après un tirage) :
 3. **Corriger le message de « Tirer le gagnant »** selon le statut
    renvoyé (constat 2).
 
-## 6. Décisions à prendre
+## 6. Décisions du 10/11
+
+- **Rien de bloquant** : aucune correction prioritaire n'est demandée sur le
+  jeu en cours.
+- **Affichage du gagnant : oui.**
+  - Commit `834a1af` : le tirage et sa réparation publient
+    `public_prize_winners/referral_game_<id>` (prénom et ville).
+  - Commit `a2d2584` : l'app affiche « Gagné par … » sur l'accueil pendant
+    14 jours après le tirage, sur la carte et sur la page de détail.
+  - Le jeu de test déjà tiré est couvert par « Réparer le jeu ».
+- **Admin : modifications libres.** Le constat 3 est accepté tel quel,
+  l'API ne change pas.
+- **Plafond de tickets : non** (constat 11).
+- **Sans décision à ce jour** : la refonte du bouton « Réparer le jeu »
+  (§5), le message de « Tirer le gagnant », l'alerte d'activation retardée
+  et l'affichage entre la fin du jeu et le tirage.
+
+## 7. Décisions initialement posées
 
 1. **Bouton « Réparer le jeu »** : adopter la proposition du §5 ?
 2. **API de l'Admin** :
