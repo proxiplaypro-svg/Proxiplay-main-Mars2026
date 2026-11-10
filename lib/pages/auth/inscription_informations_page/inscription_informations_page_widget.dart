@@ -12,6 +12,7 @@ import '/services/city_autocomplete_service.dart';
 import '/utils/city_compat.dart';
 import '/config/marketing_consent.dart';
 import '/utils/marketing_consent_state.dart';
+import '/utils/birthday_lock.dart';
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
@@ -405,6 +406,8 @@ class _InscriptionInformationsPageWidgetState
   Widget build(BuildContext context) {
     _seedFormFromCurrentUserDocument();
     final isMerchant = currentUserDocument?.userRole == Roles.commercant;
+    // Une date deja enregistree reste visible mais n'est plus modifiable.
+    final birthdayLocked = isBirthdayLocked(currentUserDocument?.birthday);
 
     return GestureDetector(
       onTap: () {
@@ -771,7 +774,9 @@ class _InscriptionInformationsPageWidgetState
                                     focusColor: Colors.transparent,
                                     hoverColor: Colors.transparent,
                                     highlightColor: Colors.transparent,
-                                    onTap: () async {
+                                    onTap: birthdayLocked
+                                        ? null
+                                        : () async {
                                       final datePickedDate =
                                           await showDatePicker(
                                         context: context,
@@ -926,10 +931,35 @@ class _InscriptionInformationsPageWidgetState
                                                 ),
                                           ),
                                         ),
+                                        if (birthdayLocked)
+                                          Icon(
+                                            Icons.lock_outline,
+                                            size: 18.0,
+                                            color: FlutterFlowTheme.of(context)
+                                                .fieldText,
+                                            semanticLabel:
+                                                'Date de naissance verrouillée',
+                                          ),
                                       ],
                                     ),
                                   ),
                                 ),
+                              ),
+                            ),
+                          if (!isMerchant && birthdayLocked)
+                            Padding(
+                              padding: const EdgeInsetsDirectional.fromSTEB(
+                                  4.0, 0.0, 4.0, 16.0),
+                              child: Text(
+                                kBirthdayLockedHelpText,
+                                style: FlutterFlowTheme.of(context)
+                                    .bodySmall
+                                    .override(
+                                      font: GoogleFonts.inter(),
+                                      color: FlutterFlowTheme.of(context)
+                                          .secondaryText,
+                                      letterSpacing: 0.0,
+                                    ),
                               ),
                             ),
                           if (_shouldShowLegacyPseudoField)
@@ -1382,6 +1412,51 @@ class _InscriptionInformationsPageWidgetState
                                   final normalizedCityInseeCode =
                                       normalizeInseeCode(_model.cityInseeCode);
 
+                                  // Premiere saisie : la date ne sera plus
+                                  // modifiable ensuite, le joueur la confirme.
+                                  final storedBirthday =
+                                      currentUserDocument?.birthday;
+                                  if (shouldConfirmBirthdayBeforeSave(
+                                      isMerchant: isMerchant,
+                                      storedBirthday: storedBirthday,
+                                      pickedBirthday: _model.datePicked)) {
+                                    final confirmed = await showDialog<bool>(
+                                          context: context,
+                                          builder: (dialogContext) =>
+                                              AlertDialog(
+                                            title: const Text(
+                                                kBirthdayConfirmTitle),
+                                            content: Text(
+                                              birthdayConfirmMessage(
+                                                dateTimeFormat(
+                                                  'd/M/y',
+                                                  _model.datePicked,
+                                                  locale: FFLocalizations.of(
+                                                          context)
+                                                      .languageCode,
+                                                ),
+                                              ),
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(
+                                                    dialogContext, false),
+                                                child: const Text('Modifier'),
+                                              ),
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(
+                                                    dialogContext, true),
+                                                child: const Text('Confirmer'),
+                                              ),
+                                            ],
+                                          ),
+                                        ) ??
+                                        false;
+                                    if (!confirmed || !mounted) {
+                                      return;
+                                    }
+                                  }
+
                                   safeSetState(() {
                                     _isSubmitting = true;
                                   });
@@ -1422,9 +1497,14 @@ class _InscriptionInformationsPageWidgetState
                                               normalizedCityInseeCode.isNotEmpty
                                                   ? normalizedCityInseeCode
                                                   : null,
-                                          birthday: isMerchant
-                                              ? null
-                                              : _model.datePicked,
+                                          // Une date deja enregistree n'est
+                                          // pas renvoyee (champ omis par
+                                          // withoutNulls, donc intact).
+                                          birthday: birthdayToSubmit(
+                                            isMerchant: isMerchant,
+                                            storedBirthday: storedBirthday,
+                                            pickedBirthday: _model.datePicked,
+                                          ),
                                           profileCompleted: true,
                                           profileCompletedAt: currentUserDocument
                                                       ?.hasProfileCompletedAt() ==
