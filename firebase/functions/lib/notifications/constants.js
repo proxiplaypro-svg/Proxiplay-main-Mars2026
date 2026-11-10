@@ -31,7 +31,8 @@ const kDefaultInactivePlayerMessagesByStatus = {
 
 const kDefaultBirthdayMessage = {
   title: "Joyeux anniversaire {firstName} 🎉",
-  body: "Pour votre anniversaire, ProxiPlay vous offre 3 parties supplémentaires aujourd'hui ! 🎁",
+  // Parties bonus conservees (1.1.4) : plus de « aujourd'hui ».
+  body: "Pour votre anniversaire, ProxiPlay vous offre 3 parties bonus, conservées jusqu'à ce que vous les jouiez ! 🎁",
 };
 
 module.exports = {

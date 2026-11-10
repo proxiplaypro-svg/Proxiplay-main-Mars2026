@@ -10,10 +10,13 @@ test('midnight Europe/Paris permits a new ticket exactly at the day boundary', a
   const tickets = await db.collection('games/game/participants').get();
   assert.deepEqual(tickets.docs.map(d => d.id), ['20260909_player', '20260910_player']);
 });
-test('every tenth game participation grants exactly three credits, not a prize or extra daily ticket', async () => {
+test('every tenth game participation grants exactly three bonus plays, not a prize or extra daily ticket', async () => {
   await game('game', {participations: 9, hasMainPrize: false});
   await participate(); await participate();
-  assert.equal((await db.doc('users/player').get()).data().remaining_part, 32);
+  // 1.1.4: the daily play is spent, the three plays go to the kept bonus reserve.
+  const user = (await db.doc('users/player').get()).data();
+  assert.equal(user.remaining_part, 29);
+  assert.equal(user.bonus_part, 3);
   assert.equal((await db.collection('prizes').get()).size, 0);
   assert.equal((await db.collection('games/game/participants').get()).size, 1);
 });

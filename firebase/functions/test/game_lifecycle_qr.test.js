@@ -111,8 +111,11 @@ test('free QR preserves instant prizes and the tenth-play +3 bonus', async () =>
   const token = (await mint('free_qr_bonus')).token;
   const result = await participate('free_qr_bonus', 'player', {qr_token: token});
   assert.equal(result.isWin, true);
-  assert.match(result.messageBonus, /3 parties/);
-  assert.equal((await db.doc('users/player').get()).data().remaining_part, 3);
+  assert.match(result.messageBonus, /3 parties bonus/);
+  // 1.1.4: the free QR play spends nothing; the +3 goes to the kept bonus reserve.
+  const user = (await db.doc('users/player').get()).data();
+  assert.equal(user.remaining_part, 0);
+  assert.equal(user.bonus_part, 3);
   assert.equal((await db.collection('prizes').get()).size, 1);
 });
 test('unlimited access remains free for a paid QR game at zero credits', async () => {

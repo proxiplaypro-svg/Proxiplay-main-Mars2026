@@ -283,6 +283,9 @@ service cloud.firestore {
         ) &&
         !('account_status' in request.resource.data) &&
         !('remaining_part' in request.resource.data) &&
+        // Reserve de parties bonus (1.1.4) : ecrite par le serveur seulement.
+        !('bonus_part' in request.resource.data) &&
+        !('bonus_part_updated_at' in request.resource.data) &&
         !('allGamesAccessUntil' in request.resource.data) &&
         !('games_played_count' in request.resource.data) &&
         !('player_status_cached' in request.resource.data) &&

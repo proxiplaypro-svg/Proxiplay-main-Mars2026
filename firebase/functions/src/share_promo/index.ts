@@ -346,7 +346,9 @@ export const getSharePromoState = functions
     const shareState = shareStateSnap.exists
       ? { ...defaultShareState, ...shareStateSnap.data() }
       : defaultShareState;
-    const remainingPart = normalizeNumber(userData.remaining_part, 0);
+    // Parties jouables : celles du jour plus la reserve bonus (1.1.4).
+    const remainingPart = normalizeNumber(userData.remaining_part, 0) +
+      Math.max(0, normalizeNumber(userData.bonus_part, 0));
     const campaignActive = isCampaignActive(campaign);
 
     let kind: string | null = null;

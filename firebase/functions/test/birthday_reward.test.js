@@ -12,8 +12,13 @@ const {
 } = require("../lib/notifications/runners/birthday_runner");
 const {kDefaultBirthdayMessage} = require("../lib/notifications/constants");
 
-function createFakeFirestore(initialRemainingPart) {
-  const users = new Map([["player-1", {remaining_part: initialRemainingPart}]]);
+// 1.1.4: the birthday credit goes to the kept bonus reserve (bonus_part);
+// the daily remaining_part is never touched.
+function createFakeFirestore(initialBonusPart, initialRemainingPart = 1) {
+  const users = new Map([["player-1", {
+    remaining_part: initialRemainingPart,
+    ...(initialBonusPart === undefined ? {} : {bonus_part: initialBonusPart}),
+  }]]);
   const rewards = new Map();
 
   const userRef = (id) => ({kind: "user", id, path: `users/${id}`});
@@ -68,39 +73,42 @@ async function grant(firestore, birthdayDateKey = "2026-10-02") {
   });
 }
 
-for (const [remainingPart, expected] of [[3, 6], [2, 5], [0, 3], [6, 9]]) {
-  test(`birthday credit atomically adds three plays to ${remainingPart}`, async () => {
-    const firestore = createFakeFirestore(remainingPart);
+for (const [bonusPart, expected] of [[undefined, 3], [0, 3], [2, 5], [6, 9], [1000, 1003]]) {
+  test(`birthday credit atomically adds three bonus plays to ${bonusPart}`, async () => {
+    const firestore = createFakeFirestore(bonusPart);
     const result = await grant(firestore);
     assert.equal(result.alreadyExisted, false);
-    assert.equal(firestore.users.get("player-1").remaining_part, expected);
+    assert.equal(firestore.users.get("player-1").bonus_part, expected);
+    assert.equal(firestore.users.get("player-1").remaining_part, 1);
     assert.equal(firestore.rewards.get("birthday__player-1__2026-10-02").value, 3);
+    assert.equal(firestore.rewards.get("birthday__player-1__2026-10-02").credited_to, "bonus_part");
   });
 }
 
 test("birthday credit is idempotent for the same annual date", async () => {
-  const firestore = createFakeFirestore(3);
+  const firestore = createFakeFirestore(0);
   await grant(firestore);
   const retry = await grant(firestore);
   assert.equal(retry.alreadyExisted, true);
-  assert.equal(firestore.users.get("player-1").remaining_part, 6);
+  assert.equal(firestore.users.get("player-1").bonus_part, 3);
 });
 
 test("a new annual date grants a new birthday credit without colliding with legacy MM-DD events", async () => {
-  const firestore = createFakeFirestore(3);
+  const firestore = createFakeFirestore(0);
   firestore.rewards.set("birthday__player-1__10-02", {
     status: "granted",
     createdAt: new Date("2025-10-02T09:00:00.000Z"),
   });
   await grant(firestore, "2026-10-02");
   await grant(firestore, "2027-10-02");
-  assert.equal(firestore.users.get("player-1").remaining_part, 9);
+  // Cumulative across years: kept bonus plays never expire.
+  assert.equal(firestore.users.get("player-1").bonus_part, 6);
   assert.ok(firestore.rewards.has("birthday__player-1__2026-10-02"));
   assert.ok(firestore.rewards.has("birthday__player-1__2027-10-02"));
 });
 
 test("a legacy reward created today blocks only the transition-day duplicate credit", async () => {
-  const firestore = createFakeFirestore(3);
+  const firestore = createFakeFirestore(0);
   firestore.rewards.set("birthday__player-1__10-02", {
     status: "granted",
     createdAt: new Date("2026-10-02T09:00:00.000Z"),
@@ -108,7 +116,7 @@ test("a legacy reward created today blocks only the transition-day duplicate cre
   const result = await grant(firestore);
   assert.equal(result.alreadyExisted, true);
   assert.equal(result.legacyAlreadyProcessed, true);
-  assert.equal(firestore.users.get("player-1").remaining_part, 3);
+  assert.equal(firestore.users.get("player-1").bonus_part, 0);
   assert.equal(firestore.rewards.has("birthday__player-1__2026-10-02"), false);
 });
 
@@ -142,9 +150,10 @@ test("birthday automation uses the explicit credit and safely upgrades its legac
   );
 });
 
-test("birthday notification copy announces the real three-play credit", () => {
+test("birthday notification copy announces three kept bonus plays", () => {
   assert.match(kDefaultBirthdayMessage.title, /\{firstName\}/);
-  assert.match(kDefaultBirthdayMessage.body, /3 parties supplémentaires/);
+  assert.match(kDefaultBirthdayMessage.body, /3 parties bonus, conservées/);
+  assert.doesNotMatch(kDefaultBirthdayMessage.body, /aujourd'hui/);
 });
 
 test("legacy birthday copy is upgraded in memory while custom copy remains supported", () => {
@@ -157,7 +166,8 @@ test("legacy birthday copy is upgraded in memory while custom copy remains suppo
     },
   }, {first_name: "Marie"});
   assert.equal(upgraded.title, "Joyeux anniversaire Marie 🎉");
-  assert.match(upgraded.body, /3 parties supplémentaires/);
+  assert.match(upgraded.body, /3 parties bonus, conservées/);
+  assert.doesNotMatch(upgraded.body, /aujourd'hui/);
 
   const custom = getBirthdayMessage({
     messagesByStatus: {default: {title: "Titre personnalisé", body: "Texte personnalisé"}},

@@ -171,8 +171,10 @@ test('the shop play keeps instant prizes and the tenth-play +3 bonus', async () 
   await db.doc('users/player').update({remaining_part: 0});
   const result = await shop(token);
   assert.equal(result.isWin, true);
-  assert.match(result.messageBonus, /3 parties/);
-  assert.equal(await balance(), 3);
+  assert.match(result.messageBonus, /3 parties bonus/);
+  // 1.1.4: the shop play spends nothing; the +3 goes to the kept bonus reserve.
+  assert.equal(await balance(), 0);
+  assert.equal((await db.doc('users/player').get()).data().bonus_part, 3);
 });
 
 test('a shop ticket takes part in the final draw like a classic one', async () => {

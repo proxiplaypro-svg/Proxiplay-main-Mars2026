@@ -4,6 +4,13 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const {reserveClaimCode} = require('./claim_code_registry');
 const {
+  isParticipationBonusPosition,
+  kParticipationBonusMessage,
+  kParticipationBonusPlays,
+  normalizeBonusPart,
+  planPlayConsumption,
+} = require('./play_balance');
+const {
   pickDueInstantWinner,
   toMillis,
 } = require("./lib/instant_winners_core");
@@ -676,6 +683,8 @@ exports.participateInGameTransaction = functions.https.onCall(
         );
         const remainingPart =
           normalizedRemainingPart === null ? 3 : normalizedRemainingPart;
+        // Reserve de parties bonus (play_balance.js) : jamais remise a zero.
+        const bonusPart = normalizeBonusPart(userData.bonus_part);
         const alreadyParticipatedToday = participantTodayDoc.exists;
         const unlimitedAccessActive = hasUnlimitedAccess(userData, now);
         // Playing from the shop QR never consumes a daily participation, for
@@ -996,11 +1005,14 @@ exports.participateInGameTransaction = functions.https.onCall(
         // (remaining_part deja decremente sur cette meme partie) ne doit
         // jamais tomber sur ce message a la place de son vrai resultat en
         // cache. Ne s'applique qu'a une VRAIE nouvelle participation.
-        if (
-          remainingPart <= 0 &&
-          qrConsumesParticipation &&
-          !unlimitedAccessActive
-        ) {
+        // Parties du jour d'abord, puis reserve bonus (play_balance.js).
+        const playConsumption = planPlayConsumption({
+          dailyRemaining: remainingPart,
+          bonusRemaining: bonusPart,
+          consumesPlay: qrConsumesParticipation,
+          unlimited: unlimitedAccessActive,
+        });
+        if (!playConsumption.allowed) {
           transactionDecision = "no_remaining_part";
           finalLastPlayIso = traceSerializable(participantDetailLastPlay);
           finalRemainingPartValue = remainingPart;
@@ -1089,15 +1101,14 @@ exports.participateInGameTransaction = functions.https.onCall(
         transaction.update(gameRef, participationCounters);
 
         let messageBonus = "";
-        let remainingPartDelta = 0;
-        if (qrConsumesParticipation && !unlimitedAccessActive) {
-          remainingPartDelta -= 1;
-        }
+        const remainingPartDelta = playConsumption.dailyDelta;
+        let bonusPartDelta = playConsumption.bonusDelta;
 
-        // Bonus toutes les 10 participations
-        if (newPosition % 10 === 0) {
-          remainingPartDelta += 3;
-          messageBonus = "Vous avez gagné 3 parties supplémentaires !";
+        // Toutes les 10 participations au jeu : 3 parties bonus, versees dans
+        // la reserve (conservees, jamais effacees par le reset de minuit).
+        if (isParticipationBonusPosition(newPosition)) {
+          bonusPartDelta += kParticipationBonusPlays;
+          messageBonus = kParticipationBonusMessage;
         }
 
         // Mettre à jour l'activité réelle du joueur et les statistiques
@@ -1111,6 +1122,9 @@ exports.participateInGameTransaction = functions.https.onCall(
           if (!userData.part_last_update) {
             userUpdateData.part_last_update = admin.firestore.FieldValue.serverTimestamp();
           }
+        }
+        if (bonusPartDelta !== 0) {
+          userUpdateData.bonus_part = bonusPart + bonusPartDelta;
         }
 
         // Calculer le nouveau statut du joueur basé sur son activité
@@ -1261,6 +1275,11 @@ exports.participateInGameTransaction = functions.https.onCall(
           prize_id: prizeRef ? prizeRef.path : null,
           alreadyParticipatedToday: false,
           shopPlay,
+          // Credit utilise (daily, bonus, free, unlimited) et soldes apres
+          // la partie ; champs ajoutes, ignores par les anciennes versions.
+          playSource: playConsumption.source,
+          remainingPart: remainingPart + remainingPartDelta,
+          bonusPart: bonusPart + bonusPartDelta,
           // Optionnel: garde l'info côté app si besoin un jour
           // hasMainPrize,
         };

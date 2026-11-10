@@ -398,8 +398,12 @@ async function applyRewardToUser(transaction, uid, rewardType, rewardValue, acce
     if (!isRewardPlayable(rewardType) || rewardValue <= 0) {
         return;
     }
+    // Parties offertes (1.1.4) : reserve bonus_part, conservee et cumulable,
+    // jamais remise a zero a minuit (voir play_balance.js). L'acces « tous les
+    // jeux jusqu'a minuit » ci-dessus reste distinct.
     transaction.set(exports.refs.user(uid), {
-        remaining_part: admin.firestore.FieldValue.increment(rewardValue),
+        bonus_part: admin.firestore.FieldValue.increment(rewardValue),
+        bonus_part_updated_at: admin.firestore.FieldValue.serverTimestamp(),
         updated_time: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
 }

@@ -1,3 +1,4 @@
+const {normalizeBonusPart} = require("../../../play_balance");
 const {
   kAutomationTypeBirthday,
   kDefaultBirthdayMessage,
@@ -302,21 +303,21 @@ async function grantBirthdayReward({
       throw new Error(`Birthday reward user not found: ${userId}`);
     }
 
-    const currentRemainingPart = Number(userSnapshot.data()?.remaining_part);
-    const remainingPart = Number.isFinite(currentRemainingPart)
-      ? Math.max(0, Math.trunc(currentRemainingPart))
-      : 3;
+    // Parties bonus (1.1.4) : versees dans la reserve bonus_part, jamais
+    // effacee par le reset de minuit (voir play_balance.js).
+    const bonusPart = normalizeBonusPart(userSnapshot.data()?.bonus_part);
     const credit = rewardConfig.value;
 
     transaction.update(resolvedUserRef, {
-      remaining_part: remainingPart + credit,
-      part_last_update: admin.firestore.FieldValue.serverTimestamp(),
+      bonus_part: bonusPart + credit,
+      bonus_part_updated_at: admin.firestore.FieldValue.serverTimestamp(),
     });
     transaction.create(rewardEventRef, {
       type: "birthday_play_credit",
       status: "granted",
       uid: userId,
       value: credit,
+      credited_to: "bonus_part",
       grantedBy: rewardConfig.grantedBy || "birthday",
       birthdayDateKey,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),

@@ -1449,6 +1449,8 @@ function buildDailyTickerWinnerMessage(firstName, prizeName, enseigneName) {
  * Reset player daily parts at midnight France time.
  * - Sets users.remaining_part to 3
  * - Sets users.part_last_update to server timestamp
+ * - Never touches users.bonus_part: bonus plays are kept without limit
+ *   (play_balance.js). Only the two fields above are written.
  * - Paginates users and commits in Firestore-safe batch sizes
  */
 exports.resetDailyRemainingParts = functions.pubsub
