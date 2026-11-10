@@ -37,7 +37,8 @@ void main() {
     final zone = methodBody('Widget_buildReferralGamesZone(BuildContextcontext)');
     expect(zone, contains('ReferralGameCard('));
     expect(zone, contains("'LEJEUDUPARRAINAGE'"));
-    expect(zone, contains('ReferralGameCard(gameSnapshot:docs.first,wide:true,)'));
+    expect(zone, contains('ReferralGameCard(gameSnapshot:game,wide:true,winnerLabel:winnerLabel,)'));
+    expect(zone, contains('returnsection(docs.first,'));
   });
 
   test('the explanation promises a chance, never a win', () {
@@ -47,13 +48,18 @@ void main() {
     expect(zone.toLowerCase(), isNot(contains('gagnez')));
   });
 
-  test('the section is hidden without an active game and for a guest', () {
+  test('without an active game: the last drawn game and its winner, else hidden; never for a guest', () {
     final zone = methodBody('Widget_buildReferralGamesZone(BuildContextcontext)');
     final guard = zone.indexOf('if(isGuestOrAnonymous||currentUserUid.isEmpty){returnconstSizedBox.shrink();}');
     final stream = zone.indexOf('stream:_activeReferralGamesStream');
+    final drawn = zone.indexOf('_lastDrawnReferralGameFuture??=_loadLastDrawnReferralGame();');
     expect(guard, greaterThan(-1));
     expect(stream, greaterThan(guard), reason: 'no query before the guest guard');
-    expect(zone, contains('if(docs.isEmpty){returnconstSizedBox.shrink();}'));
+    expect(drawn, greaterThan(stream), reason: 'drawn game only when no game is active');
+    expect(zone, contains('if(drawn==null){returnconstSizedBox.shrink();}'));
+    expect(zone, contains('winnerLabel:drawn.winnerLabel'));
+    // Public projection only (first name and city), never users/{winner}.
+    expect(compact, contains('winnerLabel:awaitfetchReferralGameWinnerLabel(games.first.id)'));
   });
 
   test('displayed Home order: une, ad, parrainage, nouveautés, bientôt finis, terminés, ad', () {

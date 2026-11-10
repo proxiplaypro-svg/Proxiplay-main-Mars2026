@@ -34,6 +34,7 @@ void main() {
     required Map<String, dynamic> data,
     required Size size,
     double textScale = 1.0,
+    String? winnerLabel,
   }) async {
     final overflows = <String>[];
     final previous = FlutterError.onError;
@@ -61,7 +62,8 @@ void main() {
             // Same horizontal padding as the Home.
             padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: Column(children: [
-              ReferralGameCard(gameSnapshot: _Doc(data), wide: true),
+              ReferralGameCard(
+                  gameSnapshot: _Doc(data), wide: true, winnerLabel: winnerLabel),
             ]),
           ),
         ),
@@ -129,6 +131,18 @@ void main() {
       });
     }
   }
+
+  testWidgets('drawn game: the winner replaces the programme and the end date',
+      (tester) async {
+    await pump(tester,
+        data: {'title': 'test', 'prize_value': 1, 'end_date': endDate},
+        size: const Size(320, 568),
+        textScale: 1.6,
+        winnerLabel: 'Gagné par Camille - Dunkerque');
+    expect(find.text('Gagné par Camille - Dunkerque'), findsOneWidget);
+    expect(find.textContaining("Jusqu'au"), findsNothing);
+    expect(find.byIcon(Icons.emoji_events_outlined), findsOneWidget);
+  });
 
   testWidgets('the whole card opens the referral game', (tester) async {
     await pump(tester,

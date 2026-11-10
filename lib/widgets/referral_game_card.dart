@@ -20,6 +20,7 @@ class ReferralGameCard extends StatelessWidget {
     this.width,
     this.height,
     this.wide = false,
+    this.winnerLabel,
   });
 
   /// Snapshot already observed by Home. Keeping the Firestore listener at the
@@ -31,6 +32,9 @@ class ReferralGameCard extends StatelessWidget {
   /// Wide horizontal banner, same look as the "JEUX A SCANNER" cards of the
   /// Home (_buildAnimationCard): cover image, dark gradient, white texts.
   final bool wide;
+
+  /// Drawn game: "Gagné par ..." replaces the end date, like the other games.
+  final String? winnerLabel;
 
   String _prizeBadgeText(Map<String, dynamic> gameData) {
     final rawValue = gameData['prize_value'] ?? gameData['prizeValue'];
@@ -63,9 +67,10 @@ class ReferralGameCard extends StatelessWidget {
         : 'Jeu de parrainage';
     final imageUrl = (gameData['image_url'] as String?) ?? '';
     final prizeText = _prizeBadgeText(gameData);
-    final endDateText = endDate != null
-        ? "Jusqu'au : ${dateTimeFormat('d/M/y', endDate, locale: FFLocalizations.of(context).languageCode)}"
-        : "Jusqu'au : -";
+    final endDateText = winnerLabel ??
+        (endDate != null
+            ? "Jusqu'au : ${dateTimeFormat('d/M/y', endDate, locale: FFLocalizations.of(context).languageCode)}"
+            : "Jusqu'au : -");
     void onTap() => context.pushNamed(
           ReferralGameDetailJoueurPageWidget.routeName,
           queryParameters: {'gameId': gameDoc.id},
@@ -157,9 +162,10 @@ class ReferralGameCard extends StatelessWidget {
     final dateText = endDate != null
         ? "Jusqu'au ${dateTimeFormat('dd/MM', endDate, locale: FFLocalizations.of(context).languageCode)}"
         : "Jusqu'au -";
+    final infoText = winnerLabel ?? '$programLabel · $dateText';
     return Semantics(
       button: true,
-      label: '$title, $prizeText, $programLabel, $dateText',
+      label: '$title, $prizeText, $infoText',
       excludeSemantics: true,
       child: InkWell(
         key: const ValueKey('referral-game-wide-card'),
@@ -252,14 +258,16 @@ class ReferralGameCard extends StatelessWidget {
                       Row(
                         children: [
                           Icon(
-                            Icons.storefront_outlined,
+                            winnerLabel != null
+                                ? Icons.emoji_events_outlined
+                                : Icons.storefront_outlined,
                             size: 14.0,
                             color: Colors.white.withValues(alpha: 0.92),
                           ),
                           const SizedBox(width: 6.0),
                           Expanded(
                             child: Text(
-                              '$programLabel · $dateText',
+                              infoText,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.bodySmall.override(

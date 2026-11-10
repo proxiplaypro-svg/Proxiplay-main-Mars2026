@@ -159,3 +159,22 @@ String buildWinnerCongratulationsFromSources({
       ? 'Félicitations à $formattedFirstName de $formattedCity !'
       : 'Félicitations à $formattedFirstName !';
 }
+
+/// Public winner of a drawn referral game. Reads the public projection of its
+/// prize (public_prize_winners/referral_game_<gameId>: first name and city
+/// only, written by the referral draw, referral_game_engine.js), never users/{winner}.
+Future<String> fetchReferralGameWinnerLabel(String gameId) async {
+  try {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('public_prize_winners')
+        .doc('referral_game_$gameId')
+        .get();
+    return buildWinnerLabelFromSources(
+      gameData: snapshot.data() ?? const <String, dynamic>{},
+      fallback: 'Gagnant tiré au sort',
+    );
+  } catch (error) {
+    debugPrint('[winner_identity] referral winner gameId=$gameId error=$error');
+    return 'Gagnant tiré au sort';
+  }
+}

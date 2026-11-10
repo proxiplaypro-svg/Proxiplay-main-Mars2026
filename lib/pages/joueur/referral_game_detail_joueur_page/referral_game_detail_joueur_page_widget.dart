@@ -3,6 +3,7 @@ import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
+import '/utils/winner_identity.dart';
 import '/widgets/proxiplay_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -86,6 +87,7 @@ class ReferralGameDetailJoueurPageWidget extends StatelessWidget {
                 (data['prize_description'] as String?)?.trim() ?? '';
             final imageUrl = (data['image_url'] as String?)?.trim() ?? '';
             final endDate = (data['end_date'] as Timestamp?)?.toDate();
+            final drawn = data['draw_status'] == 'completed';
 
             return SingleChildScrollView(
               padding: const EdgeInsetsDirectional.fromSTEB(20.0, 8.0, 20.0, 28.0),
@@ -132,6 +134,28 @@ class ReferralGameDetailJoueurPageWidget extends StatelessWidget {
                         ),
                       ),
                     ),
+                  if (drawn) ...[
+                    const SizedBox(height: 14.0),
+                    _buildInfoCard(
+                      context,
+                      icon: Icons.emoji_events_rounded,
+                      iconBackground: const Color(0xFFFBF3DD),
+                      iconColor: const Color(0xFF8A6A10),
+                      title: 'Gagnant',
+                      child: FutureBuilder<String>(
+                        future: fetchReferralGameWinnerLabel(gameId),
+                        builder: (context, winner) => Text(
+                          winner.data ?? '…',
+                          key: const ValueKey('referral-game-winner'),
+                          style: GoogleFonts.inter(
+                            fontSize: 15.0,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF26235C),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14.0),
                   _buildTicketsCard(context),
                   const SizedBox(height: 14.0),

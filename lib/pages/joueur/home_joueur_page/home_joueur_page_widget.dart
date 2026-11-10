@@ -135,6 +135,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _qrOnlyGamesStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>>
       _activeReferralGamesStream;
+  static const _drawnReferralGameDisplayDays = 14;
+  Future<({QueryDocumentSnapshot<Map<String, dynamic>> game, String winnerLabel})?>?
+      _lastDrawnReferralGameFuture;
   final Map<String, Stream<DocumentSnapshot<Map<String, dynamic>>>>
       _publicAnimationWinnerStreams = {};
 
@@ -590,23 +593,54 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
     );
   }
 
-  /// "LE JEU DU PARRAINAGE": the active referral game, in its own section.
-  /// Hidden (no space taken) when there is none or for a guest: a guest never
-  /// queries referral_games (rules require auth). The stored
+  /// Last drawn referral game, shown with its winner for
+  /// _drawnReferralGameDisplayDays after the draw. Equality filters only (no
+  /// composite index); referral games are few, one at a time.
+  Future<({QueryDocumentSnapshot<Map<String, dynamic>> game, String winnerLabel})?>
+      _loadLastDrawnReferralGame() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('referral_games')
+          .where('status', isEqualTo: 'ended')
+          .where('draw_status', isEqualTo: 'completed')
+          .get();
+      DateTime drawnAt(QueryDocumentSnapshot<Map<String, dynamic>> doc) =>
+          (doc.data()['drawn_at'] as Timestamp?)?.toDate() ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final games = snapshot.docs.toList()
+        ..sort((a, b) => drawnAt(b).compareTo(drawnAt(a)));
+      if (games.isEmpty ||
+          DateTime.now().difference(drawnAt(games.first)).inDays >=
+              _drawnReferralGameDisplayDays) {
+        return null;
+      }
+      return (
+        game: games.first,
+        winnerLabel: await fetchReferralGameWinnerLabel(games.first.id),
+      );
+    } catch (error) {
+      debugPrint('[home] last drawn referral game failed: $error');
+      return null;
+    }
+  }
+
+  /// "LE JEU DU PARRAINAGE": the active referral game, in its own section;
+  /// without one, the last drawn game and its winner (first name and city,
+  /// public projection) for a few days, like the other finished games.
+  /// Hidden (no space taken) when there is neither or for a guest: a guest
+  /// never queries referral_games (rules require auth). The stored
   /// _activeReferralGamesStream is listened to here only \u2014 see
   /// test/home_joueur_stream_sharing_source_test.dart.
   Widget _buildReferralGamesZone(BuildContext context) {
     if (isGuestOrAnonymous || currentUserUid.isEmpty) {
       return const SizedBox.shrink();
     }
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: _activeReferralGamesStream,
-      builder: (context, referralSnapshot) {
-        final docs = referralSnapshot.data?.docs ?? const [];
-        if (docs.isEmpty) {
-          return const SizedBox.shrink();
-        }
-        return Column(
+    Widget section(
+      QueryDocumentSnapshot<Map<String, dynamic>> game,
+      String intro, {
+      String? winnerLabel,
+    }) =>
+        Column(
           key: const ValueKey('referral-games-zone'),
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -617,9 +651,8 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // No promise of a win: tickets give a chance in the draw.
                 Text(
-                  'Parrainez vos amis, obtenez des tickets et tentez votre chance\u00A0!',
+                  intro,
                   style: FlutterFlowTheme.of(context).bodyMedium.override(
                         font: GoogleFonts.inter(
                           fontWeight: FontWeight.w500,
@@ -633,8 +666,9 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
                 const SizedBox(height: 10.0),
                 // Wide banner, like the "JEUX A SCANNER" cards.
                 ReferralGameCard(
-                  gameSnapshot: docs.first,
+                  gameSnapshot: game,
                   wide: true,
+                  winnerLabel: winnerLabel,
                 ),
                 // Same space after the card as the "BONUS FIDÉLITÉ" one, so
                 // the next title ("NOUVEAUTÉS") does not touch it.
@@ -642,6 +676,35 @@ class _HomeJoueurPageWidgetState extends State<HomeJoueurPageWidget>
               ],
             ),
           ),
+        );
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _activeReferralGamesStream,
+      builder: (context, referralSnapshot) {
+        final docs = referralSnapshot.data?.docs ?? const [];
+        if (docs.isNotEmpty) {
+          // No promise of a win: tickets give a chance in the draw.
+          return section(
+            docs.first,
+            'Parrainez vos amis, obtenez des tickets et tentez votre chance\u00A0!',
+          );
+        }
+        if (!referralSnapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+        _lastDrawnReferralGameFuture ??= _loadLastDrawnReferralGame();
+        return FutureBuilder(
+          future: _lastDrawnReferralGameFuture,
+          builder: (context, drawnSnapshot) {
+            final drawn = drawnSnapshot.data;
+            if (drawn == null) {
+              return const SizedBox.shrink();
+            }
+            return section(
+              drawn.game,
+              'Le tirage a eu lieu, merci à tous les parrains\u00A0!',
+              winnerLabel: drawn.winnerLabel,
+            );
+          },
         );
       },
     );
