@@ -5,6 +5,7 @@ const nodemailer = require("nodemailer");
 const {isFunctionsEmulator} = require("./lib/emulator_runtime");
 admin.initializeApp();
 exports.setMarketingConsent = require('./marketing_consent').setMarketingConsent;
+exports.adminCorrectPlayerBirthday = require('./player_birthday_correction').adminCorrectPlayerBirthday;
 exports.notifyPartnerPrize = require('./partner_prize_delivery').notifyPartnerPrize;
 exports.deliverPartnerPrizeDigests = require('./partner_prize_delivery').deliverPartnerPrizeDigests;
 const {shopOwnerRef,ownsPrize}=require('./merchant_ownership');
@@ -6183,6 +6184,10 @@ exports.onUserDeleted = functions.auth.user().onDelete(async (user) => {
       for (const child of children.docs) await child.ref.delete();
     }
   }
+  // Journal des corrections de date de naissance : donnees du compte, sans
+  // autre finalite apres sa suppression (RGPD).
+  const birthdayCorrections = await userRef.collection("birthday_corrections").get();
+  for (const correction of birthdayCorrections.docs) await correction.ref.delete();
   await firestore.collection("users").doc(user.uid).delete();
   for (const doc of ownedShops) {
     console.log(`Deleting document ${doc.id} from collection enseignes`);
