@@ -52,7 +52,7 @@ async function generateMerchantReferralCodeHandler(data, context) {
   }
   const db = admin.firestore();
   const config = await db.doc("app_config/merchant_referral").get();
-  if (config.data()?.enabled === false) {
+  if (config.data()?.enabled !== true) {
     throw new functions.https.HttpsError("failed-precondition", "Le programme de parrainage est temporairement indisponible.");
   }
   const inviterRef = db.doc(`users/${context.auth.uid}`);

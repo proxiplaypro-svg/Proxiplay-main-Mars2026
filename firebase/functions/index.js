@@ -6,6 +6,7 @@ const {isFunctionsEmulator} = require("./lib/emulator_runtime");
 admin.initializeApp();
 exports.setMarketingConsent = require('./marketing_consent').setMarketingConsent;
 exports.adminCorrectPlayerBirthday = require('./player_birthday_correction').adminCorrectPlayerBirthday;
+exports.adminPublishMerchantReferralConditions = require('./merchant_referral_conditions').adminPublishMerchantReferralConditions;
 exports.adminDeletePlayerAccount = require('./admin_player_deletion').adminDeletePlayerAccount;
 exports.notifyPartnerPrize = require('./partner_prize_delivery').notifyPartnerPrize;
 exports.deliverPartnerPrizeDigests = require('./partner_prize_delivery').deliverPartnerPrizeDigests;

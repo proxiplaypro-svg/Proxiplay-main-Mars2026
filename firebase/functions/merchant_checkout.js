@@ -175,7 +175,7 @@ async function linkReferral(db, uid, referral) {
     const referralSnap = await tx.get(referralRef);
     const configSnap = await tx.get(db.doc("app_config/merchant_referral"));
     if (!referralSnap.exists) {
-      if (configSnap.data()?.enabled === false) {
+      if (configSnap.data()?.enabled !== true) {
         throw new functions.https.HttpsError("failed-precondition", "Le programme de parrainage est temporairement indisponible.");
       }
       // Lien parrain <-> commercant immuable : cree ici, jamais ecrase par

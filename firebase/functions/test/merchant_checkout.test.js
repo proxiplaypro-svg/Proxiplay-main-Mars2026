@@ -89,7 +89,8 @@ async function clearCollections() {
 
 test.beforeEach(async () => {
   await clearCollections();
-  await db.doc('app_config/merchant_referral').delete();
+  // Programme ouvert seulement si enabled === true (ferme par defaut).
+  await db.doc('app_config/merchant_referral').set({enabled: true});
   await db.doc('users/merchant').set({user_role: 'commercant', email: 'merchant@example.test', account_status: 'approved'});
   process.env.STRIPE_TAX_MODE = 'tax_rate';
 });
@@ -605,4 +606,20 @@ test('campaign code: refused without the campaign marker, without "first order o
       err.code === 'failed-precondition' && err.details?.reason === 'invalid_offer_code' && message.test(err.message), label);
     assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0, label);
   }
+});
+
+// Ferme par defaut (1.1.4) : seul enabled === true ouvre le programme.
+test('programme ferme par defaut : un code au paiement ne rattache rien sans enabled === true', async () => {
+  const fakeStripe = makeFakeStripe();
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  const {code} = await generateMerchantReferralCodeHandler({}, {auth: {uid: 'inviter'}});
+  for (const config of [null, {}, {enabled: 'true'}]) {
+    if (config === null) await db.doc('app_config/merchant_referral').delete();
+    else await db.doc('app_config/merchant_referral').set(config);
+    await assert.rejects(
+      () => createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls, referralCode: code}, kMerchant),
+      (err) => err.code === 'failed-precondition', JSON.stringify(config));
+  }
+  assert.equal((await db.doc('merchant_referrals/merchant').get()).exists, false);
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0);
 });

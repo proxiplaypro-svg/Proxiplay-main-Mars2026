@@ -58,7 +58,7 @@ class _ParrainageCommercantPageWidgetState
         .doc('app_config/merchant_referral')
         .snapshots()
         .listen((snapshot) {
-      final enabled = snapshot.data()?['enabled'] != false;
+      final enabled = snapshot.data()?['enabled'] == true;
       if (!mounted) return;
       final wasEnabled = _programEnabled;
       setState(() => _programEnabled = enabled);

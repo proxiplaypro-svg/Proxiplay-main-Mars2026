@@ -95,7 +95,7 @@ async function completeMerchantSignupLink(db, operationRef) {
       return {linked: sameInviter};
     }
     const config = await tx.get(db.doc("app_config/merchant_referral"));
-    if (config.data()?.enabled === false) {
+    if (config.data()?.enabled !== true) {
       tx.update(operationRef, {status: "completed", outcome: "program_unavailable", completed_at: now});
       return {linked: false};
     }
@@ -150,7 +150,7 @@ async function createMerchantAccountWithReferralHandler(data, context) {
     }
   } else {
     const config = await db.doc("app_config/merchant_referral").get();
-    if (config.data()?.enabled === false) {
+    if (config.data()?.enabled !== true) {
       throw new functions.https.HttpsError("failed-precondition", "Programme indisponible.",
         {reason: "program_unavailable"});
     }

@@ -37,6 +37,8 @@ test.beforeEach(async () => {
   const r = await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/emulator/v1/projects/${process.env.GCLOUD_PROJECT}/accounts`, {method: 'DELETE'});
   assert.ok(r.ok);
   await Promise.all([
+    // Programme ouvert seulement si enabled === true (ferme par defaut).
+    db.doc('app_config/merchant_referral').set({enabled: true}),
     db.doc('users/admin_uid').set({user_role: 'admin'}),
     db.doc('users/player1').set({user_role: 'joueur'}),
     db.doc('users/shop1').set({user_role: 'commercant'}),
@@ -200,4 +202,16 @@ test('when the Stripe webhook confirmed the payment first, the manual confirmati
   assert.equal(r.status, 'eligible');
   assert.equal(r.stripe_subscription_id, 'sub_1');
   assert.equal(r.payment_confirmation, null);
+});
+
+// Ferme par defaut (1.1.4) : seul enabled === true ouvre le programme.
+test('programme ferme par defaut : aucun compte ni rattachement sans enabled === true', async () => {
+  for (const [name, config] of [['absent', null], ['vide', {}], ['texte', {enabled: 'true'}]]) {
+    if (config === null) await db.doc('app_config/merchant_referral').delete();
+    else await db.doc('app_config/merchant_referral').set(config);
+    await assert.rejects(signup(input(name, 'PLAYERA2')),
+      e => e.code === 'failed-precondition' && e.details?.reason === 'program_unavailable', name);
+    assert.equal((await accountsFor(`${name}@shop.test`)).length, 0, name);
+  }
+  assert.equal((await db.collection('merchant_referrals').get()).size, 0);
 });

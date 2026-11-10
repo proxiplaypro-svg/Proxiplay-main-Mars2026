@@ -1987,7 +1987,11 @@ void main() {
     await tester.tap(find.text('Voir les conditions du programme'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    expect(find.text('Conditions du programme'), findsOneWidget);
+    // Conditions not yet published: the embedded copy, clearly flagged.
+    expect(find.byKey(const ValueKey('merchant-referral-conditions')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('merchant-referral-conditions-notice')),
+        findsOneWidget);
     await tester.tap(find.text('Fermer'));
     await tester.pumpAndSettle();
 
@@ -2006,6 +2010,123 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(shared, isNotEmpty);
     semantics.dispose();
+  });
+
+  // Conditions du parrainage commercant (1.1.4) : lues dans Firestore a
+  // chaque ouverture, une modification s'affiche sans mise a jour de l'app,
+  // un echec de lecture est signale, et l'interrupteur n'y joue aucun role.
+  testWidgets(
+      'merchant referral conditions come from Firestore and follow its changes',
+      (tester) async {
+    const configPath = 'app_config/merchant_referral';
+    calls.named['generateMerchantReferralCode'] =
+        (_) async => {'code': 'P8RWGZ53'};
+    Map<String, dynamic> config(int version, String lastLine) => {
+          'enabled': false,
+          'conditions': {
+            'version': version,
+            'format': 'plain_v1',
+            'title': 'Conditions du programme de parrainage commerçant',
+            'text': 'Premier paragraphe.\n\n- Point A\n- Point B\n\n$lastLine',
+            'effective_at': Timestamp.fromDate(DateTime(2026, 11, 20, 12)),
+            'updated_at': Timestamp.fromDate(DateTime(2026, 11, 20, 12)),
+          },
+        };
+    addTearDown(() {
+      store.deniedGets.remove(configPath);
+      store.data.remove(configPath);
+    });
+    Future<void> openConditions() async {
+      await tester.ensureVisible(find.text('Voir les conditions du programme'));
+      await tester.tap(find.text('Voir les conditions du programme'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+
+    Future<void> close() async {
+      await tester.tap(find.text('Fermer'));
+      await tester.pumpAndSettle();
+    }
+
+    final updatesBefore = store.updates.length;
+    store.data[configPath] = config(1, 'Ancienne règle.');
+    await pump(tester, const ParrainageCommercantPageWidget());
+    await openConditions();
+    expect(find.text('Conditions du programme de parrainage commerçant'),
+        findsOneWidget);
+    expect(find.text('Version 1 · en vigueur depuis le 20/11/2026'),
+        findsOneWidget);
+    expect(find.text('Premier paragraphe.'), findsOneWidget);
+    expect(find.text('Point A'), findsOneWidget);
+    expect(find.text('Point B'), findsOneWidget);
+    expect(find.text('Ancienne règle.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('merchant-referral-conditions-notice')),
+        findsNothing);
+    await close();
+
+    // Publication d'une nouvelle version : affichee a la prochaine ouverture.
+    store.data[configPath] = config(2, 'Nouvelle règle.');
+    await openConditions();
+    expect(find.text('Nouvelle règle.'), findsOneWidget);
+    expect(find.text('Ancienne règle.'), findsNothing);
+    expect(find.text('Version 2 · en vigueur depuis le 20/11/2026'),
+        findsOneWidget);
+    await close();
+
+    // Lecture impossible : copie integree, signalee, puis « Réessayer ».
+    store.deniedGets.add(configPath);
+    await openConditions();
+    expect(find.byKey(const ValueKey('merchant-referral-conditions-notice')),
+        findsOneWidget);
+    expect(find.textContaining('version intégrée à l’application'),
+        findsOneWidget);
+    expect(find.text('Un commerçant ne peut pas se parrainer lui-même.'),
+        findsOneWidget);
+    expect(find.text('Nouvelle règle.'), findsNothing);
+    store.deniedGets.remove(configPath);
+    await tester.tap(find.text('Réessayer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nouvelle règle.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('merchant-referral-conditions-notice')),
+        findsNothing);
+    await close();
+
+    // L'app n'ecrit jamais ce document (ni enabled, ni conditions).
+    expect(store.updates.length, updatesBefore);
+  });
+
+  // Ferme par defaut (1.1.4) : seul enabled == true ouvre le programme sur
+  // la page ; aucun code n'est demande sinon.
+  testWidgets('merchant referral page stays closed unless enabled is true',
+      (tester) async {
+    const configPath = 'app_config/merchant_referral';
+    var codeRequests = 0;
+    calls.named['generateMerchantReferralCode'] = (_) async {
+      codeRequests += 1;
+      return {'code': 'P8RWGZ53'};
+    };
+    addTearDown(() => store.data.remove(configPath));
+    for (final config in <Map<String, dynamic>?>[
+      null,
+      {},
+      {'enabled': 'true'},
+      {'enabled': null},
+    ]) {
+      if (config == null) {
+        store.data.remove(configPath);
+      } else {
+        store.data[configPath] = config;
+      }
+      await pump(tester, const ParrainageCommercantPageWidget());
+      expect(tester.takeException(), isNull);
+      expect(
+          find.text('Le programme de parrainage est temporairement '
+              'indisponible. Votre historique reste accessible.'),
+          findsOneWidget,
+          reason: '$config');
+      expect(find.text('Copier le code'), findsNothing, reason: '$config');
+    }
+    expect(codeRequests, 0);
   });
 
   // "Suggestions indisponibles" covered three different situations; the

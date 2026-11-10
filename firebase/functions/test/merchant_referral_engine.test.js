@@ -26,7 +26,8 @@ async function clearCollections() {
 
 test.beforeEach(async () => {
   await clearCollections();
-  await db.doc('app_config/merchant_referral').delete();
+  // Programme ouvert seulement si enabled === true (ferme par defaut).
+  await db.doc('app_config/merchant_referral').set({enabled: true});
   await db.doc('users/admin_uid').set({user_role: 'admin'});
 });
 
@@ -188,4 +189,15 @@ test('adminSetMerchantCustomOffer sets a negotiated price and can later remove i
   assert.equal(removal.status, 'removed');
   const afterRemoval = await db.doc('merchant_custom_offers/merchant1').get();
   assert.equal(afterRemoval.exists, false);
+});
+
+// Ferme par defaut (1.1.4) : seul enabled === true ouvre le programme.
+test('programme ferme par defaut : document absent, champ absent ou non booleen', async () => {
+  for (const config of [null, {}, {enabled: 'true'}, {enabled: 1}, {enabled: null}]) {
+    if (config === null) await db.doc('app_config/merchant_referral').delete();
+    else await db.doc('app_config/merchant_referral').set(config);
+    await assert.rejects(() => generateMerchantReferralCodeHandler({}, {auth: {uid: 'player1'}}),
+      (err) => err.code === 'failed-precondition', JSON.stringify(config));
+  }
+  assert.equal((await db.collection('merchant_referral_codes').get()).size, 0);
 });

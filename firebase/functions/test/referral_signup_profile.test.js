@@ -192,6 +192,8 @@ test('an operation whose account was never created is abandoned, nothing created
 
 test('merchant with a code: server profile with the merchant role, merchant status, no player chances', async () => {
   await reset();
+  // Programme commercant ouvert seulement si enabled === true (1.1.4).
+  await db.doc('app_config/merchant_referral').set({enabled: true});
   await db.doc('users/ambassador').set({user_role: 'joueur'});
   await db.doc('merchant_referral_codes/AMB-1234').set({inviter_user_id: db.doc('users/ambassador')});
   const requestId = crypto.randomUUID();
@@ -209,6 +211,8 @@ test('merchant with a code: server profile with the merchant role, merchant stat
 
 test('merchant signed in from the login page before the link: the role is completed, never a player role', async () => {
   await reset();
+  // Programme commercant ouvert seulement si enabled === true (1.1.4).
+  await db.doc('app_config/merchant_referral').set({enabled: true});
   await db.doc('users/ambassador').set({user_role: 'joueur'});
   const uid = 'msu_' + hash('interrupted').slice(0, 48);
   await admin.auth().createUser({uid, email: 'late.shop@test.ge', password: 'shop-password-1'});
