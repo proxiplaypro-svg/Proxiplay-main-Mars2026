@@ -2,6 +2,7 @@ const {checkAwardLinks, review} = require("./prize_integrity");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const {pickWinningTicket} = require("./lib/referral_games_core");
+const {publicPrize} = require("./public_winners");
 
 const db = admin.firestore();
 
@@ -67,7 +68,8 @@ async function drawReferralGame(gameId, {allowEarly = false, now = admin.firesto
         excludedEntries.push(entryDoc.ref);
         continue;
       }
-      eligible.push({...entry, inviter_uid: inviterUid, entryRef: entryDoc.ref, userRef});
+      eligible.push({...entry, inviter_uid: inviterUid, entryRef: entryDoc.ref, userRef,
+        userData: userSnap.data() || {}});
     }
     if (eligible.length === 0) {
       for (const ref of excludedEntries) {
@@ -88,10 +90,16 @@ async function drawReferralGame(gameId, {allowEarly = false, now = admin.firesto
     for (const ref of excludedEntries) {
       transaction.set(ref, {eligibility_status: "excluded", updated_at: admin.firestore.FieldValue.serverTimestamp()}, {merge: true});
     }
-    if (!prizeSnap.exists) transaction.set(prizeRef, prizePayload(gameId, game, winnerRef, now));
+    const prize = prizeSnap.exists ? prizeSnap.data() : prizePayload(gameId, game, winnerRef, now);
+    if (!prizeSnap.exists) transaction.set(prizeRef, prize);
     transaction.set(winnerRef.collection("my_lots").doc(prizeRef.id), {
       prize_id: prizeRef, updated_at: admin.firestore.FieldValue.serverTimestamp(),
     }, {merge: true});
+    // Gagnant public (prenom et ville seulement), lu par l'app : meme
+    // projection que les grands tirages (main_prize_draw.js), ecrite dans la
+    // transaction du tirage, sans dependre de syncPublicPrizeWinner.
+    transaction.set(db.doc(`public_prize_winners/${prizeRef.id}`),
+      publicPrize(prize, selected.winningTicket.userData));
     transaction.set(selected.winningTicket.entryRef, {
       eligibility_status: "won", drawn_at: now, updated_at: admin.firestore.FieldValue.serverTimestamp(),
     }, {merge: true});
@@ -121,7 +129,11 @@ async function repairReferralGameDraw(gameId) {
     const integrity = await checkAwardLinks(transaction, {prizeRef, winnerRef: winnerRef, sourceField: 'referral_game_id', sourceValue: gameId, prizeSnap});
     if (integrity.status !== 'consistent') return integrity;
     const drawnAt = game.drawn_at || admin.firestore.Timestamp.now();
-    if (!prizeSnap.exists) transaction.set(prizeRef, prizePayload(gameId, game, winnerRef, drawnAt));
+    const prize = prizeSnap.exists ? prizeSnap.data() : prizePayload(gameId, game, winnerRef, drawnAt);
+    if (!prizeSnap.exists) transaction.set(prizeRef, prize);
+    // Rattrape aussi le gagnant public d'un jeu tire avant la 1.1.4.
+    transaction.set(db.doc(`public_prize_winners/${prizeRef.id}`),
+      publicPrize(prize, winnerSnap.data() || {}));
     transaction.set(winnerRef.collection("my_lots").doc(prizeRef.id), {
       prize_id: prizeRef, updated_at: admin.firestore.FieldValue.serverTimestamp(),
     }, {merge: true});
