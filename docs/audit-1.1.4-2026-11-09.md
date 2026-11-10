@@ -87,9 +87,10 @@ Source : `prize_merchant_notification_policy.js` (6a16eda) et Admin
    (2 cas ajoutés), `game_lifecycle_instant` réussi.
 2. **Bonus** : `resetDailyRemainingParts` remet chaque joueur à 3 parties à
    minuit (Paris) ; aucun report des parties bonus. Conserver ou non ?
-3. **Date de naissance modifiable par le joueur** (`isSafeSelfUserUpdate`) : elle
-   conditionne les jeux et publicités réservés aux majeurs et l'éligibilité
-   marketing. La figer après saisie ?
+3. **Date de naissance modifiable par le joueur** — *décidé le 10/11,
+   implémenté et testé.* Voir `docs/birthday-lock-1.1.4.md` : verrouillage
+   après la première saisie, correction par l'Admin avec journal, plan de
+   déploiement.
 4. **Jeu du parrainage** : redéployer `adminReconcileReferralGameTickets` depuis
    1.1.4 (garde) et corriger le bouton « Réparer le jeu » ?
 5. **`syncPublicPrizeWinner` et `pickEndedMainPrizeWinners`** (dans le code,
