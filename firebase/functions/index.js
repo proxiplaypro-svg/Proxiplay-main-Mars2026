@@ -6165,48 +6165,11 @@ function getCharForIndex(charIdx) {
     return String.fromCharCode("a".charCodeAt(0) + charIdx - 36);
   }
 }
+// Effacement des donnees Firestore d'un compte supprime : voir
+// deleted_user_cleanup.js (inventaire, donnees conservees comme preuve).
 exports.onUserDeleted = functions.auth.user().onDelete(async (user) => {
-  let firestore = admin.firestore();
-  let userRef = firestore.doc("users/" + user.uid);
-  // Both fields and all legacy encodings are supported. Filter with the
-  // canonical normalizer so a contradictory shop is never deleted as owned.
-  const ownerValues = [userRef, userRef.path, `/${userRef.path}`, user.uid];
-  const snapshots = await Promise.all(['owner', 'owner_id'].flatMap(field =>
-    ownerValues.map(value => firestore.collection('enseignes').where(field, '==', value).get())));
-  const {shopOwnerPath} = require('./merchant_ownership');
-  const ownedShops = [...new Map(snapshots.flatMap(s => s.docs).map(d => [d.id, d])).values()]
-    .filter(doc => shopOwnerPath(doc.data()) === userRef.path && doc.data().managed_by_admin !== true);
-  await require('./deleted_shop_games_cleanup').deleteGamesForDeletedShops(
-    firestore, ownedShops.map(doc => doc.ref));
-  for (const doc of ownedShops) {
-    for (const collection of ['enseigne_game', 'horaires', 'images']) {
-      const children = await doc.ref.collection(collection).get();
-      for (const child of children.docs) await child.ref.delete();
-    }
-  }
-  // Journal des corrections de date de naissance : donnees du compte, sans
-  // autre finalite apres sa suppression (RGPD).
-  const birthdayCorrections = await userRef.collection("birthday_corrections").get();
-  for (const correction of birthdayCorrections.docs) await correction.ref.delete();
-  await firestore.collection("users").doc(user.uid).delete();
-  for (const doc of ownedShops) {
-    console.log(`Deleting document ${doc.id} from collection enseignes`);
-    await doc.ref.delete();
-  }
-  await firestore
-    .collection("games")
-    .where("create_by", "==", userRef)
-    .get()
-    .then(async (querySnapshot) => {
-      for (var doc of querySnapshot.docs) {
-        // create_by is provenance, never ownership. Preserve all games attached
-        // to an enseigne, including those created on behalf of it by an admin.
-        if (!doc.data().enseigne_id && !doc.data().enseigne_ref &&
-            require('./merchant_ownership').userPath(doc.data().owner_id) === userRef.path) {
-          await doc.ref.delete();
-        }
-      }
-    });
+  await require("./deleted_user_cleanup").cleanupDeletedUserData(
+    admin.firestore(), user.uid);
 });
 
 try {
