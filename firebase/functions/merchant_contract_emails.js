@@ -166,7 +166,80 @@ function adminPendingAlert(contract, contractId, {level, submittedMs, deadlineMs
   };
 }
 
+// Formulaire de retractation (annexe des CGV V2.1), reproduit dans la
+// confirmation d'une souscription demarchee (art. 4.3).
+const kWithdrawalForm = [
+  "FORMULAIRE DE RÉTRACTATION",
+  "(À compléter et renvoyer uniquement si vous souhaitez vous rétracter.)",
+  "",
+  `À l'attention de ${kPostalAddress}, ${kContactEmail}.`,
+  "",
+  "Je/nous (1) vous notifie/notifions (1) par la présente ma/notre (1) rétractation du contrat portant sur la fourniture " +
+    "du service suivant : abonnement PROXIPLAY, offre [Autonome / Accompagnée] (1).",
+  "Contrat conclu le (date de la confirmation de souscription) : …………",
+  "Nom du Partenaire / de l'entreprise et enseigne concernée : …………",
+  "SIRET : ………… Adresse : ………… Adresse e-mail du compte : …………",
+  "Date : ………… Signature (uniquement en cas de notification sur papier) : …………",
+  "(1) Rayer la mention inutile.",
+].join("\n");
+
+/**
+ * Confirmation de souscription (art. 4.3) : support durable. Date de
+ * conclusion, recapitulatif, CGV jointes (version et empreinte) ; pour une
+ * souscription demarchee, informations et formulaire de retractation.
+ */
+function confirmationNotice(contract, contractId, {conclusionMs, deadlineMs, cgv}) {
+  const demarchee = contract.origin?.type === "demarchee";
+  const lines = [
+    "Bonjour,",
+    "",
+    `Nous confirmons votre souscription. Le contrat est conclu à la date d'envoi de ce message : le ${parisDate(conclusionMs, true)} ` +
+      "(heure de Paris, CGV, art. 4.1).",
+    "",
+    "Récapitulatif contractuel :",
+    recapLines({...contract, cgv: {version: cgv.version}}),
+    `- Référence : ${contractId}`,
+    "",
+    `Conditions générales de vente acceptées : version ${cgv.version}, jointes à ce message en PDF ` +
+      `(empreinte SHA-256 : ${cgv.sha256}).`,
+    "",
+    "Paiement et activation : aucune somme n'a été encaissée à ce jour. Le premier paiement est demandé par une invitation à payer, " +
+      "valable quinze jours (art. 8.1). Le service est activé après confirmation du paiement ; la période annuelle commence " +
+      "à la date d'activation (art. 8.2).",
+    "",
+  ];
+  if (demarchee) {
+    lines.push(
+      "Droit de rétractation (souscription démarchée, art. 7) : vous pouvez vous rétracter sans justifier votre décision " +
+        `pendant quatorze jours à compter du lendemain de la conclusion du contrat, soit jusqu'au ${parisDate(deadlineMs)} inclus. ` +
+        "Aucun paiement n'est demandé ni encaissé, et aucune carte bancaire ni autorisation de prélèvement ne vous est demandée, " +
+        "pendant ce délai (art. 7.4). Aucune somme n'est due si vous vous rétractez avant son expiration (art. 7.5).",
+      "",
+      `Pour vous rétracter : toute déclaration non équivoque adressée à ${kContactEmail} ou par courrier à ${kPostalAddress}, ` +
+        "ou le formulaire ci-dessous (art. 7.3).",
+      "",
+      kWithdrawalForm,
+      "",
+    );
+  } else {
+    lines.push(
+      "Souscription spontanée (art. 4.2). Si vous avez reçu la visite d'un représentant de PROXIPLAY sans que votre souscription " +
+        `ait été enregistrée comme démarchée, vous pouvez le signaler jusqu'au ${parisDate(deadlineMs)} inclus, ` +
+        `depuis votre espace commerçant ou à ${kContactEmail} : elle sera alors traitée comme démarchée et l'article 7 s'appliquera.`,
+      "",
+    );
+  }
+  lines.push(kSignature);
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : confirmation de votre souscription (${enseigneLabel(contract)})`,
+    text: lines.join("\n"),
+  };
+}
+
 module.exports = {
+  kWithdrawalForm,
+  confirmationNotice,
   adminPendingAlert,
   refusalNotice,
   visitReportAcknowledgement,

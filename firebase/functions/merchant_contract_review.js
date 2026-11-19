@@ -213,6 +213,7 @@ const callable = (handler) => functions
   .https.onCall(handler);
 
 module.exports = {
+  loadForDecision,
   kRefusalMotifs,
   normalizeName,
   adminRecordMerchantContractChecksHandler,

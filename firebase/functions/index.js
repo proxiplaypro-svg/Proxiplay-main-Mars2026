@@ -41,6 +41,7 @@ exports.adminRecordMerchantContractChecks =
 exports.adminRefuseMerchantContract = require('./merchant_contract_review').adminRefuseMerchantContract;
 exports.adminFindSimilarEnseignes = require('./merchant_contract_review').adminFindSimilarEnseignes;
 exports.merchantContractAlerts = require('./merchant_contract_alerts').merchantContractAlerts;
+exports.adminConfirmMerchantContract = require('./merchant_contract_confirm').adminConfirmMerchantContract;
 exports.adminSetMerchantManualAccess =
   require('./merchant_referral_engine').adminSetMerchantManualAccess;
 exports.generateMerchantReferralCode =
