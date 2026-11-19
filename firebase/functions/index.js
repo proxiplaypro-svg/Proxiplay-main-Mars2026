@@ -26,6 +26,9 @@ exports.createMerchantBillingPortalSession =
   require('./merchant_billing_portal').createMerchantBillingPortalSession;
 exports.listMerchantInvoices = require('./merchant_billing_portal').listMerchantInvoices;
 exports.getMerchantBillingAccount = require('./merchant_billing_account').getMerchantBillingAccount;
+// Phase 1, tranche 1 : demandes de souscription (CGV V2.1), derriere
+// l'interrupteur app_config/merchant_contracts.enabled (false par defaut).
+exports.getMyMerchantContracts = require('./merchant_contracts_account').getMyMerchantContracts;
 exports.adminSetMerchantManualAccess =
   require('./merchant_referral_engine').adminSetMerchantManualAccess;
 exports.generateMerchantReferralCode =

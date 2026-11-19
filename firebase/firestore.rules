@@ -895,5 +895,48 @@ service cloud.firestore {
     match /stripe_webhook_events/{eventId} {
       allow read, write: if false;
     }
+
+    // Phase 1 (CGV B2B V2.1) : demandes de souscription et contrats, un par
+    // enseigne. Ecrits UNIQUEMENT par les Cloud Functions (SDK admin). Le
+    // commercant lit la vue filtree de SES contrats (owner_uid) ; les
+    // donnees internes (verification, notes, motif interne, preuves,
+    // adresse IP, journal) sont dans des sous-collections lisibles par
+    // l'admin seul.
+    match /merchant_contracts/{contractId} {
+      allow read: if isAdmin() ||
+        (isSignedIn() && resource.data.owner_uid == request.auth.uid);
+      allow write: if false;
+
+      match /internal/{docId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+      match /events/{eventId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+
+    // Commerciaux, liens nominatifs (empreinte du jeton, jamais le jeton) et
+    // miroir des codes promotionnels : admin seul, ecriture serveur seule.
+    match /sales_reps/{repId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /rep_links/{linkHash} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /promo_codes/{code} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Interrupteur du parcours de souscription et CGV en vigueur : lus par
+    // les Cloud Functions ; lecture admin ; aucune ecriture client.
+    match /app_config/merchant_contracts {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
   }
 }
