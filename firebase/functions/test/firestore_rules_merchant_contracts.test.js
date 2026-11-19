@@ -100,3 +100,28 @@ test('l\'admin lit tout le dossier (contrat, donnees internes, journal)', async 
   await assertSucceeds(db.collection('merchant_contracts/c1/events').get());
   await assertSucceeds(db.collection('merchant_contracts').where('state', '==', 'submitted').get());
 });
+
+// Relecture des regles : app_config/merchant_contracts n'est couvert que par
+// son propre match (ni match /app_config/{doc}, ni joker, ni attrape-tout).
+// Aucun utilisateur non admin ne le lit, connecte ou non.
+test('app_config/merchant_contracts : illisible pour un anonyme et pour tout utilisateur connecte non admin', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc('users/player').set({user_role: 'joueur'});
+    await ctx.firestore().doc('users/fake_admin_field').set({user_role: 'commercant', admin: true});
+  });
+  const readers = [
+    ['anonyme', env.unauthenticatedContext().firestore()],
+    ['connecte sans profil', env.authenticatedContext('nobody').firestore()],
+    ['joueur', env.authenticatedContext('player').firestore()],
+    ['commercant valide', env.authenticatedContext('merchant').firestore()],
+    ['claim admin a false', env.authenticatedContext('merchant', {admin: false}).firestore()],
+    ['e-mail admin historique non verifie', env.authenticatedContext('x', {email: 'proxiplay.pro@gmail.com', email_verified: false}).firestore()],
+    ['champ admin pose dans son propre profil', env.authenticatedContext('fake_admin_field').firestore()],
+  ];
+  for (const [label, db] of readers) {
+    await assertFails(db.doc('app_config/merchant_contracts').get(), label);
+    await assertFails(db.collection('app_config').where('enabled', '==', true).get(), label);
+    await assertFails(db.collection('merchant_contracts_config_log').get(), label);
+  }
+  await assertSucceeds(adminClient().doc('app_config/merchant_contracts').get());
+});
