@@ -125,7 +125,28 @@ function adminVisitReport(contract, contractId) {
   };
 }
 
+function refusalNotice(contract, motifLabel) {
+  const detail = contract.public_refusal?.detail;
+  return {
+    to: contract.owner_email,
+    subject: "ProxiPlay : votre demande de souscription n'a pas pu être acceptée",
+    text: [
+      "Bonjour,",
+      "",
+      `Après vérification, nous ne pouvons pas donner suite à votre demande de souscription pour l'enseigne ${enseigneLabel(contract)}.`,
+      "",
+      `Motif (CGV, art. 4.1) : ${motifLabel}${detail ? ` — ${detail}` : ""}.`,
+      "",
+      "Aucun contrat n'a été conclu et aucune somme n'a été encaissée. " +
+        `Pour toute question, vous pouvez nous écrire à ${kContactEmail}.`,
+      "",
+      kSignature,
+    ].join("\n"),
+  };
+}
+
 module.exports = {
+  refusalNotice,
   visitReportAcknowledgement,
   adminVisitReport,
   kContactEmail,

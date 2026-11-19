@@ -36,6 +36,10 @@ exports.adminUpsertPromoCode = require('./merchant_contracts_request').adminUpse
 exports.reportMerchantVisit = require('./merchant_contract_origin').reportMerchantVisit;
 exports.adminUpsertSalesRep = require('./merchant_contract_origin').adminUpsertSalesRep;
 exports.adminCreateRepLink = require('./merchant_contract_origin').adminCreateRepLink;
+exports.adminRecordMerchantContractChecks =
+  require('./merchant_contract_review').adminRecordMerchantContractChecks;
+exports.adminRefuseMerchantContract = require('./merchant_contract_review').adminRefuseMerchantContract;
+exports.adminFindSimilarEnseignes = require('./merchant_contract_review').adminFindSimilarEnseignes;
 exports.adminSetMerchantManualAccess =
   require('./merchant_referral_engine').adminSetMerchantManualAccess;
 exports.generateMerchantReferralCode =

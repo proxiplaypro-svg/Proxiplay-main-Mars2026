@@ -8,6 +8,7 @@ const mail = require('../merchant_contract_mail');
 const {getMyMerchantContractsHandler} = require('../merchant_contracts_account');
 const request = require('../merchant_contracts_request');
 const origin = require('../merchant_contract_origin');
+const review = require('../merchant_contract_review');
 
 const {db} = h;
 
@@ -23,6 +24,12 @@ const kCalls = [
   ['reportMerchantVisit', () => origin.reportMerchantVisitHandler({contractId: 'c1'}, h.merchantContext())],
   ['adminUpsertSalesRep', () => origin.adminUpsertSalesRepHandler({name: 'Alex Commercial'}, h.adminContext())],
   ['adminCreateRepLink', () => origin.adminCreateRepLinkHandler({repId: 'rep1'}, h.adminContext())],
+  // lot 1.2-min
+  ['adminRecordMerchantContractChecks', () => review.adminRecordMerchantContractChecksHandler(
+    {contractId: 'c1', expectedVersion: 1, checks: {siret: {result: 'pass'}}}, h.adminContext())],
+  ['adminRefuseMerchantContract', () => review.adminRefuseMerchantContractHandler(
+    {contractId: 'c1', expectedVersion: 1, motif: 'fraud'}, h.adminContext())],
+  ['adminFindSimilarEnseignes', () => review.adminFindSimilarEnseignesHandler({contractId: 'c1'}, h.adminContext())],
 ];
 
 async function seed() {
