@@ -220,7 +220,7 @@ async function submitMerchantSubscriptionRequestHandler(data, context) {
 async function adminUpsertPromoCodeHandler(data, context) {
   const db = admin.firestore();
   const adminUid = await assertAdminCaller(db, context);
-  await assertContractsEnabled(db);
+  // Fonction admin : utilisable interrupteur coupe, pour preparer l'ouverture.
   const code = normalizePromoCode(data?.code);
   if (!code) throw httpsError("invalid-argument", "Code requis.", {reason: "promo_invalid"});
   const kind = data?.kind;

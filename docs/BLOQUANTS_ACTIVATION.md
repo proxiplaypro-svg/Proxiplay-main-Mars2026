@@ -47,12 +47,14 @@ payer, ni rétractation.
    (lot 0.2) avant tout déploiement, sinon les nouvelles collections
    resteraient fermées (refus par défaut) ou, pire, une ancienne version
    écraserait les règles.
-8. **Configuration à poser à la main** : aucun outil n'écrit
-   `app_config/merchant_contracts` (ni fonction ni page). Les fonctions admin
-   de la tranche (commerciaux, liens, codes, vérification, confirmation) sont
-   elles aussi coupées tant que l'interrupteur est à `false` : les commerciaux
-   et les codes ne peuvent être préparés qu'une fois le parcours ouvert, sauf
-   ouverture préalable en mode TEST.
+8. **Configuration** (levé dans la tranche 1, correction) : l'outil admin
+   `adminUpdateMerchantContractsConfig` (console, page Souscriptions) écrit
+   `app_config/merchant_contracts` avec validation, contrôle du PDF dans
+   Storage et journal (`merchant_contracts_config_log`). L'interrupteur ne
+   coupe que les fonctions côté commerçant et la confirmation ; les fonctions
+   admin (commerciaux, liens, codes, vérification, refus, alertes) restent
+   utilisables pour préparer l'ouverture. Reste à faire : poser la
+   configuration réelle le jour de l'ouverture.
 9. **Vérifications non faites sur un service réel** : lecture du PDF dans
    Cloud Storage (remplacée dans les tests), envoi SMTP réel des e-mails de la
    tranche (remplacé dans les tests), tâche planifiée `merchantContractAlerts`

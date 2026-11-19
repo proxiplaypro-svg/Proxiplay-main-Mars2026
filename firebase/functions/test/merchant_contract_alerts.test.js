@@ -60,13 +60,13 @@ test.beforeEach(async () => {
 });
 test.after(() => mail.setSender(null));
 
-test('interrupteur coupe : aucune lecture des demandes, aucun e-mail, aucune ecriture', async () => {
+test('interrupteur coupe : les demandes deja recues restent soumises au delai de l\'art. 4.1, les alertes partent', async () => {
   await seedContract('c1');
   await h.setConfig({enabled: false});
-  const before = await h.snapshotAll();
-  assert.deepEqual(await runMerchantContractAlerts({nowMs: parisMs(2026, 1, 20)}), {skipped: 'contracts_disabled'});
-  assert.deepEqual(await h.snapshotAll(), before);
-  assert.equal(sent.length, 0);
+  const stats = await runMerchantContractAlerts({nowMs: parisMs(2026, 1, 20)});
+  assert.equal(stats.priority, 1);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].to, 'alertes@proxiplay.test', 'seule l\'administration est alertee');
 });
 
 test('avant un jour ouvre : rien ; apres un jour ouvre : alerte une seule fois', async () => {

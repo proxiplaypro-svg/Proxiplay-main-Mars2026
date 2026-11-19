@@ -34,6 +34,7 @@ test.beforeEach(async () => {
     await db.doc('rep_links/abc').set({rep_id: 'rep1'});
     await db.doc('promo_codes/BIENVENUE').set({kind: 'amount', value_cents: 5000, active: true});
     await db.doc('app_config/merchant_contracts').set({enabled: false});
+    await db.doc('merchant_contracts_config_log/l1').set({by: 'admin', changes: {enabled: true}});
   });
 });
 
@@ -79,11 +80,14 @@ test('aucun client n\'ecrit : ni le proprietaire, ni un tiers, ni un admin cote 
     await assertFails(db.doc('rep_links/def').set({rep_id: 'rep1'}));
     await assertFails(db.doc('promo_codes/GRATUIT').set({kind: 'percent', value: 100}));
     await assertFails(db.doc('app_config/merchant_contracts').set({enabled: true}));
+    await assertFails(db.doc('merchant_contracts_config_log/l2').set({by: 'x'}));
+    await assertFails(db.doc('merchant_contracts_config_log/l1').delete());
   }
 });
 
 test('commerciaux, liens, codes et interrupteur : admin seul en lecture', async () => {
-  for (const docPath of ['sales_reps/rep1', 'rep_links/abc', 'promo_codes/BIENVENUE', 'app_config/merchant_contracts']) {
+  for (const docPath of ['sales_reps/rep1', 'rep_links/abc', 'promo_codes/BIENVENUE', 'app_config/merchant_contracts',
+    'merchant_contracts_config_log/l1']) {
     await assertFails(merchant().doc(docPath).get());
     await assertSucceeds(adminClient().doc(docPath).get());
   }

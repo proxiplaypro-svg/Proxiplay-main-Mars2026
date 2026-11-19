@@ -24,7 +24,6 @@ const {
   kCheckResults,
   httpsError,
   assertTransition,
-  assertContractsEnabled,
   assertAdminCaller,
   ownsEnseigne,
   findOpenContractForEnseigne,
@@ -90,7 +89,7 @@ function readChecks(raw) {
 async function adminRecordMerchantContractChecksHandler(data, context) {
   const db = admin.firestore();
   const adminUid = await assertAdminCaller(db, context);
-  await assertContractsEnabled(db);
+  // Fonction admin : utilisable interrupteur coupe, pour preparer l'ouverture.
   const contractId = contractIdOf(data);
   const checks = readChecks(data?.checks);
   const enseigneId = typeof data?.enseigneId === "string" && data.enseigneId.trim() ? data.enseigneId.trim() : null;
@@ -132,7 +131,7 @@ async function adminRecordMerchantContractChecksHandler(data, context) {
 async function adminRefuseMerchantContractHandler(data, context) {
   const db = admin.firestore();
   const adminUid = await assertAdminCaller(db, context);
-  const config = await assertContractsEnabled(db);
+  // Fonction admin : utilisable interrupteur coupe, pour preparer l'ouverture.
   const contractId = contractIdOf(data);
   const motif = data?.motif;
   if (!Object.prototype.hasOwnProperty.call(kRefusalMotifs, motif)) {
@@ -169,7 +168,7 @@ function normalizeName(value) {
 async function adminFindSimilarEnseignesHandler(data, context) {
   const db = admin.firestore();
   await assertAdminCaller(db, context);
-  await assertContractsEnabled(db);
+  // Fonction admin : utilisable interrupteur coupe, pour preparer l'ouverture.
   const contractId = contractIdOf(data);
   const snap = await db.collection(kContractsCollection).doc(contractId).get();
   if (!snap.exists) throw httpsError("not-found", "Demande inconnue.", {reason: "contract_not_found"});

@@ -178,7 +178,7 @@ function adminText(value, field, {min = 1, max = 120} = {}) {
 async function adminUpsertSalesRepHandler(data, context) {
   const db = admin.firestore();
   const adminUid = await assertAdminCaller(db, context);
-  await assertContractsEnabled(db);
+  // Fonction admin : utilisable interrupteur coupe, pour preparer l'ouverture.
   const name = adminText(data?.name, "name", {min: 2});
   const email = data?.email ? adminText(data.email, "email", {max: 200}) : null;
   if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
@@ -201,7 +201,7 @@ async function adminUpsertSalesRepHandler(data, context) {
 async function adminCreateRepLinkHandler(data, context) {
   const db = admin.firestore();
   const adminUid = await assertAdminCaller(db, context);
-  await assertContractsEnabled(db);
+  // Fonction admin : utilisable interrupteur coupe, pour preparer l'ouverture.
   const repId = typeof data?.repId === "string" ? data.repId.trim() : "";
   const rep = repId ? await db.collection(kSalesRepsCollection).doc(repId).get() : null;
   if (!rep?.exists || rep.data().active === false) {

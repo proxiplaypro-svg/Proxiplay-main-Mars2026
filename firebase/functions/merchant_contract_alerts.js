@@ -49,8 +49,9 @@ async function claimAlert(db, contractId, level, nowMs) {
 }
 
 async function runMerchantContractAlerts({db = admin.firestore(), nowMs = Date.now()} = {}) {
+  // Tache admin : l'art. 4.1 (deux jours ouvres) s'applique aux demandes deja
+  // recues, meme si le parcours a ete referme depuis.
   const config = await readContractsConfig(db);
-  if (!config.enabled) return {skipped: "contracts_disabled"};
   const snap = await db.collection(kContractsCollection).where("state", "==", kStates.SUBMITTED).get();
   const stats = {pending: snap.size, first: 0, priority: 0, failed: 0};
   for (const doc of snap.docs) {

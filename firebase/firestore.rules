@@ -938,5 +938,10 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if false;
     }
+    // Journal des modifications de cette configuration (outil admin serveur).
+    match /merchant_contracts_config_log/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
   }
 }
