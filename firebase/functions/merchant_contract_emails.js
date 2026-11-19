@@ -145,7 +145,29 @@ function refusalNotice(contract, motifLabel) {
   };
 }
 
+function adminPendingAlert(contract, contractId, {level, submittedMs, deadlineMs}) {
+  const priority = level === "priority";
+  return {
+    to: contract.admin_alert_email,
+    subject: `${priority ? "[ProxiPlay][PRIORITAIRE] Délai de deux jours ouvrés dépassé" : "[ProxiPlay] Demande en attente depuis un jour ouvré"} : ${enseigneLabel(contract)}`,
+    text: [
+      priority ?
+        "La demande ci-dessous n'a été ni confirmée ni refusée dans le délai maximal de deux jours ouvrés (CGV, art. 4.1)." :
+        "La demande ci-dessous attend une décision depuis un jour ouvré. Le délai maximal de l'art. 4.1 est de deux jours ouvrés.",
+      "Aucune validation tacite ni refus automatique : la décision reste manuelle.",
+      "",
+      `Demande : ${contractId}`,
+      `Reçue le : ${parisDate(submittedMs, true)}`,
+      `Délai de deux jours ouvrés : ${parisDate(deadlineMs, true)}`,
+      `Compte : ${contract.owner_email}`,
+      "",
+      `Console : ${kConsoleUrl}`,
+    ].join("\n"),
+  };
+}
+
 module.exports = {
+  adminPendingAlert,
   refusalNotice,
   visitReportAcknowledgement,
   adminVisitReport,

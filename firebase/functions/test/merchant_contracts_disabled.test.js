@@ -30,6 +30,8 @@ const kCalls = [
   ['adminRefuseMerchantContract', () => review.adminRefuseMerchantContractHandler(
     {contractId: 'c1', expectedVersion: 1, motif: 'fraud'}, h.adminContext())],
   ['adminFindSimilarEnseignes', () => review.adminFindSimilarEnseignesHandler({contractId: 'c1'}, h.adminContext())],
+  // lot 1.3 (tache planifiee) : demande c1 recue il y a longtemps, alerte due.
+  ['merchantContractAlerts', () => require('../merchant_contract_alerts').runMerchantContractAlerts({nowMs: Date.UTC(2026, 1, 1)})],
 ];
 
 async function seed() {
