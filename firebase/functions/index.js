@@ -29,6 +29,10 @@ exports.getMerchantBillingAccount = require('./merchant_billing_account').getMer
 // Phase 1, tranche 1 : demandes de souscription (CGV V2.1), derriere
 // l'interrupteur app_config/merchant_contracts.enabled (false par defaut).
 exports.getMyMerchantContracts = require('./merchant_contracts_account').getMyMerchantContracts;
+exports.previewMerchantContract = require('./merchant_contracts_request').previewMerchantContract;
+exports.submitMerchantSubscriptionRequest =
+  require('./merchant_contracts_request').submitMerchantSubscriptionRequest;
+exports.adminUpsertPromoCode = require('./merchant_contracts_request').adminUpsertPromoCode;
 exports.adminSetMerchantManualAccess =
   require('./merchant_referral_engine').adminSetMerchantManualAccess;
 exports.generateMerchantReferralCode =
