@@ -126,7 +126,7 @@ test('only an admin can save or cancel a challenge', async () => {
 test('the web Admin account reads a challenge with its partner as a path and its draw state', async () => {
   await reset();
   const get = ft.wrap(monthly.adminGetMonthlyChallengeConfigCallable);
-  const webAdmin = {auth: {uid: 'web-admin', token: {email: 'proxiplay.pro@gmail.com'}}};
+  const webAdmin = {auth: {uid: 'web-admin', token: {email: 'proxiplay.pro@gmail.com', email_verified: true}}};
   await upsert(input(nextMonth, {type: 'merchant', challenge_id: 'merchant_' + nextMonth,
     enseigne_ref: 'enseignes/shop', enseigne_name: 'Boutique'}), webAdmin);
   const config = await get({type: 'merchant', month: nextMonth}, webAdmin);

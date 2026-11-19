@@ -136,7 +136,7 @@ function adminByEmailContext() {
   // aucun custom claim, aucun document users/{uid} -- exactement comment le
   // compte operateur de la console proxiplay-admin s'authentifie aujourd'hui.
   return testEnv.authenticatedContext("admin_console_uid", {
-    email: "proxiplay.pro@gmail.com",
+    email: "proxiplay.pro@gmail.com", email_verified: true,
   });
 }
 

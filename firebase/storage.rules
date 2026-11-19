@@ -13,7 +13,8 @@ service firebase.storage {
       // Firestore correct). Garde la meme liste que l'allowlist admin
       // du panel Next.js (lib/firebase/adminAccess.ts).
       return isSignedIn() && (
-        request.auth.token.email == 'proxiplay.pro@gmail.com' ||
+        (request.auth.token.email == 'proxiplay.pro@gmail.com' &&
+          request.auth.token.get('email_verified', false) == true) ||
         request.auth.token.admin == true ||
         firestore.get(
           /databases/(default)/documents/users/$(request.auth.uid)

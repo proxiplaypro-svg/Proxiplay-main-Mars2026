@@ -94,8 +94,22 @@ function adminByEmailContext() {
   // proxiplay-admin console's operator account authenticates today.
   return testEnv.authenticatedContext("admin_console_uid", {
     email: "proxiplay.pro@gmail.com",
+    email_verified: true,
   });
 }
+
+test("0.8 : le meme e-mail NON verifie n'est jamais admin", async () => {
+  const unverified = testEnv.authenticatedContext("admin_console_uid_unverified", {
+    email: "proxiplay.pro@gmail.com",
+    email_verified: false,
+  }).firestore();
+  await assertFails(unverified.collection("users").get());
+});
+
+test("0.8 : le custom claim admin seul suffit (etape B possible sans bloquer la console)", async () => {
+  const byClaim = testEnv.authenticatedContext("admin_by_claim", {admin: true}).firestore();
+  await assertSucceeds(byClaim.collection("users").get());
+});
 
 test("isAdmin() reconnait le compte admin de la console par email (sans custom claim ni users doc)", async () => {
   const admin = adminByEmailContext();

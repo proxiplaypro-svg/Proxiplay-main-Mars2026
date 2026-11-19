@@ -76,7 +76,9 @@ async function adminDeletePlayerAccountHandler(data, context = {}) {
   }
   const role = roleOf(profileSnap.data());
   if (role === "admin" || authUser?.customClaims?.admin === true ||
-      isTrustedAdmin({token: {email: authUser?.email}}, {})) {
+      // Protection volontairement plus large que isTrustedAdmin : le compte
+      // admin historique n'est jamais supprimable ici, e-mail verifie ou non.
+      authUser?.email === "proxiplay.pro@gmail.com") {
     throw new functions.https.HttpsError("failed-precondition",
       "Un compte administrateur ne peut pas etre supprime ici.");
   }

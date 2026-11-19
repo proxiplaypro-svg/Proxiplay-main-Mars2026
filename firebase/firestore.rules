@@ -38,8 +38,11 @@ service cloud.firestore {
           // 'email' in request.auth.token d'abord : un utilisateur connecte
           // par un moyen sans email (ex. numero de telephone) n'a pas ce
           // champ sur son token -- meme piege que .admin ci-dessus.
+          // Etape A (0.8) : e-mail verifie exige. Etape B : bloc supprime une
+          // fois le custom claim admin pose et verifie sur la console.
           (('email' in request.auth.token) &&
-            request.auth.token.email in ['proxiplay.pro@gmail.com']) ||
+            request.auth.token.email in ['proxiplay.pro@gmail.com'] &&
+            request.auth.token.get('email_verified', false) == true) ||
           // exists() d'abord : get() sur un users/{uid} absent leve une
           // erreur qui fait echouer TOUTE l'evaluation isAdmin() (y compris
           // le || qui suit), pas juste retourner false -- un commercant

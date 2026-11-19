@@ -32,7 +32,7 @@ test('nobody but an admin can list the ad folders', async () => {
     await assertFails(listAll(ref(storage, 'ads/home_banner')));
     await assertFails(listAll(ref(storage, 'ads_restricted')));
   }
-  const admin = env.authenticatedContext('admin', {email: 'proxiplay.pro@gmail.com'}).storage();
+  const admin = env.authenticatedContext('admin', {email: 'proxiplay.pro@gmail.com', email_verified: true}).storage();
   await assertSucceeds(listAll(ref(admin, 'ads/home_banner')));
 });
 
@@ -41,7 +41,7 @@ test('an adults-only creative cannot be read directly, an ordinary one can', asy
     await assertFails(getBytes(ref(storage, 'ads_restricted/open/2.png')));
     await assertSucceeds(getBytes(ref(storage, 'ads/home_banner/1.png')));
   }
-  const admin = env.authenticatedContext('admin', {email: 'proxiplay.pro@gmail.com'}).storage();
+  const admin = env.authenticatedContext('admin', {email: 'proxiplay.pro@gmail.com', email_verified: true}).storage();
   await assertSucceeds(getBytes(ref(admin, 'ads_restricted/open/2.png')));
 });
 
