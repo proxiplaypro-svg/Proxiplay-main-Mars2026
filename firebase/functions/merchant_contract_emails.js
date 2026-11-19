@@ -89,7 +89,45 @@ function adminNewRequest(contract, contractId) {
   };
 }
 
+function visitReportAcknowledgement(contract) {
+  return {
+    to: contract.owner_email,
+    subject: "ProxiPlay : signalement de la visite d'un représentant enregistré",
+    text: [
+      "Bonjour,",
+      "",
+      `Nous avons enregistré votre signalement de la visite d'un représentant de PROXIPLAY pour l'enseigne ${enseigneLabel(contract)}. ` +
+        "Votre souscription est désormais traitée comme démarchée (CGV, art. 4.2) : l'article 7 s'applique, et les sommes déjà versées " +
+        "sont remboursées en cas de rétractation.",
+      "",
+      "Pour une souscription démarchée, aucun paiement ni renseignement de carte bancaire n'est demandé avant l'expiration du délai " +
+        "de rétractation de quatorze jours, qui court à compter du lendemain de la conclusion du contrat (art. 4.2, 7.2 et 7.4).",
+      "",
+      `Pour vous rétracter, adressez une déclaration non équivoque à ${kContactEmail} ou par courrier à ${kPostalAddress} (art. 7.3).`,
+      "",
+      kSignature,
+    ].join("\n"),
+  };
+}
+
+function adminVisitReport(contract, contractId) {
+  return {
+    to: contract.admin_alert_email,
+    subject: `[ProxiPlay] Visite signalée par le commerçant : ${enseigneLabel(contract)}`,
+    text: [
+      "Le commerçant a signalé la visite d'un représentant (art. 4.2). La souscription est désormais démarchée.",
+      "",
+      `Demande : ${contractId} (état : ${contract.state})`,
+      `Compte : ${contract.owner_email}`,
+      "",
+      `Console : ${kConsoleUrl}`,
+    ].join("\n"),
+  };
+}
+
 module.exports = {
+  visitReportAcknowledgement,
+  adminVisitReport,
   kContactEmail,
   kPostalAddress,
   kSignature,

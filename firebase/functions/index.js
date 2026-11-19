@@ -33,6 +33,9 @@ exports.previewMerchantContract = require('./merchant_contracts_request').previe
 exports.submitMerchantSubscriptionRequest =
   require('./merchant_contracts_request').submitMerchantSubscriptionRequest;
 exports.adminUpsertPromoCode = require('./merchant_contracts_request').adminUpsertPromoCode;
+exports.reportMerchantVisit = require('./merchant_contract_origin').reportMerchantVisit;
+exports.adminUpsertSalesRep = require('./merchant_contract_origin').adminUpsertSalesRep;
+exports.adminCreateRepLink = require('./merchant_contract_origin').adminCreateRepLink;
 exports.adminSetMerchantManualAccess =
   require('./merchant_referral_engine').adminSetMerchantManualAccess;
 exports.generateMerchantReferralCode =

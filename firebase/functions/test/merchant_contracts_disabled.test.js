@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const mail = require('../merchant_contract_mail');
 const {getMyMerchantContractsHandler} = require('../merchant_contracts_account');
 const request = require('../merchant_contracts_request');
+const origin = require('../merchant_contract_origin');
 
 const {db} = h;
 
@@ -18,6 +19,10 @@ const kCalls = [
     cgvAccepted: true, cgvVersion: h.kCgv.version, cgvSha256: h.kCgvSha256, jurisdictionClauseAccepted: true,
   }, h.merchantContext())],
   ['adminUpsertPromoCode', () => request.adminUpsertPromoCodeHandler({code: 'X10', kind: 'percent', value: 10}, h.adminContext())],
+  // lot 1.4b
+  ['reportMerchantVisit', () => origin.reportMerchantVisitHandler({contractId: 'c1'}, h.merchantContext())],
+  ['adminUpsertSalesRep', () => origin.adminUpsertSalesRepHandler({name: 'Alex Commercial'}, h.adminContext())],
+  ['adminCreateRepLink', () => origin.adminCreateRepLinkHandler({repId: 'rep1'}, h.adminContext())],
 ];
 
 async function seed() {
@@ -31,6 +36,7 @@ async function seed() {
     cgv: {version: '2.1', sha256: h.kCgvSha256}, submitted_at: h.admin.firestore.Timestamp.fromMillis(Date.UTC(2026, 0, 5, 9)),
   });
   await db.doc('merchant_contracts/c1/internal/record').set({verification: {checks: {}}, alerts: {}, emails: {}});
+  await db.doc('sales_reps/rep1').set({name: 'Alex Commercial', active: true});
 }
 
 for (const [label, config] of [
