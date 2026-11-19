@@ -159,6 +159,9 @@ async function readContractsConfig(db) {
     } : null,
     adminAlertEmail: typeof data.admin_alert_email === "string" && data.admin_alert_email.includes("@") ?
       data.admin_alert_email.trim() : kDefaultAdminAlertEmail,
+    // Tranche 2a (decision 16) : avoir avec chaque remboursement, sous reserve
+    // de validation par le comptable. Desactive par defaut.
+    creditNotesEnabled: data.credit_notes_enabled === true,
   };
 }
 

@@ -265,7 +265,72 @@ function paymentInvitation(contract, contractId, {url, expiresMs}) {
   };
 }
 
+/** Activation (art. 8.2) : date d'activation communiquee, debut de la periode annuelle. */
+function activationNotice(contract, contractId, {activatedMs, periodEndMs}) {
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : paiement confirmé, votre abonnement est actif (${enseigneLabel(contract)})`,
+    text: [
+      "Bonjour,",
+      "",
+      `Nous avons reçu la confirmation de votre paiement. Votre abonnement ${contract.offer?.label || ""} pour l'enseigne ` +
+        `${enseigneLabel(contract)} est activé le ${parisDate(activatedMs)} : c'est le point de départ de la période annuelle (CGV, art. 8.2).`,
+      periodEndMs ? `Échéance de cette période : ${parisDate(periodEndMs)}. Le renouvellement est automatique pour douze mois, ` +
+        "désactivable depuis votre espace commerçant jusqu'à la date d'échéance incluse, tant que le prélèvement n'a pas eu lieu (art. 9)." : "",
+      "",
+      `Référence : ${contractId}. La facture est disponible dans votre espace commerçant.`,
+      "",
+      kSignature,
+    ].filter((line) => line !== null).join("\n"),
+  };
+}
+
+/** Paiement recu alors qu'aucun paiement n'etait attendu : rembourse (art. 8.1). */
+function latePaymentRefundNotice(contract, contractId) {
+  return {
+    to: contract.owner_email,
+    subject: "ProxiPlay : paiement remboursé",
+    text: [
+      "Bonjour,",
+      "",
+      `Nous avons reçu un paiement pour la souscription ${contractId} (enseigne ${enseigneLabel(contract)}) alors qu'elle n'attendait ` +
+        "plus de paiement (souscription close, rétractation ou délai de rétractation en cours). Ce paiement ne réactive pas la " +
+        "souscription : il vous est remboursé intégralement et l'abonnement correspondant est annulé (CGV, art. 8.1).",
+      "",
+      `Pour souscrire de nouveau, vous pouvez déposer une nouvelle demande depuis votre espace commerçant ou nous écrire à ${kContactEmail}.`,
+      "",
+      kSignature,
+    ].join("\n"),
+  };
+}
+
+/** Echec de prelevement d'un renouvellement (art. 11) : notification sans delai. */
+function renewalFailedNotice(contract, contractId, {graceUntilMs, invoiceUrl}) {
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : le prélèvement de votre renouvellement a échoué (${enseigneLabel(contract)})`,
+    text: [
+      "Bonjour,",
+      "",
+      `Le prélèvement du renouvellement de votre abonnement pour l'enseigne ${enseigneLabel(contract)} n'a pas abouti.`,
+      graceUntilMs ? `Vous disposez d'un délai de régularisation de quinze jours, jusqu'au ${parisDate(graceUntilMs)} inclus, ` +
+        "pendant lequel vos accès sont maintenus (CGV, art. 11)." : "Vous disposez d'un délai de régularisation de quinze jours (CGV, art. 11).",
+      invoiceUrl ? `Pour régulariser : ${invoiceUrl}` : "Pour régulariser, mettez à jour votre moyen de paiement depuis votre espace commerçant.",
+      "",
+      "Si vous ne souhaitez pas renouveler, vous pouvez désactiver le renouvellement pendant ce délai : l'abonnement prend fin, " +
+        "la facture du renouvellement est annulée et aucune pénalité n'est réclamée (art. 9).",
+      "",
+      `Référence : ${contractId}.`,
+      "",
+      kSignature,
+    ].join("\n"),
+  };
+}
+
 module.exports = {
+  activationNotice,
+  latePaymentRefundNotice,
+  renewalFailedNotice,
   paymentInvitation,
   kWithdrawalForm,
   confirmationNotice,

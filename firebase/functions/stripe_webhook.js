@@ -38,6 +38,9 @@ const {markReferralEligibleOnFirstPayment, cancelReferralIfNotYetPaid} =
 const {kOpenSubscriptionStatuses, stripeEntitlement} = require("./merchant_billing_access");
 const {kGraceStatuses, graceUntilMs, computePublicationAccess} = require("./merchant_publication_access");
 const {expectedLivemode, isStripeSandbox, isForeignModeMirror, foreignModeResetFields} = require("./stripe_mode");
+// Phase 1, tranche 2a (lot 1.8) : abonnements souscrits par contrat (un par
+// enseigne, metadata.contractId), traites a part ; jamais dans le miroir V1.
+const contractBilling = require("./merchant_contract_billing");
 
 const kFunctionsRegion = "us-central1";
 const kMerchantSubscriptionsCollection = "merchant_subscriptions";
@@ -216,6 +219,10 @@ async function syncSubscriptionFromStripe(db, subscriptionId, eventId) {
     console.error("[STRIPE_WEBHOOK] abonnement d'un autre mode ignore", {subscriptionId, livemode: subscription.livemode});
     return {outcome: "ignored_livemode_mismatch", tracked: false};
   }
+  // Abonnement de contrat (relu chez Stripe) : jamais ecrit dans le miroir V1.
+  if (subscription.metadata?.contractId) {
+    return {outcome: "contract_subscription", tracked: false, contractSubscription: subscription};
+  }
 
   const resolved = await resolveMerchantForSubscription(db, stripe, subscription);
   if (!resolved.merchantUserId) {
@@ -304,6 +311,7 @@ async function handleInvoicePaid(db, event) {
   const subscriptionId = invoiceSubscriptionId(invoice);
   if (!subscriptionId) return {outcome: "ignored_no_subscription"};
   const sync = await syncSubscriptionFromStripe(db, subscriptionId, event.id);
+  if (sync.contractSubscription) return contractBilling.onInvoicePaid(db, idOf(invoice), sync.contractSubscription, event.id);
   if (!sync.tracked) return sync;
   const {merchantUserId} = sync;
 
@@ -344,6 +352,9 @@ async function handleInvoicePaymentFailed(db, event) {
   const subscriptionId = invoiceSubscriptionId(invoice);
   if (!subscriptionId) return {outcome: "ignored_no_subscription"};
   const sync = await syncSubscriptionFromStripe(db, subscriptionId, event.id);
+  if (sync.contractSubscription) {
+    return contractBilling.onInvoicePaymentFailed(db, idOf(invoice), sync.contractSubscription, event.id);
+  }
   if (!sync.tracked) return sync;
   // Aucune donnee bancaire : uniquement date, compteur de tentatives et
   // prochaine relance Stripe.
@@ -362,6 +373,7 @@ async function handleInvoicePaymentFailed(db, event) {
 async function handleSubscriptionEvent(db, event) {
   const subscription = event.data.object;
   const sync = await syncSubscriptionFromStripe(db, subscription.id, event.id);
+  if (sync.contractSubscription) return contractBilling.syncContractSubscription(db, sync.contractSubscription, event.id);
   if (sync.tracked && event.type === "customer.subscription.deleted" &&
       sync.subscription?.status === "canceled") {
     await cancelReferralIfNotYetPaid(db, sync.merchantUserId, "subscription_cancelled");
@@ -375,6 +387,7 @@ async function handleCheckoutSessionCompleted(db, event) {
   const subscriptionId = idOf(session.subscription);
   if (!subscriptionId) return {outcome: "ignored_no_subscription"};
   const sync = await syncSubscriptionFromStripe(db, subscriptionId, event.id);
+  if (sync.contractSubscription) return contractBilling.onCheckoutCompleted(db, idOf(session), sync.contractSubscription, event.id);
   const expected = session.client_reference_id || session.metadata?.merchantUserId || null;
   if (sync.merchantUserId && expected && sync.merchantUserId !== expected) {
     console.warn("[STRIPE_WEBHOOK] session et abonnement rattaches a deux comptes", {sessionId: session.id});
@@ -384,6 +397,9 @@ async function handleCheckoutSessionCompleted(db, event) {
 
 async function handleCheckoutSessionExpired(db, event) {
   const session = event.data.object;
+  // Session de contrat : rien a ecrire dans le miroir V1 ; la session suivante
+  // sera recreee au clic (lot 1.7).
+  if (session.metadata?.contractId) return {outcome: "contract_checkout_expired", contractId: session.metadata.contractId};
   const merchantUserId = session.client_reference_id || session.metadata?.merchantUserId;
   if (!merchantUserId) return {outcome: "ignored_unknown_merchant"};
   const ref = db.collection(kMerchantSubscriptionsCollection).doc(merchantUserId);
@@ -398,6 +414,11 @@ async function handleCheckoutSessionExpired(db, event) {
 }
 
 async function merchantUserIdFromCharge(db, charge) {
+  return (await chargeOwner(db, charge)).merchantUserId;
+}
+
+// Abonnement et commercant d'une charge (un seul jeu d'appels Stripe).
+async function chargeOwner(db, charge) {
   const stripe = stripeClientModule.getStripeClient();
   // Charge.invoice est retire des evenements depuis 2025-03-31.basil (endpoint
   // LIVE en 2026-10-28.endive) : sans ce champ, la charge est relue avec la
@@ -407,17 +428,22 @@ async function merchantUserIdFromCharge(db, charge) {
   const fullCharge = charge && Object.prototype.hasOwnProperty.call(charge, "invoice") ?
     charge : await stripe.charges.retrieve(idOf(charge));
   const invoiceId = idOf(fullCharge?.invoice);
-  if (!invoiceId) return null;
+  if (!invoiceId) return {merchantUserId: null, subscription: null};
   const invoice = await stripe.invoices.retrieve(invoiceId);
   const subscriptionId = invoiceSubscriptionId(invoice || {});
-  if (!subscriptionId) return null;
+  if (!subscriptionId) return {merchantUserId: null, subscription: null};
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  if (subscription?.metadata?.contractId) return {merchantUserId: null, subscription, chargeId: idOf(fullCharge)};
   const resolved = await resolveMerchantForSubscription(db, stripe, subscription);
-  return resolved.merchantUserId || null;
+  return {merchantUserId: resolved.merchantUserId || null, subscription};
 }
 
 async function handleChargeRefunded(db, event) {
-  const merchantUserId = await merchantUserIdFromCharge(db, event.data.object);
+  const owner = await chargeOwner(db, event.data.object);
+  if (owner.subscription?.metadata?.contractId) {
+    return contractBilling.onChargeEvent(db, event.type, owner.subscription, owner.chargeId || idOf(event.data.object));
+  }
+  const merchantUserId = owner.merchantUserId;
   if (!merchantUserId) return {outcome: "ignored_unknown_merchant"};
   await cancelReferralIfNotYetPaid(db, merchantUserId, "refunded");
   return {outcome: "refund_recorded", merchantUserId};
@@ -426,7 +452,11 @@ async function handleChargeRefunded(db, event) {
 async function handleChargeDisputeCreated(db, event) {
   const dispute = event.data.object;
   const charge = await stripeClientModule.getStripeClient().charges.retrieve(idOf(dispute.charge));
-  const merchantUserId = await merchantUserIdFromCharge(db, charge);
+  const owner = await chargeOwner(db, charge);
+  if (owner.subscription?.metadata?.contractId) {
+    return contractBilling.onChargeEvent(db, event.type, owner.subscription, idOf(charge));
+  }
+  const merchantUserId = owner.merchantUserId;
   if (!merchantUserId) return {outcome: "ignored_unknown_merchant"};
   await cancelReferralIfNotYetPaid(db, merchantUserId, "dispute");
   return {outcome: "dispute_recorded", merchantUserId};

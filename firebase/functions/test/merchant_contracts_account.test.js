@@ -49,3 +49,20 @@ test('reserve aux comptes commercants connectes', async () => {
   await db.doc('users/player').set({user_role: 'joueur'});
   await h.rejectsWith(getMyMerchantContractsHandler({}, h.merchantContext('player')), 'permission-denied');
 });
+
+// Tranche 2a, lot 1.8 : abonnement de l'enseigne dans la vue du commercant.
+test('vue commercant : echeance et delai de grace de l\'enseigne, sans identifiant Stripe ni miroir d\'un tiers', async () => {
+  await h.setConfig();
+  await db.doc('merchant_contracts/c3').set({owner_uid: 'merchant', state: 'active', enseigne_id: 'e1',
+    submitted_at: h.admin.firestore.Timestamp.fromMillis(2000)});
+  await db.doc('enseigne_subscriptions/e1').set({owner_uid: 'merchant', contract_id: 'c3', stripe_subscription_id: 'sub_x',
+    stripe_customer_id: 'cus_x', status: 'past_due', current_period_end: h.admin.firestore.Timestamp.fromMillis(Date.UTC(2027, 11, 1)),
+    grace_until: h.admin.firestore.Timestamp.fromMillis(Date.UTC(2027, 11, 16)), unpaid_invoice_url: 'https://invoice.stripe.com/i/x'});
+  await db.doc('enseigne_subscriptions/e2').set({owner_uid: 'other', contract_id: 'c2', stripe_subscription_id: 'sub_y', status: 'active'});
+  const result = await getMyMerchantContractsHandler({}, h.merchantContext());
+  const c3 = result.contracts.find((c) => c.id === 'c3');
+  assert.deepEqual(c3.subscription, {status: 'past_due', currentPeriodEnd: Date.UTC(2027, 11, 1), cancelAtPeriodEnd: false,
+    graceUntil: Date.UTC(2027, 11, 16), unpaidInvoiceUrl: 'https://invoice.stripe.com/i/x'});
+  assert.ok(!JSON.stringify(result).includes('sub_x') && !JSON.stringify(result).includes('cus_x'));
+  assert.ok(!JSON.stringify(result).includes('sub_y'));
+});

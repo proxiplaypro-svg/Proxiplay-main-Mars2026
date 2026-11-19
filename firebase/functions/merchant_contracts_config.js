@@ -77,6 +77,10 @@ async function adminUpdateMerchantContractsConfigHandler(data, context) {
   if (data && Object.prototype.hasOwnProperty.call(data, "cgv")) {
     changes.cgv = readCgvInput(data.cgv);
   }
+  if (data && Object.prototype.hasOwnProperty.call(data, "creditNotesEnabled")) {
+    if (typeof data.creditNotesEnabled !== "boolean") throw invalid("creditNotesEnabled", "Option des avoirs : true ou false.");
+    changes.credit_notes_enabled = data.creditNotesEnabled;
+  }
   if (data && Object.prototype.hasOwnProperty.call(data, "adminAlertEmail")) {
     const email = data.adminAlertEmail === null ? null :
       typeof data.adminAlertEmail === "string" ? data.adminAlertEmail.trim() : "";
@@ -108,11 +112,14 @@ async function adminUpdateMerchantContractsConfigHandler(data, context) {
       at: now,
       by: adminUid,
       changes,
-      before: {enabled: before.enabled ?? null, cgv: before.cgv ?? null, admin_alert_email: before.admin_alert_email ?? null},
-      after: {enabled: after.enabled ?? null, cgv: after.cgv ?? null, admin_alert_email: after.admin_alert_email ?? null},
+      before: {enabled: before.enabled ?? null, cgv: before.cgv ?? null, admin_alert_email: before.admin_alert_email ?? null,
+        credit_notes_enabled: before.credit_notes_enabled ?? null},
+      after: {enabled: after.enabled ?? null, cgv: after.cgv ?? null, admin_alert_email: after.admin_alert_email ?? null,
+        credit_notes_enabled: after.credit_notes_enabled ?? null},
     });
   });
-  return {enabled: next.enabled === true, cgv: next.cgv || null, adminAlertEmail: next.admin_alert_email || null};
+  return {enabled: next.enabled === true, cgv: next.cgv || null, adminAlertEmail: next.admin_alert_email || null,
+    creditNotesEnabled: next.credit_notes_enabled === true};
 }
 
 exports.adminUpdateMerchantContractsConfig = functions
