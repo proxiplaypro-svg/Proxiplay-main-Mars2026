@@ -53,6 +53,9 @@ exports.adminAbandonMailOutbox = require('./merchant_contract_outbox').adminAban
 exports.adminResolveAlert = require('./merchant_contract_outbox').adminResolveAlert;
 // Tranche 2a, lot 1.7 : session Checkout creee au clic, par enseigne, carte seulement.
 exports.createContractCheckoutSession = require('./merchant_contract_checkout').createContractCheckoutSession;
+// Tranche 2a, lot 1.5 : retractation (art. 7).
+exports.withdrawMerchantContract = require('./merchant_contract_withdrawal').withdrawMerchantContract;
+exports.adminRecordWithdrawal = require('./merchant_contract_withdrawal').adminRecordWithdrawal;
 exports.adminSetMerchantManualAccess =
   require('./merchant_referral_engine').adminSetMerchantManualAccess;
 exports.generateMerchantReferralCode =

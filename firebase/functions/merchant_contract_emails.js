@@ -327,7 +327,44 @@ function renewalFailedNotice(contract, contractId, {graceUntilMs, invoiceUrl}) {
   };
 }
 
+const kChannelLabels = {online: "fonction « Me rétracter » de votre espace commerçant", email: "e-mail", courrier: "courrier"};
+
+/** Accuse de reception de la retractation (art. 7.3), sur support durable. */
+function withdrawalAcknowledgement(contract, contractId, {sentMs, channel, refundedCents}) {
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : accusé de réception de votre rétractation (${enseigneLabel(contract)})`,
+    text: [
+      "Bonjour,",
+      "",
+      `Nous accusons réception de votre rétractation du ${parisDate(sentMs, true)} (heure de Paris), reçue par ${kChannelLabels[channel] || channel}, ` +
+        `pour la souscription ${contractId} (enseigne ${enseigneLabel(contract)}) (CGV, art. 7).`,
+      "",
+      refundedCents > 0 ?
+        `La somme que vous aviez versée (${euros(refundedCents)}) vous est remboursée intégralement et l'abonnement est annulé.` :
+        "Aucune somme n'est due (art. 7.5) et aucun paiement ne vous sera demandé.",
+      "",
+      kSignature,
+    ].join("\n"),
+  };
+}
+
+function adminWithdrawalNotice(contract, contractId, {channel, sentMs, refunds}) {
+  return {
+    to: contract.admin_alert_email,
+    subject: `[ProxiPlay] Rétractation enregistrée : ${enseigneLabel(contract)}`,
+    text: [
+      `Rétractation du ${parisDate(sentMs, true)} par ${channel} pour la demande ${contractId}.`,
+      refunds ? `${refunds} remboursement(s) effectué(s), abonnement annulé.` : "Aucun paiement à rembourser.",
+      "",
+      `Console : ${kConsoleUrl}`,
+    ].join("\n"),
+  };
+}
+
 module.exports = {
+  withdrawalAcknowledgement,
+  adminWithdrawalNotice,
   activationNotice,
   latePaymentRefundNotice,
   renewalFailedNotice,

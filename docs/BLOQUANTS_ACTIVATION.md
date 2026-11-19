@@ -8,16 +8,23 @@ payer, ni rétractation.
 
 ## Bloquants
 
-1. **Tranche 2 complète et testée** : rétractation (art. 7, fonction « Me
-   rétracter » de l'espace commerçant, accusé de réception), invitation à
-   payer et lien de 15 jours (art. 8.1), Checkout par enseigne, webhook
-   (activation, paiement tardif remboursé), tâches planifiées (rappel puis
-   clôture sans paiement), fins de contrat. Tant qu'elle manque, un contrat
-   confirmé reste bloqué à l'état `confirmed`.
-2. **Invitation à payer des souscriptions spontanées** : l'art. 8.1 prévoit
-   qu'elle est adressée *avec* la confirmation. La tranche 1 envoie la
-   confirmation seule (« le premier paiement est demandé par une invitation à
-   payer, valable quinze jours ») ; la tranche 2 doit l'envoyer au même moment.
+1. **Tranche 2 complète et testée**. Sous-tranche 2a faite (branche
+   `phase1-t2a`) : invitation à payer et lien de 15 jours (1.6), Checkout au
+   clic par enseigne (1.7), webhook des contrats (1.8), rétractation (1.5).
+   Restent (2b) : tâches planifiées 1.9 (fin du délai de rétractation →
+   invitation automatique, rappel J+10, clôture à 15 jours, rappels de
+   renouvellement J-45 et J-15, relances J+5 et J+10 pendant la grâce),
+   fins de contrat 1.12 (bouton « Désactiver le renouvellement », annulation
+   pendant la grâce avec facture annulée, remboursement art. 9), statuts 1.14,
+   compteur Accompagnée 1.15-min. D'ici là, l'invitation d'un contrat démarché
+   après son délai de rétractation part seulement par l'admin (bouton de la
+   console), et aucune souscription non payée n'est close automatiquement.
+2. **Essais Stripe réels (mode TEST) restant à lancer** par le propriétaire,
+   avec les scripts fournis : course entre finalisation et prélèvement (void
+   impossible sur une facture payée → remboursement), facture ouverte après un
+   échec de prélèvement (void et annulation), remboursement et avoir
+   (paramètres `creditNotes.create` à confirmer). Aucun de ces chemins n'a
+   tourné contre Stripe ; ils sont testés avec un double du SDK.
 3. **PDF daté des CGV V2.1** : publié le jour effectif de la mise en
    production, archivé, déposé dans Cloud Storage (bucket par défaut) au
    chemin `cgv.storage_path`, avec `version`, `sha256` et `url` dans
@@ -64,6 +71,14 @@ payer, ni rétractation.
 10. **Adresse des alertes** : à fournir par le propriétaire, puis à poser
     avec l'outil de configuration (`admin_alert_email`) ; à défaut, les
     alertes partent à contact@proxiplay.fr.
+
+11. **Avoirs** : option `credit_notes_enabled` (outil de configuration),
+    désactivée par défaut, à activer après validation du comptable.
+12. **Secret Stripe** : `reportMerchantVisit`, `withdrawMerchantContract` et
+    `adminRecordWithdrawal` déclarent désormais `STRIPE_SECRET_KEY` (expiration
+    de session, remboursement) : à vérifier au déploiement.
+13. **E-mail Stripe d'authentification bancaire** : à activer dans le Dashboard
+    (décision 8) ; ProxiPlay n'envoie rien pour ce cas.
 
 ## Décisions prises (19 novembre 2026)
 
