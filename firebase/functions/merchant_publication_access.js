@@ -8,8 +8,9 @@
 //   legacy   -> droit commercial existant avant l'abonnement (pose par le
 //               script de transition, jamais retire automatiquement) ;
 //   manual   -> activation manuelle Admin (eventuellement datee) ;
-//   grace    -> renouvellement impaye, dans le delai de grace (14 jours par
-//               defaut depuis l'echeance impayee).
+//   grace    -> renouvellement impaye, dans le delai de grace (15 jours
+//               calendaires depuis la constatation de l'echec par ProxiPlay,
+//               CGV V2.1 art. 11 ; jamais avant l'echeance impayee).
 // Statuts sans droit de publication : suspended (grace expiree), ended
 // (abonnement termine), pending_payment (premier paiement non abouti),
 // free (aucun abonnement).
@@ -33,7 +34,7 @@ const functions = require("firebase-functions");
 const {isManualAccessActive} = require("./merchant_billing_access");
 const {isStripeSandbox, isTrustedStripeMirror} = require("./stripe_mode");
 
-const kDefaultGraceDays = 14;
+const kDefaultGraceDays = 15; // CGV V2.1 art. 11
 const kGraceStatuses = Object.freeze(["past_due", "unpaid"]);
 const kPublishingStatuses = Object.freeze(["active", "legacy", "manual", "grace"]);
 const kBillingConfigPath = "app_config/merchant_billing";
@@ -42,13 +43,16 @@ const millis = (value) => (value?.toMillis ? value.toMillis() : (typeof value ==
 
 function graceDays() {
   const text = String(process.env.MERCHANT_BILLING_GRACE_DAYS || "").trim();
-  const raw = /^\d+$/.test(text) ? Number(text) : NaN; // absent ou invalide -> 14
-  return Number.isInteger(raw) && raw >= 0 && raw <= 90 ? raw : kDefaultGraceDays;
+  const raw = /^\d+$/.test(text) ? Number(text) : NaN; // absent ou invalide -> 15
+  // Jamais moins que le delai promis par les CGV (art. 11) : la variable
+  // d'environnement ne peut que l'allonger.
+  return Number.isInteger(raw) && raw >= kDefaultGraceDays && raw <= 90 ? raw : kDefaultGraceDays;
 }
 
 /**
- * Fin du delai de grace pour un abonnement impaye : echeance impayee
- * (debut de la periode non reglee) + N jours. Une valeur deja posee n'est
+ * Fin du delai de grace pour un abonnement impaye : point de depart + N jours.
+ * Le point de depart est fourni par l'appelant (constatation de l'echec,
+ * jamais avant l'echeance impayee ; voir stripe_webhook.graceFields). Une valeur deja posee n'est
  * jamais repoussee par une relance ou un evenement ulterieur.
  */
 function graceUntilMs(existingGraceUntilMs, unpaidDueDateMs, days = graceDays()) {

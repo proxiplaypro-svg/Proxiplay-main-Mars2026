@@ -283,7 +283,7 @@ Statuts explicites (`computePublicationAccess`, miroir exact dans
 | `active` | oui | abonnement Stripe actif (y compris résiliation programmée : effet à la fin de la période payée) |
 | `legacy` | oui | droit commercial existant, posé par le script de transition, jamais retiré automatiquement |
 | `manual` | oui | activation manuelle Admin (`manual_access`, éventuellement datée) |
-| `grace` | oui | renouvellement impayé, **14 jours** depuis l'échéance impayée (`MERCHANT_BILLING_GRACE_DAYS`) |
+| `grace` | oui | renouvellement impayé, **15 jours** depuis la constatation de l'échec (CGV V2.1 art. 11 ; `MERCHANT_BILLING_GRACE_DAYS` ne peut que l'allonger) |
 | `suspended` | non | délai de grâce dépassé — jeux, comptes, historiques conservés |
 | `ended` | non | abonnement terminé |
 | `pending_payment` | non | premier paiement non abouti |

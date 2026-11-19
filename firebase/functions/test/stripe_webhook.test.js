@@ -399,21 +399,25 @@ test('an event type outside the subscription cycle is acknowledged and ignored',
 
 // --- Periode de grace ---------------------------------------------------------
 
-test('a renewal failure opens a 14-day grace from the unpaid due date, never extended by retries', async () => {
+test('0.6: a renewal failure opens a 15-day grace from when ProxiPlay observes it, never extended by retries', async () => {
   const due = nowSeconds() - 2 * 86400;
   const state = installFakeStripe({subscriptions: {sub_1: subscription({status: 'past_due', current_period_start: due})}});
+  const before = Date.now();
   await deliver(fakeEvent('evt_grace_1', 'invoice.payment_failed', {
     id: 'in_g', subscription: 'sub_1', attempt_count: 1, hosted_invoice_url: 'https://invoice.stripe.test/in_g',
   }));
+  const after = Date.now();
   let data = await mirror();
-  assert.equal(data.grace_until.toMillis(), (due + 14 * 86400) * 1000);
+  const until = data.grace_until.toMillis();
+  assert.ok(until >= before + 15 * 86400000 && until <= after + 15 * 86400000, 'constatation + 15 jours, pas echeance + 15');
+  assert.ok(data.grace_started_at.toMillis() >= due * 1000, 'jamais avant l\'echeance impayee');
   assert.equal(data.publication_access_status, 'grace');
   assert.equal(data.unpaid_invoice_url, 'https://invoice.stripe.test/in_g');
 
   state.subscriptions.sub_1 = subscription({status: 'past_due', current_period_start: due + 86400});
   await deliver(fakeEvent('evt_grace_2', 'invoice.payment_failed', {id: 'in_g', subscription: 'sub_1', attempt_count: 2}));
   data = await mirror();
-  assert.equal(data.grace_until.toMillis(), (due + 14 * 86400) * 1000, 'jamais repoussee');
+  assert.equal(data.grace_until.toMillis(), until, 'jamais repoussee');
 
   state.subscriptions.sub_1 = subscription({status: 'active', current_period_start: due});
   await deliver(fakeEvent('evt_grace_paid', 'invoice.paid', {id: 'in_g', subscription: 'sub_1', billing_reason: 'subscription_cycle'}));
@@ -423,11 +427,22 @@ test('a renewal failure opens a 14-day grace from the unpaid due date, never ext
   assert.equal(data.publication_access_status, 'active', 'droits reactives apres regularisation');
 });
 
+test('0.6: a period start in the future of the observation is used as the grace start (never before the due date)', async () => {
+  const futureStart = nowSeconds() + 3600;
+  installFakeStripe({subscriptions: {sub_1: subscription({status: 'past_due', current_period_start: futureStart})}});
+  await deliver(fakeEvent('evt_grace_future', 'invoice.payment_failed', {id: 'in_f', subscription: 'sub_1', attempt_count: 1}));
+  const data = await mirror();
+  assert.equal(data.grace_until.toMillis(), (futureStart + 15 * 86400) * 1000);
+});
+
 test('after the grace period the mirror reports a suspension, without deleting anything', async () => {
   const due = nowSeconds() - 20 * 86400;
   installFakeStripe({subscriptions: {sub_1: subscription({status: 'unpaid', current_period_start: due})}});
+  // Echec constate il y a 16 jours : grace deja posee et expiree.
   await db.doc('merchant_subscriptions/merchant1').set({
-    stripe_customer_id: 'cus_1', legacy_access: {enabled: false}, offer_id: 'autonome',
+    stripe_customer_id: 'cus_1', stripe_subscription_id: 'sub_1', legacy_access: {enabled: false}, offer_id: 'autonome',
+    grace_until: admin.firestore.Timestamp.fromMillis(Date.now() - 86400000),
+    grace_started_at: admin.firestore.Timestamp.fromMillis(Date.now() - 16 * 86400000),
   });
   await deliver(fakeEvent('evt_unpaid', 'customer.subscription.updated', subscription({status: 'unpaid'})));
   const data = await mirror();
@@ -435,3 +450,4 @@ test('after the grace period the mirror reports a suspension, without deleting a
   assert.equal(data.offer_id, 'autonome');
   assert.equal(data.subscription_status, 'unpaid');
 });
+

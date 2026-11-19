@@ -132,11 +132,15 @@ async function resolveMerchantForSubscription(db, stripe, subscription) {
  * impayee (debut de la periode non reglee) et n'est jamais repousse ; il
  * disparait des que Stripe confirme la regularisation (statut actif).
  */
-function graceFields(subscription, current, periodStartSeconds) {
+function graceFields(subscription, current, periodStartSeconds, observedAtMs = Date.now()) {
   if (kGraceStatuses.includes(subscription.status)) {
     const sameSubscription = current.stripe_subscription_id === subscription.id;
     const existingMs = sameSubscription ? current.grace_until?.toMillis?.() ?? null : null;
-    const dueMs = typeof periodStartSeconds === "number" ? periodStartSeconds * 1000 : Date.now();
+    // CGV V2.1 art. 11 : 15 jours a compter de la notification de l'echec.
+    // Point de depart = premiere constatation par ProxiPlay (jamais avant
+    // l'echeance impayee), fige ensuite : une relance ne le repousse pas.
+    const periodStartMs = typeof periodStartSeconds === "number" ? periodStartSeconds * 1000 : observedAtMs;
+    const dueMs = Math.max(periodStartMs, observedAtMs);
     const untilMs = graceUntilMs(existingMs, dueMs);
     return {
       grace_until: admin.firestore.Timestamp.fromMillis(untilMs),
@@ -157,11 +161,11 @@ function mirrorFields(db, merchantUserId, subscription, current, fetchedAtMs, ev
   // production.
   const sandbox = isStripeSandbox() && !livemode;
   const publication = computePublicationAccess({
-    ...current, ...graceFields(subscription, current, periodStart), subscription_status: subscription.status,
+    ...current, ...graceFields(subscription, current, periodStart, fetchedAtMs), subscription_status: subscription.status,
     stripe_livemode: livemode, stripe_sandbox: sandbox,
   });
   return {
-    ...graceFields(subscription, current, periodStart),
+    ...graceFields(subscription, current, periodStart, fetchedAtMs),
     // Statut explicite au moment de la synchronisation (le calcul fait foi a
     // chaque lecture : la grace expire avec le temps, sans evenement Stripe).
     publication_access_status: publication.status,

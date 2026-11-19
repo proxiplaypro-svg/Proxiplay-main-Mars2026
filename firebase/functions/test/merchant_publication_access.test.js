@@ -84,17 +84,28 @@ test('production: only a LIVE Stripe status opens rights; TEST or unknown mode c
     {stripe_livemode: false, stripe_sandbox: true, subscription_status: 'active'}, now, {sandbox: true}).status, 'active');
 });
 
-test('grace lasts 14 days from the unpaid due date by default, is configurable and never extended', () => {
-  const due = Date.UTC(2027, 10, 2);
-  assert.equal(graceDays(), 14);
-  assert.equal(graceUntilMs(null, due), due + 14 * kDay);
-  assert.equal(graceUntilMs(due + 3 * kDay, due + 10 * kDay), due + 3 * kDay, 'jamais repousse');
-  process.env.MERCHANT_BILLING_GRACE_DAYS = '30';
-  try {
-    assert.equal(graceUntilMs(null, due), due + 30 * kDay);
-  } finally {
-    delete process.env.MERCHANT_BILLING_GRACE_DAYS;
+test('0.6: grace lasts 15 days by default, can only be lengthened by configuration and is never extended', () => {
+  const start = Date.UTC(2027, 10, 2);
+  assert.equal(graceDays(), 15);
+  assert.equal(graceUntilMs(null, start), start + 15 * kDay);
+  assert.equal(graceUntilMs(start + 3 * kDay, start + 10 * kDay), start + 3 * kDay, 'jamais repousse');
+  for (const [value, expected] of [['30', 30], ['15', 15], ['14', 15], ['0', 15], ['abc', 15], ['91', 15]]) {
+    process.env.MERCHANT_BILLING_GRACE_DAYS = value;
+    try {
+      assert.equal(graceDays(), expected, value);
+    } finally {
+      delete process.env.MERCHANT_BILLING_GRACE_DAYS;
+    }
   }
+});
+
+test('0.6: grace boundary: start + 15 days - 1 ms is still grace, start + 15 days is suspended', () => {
+  const start = Date.UTC(2027, 2, 30, 22, 0, 0); // traverse le passage a l'heure d'ete
+  const until = graceUntilMs(null, start);
+  const doc = {stripe_livemode: true, subscription_status: 'past_due', grace_until: {toMillis: () => until}};
+  assert.equal(computePublicationAccess(doc, until - 1).status, 'grace');
+  assert.equal(computePublicationAccess(doc, until).status, 'suspended');
+  assert.equal(computePublicationAccess({...doc, subscription_status: 'unpaid'}, until - 1).status, 'grace');
 });
 
 // --- Transition non destructive (script) ------------------------------------

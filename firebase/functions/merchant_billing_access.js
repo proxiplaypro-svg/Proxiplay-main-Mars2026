@@ -25,11 +25,11 @@ const kOpenSubscriptionStatuses = Object.freeze(
   ["active", "trialing", "past_due", "unpaid", "incomplete", "paused"],
 );
 
-// Statuts qui ouvrent les droits payants. past_due (relances Stripe en cours
-// apres un echec de renouvellement) est volontairement distingue : delai de
-// grace a valider (voir docs/stripe-merchant-billing.md, decisions).
+// Statuts qui ouvrent les droits payants. past_due et unpaid (renouvellement
+// impaye) relevent du delai de grace de 15 jours (CGV V2.1 art. 11) : meme
+// liste que merchant_publication_access.kGraceStatuses.
 const kPaidAccessStatuses = Object.freeze(["active", "trialing"]);
-const kGraceStatuses = Object.freeze(["past_due"]);
+const kGraceStatuses = Object.freeze(["past_due", "unpaid"]);
 
 const kDefaultAllowedOrigins = Object.freeze([
   "https://www.proxiplay.fr",
