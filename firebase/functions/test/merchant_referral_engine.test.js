@@ -13,7 +13,6 @@ const {
   adminApproveMerchantReferralHandler,
   adminRejectMerchantReferralHandler,
   adminMarkMerchantReferralPaidHandler,
-  adminSetMerchantCustomOfferHandler,
   kRewardAmountCents,
 } = require('../merchant_referral_engine');
 
@@ -155,40 +154,12 @@ test('admin markPaid requires status=approved and a non-empty payment reference'
   assert.ok(snap.data().paid_at);
 });
 
-test('adminSetMerchantCustomOffer is reserved to admins and rejects a non-positive amount', async () => {
-  await assert.rejects(
-    () => adminSetMerchantCustomOfferHandler(
-      {merchantUserId: 'merchant1', amountHtCents: 250000}, {auth: {uid: 'attacker'}}),
-    (err) => err.code === 'permission-denied',
-  );
-  await assert.rejects(
-    () => adminSetMerchantCustomOfferHandler(
-      {merchantUserId: 'merchant1', amountHtCents: 0}, {auth: {uid: 'admin_uid'}}),
-    (err) => err.code === 'invalid-argument',
-  );
-  await assert.rejects(
-    () => adminSetMerchantCustomOfferHandler(
-      {merchantUserId: 'merchant1', amountHtCents: -500}, {auth: {uid: 'admin_uid'}}),
-    (err) => err.code === 'invalid-argument',
-  );
-});
-
-test('adminSetMerchantCustomOffer sets a negotiated price and can later remove it (amountHtCents=null)', async () => {
-  const result = await adminSetMerchantCustomOfferHandler(
-    {merchantUserId: 'merchant1', amountHtCents: 250000, label: 'Tarif 5 enseignes'},
-    {auth: {uid: 'admin_uid'}},
-  );
-  assert.equal(result.status, 'set');
-  const snap = await db.doc('merchant_custom_offers/merchant1').get();
-  assert.equal(snap.data().amount_ht_cents, 250000);
-  assert.equal(snap.data().label, 'Tarif 5 enseignes');
-  assert.equal(snap.data().created_by, 'admin_uid');
-
-  const removal = await adminSetMerchantCustomOfferHandler(
-    {merchantUserId: 'merchant1', amountHtCents: null}, {auth: {uid: 'admin_uid'}});
-  assert.equal(removal.status, 'removed');
-  const afterRemoval = await db.doc('merchant_custom_offers/merchant1').get();
-  assert.equal(afterRemoval.exists, false);
+test('0.10: adminSetMerchantCustomOffer no longer exists (no negotiated tariff can be created)', () => {
+  const engine = require('../merchant_referral_engine');
+  assert.equal(engine.adminSetMerchantCustomOffer, undefined);
+  assert.equal(engine.adminSetMerchantCustomOfferHandler, undefined);
+  const indexSource = require('node:fs').readFileSync(require('node:path').join(__dirname, '../index.js'), 'utf8');
+  assert.ok(!indexSource.includes('adminSetMerchantCustomOffer'), 'plus aucun export dans index.js');
 });
 
 // Ferme par defaut (1.1.4) : seul enabled === true ouvre le programme.

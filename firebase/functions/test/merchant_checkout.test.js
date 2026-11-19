@@ -222,18 +222,28 @@ test('a Stripe price that does not match the catalogue (amount or period) is ref
   assert.equal(lock, undefined, 'le verrou est libere apres un echec');
 });
 
-test('a merchant with a negotiated custom offer gets an inline Stripe price, never the catalog offer', async () => {
+test('0.10: a leftover negotiated offer document is ignored: catalog price only, never price_data', async () => {
   const fakeStripe = makeFakeStripe();
   stripeClientModule.getStripeClient = () => fakeStripe;
-  await db.doc('merchant_custom_offers/merchant').set({amount_ht_cents: 250000, label: 'Tarif negocie 5 enseignes'});
+  await db.doc('merchant_custom_offers/merchant').set({amount_ht_cents: 250000, label: 'Ancien tarif negocie'});
 
   await createMerchantCheckoutSessionHandler({offerId: 'autonome', ...kUrls}, kMerchant);
 
   const params = fakeStripe.calls.checkoutSessionsCreate[0];
-  assert.equal(params.line_items[0].price, undefined);
-  assert.equal(params.line_items[0].price_data.unit_amount, 250000);
-  assert.equal(params.line_items[0].price_data.recurring.interval, 'year');
-  assert.equal((await db.doc('merchant_subscriptions/merchant').get()).data().pending_offer_id, 'custom');
+  assert.equal(params.line_items[0].price, 'price_test_autonome');
+  assert.equal(params.line_items[0].price_data, undefined);
+  assert.equal((await db.doc('merchant_subscriptions/merchant').get()).data().pending_offer_id, 'autonome');
+  await db.doc('merchant_custom_offers/merchant').delete();
+});
+
+test('0.10: without offerId the checkout is refused before any Stripe call', async () => {
+  const fakeStripe = makeFakeStripe();
+  stripeClientModule.getStripeClient = () => fakeStripe;
+  await assert.rejects(
+    () => createMerchantCheckoutSessionHandler({...kUrls}, kMerchant),
+    (err) => err.code === 'invalid-argument',
+  );
+  assert.equal(fakeStripe.calls.checkoutSessionsCreate.length, 0);
 });
 
 // --- Prevention des doubles abonnements ---------------------------------
@@ -543,15 +553,8 @@ test('preferential offer: malformed code refused before any Stripe call; no code
   assert.equal(params.subscription_data.metadata.promotionCode, '');
 });
 
-test('preferential offer: never stacked on a negotiated tarif; an open session is reused only for the same code', async () => {
-  await db.doc('merchant_custom_offers/merchant').set({amount_ht_cents: 182500, label: 'Grande enseigne'});
-  let fakeStripe = makeFakeStripe({prices: kPricesWithProduct, promotionCodes: [promo()]});
-  stripeClientModule.getStripeClient = () => fakeStripe;
-  await assert.rejects(promoCheckout('MALLE300'), (err) => err.details?.reason === 'invalid_offer_code');
-  assert.equal(fakeStripe.calls.promotionCodesList.length, 0);
-  await db.doc('merchant_custom_offers/merchant').delete();
-
-  fakeStripe = makeFakeStripe({prices: kPricesWithProduct, promotionCodes: [promo(), promo({id: 'promo_b', code: 'AUTRE300'})]});
+test('preferential offer: an open session is reused only for the same code', async () => {
+  const fakeStripe = makeFakeStripe({prices: kPricesWithProduct, promotionCodes: [promo(), promo({id: 'promo_b', code: 'AUTRE300'})]});
   stripeClientModule.getStripeClient = () => fakeStripe;
   const first = await promoCheckout('MALLE300');
   await db.doc('merchant_subscriptions/merchant').update({checkout_lock: admin.firestore.FieldValue.delete()});

@@ -6,9 +6,10 @@ clair dans Git.
 
 **Modèle de facturation : un paiement par compte commerçant**, pas par
 enseigne. Un commerçant possédant plusieurs enseignes paie un seul
-abonnement annuel qui couvre toutes ses enseignes. Un **tarif négocié** peut
-toujours être fixé depuis l'Admin (page *Abonnements commerçants*) : il
-remplace alors le catalogue pour ce compte.
+abonnement annuel qui couvre toutes ses enseignes (modèle remplacé en
+phase 1 par un abonnement par enseigne, CGV V2.1 art. 3). **Aucun tarif
+négocié** : catalogue uniquement, remises par code de première année
+(phase 0, lot 0.10).
 
 **Où se passe le paiement** : sur le site, page
 `https://www.proxiplay.fr/espace-commercant/` (dépôt `proxiplay-website`,

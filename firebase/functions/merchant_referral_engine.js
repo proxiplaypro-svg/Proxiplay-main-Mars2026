@@ -263,41 +263,6 @@ async function adminMarkMerchantReferralPaidHandler(data, context) {
 }
 
 /**
- * Fixe (ou retire) un tarif negocie pour un commercant multi-enseignes.
- * Reserve a l'Admin : un commercant ou un joueur ne peut jamais choisir ou
- * modifier ce montant lui-meme (regles Firestore : write toujours false
- * sur merchant_custom_offers). amountHtCents=null retire le tarif negocie
- * (le commercant retombe sur le catalogue standard au prochain Checkout).
- */
-async function adminSetMerchantCustomOfferHandler(data, context) {
-  const db = admin.firestore();
-  await assertCallerIsAdmin(db, context);
-  const merchantUserId = typeof data?.merchantUserId === "string" ? data.merchantUserId.trim() : "";
-  if (!merchantUserId) {
-    throw new functions.https.HttpsError("invalid-argument", "merchantUserId requis.");
-  }
-  const customOfferRef = db.collection("merchant_custom_offers").doc(merchantUserId);
-  if (data?.amountHtCents === null) {
-    await customOfferRef.delete();
-    return {status: "removed"};
-  }
-  const amountHtCents = Number(data?.amountHtCents);
-  const label = typeof data?.label === "string" ? data.label.trim() : "";
-  if (!Number.isInteger(amountHtCents) || amountHtCents <= 0) {
-    throw new functions.https.HttpsError("invalid-argument", "amountHtCents doit etre un entier positif (centimes).");
-  }
-  await customOfferRef.set({
-    merchant_user_id: db.doc(`users/${merchantUserId}`),
-    amount_ht_cents: amountHtCents,
-    label: label || "Abonnement ProxiPlay (tarif negocie)",
-    created_by: context.auth.uid,
-    created_at: admin.firestore.FieldValue.serverTimestamp(),
-    updated_at: admin.firestore.FieldValue.serverTimestamp(),
-  }, {merge: true});
-  return {status: "set"};
-}
-
-/**
  * Callable Admin : activation manuelle des droits payants d'un commercant
  * (paiement hors Stripe, geste commercial, compte historique). Ecrite dans
  * merchant_subscriptions.manual_access, champ que le webhook Stripe n'ecrit
@@ -366,11 +331,6 @@ exports.adminMarkMerchantReferralPaid = functions
   .runWith({timeoutSeconds: 30, memory: "256MB"})
   .https.onCall(adminMarkMerchantReferralPaidHandler);
 
-exports.adminSetMerchantCustomOffer = functions
-  .region(kFunctionsRegion)
-  .runWith({timeoutSeconds: 30, memory: "256MB"})
-  .https.onCall(adminSetMerchantCustomOfferHandler);
-
 // Exposes pour le webhook et les tests directs (hors onCall).
 exports.markReferralEligibleOnFirstPayment = markReferralEligibleOnFirstPayment;
 exports.cancelReferralIfNotYetPaid = cancelReferralIfNotYetPaid;
@@ -379,5 +339,4 @@ exports.adminConfirmMerchantFirstPaymentHandler = adminConfirmMerchantFirstPayme
 exports.adminApproveMerchantReferralHandler = adminApproveMerchantReferralHandler;
 exports.adminRejectMerchantReferralHandler = adminRejectMerchantReferralHandler;
 exports.adminMarkMerchantReferralPaidHandler = adminMarkMerchantReferralPaidHandler;
-exports.adminSetMerchantCustomOfferHandler = adminSetMerchantCustomOfferHandler;
 exports.kRewardAmountCents = kRewardAmountCents;

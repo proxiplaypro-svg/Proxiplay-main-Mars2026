@@ -38,9 +38,8 @@ async function getMerchantBillingAccountHandler(data, context) {
   const user = await assertMerchantCaller(db, context);
   const uid = context.auth.uid;
 
-  const [subscriptionSnap, customOfferSnap, enseignes] = await Promise.all([
+  const [subscriptionSnap, enseignes] = await Promise.all([
     db.collection("merchant_subscriptions").doc(uid).get(),
-    db.collection("merchant_custom_offers").doc(uid).get(),
     enseignesOf(db, uid),
   ]);
   const mirror = subscriptionSnap.exists ? subscriptionSnap.data() : {};
@@ -48,7 +47,6 @@ async function getMerchantBillingAccountHandler(data, context) {
   // absent ; seuls les droits poses par l'Admin restent.
   const sub = isForeignModeMirror(mirror) ?
     {manual_access: mirror.manual_access, legacy_access: mirror.legacy_access} : mirror;
-  const customOffer = customOfferSnap.exists ? customOfferSnap.data() : null;
   const status = sub.subscription_status || null;
   const entitlement = sub.stripe_entitlement || stripeEntitlement(status);
   const manualActive = isManualAccessActive(sub.manual_access);
@@ -68,7 +66,7 @@ async function getMerchantBillingAccountHandler(data, context) {
       status,
       entitlement,
       offerId,
-      offerLabel: offerId === "custom" ? customOffer?.label || offerLabel("custom") : offerLabel(offerId),
+      offerLabel: offerLabel(offerId),
       pendingOfferId: sub.pending_offer_id || null,
       checkoutStatus: sub.checkout_status || null,
       currentPeriodEnd: millis(sub.current_period_end),
@@ -93,7 +91,6 @@ async function getMerchantBillingAccountHandler(data, context) {
     regularizeUrl: ["grace", "suspended"].includes(publication.status) ? sub.unpaid_invoice_url || null : null,
     validationPending: !validated,
     canCheckout: validated && paymentsOpen(),
-    customOffer: customOffer ? {amountHtCents: customOffer.amount_ht_cents, label: customOffer.label || null} : null,
     offers: publicOfferCatalog(),
     paymentsEnabled: paymentsOpen(),
   };

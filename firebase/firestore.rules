@@ -850,13 +850,10 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Tarif negocie pour un commercant multi-enseignes ("Grandes enseignes
-    // a partir de 1825EUR/an" peut etre ajuste au cas par cas). Fixe
-    // UNIQUEMENT par l'Admin (callable adminSetMerchantCustomOffer, SDK
-    // admin) ; jamais un montant que le commercant ou un joueur pourrait
-    // choisir ou modifier lui-meme.
+    // Ancien tarif negocie : retire (CGV V2.1, catalogue uniquement). Lecture
+    // Admin seule pour l'historique ; plus aucune ecriture ni lecture client.
     match /merchant_custom_offers/{merchantUserId} {
-      allow read: if isAdmin() || isSelf(merchantUserId);
+      allow read: if isAdmin();
       allow write: if false;
     }
 

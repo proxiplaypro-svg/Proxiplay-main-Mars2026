@@ -44,7 +44,6 @@ const stripeClientModule = require("./stripe_client");
 
 const kFunctionsRegion = "us-central1";
 const kMerchantSubscriptionsCollection = "merchant_subscriptions";
-const kMerchantCustomOffersCollection = "merchant_custom_offers";
 const kMerchantReferralCodesCollection = "merchant_referral_codes";
 const kMerchantReferralsCollection = "merchant_referrals";
 const kCheckoutLockMs = 60 * 1000;
@@ -81,35 +80,11 @@ async function resolveReferralCode(db, rawCode) {
  * standard (offerId fourni par le client, mais le prix lui-meme vient du
  * serveur).
  */
-async function resolvePriceSelection(db, uid, offerId) {
-  const customOfferSnap = await db.collection(kMerchantCustomOffersCollection).doc(uid).get();
-  if (customOfferSnap.exists) {
-    const customOffer = customOfferSnap.data();
-    if (!Number.isInteger(customOffer.amount_ht_cents) || customOffer.amount_ht_cents <= 0) {
-      throw new functions.https.HttpsError("failed-precondition", "Tarif negocie invalide.");
-    }
-    return {
-      offerIdForMetadata: "custom",
-      priceKey: `custom:${customOffer.amount_ht_cents}`,
-      catalogOffer: null,
-      stripePriceId: null,
-      lineItem: {
-        price_data: {
-          currency: "eur",
-          unit_amount: customOffer.amount_ht_cents,
-          recurring: {interval: "year"},
-          product_data: {name: customOffer.label || "Abonnement ProxiPlay (tarif negocie)"},
-          tax_behavior: "exclusive",
-        },
-        quantity: 1,
-      },
-    };
-  }
+// Catalogue uniquement (CGV V2.1 art. 3 et 5) : aucun tarif negocie,
+// aucun montant libre. Les remises passent par un code de premiere annee.
+function resolvePriceSelection(offerId) {
   if (!offerId) {
-    throw new functions.https.HttpsError(
-      "invalid-argument",
-      "offerId est requis (aucun tarif negocie pour ce compte).",
-    );
+    throw new functions.https.HttpsError("invalid-argument", "offerId est requis.");
   }
   const offer = getOfferOrThrow(offerId);
   const stripePriceId = getStripePriceIdOrThrow(offer);
@@ -349,14 +324,7 @@ async function createMerchantCheckoutSessionHandler(data, context) {
 
   // Le serveur seul decide du prix/produit : jamais de montant transmis par
   // le client, meme indirectement.
-  const selection = await resolvePriceSelection(db, uid, offerId);
-  if (promotionCode && !selection.catalogOffer) {
-    throw new functions.https.HttpsError(
-      "failed-precondition",
-      "Un tarif negocie est deja applique a ce compte : le code d'offre ne peut pas s'y ajouter.",
-      {reason: "invalid_offer_code"},
-    );
-  }
+  const selection = resolvePriceSelection(offerId);
   // Une session ouverte n'est reutilisee que pour la meme offre ET le meme code.
   const priceKey = promotionCode ? `${selection.priceKey}|promo:${promotionCode.toUpperCase()}` : selection.priceKey;
   const tax = getTaxConfigOrThrow();
@@ -377,11 +345,8 @@ async function createMerchantCheckoutSessionHandler(data, context) {
     const referralRef = await linkReferral(db, uid, referral);
     const stripe = stripeClientModule.getStripeClient();
 
-    let price = null;
-    if (selection.catalogOffer) {
-      price = await stripe.prices.retrieve(selection.stripePriceId);
-      assertStripePriceMatchesOffer(price, selection.catalogOffer);
-    }
+    const price = await stripe.prices.retrieve(selection.stripePriceId);
+    assertStripePriceMatchesOffer(price, selection.catalogOffer);
 
     const email = context.auth.token?.email || user.email || "";
     const stripeCustomerId = await resolveStripeCustomerId(stripe, uid, email, existing.stripe_customer_id || null);

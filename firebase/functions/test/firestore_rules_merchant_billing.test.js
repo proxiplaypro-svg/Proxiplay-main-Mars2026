@@ -62,13 +62,11 @@ test('a player cannot self-assign a subscription by writing a fresh merchant_sub
   await assertFails(attacker.doc('merchant_subscriptions/attacker').set({subscription_status: 'active'}));
 });
 
-test('a merchant can read their own negotiated custom offer, never another merchant\'s, and can never set/change it themselves', async () => {
+test('0.10: legacy merchant_custom_offers are admin-read only; no client can read or write them', async () => {
   const merchant = env.authenticatedContext('merchant').firestore();
-  await assertSucceeds(merchant.doc('merchant_custom_offers/merchant').get());
+  await assertFails(merchant.doc('merchant_custom_offers/merchant').get());
   await assertFails(merchant.doc('merchant_custom_offers/merchant').update({amount_ht_cents: 1}));
-
   const other = env.authenticatedContext('other_merchant').firestore();
-  await assertFails(other.doc('merchant_custom_offers/merchant').get());
   await assertFails(other.doc('merchant_custom_offers/other_merchant').set({amount_ht_cents: 100}));
 });
 

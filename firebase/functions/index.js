@@ -36,8 +36,6 @@ exports.adminRejectMerchantReferral =
   require('./merchant_referral_engine').adminRejectMerchantReferral;
 exports.adminMarkMerchantReferralPaid =
   require('./merchant_referral_engine').adminMarkMerchantReferralPaid;
-exports.adminSetMerchantCustomOffer =
-  require('./merchant_referral_engine').adminSetMerchantCustomOffer;
 // Parrainage commercant a l'inscription (code ambassadeur), distinct du
 // parrainage joueur, et confirmation manuelle du premier abonnement paye.
 exports.adminConfirmMerchantFirstPayment =
