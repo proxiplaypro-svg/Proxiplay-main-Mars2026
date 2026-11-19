@@ -32,6 +32,9 @@ const kBlockedCalls = [
   ['reportMerchantVisit (commercant)', () => origin.reportMerchantVisitHandler({contractId: 'c1'}, h.merchantContext())],
   ['getPaymentInvitation (commercant, lot 1.6)', () => require('../merchant_contract_payment')
     .getPaymentInvitationHandler({token: 'x'.repeat(43)}, h.merchantContext())],
+  ['createContractCheckoutSession (commercant, lot 1.7)', () => require('../merchant_contract_checkout')
+    .createContractCheckoutSessionHandler({token: 'x'.repeat(43), successUrl: 'https://www.proxiplay.fr/ok',
+      cancelUrl: 'https://www.proxiplay.fr/ko'}, h.merchantContext())],
   ['adminConfirmMerchantContract (conclut un contrat)', () => adminConfirmMerchantContractHandler(
     {contractId: 'c1', expectedVersion: 1}, h.adminContext())],
 ];

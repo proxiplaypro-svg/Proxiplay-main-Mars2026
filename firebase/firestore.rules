@@ -959,5 +959,13 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if false;
     }
+
+    // Tranche 2a, lot 1.7 : miroir de l'abonnement Stripe d'une enseigne
+    // (client Stripe propre a l'enseigne). Lecture : admin et titulaire
+    // (owner_uid ecrit par le serveur) ; ecriture serveur seule.
+    match /enseigne_subscriptions/{enseigneId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.owner_uid == request.auth.uid);
+      allow write: if false;
+    }
   }
 }

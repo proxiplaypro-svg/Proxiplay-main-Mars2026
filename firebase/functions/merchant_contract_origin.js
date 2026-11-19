@@ -257,7 +257,11 @@ module.exports = {
   reportMerchantVisitHandler,
   adminUpsertSalesRepHandler,
   adminCreateRepLinkHandler,
-  reportMerchantVisit: callable(reportMerchantVisitHandler),
+  // Secret Stripe : un signalement en attente de paiement expire la session Checkout ouverte.
+  reportMerchantVisit: functions
+    .region(kFunctionsRegion)
+    .runWith({timeoutSeconds: 60, memory: "256MB", secrets: ["STRIPE_SECRET_KEY"]})
+    .https.onCall(reportMerchantVisitHandler),
   adminUpsertSalesRep: callable(adminUpsertSalesRepHandler),
   adminCreateRepLink: callable(adminCreateRepLinkHandler),
 };

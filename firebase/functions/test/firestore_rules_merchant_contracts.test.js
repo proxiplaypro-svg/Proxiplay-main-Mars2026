@@ -144,3 +144,18 @@ test('jetons de paiement : illisibles pour tous, admin compris ; file de reprise
     await assertSucceeds(adminClient().doc(path).get());
   }
 });
+
+// Tranche 2a, lot 1.7
+test('miroir enseigne_subscriptions : lu par le titulaire et l\'admin, jamais ecrit par un client', async () => {
+  await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc('enseigne_subscriptions/e1')
+    .set({owner_uid: 'merchant', stripe_customer_id: 'cus_1', status: 'active'}));
+  await assertSucceeds(merchant().doc('enseigne_subscriptions/e1').get());
+  await assertSucceeds(merchant().collection('enseigne_subscriptions').where('owner_uid', '==', 'merchant').get());
+  await assertFails(other().doc('enseigne_subscriptions/e1').get());
+  await assertFails(env.unauthenticatedContext().firestore().doc('enseigne_subscriptions/e1').get());
+  await assertSucceeds(adminClient().doc('enseigne_subscriptions/e1').get());
+  for (const db of [merchant(), other(), adminClient()]) {
+    await assertFails(db.doc('enseigne_subscriptions/e1').update({status: 'active'}));
+    await assertFails(db.doc('enseigne_subscriptions/e9').set({owner_uid: 'merchant', status: 'active'}));
+  }
+});

@@ -51,6 +51,8 @@ exports.merchantMailOutbox = require('./merchant_contract_outbox').merchantMailO
 exports.adminRetryMailOutbox = require('./merchant_contract_outbox').adminRetryMailOutbox;
 exports.adminAbandonMailOutbox = require('./merchant_contract_outbox').adminAbandonMailOutbox;
 exports.adminResolveAlert = require('./merchant_contract_outbox').adminResolveAlert;
+// Tranche 2a, lot 1.7 : session Checkout creee au clic, par enseigne, carte seulement.
+exports.createContractCheckoutSession = require('./merchant_contract_checkout').createContractCheckoutSession;
 exports.adminSetMerchantManualAccess =
   require('./merchant_referral_engine').adminSetMerchantManualAccess;
 exports.generateMerchantReferralCode =
