@@ -61,7 +61,13 @@ payer, ni rétractation.
    déclenchée par Cloud Scheduler, requêtes Firestore en production (index
    simples supposés suffisants : `owner_uid` + `state`, `enseigne_id` +
    `state in`, `siret`).
-10. **Décisions à confirmer** : jours ouvrés = lundi à vendredi hors les 11
-    jours fériés de France métropolitaine (lundi de Pentecôte compris) ; adresse
-    des alertes (`admin_alert_email`, par défaut contact@proxiplay.fr) ;
-    remise de première année plafonnée pour laisser au moins 1 € HT.
+10. **Adresse des alertes** : à fournir par le propriétaire, puis à poser
+    avec l'outil de configuration (`admin_alert_email`) ; à défaut, les
+    alertes partent à contact@proxiplay.fr.
+
+## Décisions prises (19 novembre 2026)
+
+- Jours ouvrés : lundi à vendredi, hors les 11 jours fériés de France
+  métropolitaine, lundi de Pentecôte compris.
+- Remise de première année plafonnée pour laisser au moins 1 € HT.
+- Adresse des alertes : configurable dans `app_config/merchant_contracts`.
