@@ -30,6 +30,8 @@ const kBlockedCalls = [
     cgvAccepted: true, cgvVersion: h.kCgv.version, cgvSha256: h.kCgvSha256, jurisdictionClauseAccepted: true,
   }, h.merchantContext())],
   ['reportMerchantVisit (commercant)', () => origin.reportMerchantVisitHandler({contractId: 'c1'}, h.merchantContext())],
+  ['getPaymentInvitation (commercant, lot 1.6)', () => require('../merchant_contract_payment')
+    .getPaymentInvitationHandler({token: 'x'.repeat(43)}, h.merchantContext())],
   ['adminConfirmMerchantContract (conclut un contrat)', () => adminConfirmMerchantContractHandler(
     {contractId: 'c1', expectedVersion: 1}, h.adminContext())],
 ];

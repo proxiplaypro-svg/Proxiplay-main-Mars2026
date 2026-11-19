@@ -37,19 +37,33 @@ const kStates = Object.freeze({
   SUBMITTED: "submitted",
   CONFIRMED: "confirmed",
   REFUSED: "refused",
+  // Tranche 2 : apres la conclusion.
+  WITHDRAWAL_PENDING: "withdrawal_pending", // demarchee : delai de retractation en cours
+  PAYMENT_INVITED: "payment_invited", // invitation a payer, lien de 15 jours
+  ACTIVE: "active", // paiement confirme, service actif
+  WITHDRAWN: "withdrawn", // retractation exercee (art. 7)
+  CLOSED_UNPAID: "closed_unpaid", // close sans paiement (art. 8.1)
+  ENDED: "ended", // contrat termine (end_reason)
 });
 
-// Tranche 1 : seules transitions possibles. La tranche 2 (retractation,
-// invitation a payer, paiement) ajoutera les etats suivants de confirmed.
+// confirmed n'est qu'un passage : la confirmation aiguille aussitot vers
+// withdrawal_pending (demarchee) ou payment_invited (spontanee, art. 8.1).
 const kTransitions = Object.freeze({
   submitted: Object.freeze(["confirmed", "refused"]),
-  confirmed: Object.freeze([]),
+  confirmed: Object.freeze(["withdrawal_pending", "payment_invited"]),
+  withdrawal_pending: Object.freeze(["payment_invited", "withdrawn"]),
+  // retour a withdrawal_pending : visite signalee apres coup (art. 4.2).
+  payment_invited: Object.freeze(["active", "withdrawn", "withdrawal_pending", "closed_unpaid"]),
+  active: Object.freeze(["withdrawn", "ended"]),
   refused: Object.freeze([]),
+  withdrawn: Object.freeze([]),
+  closed_unpaid: Object.freeze([]),
+  ended: Object.freeze([]),
 });
 
 // Etats qui occupent une enseigne : une seconde demande pour la meme
 // enseigne est refusee tant que l'un d'eux existe.
-const kOpenStates = Object.freeze(["submitted", "confirmed"]);
+const kOpenStates = Object.freeze(["submitted", "confirmed", "withdrawal_pending", "payment_invited", "active"]);
 
 // Les 8 controles de la verification avant confirmation (checklist G).
 const kChecks = Object.freeze([
@@ -230,6 +244,14 @@ function merchantView(id, data = {}) {
       detail: data.public_refusal.detail || null,
     } : null,
     visitReportDeadline: millisOf(data.visit_report_deadline),
+    // Tranche 2
+    withdrawalDeadline: millisOf(data.withdrawal_deadline),
+    withdrawnAt: millisOf(data.withdrawn_at),
+    paymentInvitedAt: millisOf(data.payment_invited_at),
+    paymentLinkExpiresAt: millisOf(data.payment_link_expires_at),
+    activatedAt: millisOf(data.activated_at),
+    endedAt: millisOf(data.ended_at),
+    endReason: data.end_reason || null,
   };
 }
 

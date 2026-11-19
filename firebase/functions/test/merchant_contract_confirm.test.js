@@ -48,10 +48,13 @@ test('confirmation : contrat conclu a l\'envoi, e-mail durable avec CGV jointes,
   const {contractId, version} = await readyContract();
   const before = Date.now();
   const result = await adminConfirmMerchantContractHandler({contractId, expectedVersion: version}, h.adminContext());
-  assert.equal(result.state, 'confirmed');
+  // Tranche 2a : spontanee -> payment_invited, invitation envoyee avec la confirmation (art. 8.1).
+  assert.equal(result.state, 'payment_invited');
+  assert.equal(result.invitation, 'sent');
   assert.ok(result.confirmedAt >= before);
   const c = await contract(contractId);
-  assert.equal(c.state, 'confirmed');
+  assert.equal(c.state, 'payment_invited');
+  assert.equal(c.withdrawal_deadline.toMillis(), paris.visitReportDeadline(result.confirmedAt));
   assert.equal(c.confirmed_at.toMillis(), result.confirmedAt);
   assert.equal(c.visit_report_deadline.toMillis(), paris.visitReportDeadline(result.confirmedAt));
   const i = await internal(contractId);
@@ -59,7 +62,8 @@ test('confirmation : contrat conclu a l\'envoi, e-mail durable avec CGV jointes,
   assert.equal(i.confirmation.confirmed_by, 'admin');
   assert.equal(i.confirmation.email_sent_at.toMillis(), result.confirmedAt);
   assert.ok(!('lock_at' in i.confirmation));
-  assert.equal(sent.length, 1);
+  assert.equal(sent.length, 2, 'confirmation puis invitation a payer');
+  assert.match(sent[1].subject, /invitation à régler/);
   const message = sent[0];
   assert.equal(message.to, 'merchant@example.test');
   assert.equal(message.messageId, `<contrat-${contractId}@proxiplay.fr>`);
@@ -76,13 +80,16 @@ test('confirmation : contrat conclu a l\'envoi, e-mail durable avec CGV jointes,
   const events = await db.collection(`merchant_contracts/${contractId}/events`).where('type', '==', 'confirmed').get();
   assert.equal(events.size, 1);
   const view = await getMyMerchantContractsHandler({}, h.merchantContext());
-  assert.equal(view.contracts[0].state, 'confirmed');
+  assert.equal(view.contracts[0].state, 'payment_invited');
   assert.equal(view.contracts[0].visitReportDeadline, c.visit_report_deadline.toMillis());
 });
 
 test('souscription demarchee : informations et formulaire de retractation, aucun paiement pendant 14 jours', async () => {
   const {contractId, version} = await readyContract({visitDeclared: true});
-  const {confirmedAt} = await adminConfirmMerchantContractHandler({contractId, expectedVersion: version}, h.adminContext());
+  const {confirmedAt, state, invitation} = await adminConfirmMerchantContractHandler({contractId, expectedVersion: version}, h.adminContext());
+  assert.equal(state, 'withdrawal_pending', 'demarchee : aucun paiement demande avant la fin du delai (art. 7.4)');
+  assert.equal(invitation, null);
+  assert.equal(sent.length, 1, 'confirmation seule, pas d\'invitation a payer');
   const text = sent[0].text;
   assert.match(text, /Droit de rétractation \(souscription démarchée, art\. 7\)/);
   assert.match(text, /quatorze jours à compter du lendemain de la conclusion/);
@@ -159,8 +166,8 @@ test('echec SMTP : rien n\'est conclu ; nouvel essai sur la version a jour, un s
   await h.rejectsWith(adminConfirmMerchantContractHandler({contractId, expectedVersion: version}, h.adminContext()), 'stale_version');
   const current = (await contract(contractId)).state_version;
   await adminConfirmMerchantContractHandler({contractId, expectedVersion: current}, h.adminContext());
-  assert.equal((await contract(contractId)).state, 'confirmed');
-  assert.equal(sent.length, 1);
+  assert.equal((await contract(contractId)).state, 'payment_invited');
+  assert.equal(sent.length, 2, 'une confirmation, une invitation');
 });
 
 test('reprise : e-mail deja envoye mais contrat non finalise -> finalise sans renvoyer, date = envoi', async () => {
@@ -172,7 +179,8 @@ test('reprise : e-mail deja envoye mais contrat non finalise -> finalise sans re
   }}, {merge: true});
   const result = await adminConfirmMerchantContractHandler({contractId, expectedVersion: version}, h.adminContext());
   assert.equal(result.confirmedAt, sentAt);
-  assert.equal(sent.length, 0, 'aucun second e-mail');
+  assert.equal(sent.length, 1, 'aucune seconde confirmation ; seule l\'invitation a payer part');
+  assert.match(sent[0].subject, /invitation à régler/);
   assert.equal((await contract(contractId)).confirmed_at.toMillis(), sentAt);
 });
 
@@ -183,7 +191,7 @@ test('deux confirmations simultanees : un seul e-mail, un seul contrat conclu', 
     adminConfirmMerchantContractHandler({contractId, expectedVersion: version}, h.adminContext()),
   ]);
   assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
-  assert.equal(sent.length, 1);
+  assert.equal(sent.length, 2, 'une confirmation et une invitation, une seule fois');
 });
 
 test('apres confirmation : plus de refus possible (art. 4.1) ; admin seul ; refusee : plus de confirmation', async () => {

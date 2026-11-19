@@ -131,10 +131,11 @@ async function reportMerchantVisitHandler(data, context) {
       throw httpsError("not-found", "Demande inconnue.", {reason: "contract_not_found"});
     }
     const contract = snap.data();
-    if (![kStates.SUBMITTED, kStates.CONFIRMED].includes(contract.state)) {
+    const reportable = [kStates.SUBMITTED, kStates.CONFIRMED, kStates.WITHDRAWAL_PENDING, kStates.PAYMENT_INVITED, kStates.ACTIVE];
+    if (!reportable.includes(contract.state)) {
       throw httpsError("failed-precondition", "Ce signalement n'est plus possible pour cette demande.", {reason: "not_reportable"});
     }
-    if (contract.state === kStates.CONFIRMED) {
+    if (contract.state !== kStates.SUBMITTED) {
       const deadline = millisOf(contract.visit_report_deadline) || visitReportDeadline(millisOf(contract.confirmed_at));
       if (nowMs > deadline) {
         throw httpsError("failed-precondition",
@@ -142,12 +143,20 @@ async function reportMerchantVisitHandler(data, context) {
       }
     }
     if (contract.origin?.type === "demarchee") return {changed: false, contract};
+    // Tranche 2a : en attente de paiement, la souscription devenue demarchee
+    // revient au delai de retractation (aucun paiement avant son expiration,
+    // art. 4.2 et 7.4) ; les liens de paiement sont revoques.
+    const backToWithdrawal = contract.state === kStates.PAYMENT_INVITED;
+    const revocations = backToWithdrawal ?
+      await require("./merchant_contract_payment").revokeOpenTokens(tx, db, contractId, admin.firestore.Timestamp.now()) : [];
     const now = admin.firestore.FieldValue.serverTimestamp();
+    revocations.forEach((revoke) => revoke());
     tx.update(ref, {
       "origin.type": "demarchee",
       "origin.reported_at": now,
       "state_version": (contract.state_version || 1) + 1,
       "updated_at": now,
+      ...(backToWithdrawal ? {state: kStates.WITHDRAWAL_PENDING, payment_link_expires_at: null} : {}),
     });
     tx.set(internalRef(db, contractId), {origin_evidence: {
       sources: admin.firestore.FieldValue.arrayUnion("report"),
@@ -155,8 +164,16 @@ async function reportMerchantVisitHandler(data, context) {
     }}, {merge: true});
     tx.set(eventRef(db, contractId), {type: "visit_reported", at: now, actor: "merchant", actor_uid: uid,
       previous_origin: contract.origin?.type || null});
-    return {changed: true, contract: {...contract, origin: {...contract.origin, type: "demarchee"}}};
+    return {changed: true, backToWithdrawal, contract: {...contract, origin: {...contract.origin, type: "demarchee"}}};
   });
+  if (outcome.backToWithdrawal) {
+    // Sessions Checkout encore ouvertes : expirees (lot 1.7).
+    try {
+      await require("./merchant_contract_checkout").expireOpenSessions(db, contractId);
+    } catch (error) {
+      console.error("[merchant_contracts] sessions non expirees apres signalement", contractId, error?.message || error);
+    }
+  }
   if (outcome.changed) {
     const mail = require("./merchant_contract_mail");
     for (const [key, message] of visitReportEmails(outcome.contract, contractId, config)) {

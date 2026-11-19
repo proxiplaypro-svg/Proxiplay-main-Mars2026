@@ -35,6 +35,9 @@ test.beforeEach(async () => {
     await db.doc('promo_codes/BIENVENUE').set({kind: 'amount', value_cents: 5000, active: true});
     await db.doc('app_config/merchant_contracts').set({enabled: false});
     await db.doc('merchant_contracts_config_log/l1').set({by: 'admin', changes: {enabled: true}});
+    await db.doc('payment_tokens/h1').set({contract_id: 'c1', owner_uid: 'merchant'});
+    await db.doc('mail_outbox/o1').set({contract_id: 'c1', status: 'pending'});
+    await db.doc('admin_alerts/a1').set({kind: 'email_echec', resolved: false});
   });
 });
 
@@ -124,4 +127,20 @@ test('app_config/merchant_contracts : illisible pour un anonyme et pour tout uti
     await assertFails(db.collection('merchant_contracts_config_log').get(), label);
   }
   await assertSucceeds(adminClient().doc('app_config/merchant_contracts').get());
+});
+
+// Tranche 2a, lot 1.6
+test('jetons de paiement : illisibles pour tous, admin compris ; file de reprise et alertes : admin seul ; aucune ecriture client', async () => {
+  for (const db of [merchant(), other(), adminClient(), env.unauthenticatedContext().firestore()]) {
+    await assertFails(db.doc('payment_tokens/h1').get());
+    await assertFails(db.collection('payment_tokens').where('owner_uid', '==', 'merchant').get());
+    await assertFails(db.doc('payment_tokens/h2').set({contract_id: 'c1'}));
+    await assertFails(db.doc('mail_outbox/o2').set({status: 'pending'}));
+    await assertFails(db.doc('admin_alerts/a2').set({kind: 'x'}));
+    await assertFails(db.doc('admin_alerts/a1').update({resolved: true}));
+  }
+  for (const path of ['mail_outbox/o1', 'admin_alerts/a1']) {
+    await assertFails(merchant().doc(path).get());
+    await assertSucceeds(adminClient().doc(path).get());
+  }
 });

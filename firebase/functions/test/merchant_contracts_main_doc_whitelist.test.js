@@ -39,12 +39,23 @@ const kWhitelist = Object.freeze({
   public_refusal: ['motif', 'detail'],
   confirmed_at: null,
   visit_report_deadline: null,
+  // Tranche 2a
+  withdrawal_deadline: null,
+  withdrawn_at: null,
+  payment_invited_at: null,
+  payment_link_expires_at: null,
+  activated_at: null,
+  ended_at: null,
+  end_reason: null,
 });
 
 // Termes qui ne doivent jamais apparaitre, ni comme cle ni comme valeur.
 const kForbiddenKeys = ['verification', 'checks', 'note', 'notes', 'internalNote', 'refusal_reason', 'refused_by',
   'reviewer_uid', 'origin_evidence', 'sources', 'rep_id', 'link_hash', 'evidence', 'ip', 'acceptance', 'events',
-  'alerts', 'emails', 'confirmation', 'lock_at', 'lock_by', 'confirmed_by', 'user_agent'];
+  'alerts', 'emails', 'confirmation', 'lock_at', 'lock_by', 'confirmed_by', 'user_agent',
+  // Tranche 2a : jamais dans la vue commercant.
+  'token', 'token_hash', 'payment_invitation', 'withdrawal', 'refund', 'late_payment', 'stripe_customer_id',
+  'stripe_subscription_id', 'last_session_id'];
 
 function assertWhitelisted(label, data, {forbiddenValues = []} = {}) {
   for (const [key, value] of Object.entries(data)) {
@@ -144,7 +155,7 @@ test('confirmation (spontanee et demarchee), y compris apres un echec d\'envoi :
     const current = (await read(contractId)).state_version;
     await adminConfirmMerchantContractHandler({contractId, expectedVersion: current}, h.adminContext());
     const confirmed = await read(contractId);
-    assert.equal(confirmed.state, 'confirmed');
+    assert.ok(['payment_invited', 'withdrawal_pending'].includes(confirmed.state));
     assertWhitelisted(`confirmation (${enseigneId})`, confirmed, {forbiddenValues: [kIp, kNote, `<contrat-${contractId}@proxiplay.fr>`]});
   }
 });

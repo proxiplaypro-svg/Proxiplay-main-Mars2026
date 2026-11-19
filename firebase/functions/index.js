@@ -44,6 +44,13 @@ exports.merchantContractAlerts = require('./merchant_contract_alerts').merchantC
 exports.adminConfirmMerchantContract = require('./merchant_contract_confirm').adminConfirmMerchantContract;
 exports.adminUpdateMerchantContractsConfig =
   require('./merchant_contracts_config').adminUpdateMerchantContractsConfig;
+// Tranche 2a, lot 1.6 : invitation a payer, lien de 15 jours, file de reprise.
+exports.getPaymentInvitation = require('./merchant_contract_payment').getPaymentInvitation;
+exports.adminSendPaymentInvitation = require('./merchant_contract_payment').adminSendPaymentInvitation;
+exports.merchantMailOutbox = require('./merchant_contract_outbox').merchantMailOutbox;
+exports.adminRetryMailOutbox = require('./merchant_contract_outbox').adminRetryMailOutbox;
+exports.adminAbandonMailOutbox = require('./merchant_contract_outbox').adminAbandonMailOutbox;
+exports.adminResolveAlert = require('./merchant_contract_outbox').adminResolveAlert;
 exports.adminSetMerchantManualAccess =
   require('./merchant_referral_engine').adminSetMerchantManualAccess;
 exports.generateMerchantReferralCode =

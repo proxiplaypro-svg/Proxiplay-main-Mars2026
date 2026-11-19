@@ -943,5 +943,21 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if false;
     }
+
+    // Tranche 2a, lot 1.6 : jetons des liens de paiement (empreinte seule,
+    // jamais le jeton). Lus et ecrits uniquement par les Cloud Functions.
+    match /payment_tokens/{tokenHash} {
+      allow read, write: if false;
+    }
+    // File de reprise des e-mails et alertes administratives (SMTP = point
+    // de defaillance unique) : lecture admin, ecriture serveur seule.
+    match /mail_outbox/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /admin_alerts/{alertId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
   }
 }

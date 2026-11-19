@@ -139,17 +139,26 @@ async function adminConfirmMerchantContractHandler(data, context) {
     }
   }
 
-  await db.runTransaction(async (tx) => {
+  // Tranche 2a (lot 1.6) : la confirmation aiguille aussitot vers
+  // withdrawal_pending (demarchee : aucun paiement avant la fin du delai de
+  // retractation, art. 4.2 et 7.4) ou payment_invited (spontanee :
+  // invitation a payer envoyee avec la confirmation, art. 8.1).
+  const finalState = await db.runTransaction(async (tx) => {
     const snap = await tx.get(claim.ref);
     const contract = snap.data();
-    if (contract.state === kStates.CONFIRMED) return;
+    if (contract.state !== kStates.SUBMITTED) return null; // deja finalise
     assertTransition(contract.state, kStates.CONFIRMED);
+    const target = contract.origin?.type === "demarchee" ? kStates.WITHDRAWAL_PENDING : kStates.PAYMENT_INVITED;
+    assertTransition(kStates.CONFIRMED, target);
     const now = admin.firestore.FieldValue.serverTimestamp();
+    const deadline = admin.firestore.Timestamp.fromMillis(visitReportDeadline(conclusionMs));
     tx.update(claim.ref, {
-      state: kStates.CONFIRMED,
+      state: target,
       state_version: contract.state_version + 1,
       confirmed_at: admin.firestore.Timestamp.fromMillis(conclusionMs),
-      visit_report_deadline: admin.firestore.Timestamp.fromMillis(visitReportDeadline(conclusionMs)),
+      visit_report_deadline: deadline,
+      // Meme date : fin du 14e jour suivant la conclusion (art. 4.2 et 7.2).
+      withdrawal_deadline: deadline,
       updated_at: now,
     });
     tx.set(internalRef(db, contractId), {confirmation: {
@@ -162,9 +171,16 @@ async function adminConfirmMerchantContractHandler(data, context) {
         {uses: admin.firestore.FieldValue.increment(1)}, {merge: true});
     }
     tx.set(eventRef(db, contractId), {type: "confirmed", at: now, actor: "admin", actor_uid: adminUid,
-      conclusion_at: admin.firestore.Timestamp.fromMillis(conclusionMs)});
+      conclusion_at: admin.firestore.Timestamp.fromMillis(conclusionMs), next_state: target});
+    return target;
   });
-  return {state: kStates.CONFIRMED, confirmedAt: conclusionMs};
+  let invitation = null;
+  if (finalState === kStates.PAYMENT_INVITED) {
+    // Echec d'envoi : file de reprise et alerte (le contrat reste conclu).
+    invitation = await require("./merchant_contract_payment").issuePaymentInvitation(db, contractId, {actor: `admin:${adminUid}`});
+  }
+  const state = finalState || (await claim.ref.get()).data().state;
+  return {state, confirmedAt: conclusionMs, invitation: invitation ? (invitation.sent ? "sent" : "queued") : null};
 }
 
 exports.adminConfirmMerchantContract = functions

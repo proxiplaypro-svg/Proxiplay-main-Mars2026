@@ -237,7 +237,36 @@ function confirmationNotice(contract, contractId, {conclusionMs, deadlineMs, cgv
   };
 }
 
+// ---- Tranche 2a
+
+/** Invitation a payer (art. 8.1) : lien ProxiPlay personnel, valable 15 jours. */
+function paymentInvitation(contract, contractId, {url, expiresMs}) {
+  const offer = contract.offer || {};
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : invitation à régler votre abonnement (${enseigneLabel(contract)})`,
+    text: [
+      "Bonjour,",
+      "",
+      `Votre souscription pour l'enseigne ${enseigneLabel(contract)} est conclue. Vous pouvez régler la première année ` +
+        `(${euros(offer.first_year_ttc_cents)} TTC, soit ${euros(offer.first_year_ht_cents)} HT) sur la page sécurisée suivante, ` +
+        "après connexion à votre espace commerçant :",
+      "",
+      url,
+      "",
+      `Ce lien est personnel et valable jusqu'au ${parisDate(expiresMs)} inclus (quinze jours, CGV art. 8.1). ` +
+        "Sans paiement dans ce délai, la souscription non activée peut être close après un rappel, sans rien facturer.",
+      "Le service est activé après confirmation du paiement ; la période annuelle commence à cette date (art. 8.2).",
+      "",
+      "Le paiement est traité par Stripe ; ProxiPlay ne conserve pas les numéros de carte.",
+      "",
+      kSignature,
+    ].join("\n"),
+  };
+}
+
 module.exports = {
+  paymentInvitation,
   kWithdrawalForm,
   confirmationNotice,
   adminPendingAlert,
