@@ -390,6 +390,73 @@ test('charge.refunded cancels an eligible-but-not-yet-approved referral', async 
   assert.equal((await db.doc('merchant_referrals/merchant1').get()).data().status, 'cancelled');
 });
 
+// --- 0.12 : evenements au format de l'endpoint LIVE (2026-10-28.endive) -------
+
+// Evenement tel que l'endpoint LIVE le recoit : version d'API de l'endpoint
+// (2026-10-28.endive), differente de celle epinglee par le client (2024-06-20).
+function endiveEvent(id, type, object) {
+  return {...fakeEvent(id, type, object), api_version: '2026-10-28.endive'};
+}
+
+// Espion sur stripe.charges.retrieve (relecture de la charge au format 2024-06-20).
+function spyChargesRetrieve() {
+  const base = stripeClientModule.getStripeClient();
+  const calls = [];
+  stripeClientModule.getStripeClient = () => ({
+    ...base,
+    charges: {retrieve: async (id) => { calls.push(id); return base.charges.retrieve(id); }},
+  });
+  return calls;
+}
+
+test('0.12: charge.refunded without Charge.invoice (endive payload) re-reads the charge and still cancels the referral', async () => {
+  await db.doc('merchant_referrals/merchant1').set({status: 'eligible'});
+  installFakeStripe({
+    subscriptions: {sub_1: subscription()},
+    invoices: {in_1: {id: 'in_1', subscription: 'sub_1'}},
+    charges: {ch_new: {id: 'ch_new', object: 'charge', invoice: 'in_1'}}, // relecture simulee en 2024-06-20
+  });
+  const retrieved = spyChargesRetrieve();
+  // Charge au format 2026-10-28.endive : aucun champ invoice (retire en 2025-03-31.basil).
+  const endiveCharge = {id: 'ch_new', object: 'charge', amount: 43800, amount_refunded: 43800, refunded: true,
+    payment_intent: 'pi_new', livemode: false};
+  assert.equal('invoice' in endiveCharge, false);
+  await deliver(endiveEvent('evt_refund_endive', 'charge.refunded', endiveCharge));
+  assert.deepEqual(retrieved, ['ch_new'], 'la charge est relue une fois par stripe.charges.retrieve');
+  assert.equal((await db.doc('merchant_referrals/merchant1').get()).data().status, 'cancelled');
+});
+
+test('0.12: a charge.refunded payload that still carries invoice (old format) is not re-read', async () => {
+  await db.doc('merchant_referrals/merchant1').set({status: 'eligible'});
+  installFakeStripe({subscriptions: {sub_1: subscription()}, invoices: {in_1: {id: 'in_1', subscription: 'sub_1'}}});
+  const retrieved = spyChargesRetrieve();
+  await deliver(fakeEvent('evt_refund_old', 'charge.refunded', {id: 'ch_old', object: 'charge', invoice: 'in_1'}));
+  assert.deepEqual(retrieved, []);
+  assert.equal((await db.doc('merchant_referrals/merchant1').get()).data().status, 'cancelled');
+});
+
+test('0.12: invoice.payment_failed in endive shape (parent.subscription_details, no invoice.subscription) opens the grace', async () => {
+  installFakeStripe({subscriptions: {sub_1: subscription({status: 'past_due'})}});
+  await deliver(endiveEvent('evt_failed_endive', 'invoice.payment_failed', {
+    id: 'in_e', object: 'invoice', attempt_count: 1, hosted_invoice_url: 'https://invoice.stripe.test/in_e',
+    parent: {type: 'subscription_details', subscription_details: {subscription: 'sub_1', metadata: {}}},
+  }));
+  const data = await mirror();
+  assert.equal(data.publication_access_status, 'grace');
+  assert.equal(data.unpaid_invoice_url, 'https://invoice.stripe.test/in_e');
+});
+
+test('0.12: a subscription with billing periods only on its items (basil+) is mirrored with its period end', async () => {
+  const end = nowSeconds() + 300 * 86400;
+  const sub = subscription();
+  delete sub.current_period_start;
+  delete sub.current_period_end;
+  sub.items = {data: [{...(sub.items?.data?.[0] || {}), current_period_start: nowSeconds(), current_period_end: end}]};
+  installFakeStripe({subscriptions: {sub_1: sub}});
+  await deliver(endiveEvent('evt_items_period', 'customer.subscription.updated', sub));
+  assert.equal((await mirror()).current_period_end.toMillis(), end * 1000);
+});
+
 test('an event type outside the subscription cycle is acknowledged and ignored', async () => {
   installFakeStripe();
   const res = await deliver(fakeEvent('evt_other', 'payment_intent.created', {id: 'pi_1'}));

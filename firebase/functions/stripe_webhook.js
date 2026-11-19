@@ -398,9 +398,16 @@ async function handleCheckoutSessionExpired(db, event) {
 }
 
 async function merchantUserIdFromCharge(db, charge) {
-  const invoiceId = idOf(charge.invoice);
-  if (!invoiceId) return null;
   const stripe = stripeClientModule.getStripeClient();
+  // Charge.invoice est retire des evenements depuis 2025-03-31.basil (endpoint
+  // LIVE en 2026-10-28.endive) : sans ce champ, la charge est relue avec la
+  // version d'API epinglee du client (2024-06-20), qui l'expose encore.
+  // A revoir si kStripeApiVersion est un jour monte en basil ou plus
+  // (passer alors par invoice_payments).
+  const fullCharge = charge && Object.prototype.hasOwnProperty.call(charge, "invoice") ?
+    charge : await stripe.charges.retrieve(idOf(charge));
+  const invoiceId = idOf(fullCharge?.invoice);
+  if (!invoiceId) return null;
   const invoice = await stripe.invoices.retrieve(invoiceId);
   const subscriptionId = invoiceSubscriptionId(invoice || {});
   if (!subscriptionId) return null;
