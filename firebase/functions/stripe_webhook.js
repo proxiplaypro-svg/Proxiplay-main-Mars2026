@@ -347,6 +347,19 @@ async function handleInvoicePaid(db, event) {
   return {outcome: invoice.billing_reason === "subscription_cycle" ? "renewal_paid" : "payment_confirmed", merchantUserId};
 }
 
+/** Authentification bancaire requise : contrats V2.1, alerte admin (V1 inchange). */
+async function handleInvoicePaymentActionRequired(db, event) {
+  const invoice = event.data.object;
+  const subscriptionId = invoiceSubscriptionId(invoice);
+  if (!subscriptionId) return {outcome: "ignored_no_subscription"};
+  const sync = await syncSubscriptionFromStripe(db, subscriptionId, event.id);
+  if (sync.contractSubscription) {
+    return contractBilling.onInvoicePaymentActionRequired(db, invoice, sync.contractSubscription, event.id);
+  }
+  // Abonnement V1 : comportement inchange (Stripe gere l'e-mail au client).
+  return {outcome: "ignored_v1_action_required", merchantUserId: sync.merchantUserId || null};
+}
+
 async function handleInvoicePaymentFailed(db, event) {
   const invoice = event.data.object;
   const subscriptionId = invoiceSubscriptionId(invoice);
@@ -503,6 +516,8 @@ async function routeEvent(db, event) {
       return handleInvoicePaid(db, event);
     case "invoice.payment_failed":
       return handleInvoicePaymentFailed(db, event);
+    case "invoice.payment_action_required":
+      return handleInvoicePaymentActionRequired(db, event);
     case "charge.refunded":
       return handleChargeRefunded(db, event);
     case "charge.dispute.created":

@@ -180,9 +180,11 @@ async function syncContractSubscription(db, subscription, eventId) {
   }
   const ref = db.collection(kEnseigneSubscriptionsCollection).doc(enseigneId);
   const fetchedAtMs = Date.now();
+  let previousStatus = null;
   const outcome = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const current = snap.exists ? snap.data() : {};
+    previousStatus = current.stripe_subscription_id === subscription.id ? current.status || null : null;
     if (!tracked) {
       tx.set(ref, {other_subscriptions: {[subscription.id]: {status: subscription.status,
         updated_at: admin.firestore.FieldValue.serverTimestamp()}}}, {merge: true});
@@ -213,6 +215,15 @@ async function syncContractSubscription(db, subscription, eventId) {
     }, {merge: true});
     return "synced";
   });
+  // Passage a "unpaid" (action finale de Stripe apres ses relances) : le
+  // contrat reste actif et aucun acces n'est coupe ; decision manuelle de
+  // l'admin (art. 11 : mise en demeure, suspension, resiliation). Une alerte
+  // par passage (statut precedent du miroir, lu dans la transaction).
+  if (outcome === "synced" && subscription.status === "unpaid" && previousStatus !== "unpaid") {
+    await mail.raiseAdminAlert(db, {kind: "abonnement_impaye", contractId,
+      detail: `Abonnement Stripe ${subscription.id} passé à « unpaid » (relances Stripe terminées). Le contrat reste actif, ` +
+        "aucun accès n'est coupé automatiquement : décision manuelle (art. 11 : mise en demeure, suspension, résiliation)."});
+  }
   // Abonnement suivi termine : le contrat actif se termine (motif precise par
   // le lot 1.12 quand la fin vient d'une action ProxiPlay).
   if (outcome === "synced" && subscription.status === "canceled") {
@@ -360,6 +371,30 @@ async function onInvoicePaymentFailed(db, invoiceId, subscription, eventId) {
 }
 
 /**
+ * Authentification bancaire requise (3-D Secure) sur une facture d'un
+ * abonnement de contrat : Stripe envoie lui-meme le lien au client (e-mail a
+ * activer dans le Dashboard). ProxiPlay alerte l'admin, une fois par facture ;
+ * aucun e-mail au commercant, aucune action sur l'argent.
+ */
+async function onInvoicePaymentActionRequired(db, invoice, subscription, eventId) {
+  const sync = await syncContractSubscription(db, subscription, eventId);
+  if (sync.outcome !== "contract_synced") return sync;
+  const contractId = subscription.metadata.contractId;
+  const first = await db.runTransaction(async (tx) => {
+    const ref = internalRef(db, contractId);
+    if ((await tx.get(ref)).data()?.action_required?.[invoice.id]) return false;
+    tx.set(ref, {action_required: {[invoice.id]: {alerted_at: admin.firestore.Timestamp.now(), event_id: eventId}}}, {merge: true});
+    return true;
+  });
+  if (first) {
+    await mail.raiseAdminAlert(db, {kind: "authentification_bancaire_requise", contractId,
+      detail: `Facture ${invoice.id} (${invoice.billing_reason || "?"}) : authentification bancaire requise par la banque du ` +
+        "commerçant. Stripe envoie le lien au client si l'e-mail correspondant est activé ; vérifier dans Stripe et relancer si besoin."});
+  }
+  return {...sync, outcome: first ? "contract_action_required_alerted" : "contract_action_required"};
+}
+
+/**
  * Evenement Stripe qu'on ne sait pas rattacher (ou paiement de contrat sans
  * action sur l'argent) : trace stripe_unmatched_events/{eventId} (identifiants
  * seulement, lecture admin) et alerte admin, une seule fois par evenement.
@@ -418,5 +453,6 @@ module.exports = {
   onCheckoutCompleted,
   onInvoicePaid,
   onInvoicePaymentFailed,
+  onInvoicePaymentActionRequired,
   onChargeEvent,
 };

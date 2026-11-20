@@ -277,6 +277,63 @@ test('abonnement mis a jour puis supprime : miroir, puis fin du contrat', async 
   assert.equal((await db.collection('merchant_subscriptions').get()).size, 0);
 });
 
+test('passage a unpaid (fin des relances Stripe) : contrat actif, grace non repoussee, une seule alerte admin, rien de coupe', async () => {
+  const {contractId, sessionId} = await openSession();
+  const paid = stripe.complete(sessionId);
+  await dispatchEvent(db, sessionEvent(stripe.store.sessions[sessionId]));
+  const sub = stripe.store.subscriptions[paid.subscriptionId];
+  sub.status = 'past_due';
+  await dispatchEvent(db, subscriptionEvent('customer.subscription.updated', sub));
+  const grace = (await db.doc('enseigne_subscriptions/e1').get()).data().grace_until.toMillis();
+  const alertsBefore = (await db.collection('admin_alerts').where('kind', '==', 'abonnement_impaye').get()).size;
+  assert.equal(alertsBefore, 0, 'past_due : pas encore d\'alerte « unpaid »');
+  sent.length = 0;
+  sub.status = 'unpaid';
+  await dispatchEvent(db, subscriptionEvent('customer.subscription.updated', sub));
+  // Rejeu et nouvel evenement au meme statut : aucune seconde alerte.
+  await dispatchEvent(db, subscriptionEvent('customer.subscription.updated', sub));
+  const mirror = (await db.doc('enseigne_subscriptions/e1').get()).data();
+  assert.equal(mirror.status, 'unpaid');
+  assert.equal(mirror.grace_until.toMillis(), grace, 'delai de grace jamais repousse');
+  const c = await contract(contractId);
+  assert.equal(c.state, 'active', 'aucune fin automatique : decision manuelle (art. 11)');
+  const alerts = await db.collection('admin_alerts').where('kind', '==', 'abonnement_impaye').get();
+  assert.equal(alerts.size, 1);
+  assert.equal(alerts.docs[0].data().contract_id, contractId);
+  assert.match(alerts.docs[0].data().detail, /aucun accès n'est coupé automatiquement/);
+  assert.deepEqual(sent.map((m) => m.to), ['alertes@proxiplay.test'], 'e-mail a l\'admin seulement');
+  assert.equal(stripe.calls.subscriptionsCancel.length + stripe.calls.refundsCreate.length, 0, 'aucune action Stripe');
+  assert.equal((await db.collection('merchant_subscriptions').get()).size, 0, 'miroir V1 (acces de l\'app) jamais ecrit');
+  // Regularisation puis nouveau passage a unpaid : nouvelle alerte.
+  sub.status = 'active';
+  await dispatchEvent(db, subscriptionEvent('customer.subscription.updated', sub));
+  sub.status = 'unpaid';
+  await dispatchEvent(db, subscriptionEvent('customer.subscription.updated', sub));
+  assert.equal((await db.collection('admin_alerts').where('kind', '==', 'abonnement_impaye').get()).size, 2);
+});
+
+test('invoice.payment_action_required : alerte admin une fois par facture, aucun e-mail au commercant, aucun argent', async () => {
+  const {contractId, sessionId} = await openSession();
+  const paid = stripe.complete(sessionId);
+  await dispatchEvent(db, sessionEvent(stripe.store.sessions[sessionId]));
+  const sub = stripe.store.subscriptions[paid.subscriptionId];
+  stripe.store.invoices.in_sca = {id: 'in_sca', subscription: sub.id, billing_reason: 'subscription_cycle', status: 'open',
+    paid: false, amount_due: 43800, livemode: false};
+  sent.length = 0;
+  const first = await dispatchEvent(db, invoiceEvent('invoice.payment_action_required', 'in_sca', sub.id, sub.metadata));
+  assert.equal(first.outcome, 'contract_action_required_alerted');
+  const again = await dispatchEvent(db, invoiceEvent('invoice.payment_action_required', 'in_sca', sub.id, sub.metadata));
+  assert.equal(again.outcome, 'contract_action_required');
+  const alerts = await db.collection('admin_alerts').where('kind', '==', 'authentification_bancaire_requise').get();
+  assert.equal(alerts.size, 1);
+  assert.equal(alerts.docs[0].data().contract_id, contractId);
+  assert.match(alerts.docs[0].data().detail, /in_sca/);
+  assert.deepEqual(sent.map((m) => m.to), ['alertes@proxiplay.test'], 'Stripe previent le client ; ProxiPlay alerte l\'admin seulement');
+  assert.ok((await internal(contractId)).action_required.in_sca.alerted_at);
+  assert.equal((await contract(contractId)).state, 'active');
+  assert.equal(stripe.calls.refundsCreate.length + stripe.calls.subscriptionsCancel.length, 0);
+});
+
 test('remboursement et litige sur un abonnement de contrat : traces, alerte en cas de litige, parrainage V1 non touche', async () => {
   const {contractId, sessionId} = await openSession();
   const paid = stripe.complete(sessionId);

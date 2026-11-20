@@ -146,6 +146,23 @@ canonique) et le digest sont, eux, à livrer.
     d'un contrat V2.1 n'ouvrent ni ne ferment donc aucune fonction de l'app ;
     toute suspension (art. 11, 18) est manuelle.
 
+18. **Impayé final et authentification bancaire (webhook)** :
+    - `customer.subscription.updated` au statut `unpaid` (action finale de
+      Stripe après ses relances) : le miroir passe à `unpaid`, le délai de
+      grâce n'est jamais repoussé, le contrat reste `active`, aucun accès
+      n'est coupé (le contrat V2.1 ne commande aucun accès, point 17) ; une
+      alerte admin `abonnement_impaye` par passage à `unpaid`. Mise en
+      demeure, suspension, résiliation : décision manuelle (art. 11).
+    - `invoice.payment_action_required` : pour un contrat V2.1, alerte admin
+      `authentification_bancaire_requise`, une fois par facture ; aucun
+      e-mail ProxiPlay au commerçant (Stripe lui envoie le lien, e-mail à
+      activer, point 15) ; aucune action sur l'argent. Abonnements V1 :
+      inchangé (ignoré).
+    - **À faire dans Stripe (TEST et LIVE)** : abonner l'endpoint du webhook
+      à `invoice.payment_action_required` (en plus de
+      `customer.subscription.updated`). Sans cet abonnement, l'alerte ne part
+      jamais.
+
 ## Suivi manuel (sans code)
 
 | Action | Où | Signalé par |
