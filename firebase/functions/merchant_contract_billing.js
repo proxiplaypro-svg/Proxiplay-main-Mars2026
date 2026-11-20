@@ -124,14 +124,14 @@ function graceFor(subscription, current, observedAtMs) {
 async function syncContractSubscription(db, subscription, eventId) {
   const contractId = subscription.metadata?.contractId;
   const contractSnap = await db.collection(kContractsCollection).doc(contractId).get();
-  if (!contractSnap.exists) return {outcome: "contract_unknown", contractId};
+  // Non rattachable : trace et alerte ecrites par le webhook (une fois par evenement).
+  if (!contractSnap.exists) return {outcome: "contract_unknown", contractId, subscriptionId: subscription.id};
   const contract = contractSnap.data();
   const tracked = (await internalRef(db, contractId).get()).data()?.billing?.stripe_subscription_id === subscription.id;
   const enseigneId = contract.enseigne_id || subscription.metadata?.enseigneId;
   if (!enseigneId || (subscription.metadata?.enseigneId && subscription.metadata.enseigneId !== contract.enseigne_id)) {
-    await mail.raiseAdminAlert(db, {kind: "abonnement_enseigne_incoherente", contractId,
-      detail: `Abonnement ${subscription.id} rattaché à l'enseigne ${subscription.metadata?.enseigneId}, contrat sur ${contract.enseigne_id}.`});
-    return {outcome: "ignored_enseigne_mismatch", contractId};
+    return {outcome: "ignored_enseigne_mismatch", reason: `abonnement sur ${subscription.metadata?.enseigneId}, contrat sur ${contract.enseigne_id}`,
+      contractId, subscriptionId: subscription.id};
   }
   const ref = db.collection(kEnseigneSubscriptionsCollection).doc(enseigneId);
   const fetchedAtMs = Date.now();

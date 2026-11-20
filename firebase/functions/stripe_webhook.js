@@ -424,8 +424,9 @@ async function chargeOwner(db, charge) {
   // LIVE en 2026-10-28.endive) : sans ce champ, la charge est relue avec la
   // version d'API epinglee du client (2024-06-20), qui l'expose encore.
   // A revoir si kStripeApiVersion est un jour monte en basil ou plus
-  // (passer alors par invoice_payments).
-  const fullCharge = charge && Object.prototype.hasOwnProperty.call(charge, "invoice") ?
+  // (passer alors par invoice_payments). Relue des que invoice est absent,
+  // null ou vide : on ne se fie jamais a l'absence de facture du payload.
+  const fullCharge = charge && idOf(charge.invoice) ?
     charge : await stripe.charges.retrieve(idOf(charge));
   const invoiceId = idOf(fullCharge?.invoice);
   if (!invoiceId) return {merchantUserId: null, subscription: null};
@@ -465,7 +466,17 @@ async function handleChargeDisputeCreated(db, event) {
 // Issues d'un evenement qu'on ne sait pas rattacher : trace et alerte admin
 // au lieu d'etre ignore (decision du 2026-11-20).
 const kUnmatchedOutcomes = new Set([
-  "unmatched_contract_payment",
+  "unmatched_contract_payment", // paiement de contrat sans action sur l'argent
+  "contract_unknown", // abonnement de contrat dont le contrat n'existe pas
+  "ignored_enseigne_mismatch", // abonnement de contrat sur une autre enseigne
+  "ignored_unknown_merchant", // aucun commercant ni contrat (charge, litige, session, abonnement)
+  "ignored_no_subscription", // facture ou session sans abonnement
+  "ignored_not_subscription", // session Checkout hors abonnement
+  "ignored_subscription_not_found", // abonnement introuvable chez Stripe
+  "ignored_customer_shared", // client Stripe partage par plusieurs comptes
+  "ignored_merchant_conflict", // client et metadonnees designent deux comptes
+  "ignored_customer_mismatch", // client different de celui du miroir
+  "ignored_livemode_mismatch", // objet relu dans l'autre mode
 ]);
 
 async function dispatchEvent(db, event) {
@@ -541,6 +552,8 @@ async function stripeWebhookHandler(req, res) {
     // Evenement de l'autre mode (endpoint ou secret mal configure) : trace,
     // jamais applique, jamais rejoue.
     console.error("[STRIPE_WEBHOOK] evenement d'un autre mode ignore", {eventId: event.id, livemode: event.livemode});
+    await contractBilling.recordUnmatchedEvent(db, event, {outcome: "ignored_event_livemode_mismatch"})
+      .catch((err) => console.error("[STRIPE_WEBHOOK] trace non ecrite", err.message));
     await markEvent(db, event.id, "done", {outcome: "ignored_livemode_mismatch"});
     res.status(200).send("Mode ignore.");
     return;

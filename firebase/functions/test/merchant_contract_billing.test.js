@@ -285,6 +285,28 @@ test('remboursement et litige sur un abonnement de contrat : traces, alerte en c
   assert.equal((await db.collection('merchant_referrals').get()).size, 0);
 });
 
+test('evenements d\'abonnement de contrat non rattachables (contrat inconnu, autre enseigne) : trace et alerte, aucun argent', async () => {
+  const {contractId, sessionId} = await openSession();
+  const paid = stripe.complete(sessionId);
+  await dispatchEvent(db, sessionEvent(stripe.store.sessions[sessionId]));
+  const sub = stripe.store.subscriptions[paid.subscriptionId];
+  sub.metadata = {...sub.metadata, enseigneId: 'e2'};
+  const mismatch = await dispatchEvent(db, subscriptionEvent('customer.subscription.updated', sub));
+  assert.equal(mismatch.outcome, 'ignored_enseigne_mismatch');
+  sub.metadata = {...sub.metadata, enseigneId: 'e1', contractId: 'contrat_inexistant'};
+  const unknownEvent = subscriptionEvent('customer.subscription.updated', sub);
+  const unknown = await dispatchEvent(db, unknownEvent);
+  assert.equal(unknown.outcome, 'contract_unknown');
+  const trace = (await db.doc(`stripe_unmatched_events/${unknownEvent.id}`).get()).data();
+  assert.equal(trace.contract_id, 'contrat_inexistant');
+  assert.equal(trace.subscription_id, paid.subscriptionId);
+  const traces = (await db.collection('stripe_unmatched_events').get()).docs.map((d) => d.data().outcome).sort();
+  assert.deepEqual(traces, ['contract_unknown', 'ignored_enseigne_mismatch']);
+  assert.equal((await db.collection('admin_alerts').where('kind', '==', 'stripe_evenement_non_rattache').get()).size, 2);
+  assert.equal(stripe.calls.refundsCreate.length + stripe.calls.subscriptionsCancel.length + stripe.calls.creditNotesCreate.length, 0);
+  assert.equal((await contract(contractId)).state, 'active');
+});
+
 test('session de contrat expiree : rien dans le miroir V1', async () => {
   const {sessionId} = await openSession();
   const session = stripe.store.sessions[sessionId];

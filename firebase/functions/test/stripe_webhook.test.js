@@ -70,7 +70,7 @@ function installFakeStripe({subscriptions = {}, customers = {}, invoices = {}, c
 }
 
 async function clearCollections() {
-  for (const name of ['merchant_subscriptions', 'merchant_referrals', 'stripe_webhook_events']) {
+  for (const name of ['merchant_subscriptions', 'merchant_referrals', 'stripe_webhook_events', 'stripe_unmatched_events', 'admin_alerts']) {
     const snap = await db.collection(name).get();
     await Promise.all(snap.docs.map((d) => d.ref.delete()));
   }
@@ -433,6 +433,76 @@ test('0.12: a charge.refunded payload that still carries invoice (old format) is
   await deliver(fakeEvent('evt_refund_old', 'charge.refunded', {id: 'ch_old', object: 'charge', invoice: 'in_1'}));
   assert.deepEqual(retrieved, []);
   assert.equal((await db.doc('merchant_referrals/merchant1').get()).data().status, 'cancelled');
+});
+
+test('t2a fix: charge.refunded with invoice null or empty re-reads the charge too', async () => {
+  for (const [id, invoice] of [['evt_refund_null', null], ['evt_refund_empty', '']]) {
+    await clearCollections();
+    await db.doc('merchant_referrals/merchant1').set({status: 'eligible'});
+    installFakeStripe({
+      subscriptions: {sub_1: subscription()},
+      invoices: {in_1: {id: 'in_1', subscription: 'sub_1'}},
+      charges: {ch_x: {id: 'ch_x', object: 'charge', invoice: 'in_1'}},
+    });
+    const retrieved = spyChargesRetrieve();
+    await deliver(endiveEvent(id, 'charge.refunded', {id: 'ch_x', object: 'charge', invoice, livemode: false}));
+    assert.deepEqual(retrieved, ['ch_x'], `invoice=${JSON.stringify(invoice)} : charge relue`);
+    assert.equal((await db.doc('merchant_referrals/merchant1').get()).data().status, 'cancelled');
+    assert.equal((await db.collection('stripe_unmatched_events').get()).size, 0);
+  }
+});
+
+const unmatched = async (id) => (await db.doc(`stripe_unmatched_events/${id}`).get()).data();
+const unmatchedAlerts = async () => (await db.collection('admin_alerts').where('kind', '==', 'stripe_evenement_non_rattache').get()).size;
+
+test('t2a fix: an event attached to no merchant nor contract writes a trace and an alert, once', async () => {
+  installFakeStripe({charges: {ch_orphan: {id: 'ch_orphan', object: 'charge', invoice: null}}});
+  const cases = [
+    ['evt_orphan_refund', 'charge.refunded', {id: 'ch_orphan', object: 'charge'}, 'ignored_unknown_merchant'],
+    ['evt_orphan_invoice', 'invoice.paid', {id: 'in_orphan', object: 'invoice'}, 'ignored_no_subscription'],
+    ['evt_orphan_session', 'checkout.session.expired', {id: 'cs_orphan', object: 'checkout.session'}, 'ignored_unknown_merchant'],
+    ['evt_orphan_payment', 'checkout.session.completed', {id: 'cs_pay', object: 'checkout.session', mode: 'payment'}, 'ignored_not_subscription'],
+    ['evt_orphan_sub', 'customer.subscription.updated', {id: 'sub_missing', object: 'subscription'}, 'ignored_subscription_not_found'],
+  ];
+  for (const [id, type, object, outcome] of cases) {
+    const res = await deliver(endiveEvent(id, type, object));
+    assert.equal(res.statusCode, 200, id);
+    const trace = await unmatched(id);
+    assert.equal(trace?.outcome, outcome, id);
+    assert.equal(trace.event_type, type);
+    assert.equal(trace.object_id, object.id);
+    assert.equal(trace.resolved, false);
+  }
+  assert.equal(await unmatchedAlerts(), cases.length);
+  // Redelivery of the same event: already done, no second trace or alert.
+  const again = await deliver(endiveEvent('evt_orphan_refund', 'charge.refunded', {id: 'ch_orphan', object: 'charge'}));
+  assert.equal(again.statusCode, 200);
+  assert.equal((await db.collection('stripe_unmatched_events').get()).size, cases.length);
+  assert.equal(await unmatchedAlerts(), cases.length);
+});
+
+test('t2a fix: V1 association failures (raw payment link, conflict, other Customer) are traced and alerted', async () => {
+  await db.doc('users/merchant1').set({user_role: 'commercant', email: 'merchant1@example.test'});
+  const link = subscription({id: 'sub_link', customer: 'cus_link', metadata: {}});
+  installFakeStripe({subscriptions: {sub_link: link, sub_1: subscription()},
+    customers: {cus_link: {id: 'cus_link', email: 'merchant1@example.test', metadata: {}}}});
+  await deliver(fakeEvent('evt_t_link', 'customer.subscription.created', link));
+  await db.doc('merchant_subscriptions/merchantB').set({stripe_customer_id: 'cus_1'});
+  await deliver(fakeEvent('evt_t_conflict', 'customer.subscription.updated', subscription()));
+  assert.equal((await unmatched('evt_t_link')).outcome, 'ignored_unknown_merchant');
+  assert.equal((await unmatched('evt_t_conflict')).outcome, 'ignored_merchant_conflict');
+  assert.equal(await unmatchedAlerts(), 2);
+  assert.equal(await mirror('merchant1'), undefined, 'toujours aucun droit ouvert');
+});
+
+test('t2a fix: an event of the other mode is traced and alerted, never applied', async () => {
+  installFakeStripe({subscriptions: {sub_1: subscription()}});
+  const res = await deliver({...fakeEvent('evt_live', 'customer.subscription.updated', subscription()), livemode: true});
+  assert.equal(res.statusCode, 200);
+  assert.equal((await unmatched('evt_live')).outcome, 'ignored_event_livemode_mismatch');
+  assert.equal((await unmatched('evt_live')).livemode, true);
+  assert.equal(await unmatchedAlerts(), 1);
+  assert.equal(await mirror(), undefined);
 });
 
 test('0.12: invoice.payment_failed in endive shape (parent.subscription_details, no invoice.subscription) opens the grace', async () => {
