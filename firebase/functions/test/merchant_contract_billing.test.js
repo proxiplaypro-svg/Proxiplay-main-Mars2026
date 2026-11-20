@@ -85,6 +85,9 @@ test('paiement confirme : contrat actif une seule fois, miroir de l\'enseigne, l
   const activation = sent.filter((m) => /abonnement est actif/.test(m.subject));
   assert.equal(activation.length, 1);
   assert.match(activation[0].text, /point de départ de la période annuelle \(CGV, art\. 8\.2\)/);
+  assert.match(activation[0].text, /La facture vous est envoyée par e-mail/);
+  assert.match(activation[0].text, /au moins sept jours avant l'échéance/);
+  assert.doesNotMatch(activation[0].text, /espace commerçant/, 'version minimale : rien dans l\'espace commercant');
   // Le meme paiement annonce par invoice.paid (creation) : rien de plus.
   const again = await dispatchEvent(db, invoiceEvent('invoice.paid', paid.invoiceId, paid.subscriptionId, stripe.store.subscriptions[paid.subscriptionId].metadata));
   assert.equal(again.outcome, 'contract_already_active');
@@ -240,6 +243,9 @@ test('renouvellement : echec -> delai de grace de 15 jours et une seule notifica
   assert.equal(sent.length, 1);
   assert.match(sent[0].text, /délai de régularisation de quinze jours/);
   assert.match(sent[0].text, /aucune pénalité n'est réclamée \(art\. 9\)/);
+  assert.match(sent[0].text, /Pour régulariser : https:\/\/invoice\.stripe\.com\/i\/test_renewal/);
+  assert.match(sent[0].text, /désactivation du renouvellement reste possible pendant ce délai de régularisation \(art\. 11\)/);
+  assert.doesNotMatch(sent[0].text, /espace commerçant/);
   // Nouvelle tentative Stripe en echec : pas de seconde notification immediate.
   await dispatchEvent(db, invoiceEvent('invoice.payment_failed', 'in_renewal', sub.id, sub.metadata));
   assert.equal(sent.length, 1);

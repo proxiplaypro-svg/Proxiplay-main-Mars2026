@@ -257,6 +257,7 @@ function paymentInvitation(contract, contractId, {url, expiresMs}) {
       `Ce lien est personnel et valable jusqu'au ${parisDate(expiresMs)} inclus (quinze jours, CGV art. 8.1). ` +
         "Sans paiement dans ce délai, la souscription non activée peut être close après un rappel, sans rien facturer.",
       "Le service est activé après confirmation du paiement ; la période annuelle commence à cette date (art. 8.2).",
+      "La facture vous est ensuite envoyée par e-mail.",
       "",
       "Le paiement est traité par Stripe ; ProxiPlay ne conserve pas les numéros de carte.",
       "",
@@ -275,10 +276,12 @@ function activationNotice(contract, contractId, {activatedMs, periodEndMs}) {
       "",
       `Nous avons reçu la confirmation de votre paiement. Votre abonnement ${contract.offer?.label || ""} pour l'enseigne ` +
         `${enseigneLabel(contract)} est activé le ${parisDate(activatedMs)} : c'est le point de départ de la période annuelle (CGV, art. 8.2).`,
-      periodEndMs ? `Échéance de cette période : ${parisDate(periodEndMs)}. Le renouvellement est automatique pour douze mois, ` +
-        "désactivable depuis votre espace commerçant jusqu'à la date d'échéance incluse, tant que le prélèvement n'a pas eu lieu (art. 9)." : "",
+      periodEndMs ? `Échéance de cette période : ${parisDate(periodEndMs)}. Le renouvellement est automatique pour douze mois.` : "",
+      `Pour désactiver le renouvellement, écrivez à ${kContactEmail} : votre demande doit nous parvenir au moins sept jours ` +
+        "avant l'échéance. Nous vous confirmons la désactivation par e-mail (art. 9).",
+      `Pour changer de moyen de paiement, écrivez à ${kContactEmail} : nous vous renvoyons un lien sécurisé.`,
       "",
-      `Référence : ${contractId}. La facture est disponible dans votre espace commerçant.`,
+      `Référence : ${contractId}. La facture vous est envoyée par e-mail.`,
       "",
       kSignature,
     ].filter((line) => line !== null).join("\n"),
@@ -315,9 +318,11 @@ function renewalFailedNotice(contract, contractId, {graceUntilMs, invoiceUrl}) {
       `Le prélèvement du renouvellement de votre abonnement pour l'enseigne ${enseigneLabel(contract)} n'a pas abouti.`,
       graceUntilMs ? `Vous disposez d'un délai de régularisation de quinze jours, jusqu'au ${parisDate(graceUntilMs)} inclus, ` +
         "pendant lequel vos accès sont maintenus (CGV, art. 11)." : "Vous disposez d'un délai de régularisation de quinze jours (CGV, art. 11).",
-      invoiceUrl ? `Pour régulariser : ${invoiceUrl}` : "Pour régulariser, mettez à jour votre moyen de paiement depuis votre espace commerçant.",
+      invoiceUrl ? `Pour régulariser : ${invoiceUrl}` : `Pour régulariser, écrivez à ${kContactEmail} : nous vous renvoyons un lien sécurisé.`,
+      `Pour changer de moyen de paiement, écrivez à ${kContactEmail} : nous vous renvoyons un lien sécurisé.`,
       "",
-      "Si vous ne souhaitez pas renouveler, vous pouvez désactiver le renouvellement pendant ce délai : l'abonnement prend fin, " +
+      "Si vous ne souhaitez pas renouveler, la désactivation du renouvellement reste possible pendant ce délai de régularisation " +
+        `(art. 11) : écrivez à ${kContactEmail}, nous vous la confirmons par e-mail. L'abonnement prend fin, ` +
         "la facture du renouvellement est annulée et aucune pénalité n'est réclamée (art. 9).",
       "",
       `Référence : ${contractId}.`,

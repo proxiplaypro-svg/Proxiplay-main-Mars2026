@@ -70,12 +70,14 @@ canonique) et le digest sont, eux, à livrer.
 3. **CGV adaptées au suivi manuel** : le texte V2.1 promet des actions que le
    code ne fait plus automatiquement (rappels, clôture, désactivation en
    ligne, remboursements, relances de grâce, suspension). À adapter avant la
-   publication, avec les e-mails déployés qui font les mêmes promesses :
-   `activationNotice` (« désactivable depuis votre espace commerçant », « La
-   facture est disponible dans votre espace commerçant »),
-   `renewalFailedNotice` (désactivation pendant le délai, moyen de paiement
-   depuis l'espace), `paymentInvitation` (« peut être close après un
-   rappel »).
+   publication. Les e-mails `activationNotice`, `renewalFailedNotice` et
+   `paymentInvitation` sont alignés sur le suivi manuel (facture par e-mail ;
+   désactivation et changement de moyen de paiement par demande à
+   contact@proxiplay.fr, au moins 7 jours avant l'échéance pour la
+   désactivation). **Aucun code n'envoie la facture** : activer l'envoi des
+   factures par Stripe, ou l'envoyer à la main. La phrase de l'invitation
+   « peut être close après un rappel » est inchangée, à confronter au texte
+   final des CGV.
 4. **PDF daté des CGV** : publié le jour effectif de la mise en production,
    archivé, déposé dans Cloud Storage (bucket par défaut) au chemin
    `cgv.storage_path`, avec `version`, `sha256` et `url` dans
