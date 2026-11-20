@@ -19,6 +19,13 @@ payer, ni rétractation.
    compteur Accompagnée 1.15-min. D'ici là, l'invitation d'un contrat démarché
    après son délai de rétractation part seulement par l'admin (bouton de la
    console), et aucune souscription non payée n'est close automatiquement.
+   **Contrainte du lot 1.9 (décision du 20 novembre 2026)** : la clôture à
+   15 jours (`payment_invited` → `closed_unpaid`) n'a lieu qu'après
+   l'expiration de la dernière session Checkout ouverte du contrat (relue
+   chez Stripe : `status` ≠ `open`, ou `expires_at` dépassé), jamais à la
+   seule fin du lien. Une session peut durer jusqu'à 31 minutes après la fin
+   du lien (marge acceptée) ; un paiement fait dans cette marge doit activer
+   le contrat et non être remboursé.
 2. **Essais Stripe réels (mode TEST) restant à lancer** par le propriétaire,
    avec les scripts fournis : course entre finalisation et prélèvement (void
    impossible sur une facture payée → remboursement), facture ouverte après un
@@ -86,3 +93,17 @@ payer, ni rétractation.
   métropolitaine, lundi de Pentecôte compris.
 - Remise de première année plafonnée pour laisser au moins 1 € HT.
 - Adresse des alertes : configurable dans `app_config/merchant_contracts`.
+
+## Décisions prises (20 novembre 2026)
+
+- Session Checkout : jusqu'à 31 minutes après la fin du lien (minimum
+  Stripe de 30 minutes plus une minute de marge).
+- Remboursement automatique d'un paiement initial par le webhook seulement si
+  le contrat existe et est `closed_unpaid`, `withdrawn`, `refused`, `ended`,
+  `withdrawal_pending`, ou actif avec un autre abonnement. Contrat inconnu,
+  enseigne différente, `submitted` ou `confirmed` : aucune action sur
+  l'argent, trace (`stripe_unmatched_events`) et alerte ; décision manuelle.
+- Tout événement Stripe non rattaché à un contrat ou à un abonnement suivi
+  est tracé et alerté au lieu d'être ignoré.
+- Clôture à 15 jours (lot 1.9) après l'expiration de la dernière session
+  Checkout ouverte.
