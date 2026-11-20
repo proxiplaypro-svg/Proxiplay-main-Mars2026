@@ -74,8 +74,12 @@ canonique) et le digest sont, eux, à livrer.
    `paymentInvitation` sont alignés sur le suivi manuel (facture par e-mail ;
    désactivation et changement de moyen de paiement par demande à
    contact@proxiplay.fr, au moins 7 jours avant l'échéance pour la
-   désactivation). **Aucun code n'envoie la facture** : activer l'envoi des
-   factures par Stripe, ou l'envoyer à la main. La phrase de l'invitation
+   désactivation). **Aucun code n'envoie la facture** : l'envoi par e-mail
+   annoncé par les CGV (art. 8.3) et par les e-mails `paymentInvitation` et
+   `activationNotice` repose sur l'activation, dans Stripe LIVE (Dashboard,
+   paramètres des e-mails clients), des e-mails pour les factures payées et
+   les reçus. Action du propriétaire, à faire avant l'ouverture ; à défaut,
+   la facture est à envoyer à la main. La phrase de l'invitation
    « peut être close après un rappel » est inchangée, à confronter au texte
    final des CGV.
 4. **PDF daté des CGV** : publié le jour effectif de la mise en production,
