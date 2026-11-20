@@ -22,7 +22,10 @@ function catalogPrices() {
 function makeContractStripe({prices = catalogPrices(), taxRate = null, upcomingOverride = null} = {}) {
   const rate = taxRate || {id: 'txr_test_fixture', active: true, inclusive: false, percentage: 20, livemode: false};
   const calls = {customersCreate: [], couponsCreate: [], sessionsCreate: [], sessionsExpire: [], upcoming: [],
-    refundsCreate: [], creditNotesCreate: [], subscriptionsCancel: [], invoicesVoid: []};
+    refundsCreate: [], creditNotesCreate: [], subscriptionsCancel: [], invoicesVoid: [],
+    invoicesUpdate: [], invoicesFinalize: [], subscriptionsUpdate: []};
+  // Lot 1.12 : crochets de course (ex. prelevement entre la finalisation et le void).
+  const hooks = {afterFinalize: null, beforeVoid: null};
   const store = {customers: {}, coupons: {}, sessions: {}, subscriptions: {}, invoices: {}, charges: {}, idem: {}};
   let n = 0;
   const id = (prefix) => `${prefix}_test_${++n}`;
@@ -70,11 +73,28 @@ function makeContractStripe({prices = catalogPrices(), taxRate = null, upcomingO
       },
       retrieve: async (invoiceId) => store.invoices[invoiceId] || null,
       list: async ({subscription}) => ({data: Object.values(store.invoices).filter((i) => i.subscription === subscription)}),
-      voidInvoice: async (invoiceId) => {
+      voidInvoice: async (invoiceId, params, options) => {
         calls.invoicesVoid.push(invoiceId);
         const invoice = store.invoices[invoiceId];
-        if (invoice.status === 'paid') throw err('invoice_not_open', 'This invoice is already paid');
+        if (hooks.beforeVoid) hooks.beforeVoid(invoice);
+        // Comme Stripe (essai du 2026-11-20) : refus d'une facture payee avec un code VIDE.
+        if (invoice.status === 'paid') throw err(null, 'Invoices with `paid` payments cannot be voided.');
+        if (invoice.status !== 'open') throw err('invoice_not_open', 'not open');
         invoice.status = 'void';
+        return invoice;
+      },
+      update: async (invoiceId, params, options) => {
+        calls.invoicesUpdate.push({invoiceId, params, options});
+        Object.assign(store.invoices[invoiceId], params);
+        return store.invoices[invoiceId];
+      },
+      finalizeInvoice: async (invoiceId, params, options) => {
+        calls.invoicesFinalize.push({invoiceId, params, options});
+        const invoice = store.invoices[invoiceId];
+        if (invoice.status !== 'draft') throw err('invoice_not_draft', 'not draft');
+        invoice.status = 'open';
+        if (params?.auto_advance === false) invoice.auto_advance = false;
+        if (hooks.afterFinalize) hooks.afterFinalize(invoice);
         return invoice;
       },
     },
@@ -100,6 +120,11 @@ function makeContractStripe({prices = catalogPrices(), taxRate = null, upcomingO
     }},
     subscriptions: {
       retrieve: async (subscriptionId) => store.subscriptions[subscriptionId] || null,
+      update: async (subscriptionId, params, options) => idem(options, () => {
+        calls.subscriptionsUpdate.push({subscriptionId, params, options});
+        Object.assign(store.subscriptions[subscriptionId], params);
+        return store.subscriptions[subscriptionId];
+      }),
       cancel: async (subscriptionId, params, options) => idem(options, () => {
         calls.subscriptionsCancel.push({subscriptionId, params, options});
         const sub = store.subscriptions[subscriptionId];
@@ -139,12 +164,36 @@ function makeContractStripe({prices = catalogPrices(), taxRate = null, upcomingO
       current_period_start: nowSeconds, current_period_end: nowSeconds + 365 * 86400,
     };
     store.invoices[invoiceId] = {id: invoiceId, object: 'invoice', status: 'paid', paid: true, livemode: false,
-      subscription: subscriptionId, billing_reason: 'subscription_create', amount_paid: total, total, subtotal: price.unit_amount,
+      subscription: subscriptionId, billing_reason: 'subscription_create', lines: {data: [{period: {start: nowSeconds, end: nowSeconds + 365 * 86400}}]}, amount_paid: total, total, subtotal: price.unit_amount,
       payment_intent: id('pi'), charge: chargeId, status_transitions: {paid_at: nowSeconds}};
     store.charges[chargeId] = {id: chargeId, invoice: invoiceId, amount: total, livemode: false};
     Object.assign(session, {status: 'complete', payment_status: 'paid', subscription: subscriptionId});
     return {subscriptionId, invoiceId, chargeId, total};
   };
+
+  /**
+   * Renouvellement : la periode avance, une facture subscription_cycle est
+   * creee dans l'etat voulu (draft : dans l'heure ; open : prelevement echoue ;
+   * paid : preleve). Renvoie l'identifiant de la facture.
+   */
+  stripe.renew = (subscriptionId, {status = 'draft', amount = 43800, subscriptionStatus} = {}) => {
+    const sub = store.subscriptions[subscriptionId];
+    const start = sub.current_period_end;
+    const end = start + 365 * 86400;
+    const invoiceId = id('in');
+    store.invoices[invoiceId] = {id: invoiceId, object: 'invoice', status, paid: status === 'paid', livemode: false,
+      subscription: subscriptionId, billing_reason: 'subscription_cycle', amount_paid: status === 'paid' ? amount : 0,
+      amount_due: amount, total: amount, payment_intent: id('pi'), attempt_count: status === 'draft' ? 0 : 1,
+      period_start: sub.current_period_start, period_end: start,
+      lines: {data: [{period: {start, end}}]}, hosted_invoice_url: 'https://invoice.stripe.com/i/test_' + invoiceId,
+      status_transitions: status === 'paid' ? {paid_at: start + 3600} : {}};
+    Object.assign(sub, {current_period_start: start, current_period_end: end, latest_invoice: invoiceId,
+      status: subscriptionStatus || (status === 'open' ? 'past_due' : 'active')});
+    sub.items.data[0].current_period_start = start;
+    sub.items.data[0].current_period_end = end;
+    return invoiceId;
+  };
+  stripe.hooks = hooks;
 
   /** Evenement au format de l'endpoint (2026-10-28.endive) : seuls les identifiants comptent. */
   stripe.event = (type, object, {eventId = id('evt'), created = Math.floor(Date.now() / 1000)} = {}) => ({

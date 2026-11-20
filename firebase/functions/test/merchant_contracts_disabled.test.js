@@ -37,6 +37,8 @@ const kBlockedCalls = [
   ['createContractCheckoutSession (commercant, lot 1.7)', () => require('../merchant_contract_checkout')
     .createContractCheckoutSessionHandler({token: 'x'.repeat(43), successUrl: 'https://www.proxiplay.fr/ok',
       cancelUrl: 'https://www.proxiplay.fr/ko'}, h.merchantContext())],
+  ['disableMerchantRenewal (commercant, lot 1.12)', () => require('../merchant_contract_end')
+    .disableMerchantRenewalHandler({contractId: 'c1'}, h.merchantContext())],
   ['adminConfirmMerchantContract (conclut un contrat)', () => adminConfirmMerchantContractHandler(
     {contractId: 'c1', expectedVersion: 1}, h.adminContext())],
 ];

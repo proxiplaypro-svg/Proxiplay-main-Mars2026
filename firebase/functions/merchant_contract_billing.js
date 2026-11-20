@@ -68,29 +68,74 @@ function periodOf(subscription) {
  * dans app_config/merchant_contracts (credit_notes_enabled, decision du
  * comptable). Idempotent (cles par facture et par abonnement).
  */
+/**
+ * Rembourse une facture payee, integralement ou en partie (amountCents),
+ * par avoir si l'option est activee (credit_notes_enabled), sinon par
+ * remboursement du paiement. Cle d'idempotence fournie par l'appelant.
+ */
+async function refundInvoice(stripe, {invoice, amountCents = null, contractId, reason, creditNotes, keySuffix = ""}) {
+  const amount = amountCents === null ? invoice.amount_paid : amountCents;
+  if (!Number.isInteger(amount) || amount <= 0 || amount > invoice.amount_paid) {
+    throw new Error(`montant de remboursement invalide (${amount} pour ${invoice.amount_paid})`);
+  }
+  const full = amount === invoice.amount_paid;
+  if (creditNotes) {
+    const note = await stripe.creditNotes.create({
+      invoice: invoice.id,
+      amount,
+      refund_amount: amount,
+      reason: "order_change",
+      memo: `${full ? "Remboursement intégral" : "Remboursement partiel"} (${reason})`,
+      metadata: {contractId, reason},
+    }, {idempotencyKey: `credit-note-${invoice.id}${keySuffix}`});
+    return {invoice_id: invoice.id, credit_note_id: note.id, refund_id: idOf(note.refund), amount};
+  }
+  const refund = await stripe.refunds.create({
+    payment_intent: idOf(invoice.payment_intent),
+    ...(full ? {} : {amount}),
+    reason: "requested_by_customer",
+    metadata: {contractId, reason, invoiceId: invoice.id},
+  }, {idempotencyKey: `refund-${invoice.id}${keySuffix}`});
+  return {invoice_id: invoice.id, refund_id: refund.id, amount};
+}
+
+/**
+ * Art. 9, facture de renouvellement non payee : le statut est TOUJOURS relu
+ * chez Stripe avant d'agir, jamais deduit d'un code d'erreur (vide quand la
+ * facture est payee, essai du 2026-11-20). Brouillon : auto_advance=false puis
+ * finalisation sans prelevement ; ouverte : annulation (void). Renvoie le
+ * statut final relu : "void", "paid" (prelevement passe entre-temps : a
+ * rembourser par l'appelant), "uncollectible", ou un autre statut si
+ * l'annulation n'a pas abouti (l'appelant n'annule alors rien).
+ */
+async function settleRenewalInvoice(stripe, invoiceId) {
+  const steps = [];
+  let invoice = await stripe.invoices.retrieve(invoiceId);
+  if (invoice?.status === "draft") {
+    await stripe.invoices.update(invoiceId, {auto_advance: false}, {idempotencyKey: `no-advance-${invoiceId}`});
+    steps.push("auto_advance_false");
+    await stripe.invoices.finalizeInvoice(invoiceId, {auto_advance: false}, {idempotencyKey: `finalize-${invoiceId}`});
+    steps.push("finalized");
+    invoice = await stripe.invoices.retrieve(invoiceId);
+  }
+  if (invoice?.status === "open") {
+    try {
+      await stripe.invoices.voidInvoice(invoiceId, {}, {idempotencyKey: `void-${invoiceId}`});
+      steps.push("voided");
+    } catch (error) {
+      steps.push("void_refused");
+    }
+    invoice = await stripe.invoices.retrieve(invoiceId);
+  }
+  return {status: invoice?.status || null, invoice, steps};
+}
+
 async function refundAndCancel(db, stripe, {contractId, subscriptionId, reason}) {
   const config = await readContractsConfig(db);
   const invoices = (await stripe.invoices.list({subscription: subscriptionId, limit: 20})).data || [];
   const records = [];
   for (const invoice of invoices.filter((inv) => inv.status === "paid" && (inv.amount_paid || 0) > 0)) {
-    if (config.creditNotesEnabled) {
-      const note = await stripe.creditNotes.create({
-        invoice: invoice.id,
-        amount: invoice.amount_paid,
-        refund_amount: invoice.amount_paid,
-        reason: "order_change",
-        memo: `Remboursement intégral (${reason})`,
-        metadata: {contractId, reason},
-      }, {idempotencyKey: `credit-note-${invoice.id}`});
-      records.push({invoice_id: invoice.id, credit_note_id: note.id, refund_id: idOf(note.refund), amount: invoice.amount_paid});
-    } else {
-      const refund = await stripe.refunds.create({
-        payment_intent: idOf(invoice.payment_intent),
-        reason: "requested_by_customer",
-        metadata: {contractId, reason, invoiceId: invoice.id},
-      }, {idempotencyKey: `refund-${invoice.id}`});
-      records.push({invoice_id: invoice.id, refund_id: refund.id, amount: invoice.amount_paid});
-    }
+    records.push(await refundInvoice(stripe, {invoice, contractId, reason, creditNotes: config.creditNotesEnabled}));
   }
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   if (subscription && !["canceled", "incomplete_expired"].includes(subscription.status)) {
@@ -363,6 +408,10 @@ module.exports = {
   kUnmatchedEventsCollection,
   kAutoRefundStates,
   recordUnmatchedEvent,
+  refundInvoice,
+  settleRenewalInvoice,
+  periodOf,
+  idOf,
   refundAndCancel,
   syncContractSubscription,
   onInitialPayment,

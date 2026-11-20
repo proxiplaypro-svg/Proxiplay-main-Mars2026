@@ -11,27 +11,22 @@ payer, ni rétractation.
 1. **Tranche 2 complète et testée**. Sous-tranche 2a faite (branche
    `phase1-t2a`) : invitation à payer et lien de 15 jours (1.6), Checkout au
    clic par enseigne (1.7), webhook des contrats (1.8), rétractation (1.5).
-   Restent (2b) : tâches planifiées 1.9 (fin du délai de rétractation →
-   invitation automatique, rappel J+10, clôture à 15 jours, rappels de
-   renouvellement J-45 et J-15, relances J+5 et J+10 pendant la grâce),
-   fins de contrat 1.12 (bouton « Désactiver le renouvellement », annulation
-   pendant la grâce avec facture annulée, remboursement art. 9), statuts 1.14,
-   compteur Accompagnée 1.15-min. D'ici là, l'invitation d'un contrat démarché
-   après son délai de rétractation part seulement par l'admin (bouton de la
-   console), et aucune souscription non payée n'est close automatiquement.
+   Sous-tranche 2b-1 faite (branche `phase1-t2b`) : tâches planifiées 1.9
+   (`merchantContractSchedule`, 2e génération, toutes les heures, Europe/Paris)
+   et fins de contrat 1.12 (`disableMerchantRenewal`, `adminRefundRenewal`,
+   `adminEndContract`). Restent (2b-2) : statuts 1.14, compteur Accompagnée
+   1.15-min.
    **Contrainte du lot 1.9 (décision du 20 novembre 2026)** : la clôture à
    15 jours (`payment_invited` → `closed_unpaid`) n'a lieu qu'après
    l'expiration de la dernière session Checkout ouverte du contrat (relue
-   chez Stripe : `status` ≠ `open`, ou `expires_at` dépassé), jamais à la
-   seule fin du lien. Une session peut durer jusqu'à 31 minutes après la fin
+   chez Stripe : `status` = `expired` ; une session `open` ou `complete`
+   fait attendre), jamais à la seule fin du lien. Fait dans le lot 1.9. Une session peut durer jusqu'à 31 minutes après la fin
    du lien (marge acceptée) ; un paiement fait dans cette marge doit activer
    le contrat et non être remboursé.
-2. **Essais Stripe réels (mode TEST) restant à lancer** par le propriétaire,
-   avec les scripts fournis : course entre finalisation et prélèvement (void
-   impossible sur une facture payée → remboursement), facture ouverte après un
-   échec de prélèvement (void et annulation), remboursement et avoir
-   (paramètres `creditNotes.create` à confirmer). Aucun de ces chemins n'a
-   tourné contre Stripe ; ils sont testés avec un double du SDK.
+2. **Essais Stripe réels (mode TEST)** : ceux de la sous-tranche 2a ont été
+   lancés par le propriétaire le 20 novembre 2026 et sont conformes (course,
+   facture ouverte, avoir, session Checkout). Restent ceux du lot 1.12 (point
+   14) et les événements réels du webhook au format 2026-10-28.endive.
 3. **PDF daté des CGV V2.1** : publié le jour effectif de la mise en
    production, archivé, déposé dans Cloud Storage (bucket par défaut) au
    chemin `cgv.storage_path`, avec `version`, `sha256` et `url` dans
@@ -86,6 +81,23 @@ payer, ni rétractation.
     de session, remboursement) : à vérifier au déploiement.
 13. **E-mail Stripe d'authentification bancaire** : à activer dans le Dashboard
     (décision 8) ; ProxiPlay n'envoie rien pour ce cas.
+14. **Essais Stripe du lot 1.12** (script `essais-2b.cjs`, à lancer par le
+    propriétaire) : désactivation dans l'heure, course avec un prélèvement,
+    void pendant la grâce, remboursements partiels (avoir et direct),
+    résiliation pour impayé (facture ouverte sans nouvelle tentative après
+    annulation : non vérifié), `cancel_at_period_end` à l'échéance.
+15. **Portail client Stripe** : annulation d'abonnement à désactiver dans le
+    Dashboard (décision 7). Une annulation par le portail ne passerait pas par
+    la procédure de l'art. 9 ; le webhook terminerait seulement le contrat
+    (motif `stripe_canceled`).
+16. **Tâche planifiée de 2e génération** : le déploiement exige les API Cloud
+    Scheduler et Cloud Run du projet, et le secret `STRIPE_SECRET_KEY` pour la
+    lecture des sessions avant clôture. À vérifier au déploiement.
+17. **Interrupteur coupé après l'ouverture** : les tâches planifiées et le
+    bouton « Désactiver le renouvellement » deviennent inertes. Des rappels
+    J-45 seraient alors manqués (remboursement art. 9 ouvert) et le
+    commerçant ne pourrait plus désactiver en ligne. Ne pas couper
+    l'interrupteur tant qu'un contrat est actif, ou traiter ces cas à la main.
 
 ## Décisions prises (19 novembre 2026)
 

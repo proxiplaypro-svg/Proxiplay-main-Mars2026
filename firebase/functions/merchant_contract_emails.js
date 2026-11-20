@@ -447,6 +447,100 @@ function graceEndedNotice(contract, contractId, {graceUntilMs, invoiceUrl}) {
   };
 }
 
+// --- Lot 1.12 : fins de contrat ------------------------------------------------
+
+/** Art. 9 : confirmation de la desactivation, fin a l'echeance. */
+function renewalDisabledNotice(contract, contractId, {periodEndMs}) {
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : renouvellement désactivé (${enseigneLabel(contract)})`,
+    text: [
+      "Bonjour,",
+      "",
+      `Nous confirmons la désactivation du renouvellement automatique de votre abonnement pour l'enseigne ${enseigneLabel(contract)} ` +
+        "(CGV art. 9).",
+      `Votre abonnement n'est pas renouvelé : il prend fin le ${parisDate(periodEndMs)}. Vos prestations restent accessibles ` +
+        "jusqu'à cette date, fin de la période déjà payée. Aucun renouvellement ne sera facturé.",
+      "La période en cours n'est pas remboursée (art. 10).",
+      "",
+      `Référence : ${contractId}.`,
+      "",
+      kSignature,
+    ].join("\n"),
+  };
+}
+
+/** Art. 9 : desactivation a l'echeance (avant prelevement) ou pendant le delai de regularisation. */
+function renewalStoppedNotice(contract, contractId, {duringGrace, refundedCents}) {
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : renouvellement désactivé, abonnement terminé (${enseigneLabel(contract)})`,
+    text: [
+      "Bonjour,",
+      "",
+      `Nous confirmons la désactivation du renouvellement de votre abonnement pour l'enseigne ${enseigneLabel(contract)} (CGV art. 9).`,
+      duringGrace ?
+        "Le prélèvement du renouvellement avait échoué : l'abonnement prend fin, la facture du renouvellement est annulée et aucune pénalité n'est réclamée." :
+        "Votre période annuelle était arrivée à échéance : l'abonnement prend fin et la facture du renouvellement est annulée.",
+      refundedCents > 0 ? `Le prélèvement du renouvellement, intervenu au moment de votre demande, vous est remboursé intégralement ` +
+        `(${euros(refundedCents)}) ; le délai de crédit dépend de votre banque.` : "Aucune somme n'est prélevée pour le renouvellement.",
+      "",
+      `Référence : ${contractId}.`,
+      "",
+      kSignature,
+    ].join("\n"),
+  };
+}
+
+/** Art. 9 : rappel des 45 jours non envoye, renouvellement annule et rembourse. */
+function renewalRefundNotice(contract, contractId, {refundedCents}) {
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : renouvellement annulé et remboursé (${enseigneLabel(contract)})`,
+    text: [
+      "Bonjour,",
+      "",
+      `Comme vous l'avez demandé, le renouvellement de votre abonnement pour l'enseigne ${enseigneLabel(contract)} est annulé ` +
+        `et la somme prélevée (${euros(refundedCents)}) vous est remboursée intégralement : le rappel prévu quarante-cinq jours ` +
+        "avant l'échéance ne vous avait pas été envoyé (CGV art. 9). L'abonnement prend fin aujourd'hui.",
+      "Le délai de crédit dépend de votre banque.",
+      "",
+      `Référence : ${contractId}.`,
+      "",
+      kSignature,
+    ].join("\n"),
+  };
+}
+
+const kEndReasonTexts = Object.freeze({
+  provider_breach: "à la suite d'un manquement de ProxiPlay (CGV art. 10)",
+  unpaid_termination: "pour défaut de paiement, après mise en demeure restée sans effet (CGV art. 11)",
+  breach: "pour manquement à vos obligations (CGV art. 18)",
+  force_majeure: "pour un cas de force majeure ayant duré plus de soixante jours (CGV art. 23)",
+});
+
+/** Fins de contrat decidees par l'admin (art. 10, 11, 18, 23). */
+function contractEndNotice(contract, contractId, {reason, refundedCents, endedMs}) {
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : fin de votre abonnement (${enseigneLabel(contract)})`,
+    text: [
+      "Bonjour,",
+      "",
+      `Votre abonnement pour l'enseigne ${enseigneLabel(contract)} prend fin le ${parisDate(endedMs)}, ${kEndReasonTexts[reason]}.`,
+      refundedCents > 0 ? `Un remboursement de ${euros(refundedCents)} vous est versé` +
+        (reason === "force_majeure" ? " au prorata de la période non exécutée (art. 23)." : ".") :
+        "Aucun remboursement n'est dû au titre de la période en cours.",
+      reason === "unpaid_termination" ? "Les sommes restant dues demeurent exigibles (art. 11)." : "",
+      "Les droits des joueurs ayant déjà obtenu des gains sont préservés.",
+      "",
+      `Référence : ${contractId}. Pour toute question : ${kContactEmail}.`,
+      "",
+      kSignature,
+    ].filter((line, i, all) => line !== "" || all[i - 1] !== "").join("\n"),
+  };
+}
+
 const kChannelLabels = {online: "fonction « Me rétracter » de votre espace commerçant", email: "e-mail", courrier: "courrier"};
 
 /** Accuse de reception de la retractation (art. 7.3), sur support durable. */
@@ -488,6 +582,10 @@ module.exports = {
   renewalReminder,
   graceReminder,
   graceEndedNotice,
+  renewalDisabledNotice,
+  renewalStoppedNotice,
+  renewalRefundNotice,
+  contractEndNotice,
   withdrawalAcknowledgement,
   adminWithdrawalNotice,
   activationNotice,

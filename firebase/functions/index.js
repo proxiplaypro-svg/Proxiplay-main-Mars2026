@@ -58,6 +58,10 @@ exports.withdrawMerchantContract = require('./merchant_contract_withdrawal').wit
 exports.adminRecordWithdrawal = require('./merchant_contract_withdrawal').adminRecordWithdrawal;
 // Tranche 2b, lot 1.9 : taches planifiees (2e generation, heure de Paris).
 exports.merchantContractSchedule = require('./merchant_contract_schedule').merchantContractSchedule;
+// Tranche 2b, lot 1.12 : fins de contrat (art. 9, 10, 11, 18, 23).
+exports.disableMerchantRenewal = require('./merchant_contract_end').disableMerchantRenewal;
+exports.adminRefundRenewal = require('./merchant_contract_end').adminRefundRenewal;
+exports.adminEndContract = require('./merchant_contract_end').adminEndContract;
 exports.adminSetMerchantManualAccess =
   require('./merchant_referral_engine').adminSetMerchantManualAccess;
 exports.generateMerchantReferralCode =
