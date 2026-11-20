@@ -62,7 +62,10 @@ async function revokeOpenTokens(tx, db, contractId, nowTs) {
  * Cree un jeton, envoie l'invitation, puis fixe les dates a l'heure d'envoi.
  * Le contrat doit etre a payment_invited. Renvoie {sent, queued}.
  */
-async function issuePaymentInvitation(db, contractId, {actor = "system", keepExpiry = false} = {}) {
+async function issuePaymentInvitation(db, contractId, {actor = "system", keepExpiry = false, reminder = false} = {}) {
+  // Rappel (lot 1.9) : nouveau lien, meme expiration, gabarit de rappel, cle propre.
+  const key = reminder ? "payment_reminder" : "payment_invitation";
+  if (reminder) keepExpiry = true;
   const token = crypto.randomBytes(32).toString("base64url");
   const tokenRef = db.collection(kPaymentTokensCollection).doc(hashToken(token));
   const contractRef = db.collection(kContractsCollection).doc(contractId);
@@ -92,7 +95,7 @@ async function issuePaymentInvitation(db, contractId, {actor = "system", keepExp
   });
 
   const keptExpiryMs = keepExpiry ? millisOf(prepared.payment_link_expires_at) : null;
-  const message = emails.paymentInvitation(prepared, contractId, {
+  const message = (reminder ? emails.paymentReminder : emails.paymentInvitation)(prepared, contractId, {
     url: paymentLinkUrl(token),
     // Date affichee : celle qui sera enregistree si l'envoi reussit maintenant.
     expiresMs: keptExpiryMs || paymentLinkExpiry(Date.now()),
@@ -103,8 +106,11 @@ async function issuePaymentInvitation(db, contractId, {actor = "system", keepExp
   } catch (error) {
     // Jamais remis : le jeton est revoque, l'invitation part en file de reprise.
     await tokenRef.update({revoked_at: admin.firestore.FieldValue.serverTimestamp(), send_failed: true});
-    await mail.recordFailed(db, contractId, "payment_invitation", error);
-    await mail.enqueueRetry(db, {kind: "payment_invitation", contractId, key: "payment_invitation", error});
+    await mail.recordFailed(db, contractId, key, error);
+    if (reminder) {
+      await internalRef(db, contractId).set({payment_invitation: {reminder_queued_at: admin.firestore.FieldValue.serverTimestamp()}}, {merge: true});
+    }
+    await mail.enqueueRetry(db, {kind: "payment_invitation", contractId, key, error});
     return {sent: false, queued: true};
   }
 
@@ -127,11 +133,12 @@ async function issuePaymentInvitation(db, contractId, {actor = "system", keepExp
     tx.set(internalRef(db, contractId), {payment_invitation: {
       last_sent_at: admin.firestore.Timestamp.fromMillis(sentMs),
       sends: admin.firestore.FieldValue.increment(1),
+      ...(reminder ? {reminder_sent_at: admin.firestore.Timestamp.fromMillis(sentMs)} : {}),
     }}, {merge: true});
-    tx.set(eventRef(db, contractId), {type: "payment_invitation_sent", at: admin.firestore.FieldValue.serverTimestamp(),
+    tx.set(eventRef(db, contractId), {type: reminder ? "payment_reminder_sent" : "payment_invitation_sent", at: admin.firestore.FieldValue.serverTimestamp(),
       actor, expires_at: admin.firestore.Timestamp.fromMillis(expiresMs)});
   });
-  await mail.recordSent(db, contractId, "payment_invitation", result);
+  await mail.recordSent(db, contractId, key, result);
   return {sent: true, queued: false, expiresMs};
 }
 
@@ -139,8 +146,11 @@ async function issuePaymentInvitation(db, contractId, {actor = "system", keepExp
 mail.registerRetryHandler("payment_invitation", async (db, item) => {
   const snap = await db.collection(kContractsCollection).doc(item.contract_id).get();
   if (!snap.exists || snap.data().state !== kStates.PAYMENT_INVITED) return; // plus due : rien a envoyer
+  const reminder = item.key === "payment_reminder";
+  // Rappel apres l'expiration du lien : sans objet (la cloture le signale a l'admin).
+  if (reminder && (millisOf(snap.data().payment_link_expires_at) || 0) < Date.now()) return;
   const outcome = await issuePaymentInvitation(db, item.contract_id, {
-    actor: "outbox", keepExpiry: !!snap.data().payment_link_expires_at,
+    actor: "outbox", keepExpiry: !!snap.data().payment_link_expires_at, reminder,
   });
   if (!outcome.sent) throw new Error("invitation toujours non envoyee");
 });

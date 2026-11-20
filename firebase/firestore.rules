@@ -965,6 +965,17 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if false;
     }
+    // Tranche 2b, lot 1.9 : rappels de renouvellement (J-45 art. 9, J-15,
+    // marqueur missed) et alertes des taches planifiees : lecture admin,
+    // ecriture serveur seule.
+    match /renewal_reminders/{reminderId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /schedule_alerts/{alertId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
 
     // Tranche 2a, lot 1.7 : miroir de l'abonnement Stripe d'une enseigne
     // (client Stripe propre a l'enseigne). Lecture : admin et titulaire

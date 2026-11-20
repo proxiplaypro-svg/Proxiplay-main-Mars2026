@@ -145,6 +145,22 @@ test('jetons de paiement : illisibles pour tous, admin compris ; file de reprise
   }
 });
 
+test('lot 1.9 : rappels de renouvellement et alertes planifiees : admin seul en lecture, aucune ecriture client', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await ctx.firestore().doc('renewal_reminders/sub_1_1').set({contract_id: 'c1', j45: {missed: false}});
+    await ctx.firestore().doc('schedule_alerts/cloture_c1_20270101').set({task: 'cloture'});
+  });
+  for (const path of ['renewal_reminders/sub_1_1', 'schedule_alerts/cloture_c1_20270101']) {
+    for (const db of [merchant(), other(), adminClient(), env.unauthenticatedContext().firestore()]) {
+      await assertFails(db.doc(path).set({x: 1}));
+      await assertFails(db.doc(path).update({x: 1}));
+    }
+    await assertFails(merchant().doc(path).get());
+    await assertFails(env.unauthenticatedContext().firestore().doc(path).get());
+    await assertSucceeds(adminClient().doc(path).get());
+  }
+});
+
 test('evenements Stripe non rattaches : admin seul en lecture, aucune ecriture client', async () => {
   await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc('stripe_unmatched_events/evt_1').set({event_type: 'invoice.paid'}));
   for (const db of [merchant(), other(), adminClient(), env.unauthenticatedContext().firestore()]) {

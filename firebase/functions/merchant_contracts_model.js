@@ -255,6 +255,7 @@ function merchantView(id, data = {}) {
     activatedAt: millisOf(data.activated_at),
     endedAt: millisOf(data.ended_at),
     endReason: data.end_reason || null,
+    closedAt: millisOf(data.closed_at), // lot 1.9
   };
 }
 

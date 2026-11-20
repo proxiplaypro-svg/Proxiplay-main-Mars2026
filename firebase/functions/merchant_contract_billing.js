@@ -159,6 +159,8 @@ async function syncContractSubscription(db, subscription, eventId) {
       canceled_at: tsFromSeconds(subscription.canceled_at),
       ended_at: tsFromSeconds(subscription.ended_at),
       ...graceFor(subscription, current, fetchedAtMs),
+      // Regularisation : la suspension notifiee en fin de grace (lot 1.9) est levee.
+      ...(kGraceStatuses.includes(subscription.status) ? {} : {suspended_at: null}),
       stripe_livemode: subscription.livemode === true,
       stripe_fetched_at_ms: fetchedAtMs,
       last_stripe_event_id: eventId,

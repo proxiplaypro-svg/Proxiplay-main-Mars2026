@@ -56,6 +56,8 @@ exports.createContractCheckoutSession = require('./merchant_contract_checkout').
 // Tranche 2a, lot 1.5 : retractation (art. 7).
 exports.withdrawMerchantContract = require('./merchant_contract_withdrawal').withdrawMerchantContract;
 exports.adminRecordWithdrawal = require('./merchant_contract_withdrawal').adminRecordWithdrawal;
+// Tranche 2b, lot 1.9 : taches planifiees (2e generation, heure de Paris).
+exports.merchantContractSchedule = require('./merchant_contract_schedule').merchantContractSchedule;
 exports.adminSetMerchantManualAccess =
   require('./merchant_referral_engine').adminSetMerchantManualAccess;
 exports.generateMerchantReferralCode =

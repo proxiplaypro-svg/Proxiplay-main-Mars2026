@@ -40,6 +40,8 @@ async function getMyMerchantContractsHandler(data, context) {
         cancelAtPeriodEnd: mirror.cancel_at_period_end === true,
         graceUntil: millisOf(mirror.grace_until),
         unpaidInvoiceUrl: mirror.unpaid_invoice_url || null,
+        // Lot 1.9 : fin du delai de regularisation sans paiement (suspension notifiee, art. 11).
+        suspendedAt: millisOf(mirror.suspended_at),
       } : null};
     })
     .sort((a, b) => (b.submittedAt || 0) - (a.submittedAt || 0));

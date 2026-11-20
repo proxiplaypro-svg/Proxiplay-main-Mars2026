@@ -327,6 +327,126 @@ function renewalFailedNotice(contract, contractId, {graceUntilMs, invoiceUrl}) {
   };
 }
 
+// --- Lot 1.9 : taches planifiees ---------------------------------------------
+
+/** Rappel de paiement (art. 8.1 : la cloture n'intervient qu'apres un rappel). */
+function paymentReminder(contract, contractId, {url, expiresMs}) {
+  const offer = contract.offer || {};
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : rappel, votre abonnement n'est pas encore réglé (${enseigneLabel(contract)})`,
+    text: [
+      "Bonjour,",
+      "",
+      `Votre souscription pour l'enseigne ${enseigneLabel(contract)} attend toujours le règlement de la première année ` +
+        `(${euros(offer.first_year_ttc_cents)} TTC, soit ${euros(offer.first_year_ht_cents)} HT).`,
+      "Vous pouvez la régler sur la page sécurisée suivante, après connexion à votre espace commerçant :",
+      "",
+      url,
+      "",
+      `Ce lien remplace le précédent et reste valable jusqu'au ${parisDate(expiresMs)} inclus (CGV art. 8.1). ` +
+        "Sans paiement à cette date, la souscription non activée sera close, sans rien facturer.",
+      "",
+      `Référence : ${contractId}.`,
+      "",
+      kSignature,
+    ].join("\n"),
+  };
+}
+
+/** Cloture sans paiement (art. 8.1) : rien n'est facture. */
+function closureNotice(contract, contractId, {expiresMs}) {
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : souscription close sans paiement (${enseigneLabel(contract)})`,
+    text: [
+      "Bonjour,",
+      "",
+      `Le lien de paiement de votre souscription pour l'enseigne ${enseigneLabel(contract)} a expiré le ${parisDate(expiresMs)} ` +
+        "sans règlement, malgré notre rappel. La souscription non activée est close : rien n'est facturé (CGV art. 8.1).",
+      "Un paiement reçu après cette clôture ne la réactiverait pas et serait remboursé. Pour souscrire à nouveau, " +
+        "faites une nouvelle demande depuis votre espace commerçant.",
+      "",
+      `Référence : ${contractId}.`,
+      "",
+      kSignature,
+    ].join("\n"),
+  };
+}
+
+/**
+ * Rappel avant l'echeance. 45 jours : rappel de l'art. 9 (date, montant TTC,
+ * procedure de desactivation). 15 jours : second rappel, de courtoisie.
+ */
+function renewalReminder(contract, contractId, {renewalMs, amountTtcCents, amountHtCents, days}) {
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : renouvellement de votre abonnement le ${parisDate(renewalMs)} (${enseigneLabel(contract)})`,
+    text: [
+      "Bonjour,",
+      "",
+      `Votre abonnement ${contract.offer?.label || ""} pour l'enseigne ${enseigneLabel(contract)} sera renouvelé automatiquement ` +
+        `pour douze mois le ${parisDate(renewalMs)}.`,
+      `Montant prévu : ${euros(amountTtcCents)} TTC (${euros(amountHtCents)} HT), prélevé au moyen du paiement enregistré.`,
+      "",
+      "Si vous ne souhaitez pas renouveler : connectez-vous à votre espace commerçant (https://www.proxiplay.fr/espace-commercant/) " +
+        "et utilisez le bouton « Désactiver le renouvellement » de cette enseigne. C'est possible jusqu'à la date d'échéance incluse, " +
+        "tant que le prélèvement du renouvellement n'a pas eu lieu. Vos prestations restent accessibles jusqu'à la fin de la période payée.",
+      days === 45 ? "Ce rappel vous est adressé au moins quarante-cinq jours avant l'échéance (CGV art. 9)." : "",
+      "",
+      `Référence : ${contractId}.`,
+      "",
+      kSignature,
+    ].filter((line, i, all) => line !== "" || all[i - 1] !== "").join("\n"),
+  };
+}
+
+/** Relance amiable pendant le delai de regularisation (art. 11). */
+function graceReminder(contract, contractId, {day, graceUntilMs, invoiceUrl}) {
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : relance, renouvellement impayé (${enseigneLabel(contract)})`,
+    text: [
+      "Bonjour,",
+      "",
+      `Le prélèvement du renouvellement de votre abonnement pour l'enseigne ${enseigneLabel(contract)} n'a toujours pas abouti` +
+        (day > 0 ? ` (relance à ${day} jours).` : "."),
+      graceUntilMs ? `Votre délai de régularisation court jusqu'au ${parisDate(graceUntilMs)} inclus ; vos accès sont maintenus ` +
+        "jusque-là (CGV art. 11)." : "Vous disposez d'un délai de régularisation de quinze jours (CGV art. 11).",
+      invoiceUrl ? `Pour régulariser : ${invoiceUrl}` : "Pour régulariser, mettez à jour votre moyen de paiement depuis votre espace commerçant.",
+      "En cas de régularisation dans ce délai, aucune pénalité n'est réclamée (art. 8.5).",
+      "",
+      "Si vous ne souhaitez pas renouveler, vous pouvez désactiver le renouvellement pendant ce délai : l'abonnement prend fin, " +
+        "la facture du renouvellement est annulée et aucune pénalité n'est réclamée (art. 9).",
+      "",
+      `Référence : ${contractId}.`,
+      "",
+      kSignature,
+    ].join("\n"),
+  };
+}
+
+/** Fin du delai de regularisation sans paiement (art. 11 : suspension possible, notifiee). */
+function graceEndedNotice(contract, contractId, {graceUntilMs, invoiceUrl}) {
+  return {
+    to: contract.owner_email,
+    subject: `ProxiPlay : délai de régularisation expiré (${enseigneLabel(contract)})`,
+    text: [
+      "Bonjour,",
+      "",
+      `Le délai de régularisation du renouvellement de votre abonnement pour l'enseigne ${enseigneLabel(contract)} a expiré ` +
+        `le ${parisDate(graceUntilMs)} sans paiement.`,
+      "Conformément à l'article 11 des CGV, ProxiPlay peut désormais suspendre la création de nouvelles opérations et, " +
+        "si nécessaire, l'accès aux fonctionnalités payantes. Les droits des joueurs ayant déjà obtenu des gains sont préservés.",
+      invoiceUrl ? `Pour régulariser : ${invoiceUrl}` : "Pour régulariser, mettez à jour votre moyen de paiement depuis votre espace commerçant.",
+      "",
+      `Référence : ${contractId}.`,
+      "",
+      kSignature,
+    ].join("\n"),
+  };
+}
+
 const kChannelLabels = {online: "fonction « Me rétracter » de votre espace commerçant", email: "e-mail", courrier: "courrier"};
 
 /** Accuse de reception de la retractation (art. 7.3), sur support durable. */
@@ -363,6 +483,11 @@ function adminWithdrawalNotice(contract, contractId, {channel, sentMs, refunds})
 }
 
 module.exports = {
+  paymentReminder,
+  closureNotice,
+  renewalReminder,
+  graceReminder,
+  graceEndedNotice,
   withdrawalAcknowledgement,
   adminWithdrawalNotice,
   activationNotice,

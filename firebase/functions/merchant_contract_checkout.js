@@ -153,6 +153,12 @@ async function assertFirstYearMatches(db, stripe, {customerId, priceId, tax, cou
 async function acquireLock(db, contractId, nowMs) {
   const ref = internalRef(db, contractId);
   return db.runTransaction(async (tx) => {
+    // Relu dans la transaction : la cloture du lot 1.9 (meme verrou) ne peut
+    // pas passer entre la lecture du jeton et la creation de la session.
+    const contract = (await tx.get(db.collection(kContractsCollection).doc(contractId))).data();
+    if (contract?.state !== "payment_invited") {
+      throw refuse("not_payment_invited", "Cette souscription n'attend plus de paiement.");
+    }
     const snap = await tx.get(ref);
     const lockAt = millisOf(snap.data()?.checkout?.lock_at);
     if (lockAt && nowMs - lockAt < kCheckoutLockMs) {

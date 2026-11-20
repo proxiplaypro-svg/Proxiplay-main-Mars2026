@@ -47,6 +47,8 @@ const kWhitelist = Object.freeze({
   activated_at: null,
   ended_at: null,
   end_reason: null,
+  // Tranche 2b, lot 1.9
+  closed_at: null,
 });
 
 // Termes qui ne doivent jamais apparaitre, ni comme cle ni comme valeur.
@@ -55,7 +57,9 @@ const kForbiddenKeys = ['verification', 'checks', 'note', 'notes', 'internalNote
   'alerts', 'emails', 'confirmation', 'lock_at', 'lock_by', 'confirmed_by', 'user_agent',
   // Tranche 2a : jamais dans la vue commercant.
   'token', 'token_hash', 'payment_invitation', 'withdrawal', 'refund', 'late_payment', 'stripe_customer_id',
-  'stripe_subscription_id', 'last_session_id'];
+  'stripe_subscription_id', 'last_session_id',
+  // Tranche 2b : rappels et relances restent internes.
+  'reminder_sent_at', 'reminder_queued_at', 'grace_reminders', 'renewal_failures', 'missed'];
 
 function assertWhitelisted(label, data, {forbiddenValues = []} = {}) {
   for (const [key, value] of Object.entries(data)) {
@@ -158,6 +162,20 @@ test('confirmation (spontanee et demarchee), y compris apres un echec d\'envoi :
     assert.ok(['payment_invited', 'withdrawal_pending'].includes(confirmed.state));
     assertWhitelisted(`confirmation (${enseigneId})`, confirmed, {forbiddenValues: [kIp, kNote, `<contrat-${contractId}@proxiplay.fr>`]});
   }
+});
+
+test('lot 1.9 : rappel a J+10 puis cloture a 15 jours : liste blanche respectee', async () => {
+  const {runMerchantContractSchedule} = require('../merchant_contract_schedule');
+  const {contractId} = await submit({enseigneId: 'e1'});
+  const {stateVersion} = await review.adminRecordMerchantContractChecksHandler({contractId, expectedVersion: 1, checks: allPass}, h.adminContext());
+  await adminConfirmMerchantContractHandler({contractId, expectedVersion: stateVersion}, h.adminContext());
+  const invitedMs = (await read(contractId)).payment_invited_at.toMillis();
+  await runMerchantContractSchedule({db, nowMs: invitedMs + 11 * 86400000});
+  assertWhitelisted('apres rappel', await read(contractId), {forbiddenValues: [kIp, kNote]});
+  await runMerchantContractSchedule({db, nowMs: invitedMs + 17 * 86400000});
+  const closed = await read(contractId);
+  assert.equal(closed.state, 'closed_unpaid');
+  assertWhitelisted('apres cloture', closed, {forbiddenValues: [kIp, kNote]});
 });
 
 test('le controle lui-meme detecte un champ interne (garde-fou du test)', () => {
