@@ -959,6 +959,12 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if false;
     }
+    // Evenements Stripe non rattaches (identifiants seulement) : lecture
+    // admin, ecriture serveur seule.
+    match /stripe_unmatched_events/{eventId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
 
     // Tranche 2a, lot 1.7 : miroir de l'abonnement Stripe d'une enseigne
     // (client Stripe propre a l'enseigne). Lecture : admin et titulaire

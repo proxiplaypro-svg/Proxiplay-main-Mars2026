@@ -119,13 +119,77 @@ test('paiement recu apres cloture : jamais de reactivation, remboursement integr
   assert.equal(new Set(stripe.calls.refundsCreate.map((c) => c.options.idempotencyKey)).size, 1);
 });
 
-test('paiement pendant le delai de retractation ou apres retractation : rembourse, contrat inchange', async () => {
-  for (const state of ['withdrawal_pending', 'withdrawn']) {
-    const {contractId, sessionId} = await openSession({enseigne: state === 'withdrawn' ? 'e2' : 'e1'});
+test('paiement en delai de retractation, apres retractation, refus ou fin : rembourse, contrat inchange', async () => {
+  for (const state of ['withdrawal_pending', 'withdrawn', 'refused', 'ended']) {
+    await h.clearFirestore();
+    await h.setConfig();
+    await h.seedMerchant('merchant');
+    await h.seedAdmin('admin');
+    await h.seedEnseigne('e1', 'merchant');
+    const {contractId, sessionId} = await openSession();
     await db.doc(`merchant_contracts/${contractId}`).update({state});
+    const before = stripe.calls.refundsCreate.length;
     stripe.complete(sessionId);
     const result = await dispatchEvent(db, sessionEvent(stripe.store.sessions[sessionId]));
     assert.equal(result.outcome, 'contract_late_payment_refunded', state);
+    assert.equal(stripe.calls.refundsCreate.length, before + 1, state);
+    assert.equal((await contract(contractId)).state, state);
+  }
+});
+
+/** Paiement non rattachable : aucun appel Stripe qui deplace de l'argent, trace et alerte une seule fois. */
+async function assertNoMoneyTraced(event, {reason, contractId}) {
+  const result = await dispatchEvent(db, event);
+  assert.equal(result.outcome, 'unmatched_contract_payment');
+  assert.equal(result.reason, reason);
+  assert.equal(stripe.calls.refundsCreate.length, 0);
+  assert.equal(stripe.calls.creditNotesCreate.length, 0);
+  assert.equal(stripe.calls.subscriptionsCancel.length, 0);
+  assert.equal(stripe.calls.invoicesVoid.length, 0);
+  const trace = (await db.doc(`stripe_unmatched_events/${event.id}`).get()).data();
+  assert.equal(trace.reason, reason);
+  assert.equal(trace.contract_id, contractId);
+  assert.equal(trace.event_type, event.type);
+  assert.equal(trace.resolved, false);
+  // Rejeu : ni seconde trace ni seconde alerte, toujours aucun argent.
+  await dispatchEvent(db, event);
+  assert.equal(stripe.calls.refundsCreate.length + stripe.calls.subscriptionsCancel.length, 0);
+  assert.equal((await db.collection('stripe_unmatched_events').get()).size, 1);
+  assert.equal((await db.collection('admin_alerts').where('kind', '==', 'stripe_evenement_non_rattache').get()).size, 1);
+  assert.equal(sent.filter((m) => /paiement remboursé/.test(m.subject)).length, 0, 'aucun e-mail de remboursement au commercant');
+}
+
+test('contrat inconnu : aucune action sur l\'argent, trace et alerte', async () => {
+  const {contractId, sessionId} = await openSession();
+  stripe.complete(sessionId);
+  await db.doc(`merchant_contracts/${contractId}`).delete();
+  await assertNoMoneyTraced(sessionEvent(stripe.store.sessions[sessionId]), {reason: 'contrat_inconnu', contractId});
+});
+
+test('enseigne differente : aucune action sur l\'argent, contrat non active, trace et alerte', async () => {
+  const {contractId, sessionId} = await openSession();
+  stripe.complete(sessionId);
+  await db.doc(`merchant_contracts/${contractId}`).update({enseigne_id: 'e2'});
+  await assertNoMoneyTraced(sessionEvent(stripe.store.sessions[sessionId]), {reason: 'enseigne_differente', contractId});
+  assert.equal((await contract(contractId)).state, 'payment_invited');
+  assert.equal(Object.keys((await internal(contractId)).unmatched_payments).length, 1);
+  assert.equal((await internal(contractId)).billing, undefined);
+});
+
+test('etats submitted et confirmed : aucune action sur l\'argent, etat inchange, trace et alerte', async () => {
+  for (const state of ['submitted', 'confirmed']) {
+    await h.clearFirestore();
+    await h.setConfig();
+    await h.seedMerchant('merchant');
+    await h.seedAdmin('admin');
+    await h.seedEnseigne('e1', 'merchant');
+    stripe.calls.refundsCreate.length = 0;
+    stripe.calls.subscriptionsCancel.length = 0;
+    sent.length = 0;
+    const {contractId, sessionId} = await openSession();
+    await db.doc(`merchant_contracts/${contractId}`).update({state});
+    stripe.complete(sessionId);
+    await assertNoMoneyTraced(sessionEvent(stripe.store.sessions[sessionId]), {reason: `etat_${state}`, contractId});
     assert.equal((await contract(contractId)).state, state);
   }
 });

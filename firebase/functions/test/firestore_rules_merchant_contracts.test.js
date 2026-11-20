@@ -145,6 +145,17 @@ test('jetons de paiement : illisibles pour tous, admin compris ; file de reprise
   }
 });
 
+test('evenements Stripe non rattaches : admin seul en lecture, aucune ecriture client', async () => {
+  await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc('stripe_unmatched_events/evt_1').set({event_type: 'invoice.paid'}));
+  for (const db of [merchant(), other(), adminClient(), env.unauthenticatedContext().firestore()]) {
+    await assertFails(db.doc('stripe_unmatched_events/evt_2').set({event_type: 'x'}));
+    await assertFails(db.doc('stripe_unmatched_events/evt_1').update({resolved: true}));
+  }
+  await assertFails(merchant().doc('stripe_unmatched_events/evt_1').get());
+  await assertFails(env.unauthenticatedContext().firestore().doc('stripe_unmatched_events/evt_1').get());
+  await assertSucceeds(adminClient().doc('stripe_unmatched_events/evt_1').get());
+});
+
 // Tranche 2a, lot 1.7
 test('miroir enseigne_subscriptions : lu par le titulaire et l\'admin, jamais ecrit par un client', async () => {
   await env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc('enseigne_subscriptions/e1')

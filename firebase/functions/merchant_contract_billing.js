@@ -35,6 +35,16 @@ const mail = require("./merchant_contract_mail");
 const emails = require("./merchant_contract_emails");
 
 const kEnseigneSubscriptionsCollection = "enseigne_subscriptions";
+const kUnmatchedEventsCollection = "stripe_unmatched_events";
+
+// Politique de remboursement automatique (decision du 2026-11-20) : un
+// paiement initial n'est rembourse et annule que si le contrat EXISTE et est
+// dans l'un de ces etats (actif : seulement avec un autre abonnement que
+// celui suivi). Contrat inconnu, enseigne differente, submitted, confirmed
+// ou tout autre etat : aucune action sur l'argent, trace et alerte admin.
+const kAutoRefundStates = Object.freeze([
+  kStates.CLOSED_UNPAID, kStates.WITHDRAWN, kStates.REFUSED, kStates.ENDED, kStates.WITHDRAWAL_PENDING, kStates.ACTIVE,
+]);
 
 function idOf(value) {
   return typeof value === "string" ? value : value?.id || null;
@@ -183,11 +193,19 @@ async function onInitialPayment(db, stripe, subscription, eventId) {
   const contractRef = db.collection(kContractsCollection).doc(contractId);
   const decision = await db.runTransaction(async (tx) => {
     const snap = await tx.get(contractRef);
-    if (!snap.exists) return {kind: "late", stateAtPayment: "unknown"};
+    if (!snap.exists) return {kind: "unmatched", reason: "contrat_inconnu"};
     const contract = snap.data();
     const internal = (await tx.get(internalRef(db, contractId))).data() || {};
     if (internal.billing?.stripe_subscription_id === subscription.id) return {kind: "already", contract};
-    if (contract.state === kStates.PAYMENT_INVITED && contract.enseigne_id === subscription.metadata?.enseigneId) {
+    const unmatched = (reason) => {
+      // Une entree par evenement (rejeu idempotent).
+      tx.set(internalRef(db, contractId), {unmatched_payments: {[eventId]: {
+        subscription_id: subscription.id, state_at_payment: contract.state, reason, at: admin.firestore.Timestamp.now(),
+      }}}, {merge: true});
+      return {kind: "unmatched", reason, contract};
+    };
+    if (contract.enseigne_id !== subscription.metadata?.enseigneId) return unmatched("enseigne_differente");
+    if (contract.state === kStates.PAYMENT_INVITED) {
       assertTransition(contract.state, kStates.ACTIVE);
       const now = admin.firestore.Timestamp.now();
       const open = await tx.get(db.collection("payment_tokens").where("contract_id", "==", contractId).where("revoked_at", "==", null));
@@ -203,7 +221,10 @@ async function onInitialPayment(db, stripe, subscription, eventId) {
       tx.set(eventRef(db, contractId), {type: "activated", at: now, subscription_id: subscription.id, event_id: eventId});
       return {kind: "activated", contract: {...contract, activated_at: now}};
     }
-    // Paiement non attendu : jamais de reactivation.
+    if (!kAutoRefundStates.includes(contract.state)) return unmatched(`etat_${contract.state}`);
+    // Paiement non attendu sur un contrat clos, retracte, refuse, termine, en
+    // delai de retractation, ou actif avec un autre abonnement : jamais de
+    // reactivation, remboursement integral.
     tx.set(internalRef(db, contractId), {late_payments: admin.firestore.FieldValue.arrayUnion({
       subscription_id: subscription.id, state_at_payment: contract.state, event_id: eventId, at: admin.firestore.Timestamp.now(),
     })}, {merge: true});
@@ -211,6 +232,11 @@ async function onInitialPayment(db, stripe, subscription, eventId) {
   });
 
   if (decision.kind === "already") return {outcome: "contract_already_active", contractId};
+  if (decision.kind === "unmatched") {
+    // Aucune action sur l'argent : l'abonnement reste tel quel chez Stripe,
+    // l'admin decide (trace + alerte ecrites par le webhook, une fois par evenement).
+    return {outcome: "unmatched_contract_payment", reason: decision.reason, contractId, subscriptionId: subscription.id};
+  }
   if (decision.kind === "activated") {
     await syncContractSubscription(db, subscription, eventId);
     const mirror = (await db.collection(kEnseigneSubscriptionsCollection).doc(decision.contract.enseigne_id).get()).data() || {};
@@ -220,10 +246,10 @@ async function onInitialPayment(db, stripe, subscription, eventId) {
     return {outcome: "contract_activated", contractId};
   }
   const reason = `paiement_non_attendu_${decision.stateAtPayment}`;
-  const records = await refundAndCancel(db, stripe, {contractId: decision.contract ? contractId : null, subscriptionId: subscription.id, reason});
+  const records = await refundAndCancel(db, stripe, {contractId, subscriptionId: subscription.id, reason});
   await mail.raiseAdminAlert(db, {kind: "paiement_tardif_rembourse", contractId,
     detail: `Paiement reçu pour un contrat à l'état « ${decision.stateAtPayment} » : remboursé intégralement (${records.length} facture(s)), abonnement annulé.`});
-  if (decision.contract?.owner_email) {
+  if (decision.contract.owner_email) {
     await mail.sendAndRecord(db, contractId, "late_payment_refund", emails.latePaymentRefundNotice(decision.contract, contractId));
     await eventRef(db, contractId).set({type: "late_payment_refunded", at: admin.firestore.FieldValue.serverTimestamp(),
       subscription_id: subscription.id, refunds: records.length, state_at_payment: decision.stateAtPayment});
@@ -286,6 +312,38 @@ async function onInvoicePaymentFailed(db, invoiceId, subscription, eventId) {
   return {...sync, outcome: first ? "contract_renewal_failed_notified" : "contract_renewal_failed"};
 }
 
+/**
+ * Evenement Stripe qu'on ne sait pas rattacher (ou paiement de contrat sans
+ * action sur l'argent) : trace stripe_unmatched_events/{eventId} (identifiants
+ * seulement, lecture admin) et alerte admin, une seule fois par evenement.
+ */
+async function recordUnmatchedEvent(db, event, result) {
+  const object = event?.data?.object || {};
+  const ref = db.collection(kUnmatchedEventsCollection).doc(String(event.id));
+  const created = await db.runTransaction(async (tx) => {
+    if ((await tx.get(ref)).exists) return false;
+    tx.set(ref, {
+      event_id: event.id,
+      event_type: event.type,
+      object_id: typeof object.id === "string" ? object.id : null,
+      outcome: result?.outcome || null,
+      reason: result?.reason || null,
+      contract_id: result?.contractId || null,
+      subscription_id: result?.subscriptionId || null,
+      livemode: event.livemode === true,
+      resolved: false,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return true;
+  });
+  if (created) {
+    await mail.raiseAdminAlert(db, {kind: "stripe_evenement_non_rattache", contractId: result?.contractId || null,
+      detail: `Événement Stripe ${event.type} (${event.id}) non rattaché : ${result?.outcome || "?"}` +
+        `${result?.reason ? ` (${result.reason})` : ""}. Aucune action sur l'argent : décision manuelle.`});
+  }
+  return created;
+}
+
 /** Remboursement ou litige sur un abonnement de contrat : trace et alerte (jamais la logique de parrainage V1). */
 async function onChargeEvent(db, type, subscription, chargeId) {
   const contractId = subscription.metadata.contractId;
@@ -300,6 +358,9 @@ async function onChargeEvent(db, type, subscription, chargeId) {
 
 module.exports = {
   kEnseigneSubscriptionsCollection,
+  kUnmatchedEventsCollection,
+  kAutoRefundStates,
+  recordUnmatchedEvent,
   refundAndCancel,
   syncContractSubscription,
   onInitialPayment,

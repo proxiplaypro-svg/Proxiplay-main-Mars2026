@@ -462,7 +462,21 @@ async function handleChargeDisputeCreated(db, event) {
   return {outcome: "dispute_recorded", merchantUserId};
 }
 
+// Issues d'un evenement qu'on ne sait pas rattacher : trace et alerte admin
+// au lieu d'etre ignore (decision du 2026-11-20).
+const kUnmatchedOutcomes = new Set([
+  "unmatched_contract_payment",
+]);
+
 async function dispatchEvent(db, event) {
+  const result = await routeEvent(db, event);
+  if (result && kUnmatchedOutcomes.has(result.outcome)) {
+    await contractBilling.recordUnmatchedEvent(db, event, result);
+  }
+  return result;
+}
+
+async function routeEvent(db, event) {
   switch (event.type) {
     case "checkout.session.completed":
       return handleCheckoutSessionCompleted(db, event);
