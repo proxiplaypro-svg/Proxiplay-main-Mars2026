@@ -132,7 +132,15 @@ test('echeance de la session : 24 h au plus ; lien qui expire bientot -> 30 min 
   await checkout.createContractCheckoutSessionHandler({token, ...kUrls}, h.merchantContext());
   const near = stripe.calls.sessionsCreate[0].params.expires_at;
   const now = Math.floor(Date.now() / 1000);
-  assert.ok(near >= now + 30 * 60 - 5 && near <= now + 30 * 60 + 5, 'minimum Stripe 30 min, depassement du lien de 20 min au plus');
+  assert.ok(near >= now + 31 * 60 - 5 && near <= now + 31 * 60 + 5, 'minimum Stripe 30 min + 1 min de marge');
+});
+
+test('echeance : calculee pour l\'heure de l\'appel, jamais sous 31 min ni au-dela de 24 h', () => {
+  const params = require('../merchant_contract_session_params');
+  const now = Date.UTC(2027, 0, 4, 9, 0, 0);
+  assert.equal(params.sessionExpiresAtSeconds(now, now + 5 * 60 * 1000), (now + 31 * 60 * 1000) / 1000);
+  assert.equal(params.sessionExpiresAtSeconds(now, now + 3 * 3600 * 1000), (now + 3 * 3600 * 1000) / 1000);
+  assert.equal(params.sessionExpiresAtSeconds(now, now + 9 * 86400 * 1000), (now + 86400 * 1000) / 1000);
 });
 
 test('code promotionnel : coupon « once » cree par le serveur au montant de l\'instantane, reutilise ensuite', async () => {

@@ -36,11 +36,10 @@ const {
 } = require("./merchant_contracts_model");
 const {loadToken} = require("./merchant_contract_payment");
 const mail = require("./merchant_contract_mail");
+const sessionParams = require("./merchant_contract_session_params");
 
 const kEnseigneSubscriptionsCollection = "enseigne_subscriptions";
 const kCheckoutLockMs = 60 * 1000;
-const kSessionMaxMs = 24 * 60 * 60 * 1000;
-const kSessionMinMs = 30 * 60 * 1000; // minimum impose par Stripe
 
 function refuse(reason, message) {
   return httpsError("failed-precondition", message, {reason});
@@ -130,10 +129,7 @@ async function ensureCoupon(db, stripe, contract) {
       return coupon.id;
     }
   }
-  const coupon = assertMode(await stripe.coupons.create({
-    amount_off: discount, currency: "eur", duration: "once",
-    name: `${code} (première année)`, metadata: {promo_code: code, offer_id: offerId},
-  }, {idempotencyKey: `coupon-${mode()}-${code}-${key}`}), "Coupon");
+  const coupon = assertMode(await stripe.coupons.create(sessionParams.buildCouponParams({code, offerId, discountCents: discount}), {idempotencyKey: `coupon-${mode()}-${code}-${key}`}), "Coupon");
   await ref.set({stripe_coupons: {[mode()]: {[key]: coupon.id}}}, {merge: true});
   return coupon.id;
 }
@@ -143,12 +139,7 @@ async function ensureCoupon(db, stripe, contract) {
  * l'instantane du contrat : HT apres remise et TTC.
  */
 async function assertFirstYearMatches(db, stripe, {customerId, priceId, tax, couponId, contract, contractId}) {
-  const upcoming = await stripe.invoices.retrieveUpcoming({
-    customer: customerId,
-    subscription_items: [{price: priceId, quantity: 1, ...(tax.lineItemExtra.tax_rates ? {tax_rates: tax.lineItemExtra.tax_rates} : {})}],
-    ...(couponId ? {discounts: [{coupon: couponId}]} : {}),
-    ...(tax.mode === "automatic" ? {automatic_tax: {enabled: true}} : {}),
-  });
+  const upcoming = await stripe.invoices.retrieveUpcoming(sessionParams.buildUpcomingParams({customerId, priceId, tax, couponId}));
   const expectedTtc = contract.offer.first_year_ttc_cents;
   const expectedHt = contract.offer.first_year_ht_cents;
   const ht = typeof upcoming.total_excluding_tax === "number" ? upcoming.total_excluding_tax : null;
@@ -204,28 +195,17 @@ async function createContractCheckoutSessionHandler(data, context) {
     const couponId = await ensureCoupon(db, stripe, contract);
     await assertFirstYearMatches(db, stripe, {customerId, priceId: price.id, tax, couponId, contract, contractId});
 
-    // Echeance de la session : au plus 24 h, au moins 30 min (minimum Stripe),
-    // jamais plus de 30 min apres la fin du lien (decision 4).
-    const sessionExpiresMs = Math.min(nowMs + kSessionMaxMs, Math.max(expiresMs, nowMs + kSessionMinMs));
+    // Echeance de la session : au plus 24 h, au moins 30 min + 1 min de marge
+    // (minimum Stripe, compte a la reception), sinon la fin du lien
+    // (decision 4). Heure relue juste avant l'appel : les appels Stripe
+    // precedents prennent plusieurs secondes.
+    const sessionExpiresAt = sessionParams.sessionExpiresAtSeconds(Date.now(), expiresMs);
+    const sessionExpiresMs = sessionExpiresAt * 1000;
     const generation = (previous.generation || 0) + 1;
-    const metadata = {contractId, enseigneId: contract.enseigne_id, merchantUserId: contract.owner_uid, offerId: contract.offer.id};
-    const session = assertMode(await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer: customerId,
-      client_reference_id: contractId,
-      line_items: [{price: price.id, quantity: 1, ...tax.lineItemExtra}],
-      payment_method_types: ["card"],
-      ...(couponId ? {discounts: [{coupon: couponId}]} : {allow_promotion_codes: false}),
-      ...tax.sessionExtra,
-      tax_id_collection: {enabled: true},
-      customer_update: {name: "auto", address: "auto"},
-      metadata,
-      subscription_data: {metadata},
-      expires_at: Math.floor(sessionExpiresMs / 1000),
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      locale: "fr",
-    }, {idempotencyKey: `checkout-contract-${contractId}-${generation}`}), "Session");
+    const session = assertMode(await stripe.checkout.sessions.create(sessionParams.buildSessionParams({
+      customerId, contractId, enseigneId: contract.enseigne_id, ownerUid: contract.owner_uid, offerId: contract.offer.id,
+      priceId: price.id, tax, couponId, expiresAtSeconds: sessionExpiresAt, successUrl, cancelUrl,
+    }), {idempotencyKey: `checkout-contract-${contractId}-${generation}`}), "Session");
 
     await internalRef(db, contractId).set({checkout: {
       session_id: session.id,
