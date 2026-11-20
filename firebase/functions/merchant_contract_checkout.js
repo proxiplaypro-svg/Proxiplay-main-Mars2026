@@ -29,7 +29,6 @@ const {
   kContractsCollection,
   kPromoCodesCollection,
   httpsError,
-  assertContractsEnabled,
   internalRef,
   eventRef,
   millisOf,
@@ -176,7 +175,7 @@ async function releaseLock(db, contractId) {
 async function createContractCheckoutSessionHandler(data, context) {
   const db = admin.firestore();
   await assertMerchantCaller(db, context);
-  await assertContractsEnabled(db);
+  // Contrat deja invite : payable meme si les nouvelles ventes sont en pause.
   assertPaymentsOpen();
   const successUrl = assertAllowedReturnUrl(data?.successUrl, "successUrl");
   const cancelUrl = assertAllowedReturnUrl(data?.cancelUrl, "cancelUrl");

@@ -23,7 +23,6 @@ const {
   kStates,
   httpsError,
   assertTransition,
-  assertContractsEnabled,
   readContractsConfig,
   assertAdminCaller,
   internalRef,
@@ -116,7 +115,7 @@ async function performWithdrawal(db, contractId, {channel, sentAtMs, receivedAtM
 async function withdrawMerchantContractHandler(data, context) {
   const db = admin.firestore();
   await assertMerchantCaller(db, context);
-  await assertContractsEnabled(db);
+  // Droit de retractation : jamais suspendu par l'interrupteur.
   const contractId = typeof data?.contractId === "string" ? data.contractId.trim() : "";
   const snap = contractId ? await db.collection(kContractsCollection).doc(contractId).get() : null;
   if (!snap?.exists || snap.data().owner_uid !== context.auth.uid) {

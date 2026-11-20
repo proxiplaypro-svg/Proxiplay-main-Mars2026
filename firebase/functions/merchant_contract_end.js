@@ -39,7 +39,6 @@ const {
   kStates,
   httpsError,
   assertTransition,
-  assertContractsEnabled,
   readContractsConfig,
   assertAdminCaller,
   internalRef,
@@ -207,7 +206,7 @@ async function disableRenewal(db, contractId, {actor, ownerUid, nowMs = Date.now
 async function disableMerchantRenewalHandler(data, context) {
   const db = admin.firestore();
   await assertMerchantCaller(db, context);
-  await assertContractsEnabled(db);
+  // Contrat existant : hors interrupteur (pause des nouvelles ventes seulement).
   return disableRenewal(db, contractIdOf(data), {actor: `merchant:${context.auth.uid}`, ownerUid: context.auth.uid});
 }
 

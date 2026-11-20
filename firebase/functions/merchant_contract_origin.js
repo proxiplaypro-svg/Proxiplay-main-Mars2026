@@ -26,8 +26,8 @@ const {
   kRepLinksCollection,
   kStates,
   httpsError,
-  assertContractsEnabled,
   assertAdminCaller,
+  readContractsConfig,
   normalizeSiret,
   internalRef,
   eventRef,
@@ -119,7 +119,8 @@ function visitReportEmails(contract, contractId, config) {
 async function reportMerchantVisitHandler(data, context) {
   const db = admin.firestore();
   await assertMerchantCaller(db, context);
-  const config = await assertContractsEnabled(db);
+  // Contrat existant (ouvre la retractation) : hors interrupteur.
+  const config = await readContractsConfig(db);
   const uid = context.auth.uid;
   const contractId = typeof data?.contractId === "string" ? data.contractId.trim() : "";
   if (!contractId) throw httpsError("invalid-argument", "Demande inconnue.", {reason: "invalid_field", field: "contractId"});

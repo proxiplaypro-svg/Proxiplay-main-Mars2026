@@ -23,7 +23,6 @@ const {
   kStates,
   httpsError,
   assertTransition,
-  assertContractsEnabled,
   readContractsConfig,
   assertAdminCaller,
   internalRef,
@@ -228,7 +227,8 @@ async function loadToken(db, rawToken, uid, nowMs = Date.now()) {
 async function getPaymentInvitationHandler(data, context) {
   const db = admin.firestore();
   await assertMerchantCaller(db, context);
-  const config = await assertContractsEnabled(db);
+  // Contrat deja invite : page de paiement disponible meme ventes en pause.
+  const config = await readContractsConfig(db);
   const {contractId, contract, expiresMs} = await loadToken(db, data?.token, context.auth.uid);
   return {
     contractId,

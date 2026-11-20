@@ -21,18 +21,34 @@ test.beforeEach(async () => {
   await db.doc('merchant_contracts/c2').set({owner_uid: 'other', state: 'submitted', enseigne_id: 'e2'});
 });
 
-test('interrupteur absent ou faux : reponse {enabled:false}, aucune donnee', async () => {
-  assert.deepEqual(await getMyMerchantContractsHandler({}, h.merchantContext()), {enabled: false});
+test('ventes en pause (interrupteur absent ou faux), aucun contrat : reponse {enabled:false}', async () => {
+  await h.seedMerchant('empty');
+  assert.deepEqual(await getMyMerchantContractsHandler({}, h.merchantContext('empty')), {enabled: false});
   await h.setConfig({enabled: false});
-  assert.deepEqual(await getMyMerchantContractsHandler({}, h.merchantContext()), {enabled: false});
+  assert.deepEqual(await getMyMerchantContractsHandler({}, h.merchantContext('empty')), {enabled: false});
   await h.setConfig({enabled: 'true'});
-  assert.deepEqual(await getMyMerchantContractsHandler({}, h.merchantContext()), {enabled: false}, 'seul le booleen true active');
+  assert.deepEqual(await getMyMerchantContractsHandler({}, h.merchantContext('empty')), {enabled: false}, 'seul le booleen true ouvre les ventes');
+});
+
+// Correctif t2b : l'interrupteur ne met en pause que les nouvelles ventes.
+test('ventes en pause, contrats existants : toujours visibles, sans catalogue ni enseignes (pas de nouvelle demande)', async () => {
+  for (const config of [null, {enabled: false}, {enabled: 'true'}]) {
+    if (config) await h.setConfig(config);
+    const result = await getMyMerchantContractsHandler({}, h.merchantContext());
+    assert.equal(result.enabled, true);
+    assert.equal(result.salesOpen, false);
+    assert.deepEqual(result.contracts.map((c) => c.id), ['c1']);
+    assert.deepEqual(result.offers, []);
+    assert.deepEqual(result.enseignes, []);
+    assert.ok(!JSON.stringify(result).includes('note interne'));
+  }
 });
 
 test('interrupteur actif : ses contrats seulement, vue filtree, ses enseignes, catalogue HT et TTC', async () => {
   await h.setConfig();
   const result = await getMyMerchantContractsHandler({}, h.merchantContext());
   assert.equal(result.enabled, true);
+  assert.equal(result.salesOpen, true);
   assert.deepEqual(result.contracts.map((c) => c.id), ['c1']);
   assert.deepEqual(result.contracts[0].refusal, {motif: 'activity', detail: 'Activite exclue'});
   assert.ok(!JSON.stringify(result).includes('note interne'));

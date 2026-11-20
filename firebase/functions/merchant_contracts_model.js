@@ -14,8 +14,12 @@
 //   app_config/merchant_contracts           interrupteur + CGV : admin seul
 //
 // Interrupteur : app_config/merchant_contracts.enabled doit valoir
-// strictement true. Absent, false ou toute autre valeur : aucune fonction de
-// la tranche n'a d'effet (refus avant toute ecriture, aucun e-mail).
+// strictement true pour ouvrir les NOUVELLES VENTES (apercu et envoi d'une
+// demande). Absent, false ou toute autre valeur : nouvelles ventes en pause
+// (refus avant toute ecriture, aucun e-mail). Les contrats existants restent
+// suivis quel que soit l'interrupteur : espace commercant, signalement de
+// visite, retractation, page de paiement d'un contrat deja invite, webhook,
+// fonctions admin (confirmation comprise).
 
 const functions = require("firebase-functions");
 const {getOfferOrThrow} = require("./merchant_offers");
@@ -165,11 +169,11 @@ async function readContractsConfig(db) {
   };
 }
 
-/** Refus avant toute ecriture si le parcours n'est pas active. */
+/** Nouvelles ventes seulement : refus avant toute ecriture si elles sont en pause. */
 async function assertContractsEnabled(db) {
   const config = await readContractsConfig(db);
   if (!config.enabled) {
-    throw httpsError("failed-precondition", "La souscription en ligne n'est pas encore ouverte.",
+    throw httpsError("failed-precondition", "Les nouvelles souscriptions en ligne sont momentanément suspendues.",
       {reason: "contracts_disabled"});
   }
   return config;

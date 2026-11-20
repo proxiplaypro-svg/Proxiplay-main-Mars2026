@@ -20,13 +20,13 @@ async function getMyMerchantContractsHandler(data, context) {
   const db = admin.firestore();
   await assertMerchantCaller(db, context);
   const config = await readContractsConfig(db);
-  // Interrupteur coupe : rien d'autre n'est lu ni renvoye.
-  if (!config.enabled) return {enabled: false};
-
   const uid = context.auth.uid;
-  const [contractsSnap, shops, mirrorsSnap] = await Promise.all([
-    db.collection(kContractsCollection).where("owner_uid", "==", uid).get(),
-    ownedShops(db, uid),
+  const contractsSnap = await db.collection(kContractsCollection).where("owner_uid", "==", uid).get();
+  // Nouvelles ventes en pause : sans contrat, rien n'est affiche ; avec des
+  // contrats, ils restent visibles et suivis (pas de formulaire de demande).
+  if (!config.enabled && contractsSnap.empty) return {enabled: false};
+  const [shops, mirrorsSnap] = await Promise.all([
+    config.enabled ? ownedShops(db, uid) : Promise.resolve([]),
     db.collection("enseigne_subscriptions").where("owner_uid", "==", uid).get(),
   ]);
   // Tranche 2a : abonnement Stripe de l'enseigne (miroir), sans identifiant Stripe.
@@ -47,8 +47,9 @@ async function getMyMerchantContractsHandler(data, context) {
     .sort((a, b) => (b.submittedAt || 0) - (a.submittedAt || 0));
   return {
     enabled: true,
+    salesOpen: config.enabled,
     cgv: config.cgv ? {version: config.cgv.version, url: config.cgv.url, effectiveDate: config.cgv.effectiveDate} : null,
-    offers: publicOfferCatalog().map((offer) => ({...offer, amountTtcCents: ttcFromHt(offer.amountHtCents)})),
+    offers: config.enabled ? publicOfferCatalog().map((offer) => ({...offer, amountTtcCents: ttcFromHt(offer.amountHtCents)})) : [],
     enseignes: shops.map((doc) => ({id: doc.id, name: doc.data().name || "", city: doc.data().city || ""})),
     contracts,
   };

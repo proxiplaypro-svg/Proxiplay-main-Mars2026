@@ -186,15 +186,21 @@ test('void sans effet (facture toujours ouverte) : rien n\'est annule, alerte ad
   assert.equal((await internal(contractId)).end_lock_at, undefined, 'verrou libere');
 });
 
-test('desactivation : autre compte, contrat non actif, interrupteur coupe', async () => {
+test('desactivation : autre compte, contrat non actif', async () => {
   const {contractId} = await activeContract();
   await h.rejectsWith(disable(contractId, 'other'), 'contract_not_found');
-  await h.setConfig({enabled: false});
-  await h.rejectsWith(disable(contractId), 'contracts_disabled');
-  await h.setConfig();
   await db.doc(`merchant_contracts/${contractId}`).update({state: 'ended'});
   await h.rejectsWith(disable(contractId), 'not_active');
   assert.equal(stripe.calls.subscriptionsUpdate.length + stripe.calls.subscriptionsCancel.length + moneyCalls(), 0);
+});
+
+// Correctif t2b : l'interrupteur ne met en pause que les nouvelles ventes.
+test('desactivation interrupteur coupe : contrat existant, desactivation possible', async () => {
+  const {contractId, subscriptionId} = await activeContract();
+  await h.setConfig({enabled: false});
+  const result = await disable(contractId);
+  assert.equal(result.outcome, 'disabled_at_period_end');
+  assert.deepEqual(stripe.calls.subscriptionsUpdate.map((x) => x.subscriptionId), [subscriptionId]);
 });
 
 // --- Art. 9 : rappel des 45 jours manque ---------------------------------------------

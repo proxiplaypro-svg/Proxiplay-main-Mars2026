@@ -23,9 +23,9 @@ const {
   kChecks,
   httpsError,
   assertTransition,
-  assertContractsEnabled,
   assertCgvConfigured,
   assertAdminCaller,
+  readContractsConfig,
   ownsEnseigne,
   findOpenContractForEnseigne,
   internalRef,
@@ -96,7 +96,8 @@ async function releaseLock(db, contractId, error) {
 async function adminConfirmMerchantContractHandler(data, context) {
   const db = admin.firestore();
   const adminUid = await assertAdminCaller(db, context);
-  const config = await assertContractsEnabled(db);
+  // Fonction admin : hors interrupteur (demande deja recue) ; CGV publiees exigees.
+  const config = await readContractsConfig(db);
   const cgv = assertCgvConfigured(config);
   const contractId = typeof data?.contractId === "string" ? data.contractId.trim() : "";
   if (!contractId) throw httpsError("invalid-argument", "Demande inconnue.", {reason: "invalid_field", field: "contractId"});
