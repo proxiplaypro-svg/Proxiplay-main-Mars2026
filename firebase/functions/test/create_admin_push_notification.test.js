@@ -58,6 +58,33 @@ test("no destination (legacy-equivalent) writes empty initial_page_name/paramete
   const doc = await readCreatedDoc(result);
   assert.equal(doc.initial_page_name, "");
   assert.equal(doc.parameter_data, "");
+  assert.equal(doc.admin_campaign_version, 2);
+  assert.equal(doc.status, "started");
+});
+
+test("an individual campaign keeps a canonical user path", async () => {
+  const result = await wrapped({title: "Individual", body: "Body", audienceMode: "single",
+    userRefs: [`users/${PLAYER_UID}`]}, {auth: {uid: ADMIN_UID}});
+  const doc = await readCreatedDoc(result);
+  assert.equal(doc.user_refs, `users/${PLAYER_UID}`);
+  assert.equal(doc.audience_mode, "single");
+});
+
+test("raw UIDs and unsupported segments are refused", async () => {
+  await assert.rejects(() => wrapped({title: "T", body: "B", audienceMode: "single",
+    userRefs: [PLAYER_UID]}, {auth: {uid: ADMIN_UID}}), (error) => error.code === "invalid-argument");
+  await assert.rejects(() => wrapped({title: "T", body: "B", audienceMode: "segment",
+    segmentId: "commercants"}, {auth: {uid: ADMIN_UID}}), (error) => error.code === "invalid-argument");
+});
+
+test("a collective campaign delegates its audience to the server", async () => {
+  const result = await wrapped({title: "Collective", body: "Body", audienceMode: "segment",
+    segmentId: "inactifs_j30"}, {auth: {uid: ADMIN_UID}});
+  const doc = await readCreatedDoc(result);
+  assert.equal(doc.user_refs, "");
+  assert.equal(doc.segment_id, "inactifs_j30");
+  assert.equal(doc.target_audience, "All");
+  assert.equal(doc.status, "started");
 });
 
 test("internal:home writes HomeJoueurPage", async () => {
