@@ -4481,6 +4481,22 @@ exports.createAdminPushNotification = functions.https.onCall(
     const userRefs = Array.isArray(data.userRefs)
       ? data.userRefs.map((s) => (s || "").toString().trim()).filter((s) => s)
       : [];
+    if (userRefs.some((path) => !/^users\/[^/]+$/.test(path))) {
+      throw new functions.https.HttpsError("invalid-argument", "Invalid user reference");
+    }
+    const audienceMode = data.audienceMode || (userRefs.length ? "single" : "all");
+    const segmentId = data.segmentId || "All";
+    if (!["all", "single", "segment"].includes(audienceMode) ||
+        (audienceMode === "single" && userRefs.length !== 1) ||
+        (audienceMode !== "single" && userRefs.length !== 0)) {
+      throw new functions.https.HttpsError("invalid-argument", "Invalid audience");
+    }
+    const allowedSegments = new Set([
+      "ios_inactifs_j7", "inactifs_j30", "nouveaux_j7", "ambassadeurs",
+    ]);
+    if (audienceMode === "segment" && !allowedSegments.has(segmentId)) {
+      throw new functions.https.HttpsError("invalid-argument", "Unsupported segment");
+    }
     const scheduledTimeMs = data.scheduledTimeMs;
     const repeatEveryMinutes = data.repeatEveryMinutes;
     const repeatCount = data.repeatCount;
@@ -4507,11 +4523,16 @@ exports.createAdminPushNotification = functions.https.onCall(
         imageUrl,
         initialPageName,
         parameterData,
-        targetAudience: targetDevice, // existing field (device_type)
-        targetUserGroup, // new field (role targeting)
+        targetAudience: audienceMode === "segment" ? "All" : targetDevice,
+        targetUserGroup: audienceMode === "segment" ? "All" : targetUserGroup,
         userRefs: userRefs.length ? userRefs.join(",") : "",
         createdBy: `users/${context.auth.uid}`,
       }),
+      admin_campaign_version: 2,
+      audience_mode: audienceMode,
+      segment_id: audienceMode === "segment" ? segmentId : "",
+      targeted_players: null,
+      players_with_token: null,
       ...(Number.isFinite(repeatEveryMinutes)
         ? { repeat_every_minutes: Number(repeatEveryMinutes) }
         : {}),
@@ -4530,6 +4551,89 @@ exports.createAdminPushNotification = functions.https.onCall(
   },
 );
 
+function matchesAdminCampaignSegment(user, segment, now) {
+  const text = (value) => typeof value === "string" ? value.toLowerCase() : "";
+  const millis = (value) => value && typeof value.toMillis === "function" ? value.toMillis() : 0;
+  const last = millis(user.last_real_activity_at);
+  const created = millis(user.created_time || user.created_at);
+  const j7 = now - 7 * 86400000;
+  switch (segment) {
+    case "ios_inactifs_j7":
+      return text(user.platform || user.device_platform || user.os).includes("ios") && (!last || last < j7);
+    case "inactifs_j30": return !last || last < now - 30 * 86400000;
+    case "nouveaux_j7": return created >= j7;
+    case "ambassadeurs": return Number(user.referralCount || user.referrals_count || user.accepted_referrals_count || 0) >= 5;
+    default: return false;
+  }
+}
+
+async function sendAdminCampaign(ref, {sendMulticast} = {}) {
+  const claimed = await firestore.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return null;
+    const data = snap.data();
+    if (data.admin_campaign_version !== 2 || !["started", "scheduled"].includes(data.status)) return null;
+    if (data.status === "scheduled" && data.scheduled_time?.toMillis() > Date.now()) return null;
+    tx.update(ref, {status: "sending", send_started_at: admin.firestore.FieldValue.serverTimestamp()});
+    return data;
+  });
+  if (!claimed) return;
+  if (isFunctionsEmulator() && !sendMulticast) {
+    await ref.update({status: "suppressed_local", num_sent: 0, num_failed: 0});
+    return;
+  }
+  try {
+    const now = Date.now();
+    const users = claimed.audience_mode === "single"
+      ? await firestore.getAll(firestore.doc(claimed.user_refs))
+      : (await firestore.collection("users").get()).docs;
+    const selected = users.filter((doc) => {
+      if (!doc.exists) return false;
+      if (claimed.audience_mode === "single") return true;
+      if (["admin", "commercant"].includes(doc.data().user_role)) return false;
+      return claimed.audience_mode !== "segment" || matchesAdminCampaignSegment(doc.data(), claimed.segment_id, now);
+    });
+    const selectedIds = new Set(selected.map((doc) => doc.id));
+    const tokenDocs = await firestore.collectionGroup(kFcmTokensCollection).get();
+    const playerIdsWithToken = new Set();
+    const tokens = new Set();
+    for (const doc of tokenDocs.docs) {
+      const uid = doc.ref.parent.parent?.id;
+      const value = doc.data().fcm_token;
+      if (selectedIds.has(uid) && typeof value === "string" && value.trim()) {
+        playerIdsWithToken.add(uid);
+        tokens.add(value.trim());
+      }
+    }
+    const tokenList = [...tokens];
+    await ref.update({targeted_players: selected.length, players_with_token: playerIdsWithToken.size,
+      attempted_tokens: tokenList.length});
+    if (!tokenList.length) {
+      await ref.update({status: "failed", num_sent: 0, num_failed: 0, error: "no_tokens",
+        completed_at: admin.firestore.FieldValue.serverTimestamp()});
+      return;
+    }
+    let success = 0;
+    let failure = 0;
+    for (let i = 0; i < tokenList.length; i += 500) {
+      const response = await (sendMulticast || ((message) => admin.messaging().sendEachForMulticast(message)))({
+        tokens: tokenList.slice(i, i + 500),
+        notification: {title: claimed.notification_title, body: claimed.notification_text,
+          ...(claimed.notification_image_url ? {imageUrl: claimed.notification_image_url} : {})},
+        data: {initialPageName: claimed.initial_page_name || "", parameterData: claimed.parameter_data || ""},
+      });
+      success += response.successCount;
+      failure += response.failureCount;
+      await ref.update({num_sent: success, num_failed: failure});
+    }
+    await ref.update({status: failure ? success ? "partial_failed" : "failed" : "succeeded",
+      num_sent: success, num_failed: failure, sent_at: admin.firestore.FieldValue.serverTimestamp()});
+  } catch (error) {
+    await ref.update({status: "failed", error: String(error), sent_at: admin.firestore.FieldValue.serverTimestamp()});
+    throw error;
+  }
+}
+
 exports.sendPushNotificationsTrigger = functions
   .runWith(kPushNotificationRuntimeOpts)
   .firestore.document(`${kPushNotificationsCollection}/{id}`)
@@ -4541,7 +4645,11 @@ exports.sendPushNotificationsTrigger = functions
         return;
       }
 
-      await sendPushNotifications(snapshot);
+      if (snapshot.data().admin_campaign_version === 2) {
+        await sendAdminCampaign(snapshot.ref);
+      } else {
+        await sendPushNotifications(snapshot);
+      }
     } catch (e) {
       console.log(`Error: ${e}`);
       await snapshot.ref.update({ status: "failed", error: `${e}` });
@@ -5705,6 +5813,7 @@ exports._testHelpers = {
   acquireMerchantEmailSendRight,
   markMerchantEmailSent,
   markMerchantEmailFailed,
+  sendAdminCampaign,
 };
 
 /**
@@ -5729,6 +5838,10 @@ exports.processScheduledPushNotifications = functions
     await Promise.all(
       snap.docs.map(async (doc) => {
         try {
+          if (doc.data().admin_campaign_version === 2) {
+            await sendAdminCampaign(doc.ref);
+            return;
+          }
           await sendPushNotifications(doc);
           const data = doc.data();
           const repeatEvery = Number(data.repeat_every_minutes || 0);
