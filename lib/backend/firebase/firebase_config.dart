@@ -87,28 +87,37 @@ Future<void> _configureLocalEmulators({
     return;
   }
 
+  // The host is already resolved per platform (resolvedEmulatorHost:
+  // 10.0.2.2 on an Android emulator, 127.0.0.1 on a USB device with
+  // `adb reverse`). The plugins' automatic mapping would turn 127.0.0.1 into
+  // 10.0.2.2 on every Android device, which a physical phone cannot reach.
   try {
     await FirebaseAuth.instance.useAuthEmulator(
       host,
       FirebaseEnvironment.authPort,
+      automaticHostMapping: false,
     );
     FirebaseFirestore.instance.useFirestoreEmulator(
       host,
       FirebaseEnvironment.firestorePort,
+      automaticHostMapping: false,
     );
     await FirebaseStorage.instance.useStorageEmulator(
       host,
       FirebaseEnvironment.storagePort,
+      automaticHostMapping: false,
     );
     FirebaseFunctions.instance.useFunctionsEmulator(
       host,
       FirebaseEnvironment.functionsPort,
+      automaticHostMapping: false,
     );
     FirebaseFunctions.instanceFor(
       region: FirebaseEnvironment.functionsRegion,
     ).useFunctionsEmulator(
       host,
       FirebaseEnvironment.functionsPort,
+      automaticHostMapping: false,
     );
 
     _localEmulatorsConfigured = true;
