@@ -5,6 +5,7 @@ const nodemailer = require("nodemailer");
 const {isFunctionsEmulator} = require("./lib/emulator_runtime");
 admin.initializeApp();
 exports.setMarketingConsent = require('./marketing_consent').setMarketingConsent;
+exports.recordMerchantCgvAcceptance = require('./merchant_cgv_acceptance').recordMerchantCgvAcceptance;
 exports.adminCorrectPlayerBirthday = require('./player_birthday_correction').adminCorrectPlayerBirthday;
 exports.adminPublishMerchantReferralConditions = require('./merchant_referral_conditions').adminPublishMerchantReferralConditions;
 exports.adminDeletePlayerAccount = require('./admin_player_deletion').adminDeletePlayerAccount;
