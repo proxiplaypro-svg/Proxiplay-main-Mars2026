@@ -13,6 +13,7 @@ import '/index.dart';
 import '/services/merchant_referral_service.dart';
 import '/services/share_promo_service.dart';
 import '/services/referral_signup_error.dart';
+import '/utils/merchant_cgv.dart';
 import '/utils/merchant_referral_utils.dart';
 import '/utils/referral_link_logic.dart';
 import '/components/signup_progress_indicator.dart';
@@ -426,6 +427,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       case AuthenticatedHomeTarget.adminHome:
       case AuthenticatedHomeTarget.waitingValidation:
       case AuthenticatedHomeTarget.rejected:
+      case AuthenticatedHomeTarget.merchantCgvRequired:
       case AuthenticatedHomeTarget.login:
         context.goNamedAuth(
           resolution.routeName,
@@ -441,6 +443,16 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
       const SnackBar(
         content: Text(
           'Veuillez accepter les conditions générales d\'utilisation pour continuer.',
+        ),
+      ),
+    );
+  }
+
+  void _showMerchantCgvRequiredMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Veuillez accepter les conditions générales de vente pour continuer.',
         ),
       ),
     );
@@ -589,13 +601,6 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
   void _togglePlayerTermsAcceptance() {
     safeSetState(() {
       _model.checkboxJoueurValue = !(_model.checkboxJoueurValue ?? false);
-    });
-  }
-
-  void _toggleMerchantTermsAcceptance() {
-    safeSetState(() {
-      _model.checkboxCommercantValue =
-          !(_model.checkboxCommercantValue ?? false);
     });
   }
 
@@ -3110,201 +3115,28 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                       ),
                                                     ),
                                                     Padding(
-                                                      padding:
-                                                          const EdgeInsetsDirectional
-                                                              .fromSTEB(0.0,
-                                                              0.0, 0.0, 16.0),
-                                                      child: Row(
-                                                        mainAxisSize:
-                                                            MainAxisSize.max,
-                                                        mainAxisAlignment:
-                                                            MainAxisAlignment
-                                                                .start,
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          Theme(
-                                                            data: ThemeData(
-                                                              checkboxTheme:
-                                                                  CheckboxThemeData(
-                                                                visualDensity:
-                                                                    VisualDensity
-                                                                        .compact,
-                                                                materialTapTargetSize:
-                                                                    MaterialTapTargetSize
-                                                                        .shrinkWrap,
-                                                                shape:
-                                                                    RoundedRectangleBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius
-                                                                          .circular(
-                                                                              4.0),
-                                                                ),
+                                                      padding: const EdgeInsetsDirectional.fromSTEB(
+                                                          0.0, 0.0, 0.0, 16.0),
+                                                      // CGV commerçant (version 2.1) : case non
+                                                      // précochée, lien vers le PDF par simple appui.
+                                                      child: MerchantCgvCheckbox(
+                                                        value: _model.checkboxCommercantValue ??= false,
+                                                        onChanged: (newValue) => safeSetState(() =>
+                                                            _model.checkboxCommercantValue = newValue),
+                                                        textStyle: FlutterFlowTheme.of(context)
+                                                            .bodyMedium
+                                                            .override(
+                                                              font: GoogleFonts.inter(
+                                                                fontWeight: FlutterFlowTheme.of(context)
+                                                                    .bodyMedium
+                                                                    .fontWeight,
+                                                                fontStyle: FlutterFlowTheme.of(context)
+                                                                    .bodyMedium
+                                                                    .fontStyle,
                                                               ),
-                                                              unselectedWidgetColor:
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primaryText,
+                                                              letterSpacing: 0.0,
                                                             ),
-                                                            child: Checkbox(
-                                                              value: _model
-                                                                      .checkboxCommercantValue ??=
-                                                                  false,
-                                                              onChanged:
-                                                                  (newValue) async {
-                                                                safeSetState(() =>
-                                                                    _model.checkboxCommercantValue =
-                                                                        newValue!);
-                                                              },
-                                                              side: BorderSide(
-                                                                width: 2,
-                                                                color: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .primaryText,
-                                                              ),
-                                                              activeColor:
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .primary,
-                                                              checkColor:
-                                                                  FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .info,
-                                                            ),
-                                                          ),
-                                                          Flexible(
-                                                            child: Padding(
-                                                              padding:
-                                                                  const EdgeInsetsDirectional
-                                                                      .fromSTEB(
-                                                                      0.0,
-                                                                      4.0,
-                                                                      0.0,
-                                                                      0.0),
-                                                              child: InkWell(
-                                                                splashColor: Colors
-                                                                    .transparent,
-                                                                focusColor: Colors
-                                                                    .transparent,
-                                                                hoverColor: Colors
-                                                                    .transparent,
-                                                                highlightColor:
-                                                                    Colors
-                                                                        .transparent,
-                                                                onTap:
-                                                                    _toggleMerchantTermsAcceptance,
-                                                                onLongPress:
-                                                                    () async {
-                                                                  context.pushNamed(
-                                                                      LegalPageWidget
-                                                                          .routeName);
-                                                                },
-                                                                child:
-                                                                    Container(
-                                                                  decoration:
-                                                                      const BoxDecoration(),
-                                                                  child:
-                                                                      RichText(
-                                                                    textScaler:
-                                                                        MediaQuery.of(context)
-                                                                            .textScaler,
-                                                                    text:
-                                                                        TextSpan(
-                                                                      children: [
-                                                                        TextSpan(
-                                                                          text:
-                                                                              'En cochant la case, vous acceptez nos',
-                                                                          style: FlutterFlowTheme.of(context)
-                                                                              .bodyMedium
-                                                                              .override(
-                                                                                font: GoogleFonts.inter(
-                                                                                  fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                ),
-                                                                                letterSpacing: 0.0,
-                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                              ),
-                                                                        ),
-                                                                        const TextSpan(
-                                                                          text:
-                                                                              ' ',
-                                                                          style:
-                                                                              TextStyle(),
-                                                                        ),
-                                                                        TextSpan(
-                                                                          text:
-                                                                              'conditions générales d\'utilisation',
-                                                                          style: FlutterFlowTheme.of(context)
-                                                                              .bodyMedium
-                                                                              .override(
-                                                                                font: GoogleFonts.inter(
-                                                                                  fontWeight: FontWeight.bold,
-                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                ),
-                                                                                letterSpacing: 0.0,
-                                                                                fontWeight: FontWeight.bold,
-                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                              ),
-                                                                        ),
-                                                                        const TextSpan(
-                                                                          text:
-                                                                              ' ',
-                                                                          style:
-                                                                              TextStyle(),
-                                                                        ),
-                                                                        const TextSpan(
-                                                                          text:
-                                                                              'ainsi que notre',
-                                                                          style:
-                                                                              TextStyle(),
-                                                                        ),
-                                                                        const TextSpan(
-                                                                          text:
-                                                                              ' ',
-                                                                          style:
-                                                                              TextStyle(),
-                                                                        ),
-                                                                        TextSpan(
-                                                                          text:
-                                                                              'politique de confidentialité',
-                                                                          style: FlutterFlowTheme.of(context)
-                                                                              .bodyMedium
-                                                                              .override(
-                                                                                font: GoogleFonts.inter(
-                                                                                  fontWeight: FontWeight.bold,
-                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                ),
-                                                                                letterSpacing: 0.0,
-                                                                                fontWeight: FontWeight.bold,
-                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                              ),
-                                                                        )
-                                                                      ],
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                            ),
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ],
+                                                        accentColor: FlutterFlowTheme.of(context).primary,
                                                       ),
                                                     ),
                                                     Align(
@@ -3334,7 +3166,7 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                             if (_model
                                                                     .checkboxCommercantValue !=
                                                                 true) {
-                                                              _showTermsRequiredMessage();
+                                                              _showMerchantCgvRequiredMessage();
                                                               return;
                                                             }
                                                             if (!_validateMerchantSignupForm()) {
@@ -3467,6 +3299,20 @@ class _InscriptionPageWidgetState extends State<InscriptionPageWidget>
                                                                       SetOptions(
                                                                           merge:
                                                                               true));
+
+                                                              // CGV commerçant : la case a été cochée, le
+                                                              // serveur enregistre l'acceptation. Un échec
+                                                              // (réseau...) ne bloque pas l'inscription :
+                                                              // l'écran CGV la redemandera à la connexion.
+                                                              try {
+                                                                await recordMerchantCgvAcceptance(
+                                                                    MerchantCgvSource
+                                                                        .signup);
+                                                              } catch (error) {
+                                                                debugPrint(
+                                                                  '[MerchantCgv][Signup] record failed: ${error.runtimeType}',
+                                                                );
+                                                              }
 
                                                               // A merchant account never triggers the player
                                                               // referral program (share_promo).

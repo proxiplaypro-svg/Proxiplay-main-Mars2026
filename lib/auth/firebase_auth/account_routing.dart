@@ -16,6 +16,7 @@ const _kHomeAdminRouteName = 'HomeAdminPage';
 const _kInscriptionInformationsRouteName = 'InscriptionInformationsPage';
 const _kWaitingValidationRouteName = 'WaitingValidationPage';
 const _kRejetInscriptionRouteName = 'rejetInscriptionPage';
+const _kMerchantCgvRouteName = 'MerchantCgvPage';
 
 class AuthenticatedHomeResolution {
   const AuthenticatedHomeResolution({
@@ -66,6 +67,8 @@ class AuthenticatedHomeResolution {
         return _kWaitingValidationRouteName;
       case AuthenticatedHomeTarget.rejected:
         return _kRejetInscriptionRouteName;
+      case AuthenticatedHomeTarget.merchantCgvRequired:
+        return _kMerchantCgvRouteName;
       case AuthenticatedHomeTarget.login:
       case AuthenticatedHomeTarget.routingIssue:
         return _kLoginRouteName;
@@ -406,6 +409,13 @@ Future<AuthenticatedHomeResolution> resolveAuthenticatedHome({
     playerSignals: playerSignals,
     accountStatus: accountStatus,
   );
+  // CGV commerçant : prioritaire sur l'espace commerçant, l'attente de
+  // validation, le refus et le rappel de completion de profil ci-dessous.
+  target = applyMerchantCgvRequirement(
+    target: target,
+    effectiveRole: effectiveRole,
+    cgvAcceptedVersion: _trimmedString(data['cgv_accepted_version']),
+  );
 
   // Point d'entree unique pour le rappel de completion de profil, quel que
   // soit le provider (email, Google, Apple, ...) : avant, seul le chemin de
@@ -480,6 +490,24 @@ Future<AuthenticatedHomeResolution> resolveAuthenticatedHome({
     resolution = AuthenticatedHomeResolution(
       target: AuthenticatedHomeTarget.routingIssue,
       reason: rawRole.isEmpty ? 'role_missing' : 'role_invalid',
+      uid: firebaseUser.uid,
+      rawRole: rawRole,
+      normalizedRole: effectiveRole,
+      claimRole: claimRole,
+      claimsSummary: summarizeClaims(claims),
+      hasEnseigne: hasEnseigne,
+      playerSignals: playerSignals,
+      merchantSignals: merchantSignals,
+      accountStatus: accountStatus,
+      documentExists: true,
+      usedRepair: usedRepair,
+      cachedRole: cachedRole,
+      rawRoleSources: roleSources,
+    );
+  } else if (target == AuthenticatedHomeTarget.merchantCgvRequired) {
+    resolution = AuthenticatedHomeResolution(
+      target: target,
+      reason: 'merchant_cgv_required',
       uid: firebaseUser.uid,
       rawRole: rawRole,
       normalizedRole: effectiveRole,

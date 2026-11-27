@@ -505,6 +505,12 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               builder: (context, params) => const WaitingValidationPageWidget(),
             ),
             FFRoute(
+              name: MerchantCgvPageWidget.routeName,
+              path: MerchantCgvPageWidget.routePath,
+              requireAuth: true,
+              builder: (context, params) => const MerchantCgvPageWidget(),
+            ),
+            FFRoute(
               name: EditCommercantPageWidget.routeName,
               path: EditCommercantPageWidget.routePath,
               requireAuth: true,

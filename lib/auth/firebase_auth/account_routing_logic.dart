@@ -95,6 +95,37 @@ AuthenticatedHomeTarget resolveTargetFromResolvedRole({
   return AuthenticatedHomeTarget.joueurHome;
 }
 
+/// CGV commerçant : un commerçant qui n'a encore accepté aucune version
+/// (cgv_accepted_version vide dans users/{uid}) passe d'abord par l'écran
+/// CGV, avant son espace, l'attente de validation ou l'écran de refus. Une
+/// seule fois : une version déjà acceptée suffit (pas de nouvelle demande à
+/// chaque nouvelle version). Sans effet pour les joueurs et l'admin.
+AuthenticatedHomeTarget applyMerchantCgvRequirement({
+  required AuthenticatedHomeTarget target,
+  required Roles? effectiveRole,
+  required String? cgvAcceptedVersion,
+}) {
+  if (effectiveRole != Roles.commercant) {
+    return target;
+  }
+  if ((cgvAcceptedVersion ?? '').trim().isNotEmpty) {
+    return target;
+  }
+  switch (target) {
+    case AuthenticatedHomeTarget.commercantHome:
+    case AuthenticatedHomeTarget.waitingValidation:
+    case AuthenticatedHomeTarget.rejected:
+      return AuthenticatedHomeTarget.merchantCgvRequired;
+    case AuthenticatedHomeTarget.login:
+    case AuthenticatedHomeTarget.joueurHome:
+    case AuthenticatedHomeTarget.adminHome:
+    case AuthenticatedHomeTarget.pendingInfo:
+    case AuthenticatedHomeTarget.merchantCgvRequired:
+    case AuthenticatedHomeTarget.routingIssue:
+      return target;
+  }
+}
+
 bool hasMerchantPlayerSignalConflict({
   required Roles? role,
   required List<String> playerSignals,
@@ -186,5 +217,6 @@ enum AuthenticatedHomeTarget {
   pendingInfo,
   waitingValidation,
   rejected,
+  merchantCgvRequired,
   routingIssue,
 }

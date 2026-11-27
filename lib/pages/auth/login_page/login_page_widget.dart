@@ -169,6 +169,13 @@ class _LoginPageWidgetState extends State<LoginPageWidget>
           ignoreRedirect: true,
         );
         return;
+      case AuthenticatedHomeTarget.merchantCgvRequired:
+        context.goNamedAuth(
+          MerchantCgvPageWidget.routeName,
+          mounted,
+          ignoreRedirect: true,
+        );
+        return;
       case AuthenticatedHomeTarget.adminHome:
         context.goNamedAuth(
           HomeAdminPageWidget.routeName,
