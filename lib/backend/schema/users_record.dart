@@ -148,6 +148,16 @@ class UsersRecord extends FirestoreRecord {
   int get profileSchemaVersion => _profileSchemaVersion ?? 0;
   bool hasProfileSchemaVersion() => _profileSchemaVersion != null;
 
+  // "cgv_accepted_version" field (CGV commercant, ecrit par le serveur).
+  String? _cgvAcceptedVersion;
+  String get cgvAcceptedVersion => _cgvAcceptedVersion ?? '';
+  bool hasCgvAcceptedVersion() => _cgvAcceptedVersion != null;
+
+  // "cgv_accepted_at" field (CGV commercant, ecrit par le serveur).
+  DateTime? _cgvAcceptedAt;
+  DateTime? get cgvAcceptedAt => _cgvAcceptedAt;
+  bool hasCgvAcceptedAt() => _cgvAcceptedAt != null;
+
   Map<String, dynamic>? _marketingConsent;
   Map<String, dynamic> get marketingConsent => _marketingConsent ?? const {};
   bool hasMarketingConsent() => _marketingConsent != null;
@@ -185,6 +195,8 @@ class UsersRecord extends FirestoreRecord {
     _profileCompletedAt = snapshotData['profile_completed_at'] as DateTime?;
     _profileSchemaVersion =
         castToType<int>(snapshotData['profile_schema_version']);
+    _cgvAcceptedVersion = snapshotData['cgv_accepted_version'] as String?;
+    _cgvAcceptedAt = snapshotData['cgv_accepted_at'] as DateTime?;
     _marketingConsent = snapshotData['marketing_consent'] is Map
         ? Map<String, dynamic>.from(snapshotData['marketing_consent'] as Map)
         : null;

@@ -17,12 +17,17 @@ import 'package:google_fonts/src/google_fonts_base.dart' as font_testing;
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:proxi_play/app_state.dart';
+import 'package:proxi_play/flutter_flow/flutter_flow_widgets.dart';
 import 'package:proxi_play/auth/firebase_auth/account_routing_logic.dart';
 import 'package:proxi_play/backend/schema/enums/enums.dart';
 import 'package:proxi_play/flutter_flow/flutter_flow_button_tabbar.dart';
 import 'package:proxi_play/flutter_flow/internationalization.dart';
 import 'package:proxi_play/pages/auth/inscription_page/inscription_page_widget.dart';
 import 'package:proxi_play/pages/auth/login_page/login_page_widget.dart';
+import 'package:proxi_play/pages/auth/merchant_cgv_page/merchant_cgv_page_widget.dart';
+import 'package:proxi_play/utils/merchant_cgv.dart';
+import 'package:url_launcher_platform_interface/link.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 
 /// Real-behavior widget test for the merchant signup entry point (same
 /// Firebase-fake harness as test/merchant_presentation_test.dart - no
@@ -152,6 +157,20 @@ void ignoreKnownFontSubstitutionOverflow() {
     previousOnError?.call(details);
   };
   addTearDown(() => FlutterError.onError = previousOnError);
+}
+
+/// Navigateur factice : enregistre les URL ouvertes (url_launcher réel).
+class _FakeUrlLauncher extends UrlLauncherPlatform {
+  final opened = <String>[];
+  @override
+  LinkDelegate? get linkDelegate => null;
+  @override
+  Future<bool> canLaunch(String url) async => true;
+  @override
+  Future<bool> launchUrl(String url, LaunchOptions options) async {
+    opened.add(url);
+    return true;
+  }
 }
 
 void main() {
@@ -401,5 +420,136 @@ void main() {
     expect(FFAppState().pendingReferralCode, 'TYPEDCODE');
   });
 
-}
+  group('CGV commerçant', () {
+    Future<void> openMerchantForm(WidgetTester tester) async {
+      await pump(tester, buildRouter());
+      await tester.tap(find.text(' Inscription'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Professionnel'));
+      await tester.pumpAndSettle();
+    }
 
+    testWidgets('inscription pro : texte CGV exact, case non cochée, ancien texte CGU retiré',
+        (tester) async {
+      await openMerchantForm(tester);
+      final box = find.byType(MerchantCgvCheckbox);
+      expect(box, findsOneWidget);
+      expect(tester.widget<MerchantCgvCheckbox>(box).value, isFalse);
+      final text = tester.widget<Text>(find.byKey(const ValueKey('merchant_cgv_text')));
+      expect(text.textSpan!.toPlainText(), kMerchantCgvCheckboxText);
+      expect(find.textContaining('En cochant la case, vous acceptez nos'), findsNothing);
+    });
+
+    testWidgets('inscription pro : case non cochée => inscription bloquée', (tester) async {
+      await openMerchantForm(tester);
+      final button = find.text('Inscription');
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pump();
+      expect(find.text('Veuillez accepter les conditions générales de vente pour continuer.'),
+          findsOneWidget);
+      expect(auth.currentUser, isNull, reason: 'aucun compte créé');
+    });
+
+    testWidgets('inscription pro : le lien CGV s\'ouvre par simple appui', (tester) async {
+      final previous = UrlLauncherPlatform.instance;
+      final launcher = _FakeUrlLauncher();
+      UrlLauncherPlatform.instance = launcher;
+      addTearDown(() => UrlLauncherPlatform.instance = previous);
+      await openMerchantForm(tester);
+      final link = find.textRange.ofSubstring(kMerchantCgvLinkText);
+      await tester.ensureVisible(find.byType(MerchantCgvCheckbox));
+      await tester.tapOnText(link);
+      await tester.pumpAndSettle();
+      expect(launcher.opened, [kMerchantCgvUrl]);
+      expect(tester.widget<MerchantCgvCheckbox>(find.byType(MerchantCgvCheckbox)).value, isFalse,
+          reason: 'ouvrir le lien ne coche pas la case');
+    });
+
+    Future<void> pumpCgvPage(WidgetTester tester, MerchantCgvPageWidget page) async {
+      final router = GoRouter(routes: [
+        GoRoute(path: '/', builder: (_, __) => page),
+        GoRoute(path: '/loginPage', builder: (_, __) => const Text('login')),
+      ]);
+      ignoreKnownFontSubstitutionOverflow();
+      tester.view.physicalSize = const Size(390, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(router.dispose);
+      await tester.pumpWidget(ChangeNotifierProvider<FFAppState>.value(
+        value: FFAppState(),
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: const [
+            FFLocalizationsDelegate(),
+            FallbackMaterialLocalizationDelegate(),
+            FallbackCupertinoLocalizationDelegate(),
+          ],
+          supportedLocales: const [Locale('fr')],
+          locale: const Locale('fr'),
+          theme: ThemeData(fontFamily: 'TestSans'),
+        ),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    bool continueEnabled(WidgetTester tester) => tester
+            .widget<FFButtonWidget>(find.byKey(const ValueKey('merchant_cgv_continue')))
+            .onPressed !=
+        null;
+
+    testWidgets('écran CGV : « Continuer » désactivé tant que la case n\'est pas cochée',
+        (tester) async {
+      var recorded = 0;
+      var routed = 0;
+      await pumpCgvPage(
+          tester,
+          MerchantCgvPageWidget(
+            recordAcceptance: () async => recorded++,
+            afterAccepted: (_) async => routed++,
+          ));
+      expect(find.text('Conditions générales de vente'), findsOneWidget);
+      expect(find.text('Se déconnecter'), findsOneWidget);
+      expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
+      expect(continueEnabled(tester), isFalse);
+      await tester.tap(find.text('Continuer'));
+      await tester.pumpAndSettle();
+      expect(recorded, 0);
+      await tester.tap(find.byType(Checkbox));
+      await tester.pumpAndSettle();
+      expect(continueEnabled(tester), isTrue);
+      await tester.tap(find.text('Continuer'));
+      await tester.pumpAndSettle();
+      expect(recorded, 1);
+      expect(routed, 1);
+    });
+
+    testWidgets('écran CGV : en cas d\'erreur, message et « Réessayer »', (tester) async {
+      var attempts = 0;
+      var routed = 0;
+      await pumpCgvPage(
+          tester,
+          MerchantCgvPageWidget(
+            recordAcceptance: () async {
+              attempts++;
+              if (attempts == 1) throw Exception('network');
+            },
+            afterAccepted: (_) async => routed++,
+          ));
+      await tester.tap(find.byType(Checkbox));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continuer'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('merchant_cgv_error')), findsOneWidget);
+      expect(find.text('Réessayer'), findsOneWidget);
+      expect(routed, 0);
+      await tester.tap(find.text('Réessayer'));
+      await tester.pumpAndSettle();
+      expect(attempts, 2);
+      expect(routed, 1);
+      expect(find.byKey(const ValueKey('merchant_cgv_error')), findsNothing);
+    });
+  });
+
+}

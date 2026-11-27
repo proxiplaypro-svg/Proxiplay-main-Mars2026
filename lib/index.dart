@@ -54,6 +54,8 @@ export '/pages/joueur/enseigne_joueur_page/enseigne_joueur_page_widget.dart'
     show EnseigneJoueurPageWidget;
 export '/pages/auth/waiting_validation_page/waiting_validation_page_widget.dart'
     show WaitingValidationPageWidget;
+export '/pages/auth/merchant_cgv_page/merchant_cgv_page_widget.dart'
+    show MerchantCgvPageWidget;
 export '/pages/commercant/edit_commercant_page/edit_commercant_page_widget.dart'
     show EditCommercantPageWidget;
 export '/pages/joueur/edit_joueur_page/edit_joueur_page_widget.dart'
